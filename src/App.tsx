@@ -51,6 +51,7 @@ function AppInner() {
   }, [dark]);
 
   const [view, setView] = useLocalStorage<View>('todo.view', 'tasks');
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | 'fade'>('fade');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -61,20 +62,66 @@ function AppInner() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [goalPathIds, setGoalPathIds] = useState<string[]>([]);
+  const isNavigatingHistory = useRef(false);
 
+  const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
+
+  // Initialize history state on load
   useEffect(() => {
-    if (view !== 'goals') return;
-    const depth = goalPathIds.length;
-    if (depth === 0) return;
-    window.history.pushState({ goalDepth: depth }, '');
-    const onPop = () => {
-      setGoalPathIds((prev) => prev.slice(0, -1));
+    if (!window.history.state) {
+      window.history.replaceState({ view, goalPathIds: [] }, '');
+    }
+  }, []);
+
+  // Sync back-button (popstate) with views and deep goal tree navigation
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      isNavigatingHistory.current = true;
+      const state = e.state;
+      if (state) {
+        if (state.view && tabs.includes(state.view)) {
+          const currentIdx = tabs.indexOf(view);
+          const targetIdx = tabs.indexOf(state.view);
+          setSlideDirection(targetIdx > currentIdx ? 'right' : 'left');
+          setView(state.view);
+        }
+        if (Array.isArray(state.goalPathIds)) {
+          setGoalPathIds(state.goalPathIds);
+        } else {
+          setGoalPathIds([]);
+        }
+      } else {
+        setGoalPathIds([]);
+      }
+      setTimeout(() => {
+        isNavigatingHistory.current = false;
+      }, 50);
     };
-    window.addEventListener('popstate', onPop);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-    };
-  }, [view, goalPathIds]);
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [view, tabs, setView]);
+
+  // Tab navigation handler with history push
+  const handleNavigateTab = useCallback((targetView: View) => {
+    if (targetView === view) return;
+    const currentIdx = tabs.indexOf(view);
+    const targetIdx = tabs.indexOf(targetView);
+    const direction = targetIdx > currentIdx ? 'right' : 'left';
+    setSlideDirection(direction);
+    setView(targetView);
+    if (!isNavigatingHistory.current) {
+      window.history.pushState({ view: targetView, goalPathIds: targetView === 'goals' ? goalPathIds : [] }, '');
+    }
+  }, [view, tabs, goalPathIds, setView]);
+
+  // Goal path update with history push
+  const handleUpdateGoalPath = useCallback((newPath: string[]) => {
+    if (!isNavigatingHistory.current) {
+      window.history.pushState({ view: 'goals', goalPathIds: newPath }, '');
+    }
+    setGoalPathIds(newPath);
+  }, []);
 
   const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
 
@@ -110,11 +157,17 @@ function AppInner() {
 
   const sortedTasks = useMemo(() => [...todayTasks].sort((a, b) => a.order - b.order), [todayTasks]);
 
-  const tabs: View[] = ['tasks', 'goals', 'calendar'];
-  const swipeState = useRef<{ startX: number; startY: number; tracking: boolean }>({ startX: 0, startY: 0, tracking: false });
+  const swipeState = useRef<{ startX: number; startY: number; startTime: number; tracking: boolean }>({
+    startX: 0, startY: 0, startTime: 0, tracking: false
+  });
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    swipeState.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, tracking: true };
+    swipeState.current = {
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
+      startTime: Date.now(),
+      tracking: true,
+    };
   }, []);
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -122,11 +175,27 @@ function AppInner() {
     swipeState.current.tracking = false;
     const dx = e.changedTouches[0].clientX - swipeState.current.startX;
     const dy = e.changedTouches[0].clientY - swipeState.current.startY;
-    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
-    const idx = tabs.indexOf(view);
-    if (dx < 0 && idx < tabs.length - 1) setView(tabs[idx + 1]);
-    else if (dx > 0 && idx > 0) setView(tabs[idx - 1]);
-  }, [view, setView]);
+    const dt = Date.now() - swipeState.current.startTime;
+
+    // Threshold checks for swipe gesture
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.85 || dt > 450) return;
+
+    // If deep in goal tree, swiping right goes back up one level in history
+    if (view === 'goals' && goalPathIds.length > 0) {
+      if (dx > 0) {
+        window.history.back();
+      }
+      return;
+    }
+
+    // Top view tab swiping
+    const currentIdx = tabs.indexOf(view);
+    if (dx < 0 && currentIdx < tabs.length - 1) {
+      handleNavigateTab(tabs[currentIdx + 1]);
+    } else if (dx > 0 && currentIdx > 0) {
+      handleNavigateTab(tabs[currentIdx - 1]);
+    }
+  }, [view, goalPathIds, tabs, handleNavigateTab]);
 
   const openAddTask = (date?: string) => {
     setSheetInitialDate(date ?? null);
@@ -188,9 +257,18 @@ function AppInner() {
           </div>
         </header>
 
-        {/* Main */}
-        <main className="mt-3" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-          <div key={view} className="view-fade">
+        {/* Main View Area */}
+        <main className="mt-3 overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          <div
+            key={`${view}-${goalPathIds.join('-')}`}
+            className={
+              slideDirection === 'right'
+                ? 'slide-in-right'
+                : slideDirection === 'left'
+                  ? 'slide-in-left'
+                  : 'view-fade'
+            }
+          >
             {view === 'tasks' ? (
               sortedTasks.length === 0 ? (
                 <EmptyState onAdd={() => openAddTask()} />
@@ -222,7 +300,7 @@ function AppInner() {
               <GoalView
                 accent={ACCENT}
                 pathIds={goalPathIds}
-                setPathIds={setGoalPathIds}
+                setPathIds={handleUpdateGoalPath}
                 onAddChild={openAddGoal}
                 onEditNode={openEditGoal}
                 onPushNode={handlePushNode}
@@ -253,7 +331,7 @@ function AppInner() {
         {/* Bottom Floating Navigation Bar */}
         <CommandBar
           view={view}
-          onNavigate={setView}
+          onNavigate={handleNavigateTab}
           onSettings={() => setSettingsOpen(true)}
           accent={ACCENT}
           todayCount={todayCount}
