@@ -103,13 +103,6 @@ function AppInner() {
   const [theme, setTheme] = useTheme();
   const dark = theme.darkMode;
 
-  const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab } = useNavigationSync();
-  const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
-  }, [dark]);
-
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -119,6 +112,107 @@ function AppInner() {
   const [sliceNode, setSliceNode] = useState<GoalNode | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+
+  // High-priority modal interceptor ref for popstate (device back gesture)
+  const modalCloseRef = useRef<() => boolean>(() => false);
+  modalCloseRef.current = () => {
+    if (sheetOpen) {
+      setSheetOpen(false);
+      return true;
+    }
+    if (goalSheetOpen) {
+      setGoalSheetOpen(false);
+      return true;
+    }
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return true;
+    }
+    if (sliceNode) {
+      setSliceNode(null);
+      return true;
+    }
+    return false;
+  };
+
+  const handleModalPopState = useCallback(() => {
+    return modalCloseRef.current();
+  }, []);
+
+  const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab } =
+    useNavigationSync(handleModalPopState);
+  const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+  }, [dark]);
+
+  // Push history state when opening a modal sheet
+  const pushModalState = useCallback(() => {
+    try {
+      window.history.pushState({ modal: true }, '', window.location.href);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const openAddTask = (date?: string) => {
+    pushModalState();
+    setSheetInitialDate(date ?? null);
+    setSheetOpen(true);
+  };
+
+  const openAddGoal = (parentId: string | null) => {
+    pushModalState();
+    setEditingNode(null);
+    setGoalParentId(parentId);
+    setGoalSheetOpen(true);
+  };
+
+  const openEditGoal = (node: GoalNode) => {
+    pushModalState();
+    setEditingNode(node);
+    setGoalParentId(null);
+    setGoalSheetOpen(true);
+  };
+
+  const openSettings = () => {
+    pushModalState();
+    setSettingsOpen(true);
+  };
+
+  const handlePushNode = (node: GoalNode) => {
+    pushModalState();
+    setSliceNode(node);
+  };
+
+  const closeSheet = useCallback(() => {
+    setSheetOpen(false);
+    if (window.history.state?.modal) {
+      window.history.back();
+    }
+  }, []);
+
+  const closeGoalSheet = useCallback(() => {
+    setGoalSheetOpen(false);
+    if (window.history.state?.modal) {
+      window.history.back();
+    }
+  }, []);
+
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    if (window.history.state?.modal) {
+      window.history.back();
+    }
+  }, []);
+
+  const closeSliceNode = useCallback(() => {
+    setSliceNode(null);
+    if (window.history.state?.modal) {
+      window.history.back();
+    }
+  }, []);
 
   // Single random quote selected on startup/refresh
   const [randomQuote] = useState(() => {
@@ -259,26 +353,6 @@ function AppInner() {
     [view, goalPathIds, tabs, handleNavigateTab, setGoalPathIds],
   );
 
-  const openAddTask = (date?: string) => {
-    setSheetInitialDate(date ?? null);
-    setSheetOpen(true);
-  };
-
-  const openAddGoal = (parentId: string | null) => {
-    setEditingNode(null);
-    setGoalParentId(parentId);
-    setGoalSheetOpen(true);
-  };
-
-  const openEditGoal = (node: GoalNode) => {
-    setEditingNode(node);
-    setGoalParentId(null);
-    setGoalSheetOpen(true);
-  };
-
-  const handlePushNode = (node: GoalNode) => {
-    setSliceNode(node);
-  };
 
   return (
     <div className={dark ? 'dark bg-[#0B0F17] text-slate-100 min-h-screen relative overflow-x-hidden' : 'bg-slate-50 text-slate-900 min-h-screen relative overflow-x-hidden'}>
@@ -421,7 +495,7 @@ function AppInner() {
         <CommandBar
           view={view}
           onNavigate={handleNavigateTab}
-          onSettings={() => setSettingsOpen(true)}
+          onSettings={openSettings}
           accent={ACCENT}
           todayCount={todayCount}
           todayDone={todayDone}
@@ -431,7 +505,7 @@ function AppInner() {
 
       <AddTaskSheet
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={closeSheet}
         onAdd={addTask}
         initialDate={sheetInitialDate}
       />
@@ -440,7 +514,7 @@ function AppInner() {
         open={goalSheetOpen}
         parentId={goalParentId}
         editing={editingNode}
-        onClose={() => setGoalSheetOpen(false)}
+        onClose={closeGoalSheet}
         onAddRoot={addGoalRoot}
         onAddChild={addChildNode}
         onUpdateNode={updateGoalNode}
@@ -450,15 +524,15 @@ function AppInner() {
       <StepSliceSheet
         open={!!sliceNode}
         node={sliceNode}
-        onClose={() => setSliceNode(null)}
+        onClose={closeSliceNode}
         onConfirm={(nodeId, slice, date) => planTask(nodeId, date, slice)}
       />
 
       <SettingsSheet
         open={settingsOpen}
         theme={theme}
-        onClose={() => setSettingsOpen(false)}
-        onApply={(t) => { setTheme(t); setSettingsOpen(false); }}
+        onClose={closeSettings}
+        onApply={(t) => { setTheme(t); closeSettings(); }}
       />
     </div>
   );

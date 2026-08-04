@@ -74,7 +74,7 @@ function syncUrlAndStorage(targetView: View, targetPathIds: string[], pushHistor
   }
 }
 
-export function useNavigationSync() {
+export function useNavigationSync(onPopState?: () => boolean) {
   const initialNav = useMemo(() => parseNavigationState(), []);
   const [view, setView] = useState<View>(initialNav.initialView);
   const [goalPathIds, setGoalPathIdsState] = useState<string[]>(initialNav.initialPathIds);
@@ -86,6 +86,9 @@ export function useNavigationSync() {
   const pathIdsRef = useRef(goalPathIds);
   pathIdsRef.current = goalPathIds;
 
+  const onPopStateRef = useRef(onPopState);
+  onPopStateRef.current = onPopState;
+
   // Sync initial URL and local storage on mount
   useEffect(() => {
     syncUrlAndStorage(view, goalPathIds, false);
@@ -94,6 +97,11 @@ export function useNavigationSync() {
   // Sync back-button (popstate) with views and deep goal tree navigation
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
+      // High-priority modal interceptor: if a modal popup was open, close it and abort view navigation
+      if (onPopStateRef.current && onPopStateRef.current()) {
+        return;
+      }
+
       isNavigatingHistory.current = true;
       let targetView: View = viewRef.current;
       let targetPathIds: string[] = [];
