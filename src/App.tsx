@@ -54,17 +54,16 @@ function YouDoIcon({ size = 18 }: { size?: number }) {
 function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
   while (el && el !== document.body) {
     const tagName = el.tagName ? el.tagName.toLowerCase() : '';
-    if (['input', 'textarea', 'button', 'select', 'a'].includes(tagName)) return true;
-    if (el.getAttribute && el.getAttribute('draggable') === 'true') return true;
-    if (el.classList) {
-      if (el.classList.contains('no-swipe') || el.classList.contains('glass-nav') || el.classList.contains('dragging-card')) {
+    if (tagName === 'textarea') return true;
+    if (tagName === 'input') {
+      const type = (el as HTMLInputElement).type;
+      if (!type || ['text', 'password', 'email', 'number', 'search', 'tel', 'url'].includes(type)) {
         return true;
       }
     }
-    // Check horizontal scrollability
-    if (el.scrollWidth > el.clientWidth + 5) {
-      const style = window.getComputedStyle(el);
-      if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
+    if (el.getAttribute && el.getAttribute('draggable') === 'true') return true;
+    if (el.classList) {
+      if (el.classList.contains('no-swipe') || el.classList.contains('glass-nav') || el.classList.contains('dragging-card')) {
         return true;
       }
     }
@@ -234,14 +233,6 @@ function AppInner() {
       // Strict gesture validation: >= 50px distance, dy <= dx * 0.75 ratio, <= 750ms duration
       if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.75 || dt > 750) return;
 
-      // Deep goal tree swipe-right back navigation when viewing nested goals
-      if (view === 'goals' && goalPathIds.length > 0) {
-        if (dx >= 50) {
-          window.history.back();
-        }
-        return;
-      }
-
       // Strict 3-tab linear sequence: 0: Today ('tasks'), 1: Goals ('goals'), 2: Calendar ('calendar')
       const currentIdx = tabs.indexOf(view);
 
@@ -252,7 +243,13 @@ function AppInner() {
           handleNavigateTab(tabs[nextIdx]);
         }
       } else if (dx >= 50) {
-        // Swipe RIGHT: Move to PREVIOUS tab (calendar -> goals -> tasks), clamped at index 0 (tasks)
+        // Swipe RIGHT:
+        // If inside nested goal breadcrumbs, pop history back up the goal tree
+        if (view === 'goals' && goalPathIds.length > 0) {
+          window.history.back();
+          return;
+        }
+        // Otherwise move to PREVIOUS tab (calendar -> goals -> tasks), clamped at index 0 (tasks)
         const prevIdx = Math.max(0, currentIdx - 1);
         if (prevIdx !== currentIdx) {
           handleNavigateTab(tabs[prevIdx]);
