@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -16,7 +16,6 @@ import {
   Plus,
   Star,
   Target,
-  Trash2,
   Unlink,
   X,
   Zap,
@@ -66,6 +65,10 @@ interface Props {
   onPaste: (parentId: string | null) => void;
   onCancelPaste: () => void;
   clipboard: GoalNode[];
+  /** Called whenever selection changes — passes selected IDs and schedulable leaf IDs */
+  onSelectionChange: (selectedIds: string[], leafIds: string[]) => void;
+  /** Ref App provides — GoalView stores its clearSelection fn here so App can call it */
+  clearSelectionRef: React.MutableRefObject<() => void>;
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
@@ -77,11 +80,17 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf: { icon: CircleDot, tint: '#f43f5e', label: 'Leaf' },
 };
 
-export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onCopyMany, onDeleteMany, onPaste, onCancelPaste, clipboard }: Props) {
-  const { goals, planBatch, toggleGoalStep, togglePin, reorderGoalNodes, moveGoalNode, toggleNodeCompletion } = useStore();
+export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef }: Props) {
+  const { goals, toggleGoalStep, togglePin, reorderGoalNodes, moveGoalNode, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+
+  // Register clearSelection so App can call it when batch actions complete
+  const clearSelection = () => setSelected(new Set());
+  useEffect(() => {
+    clearSelectionRef.current = clearSelection;
+  });
 
   const current = useMemo(() => {
     if (pathIds.length === 0) return null;
@@ -108,36 +117,38 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
 
   const children = current ? current.children : goals;
 
-  const selectedLeaves = useMemo(
-    () => [...selected].filter((id) => {
-      const n = findGoalInTree(id, children);
-      // Any childless node (regardless of kind) can be dispatched to Today
-      return n && n.children.length === 0 && !n.todayTaskId;
-    }).length,
-    [selected, children],
-  );
 
   const toggleSelect = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      // Notify parent of selection change
+      const allIds = [...next];
+      const leafIds = allIds.filter((lid) => {
+        const n = findGoalInTree(lid, children);
+        return n && n.children.length === 0 && !n.todayTaskId;
+      });
+      onSelectionChange(allIds, leafIds);
       return next;
     });
 
   const drillInto = (node: GoalNode) => {
     setPathIds([...pathIds, node.id]);
     setSelected(new Set());
+    onSelectionChange([], []);
   };
 
   const goTo = (index: number) => {
     setPathIds(pathIds.slice(0, index + 1));
     setSelected(new Set());
+    onSelectionChange([], []);
   };
 
   const goRoot = () => {
     setPathIds([]);
     setSelected(new Set());
+    onSelectionChange([], []);
   };
 
   const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
@@ -147,11 +158,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
     const parentPath = p.path.slice(0, -1);
     setPathIds(parentPath.map((n) => n.id));
     setSelected(new Set());
-  };
-
-  const batchPlan = () => {
-    planBatch([...selected], new Date().toISOString().slice(0, 10));
-    setSelected(new Set());
+    onSelectionChange([], []);
   };
 
   return (
@@ -477,44 +484,6 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
       </button>
 
       {/* Floating Batch Selection Bar */}
-      {selected.size > 0 && (
-        <div className="fixed bottom-20 inset-x-4 z-40 max-w-md mx-auto">
-          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl glass-nav shadow-2xl border border-slate-200/80 dark:border-white/15">
-            <span className="text-[12px] font-bold text-slate-800 dark:text-slate-100 shrink-0">{selected.size} selected</span>
-            <div className="flex-1" />
-            <button
-              onClick={() => { onCopyMany([...selected]); setSelected(new Set()); }}
-              className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-all active:scale-95 shrink-0 shadow-xs"
-              style={{ background: accent }}
-            >
-              <span className="inline-flex items-center gap-1"><Copy size={13} /> Copy</span>
-            </button>
-            <button
-              onClick={() => { onDeleteMany([...selected]); setSelected(new Set()); }}
-              className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white bg-rose-500 hover:bg-rose-600 transition-all active:scale-95 shrink-0 shadow-xs"
-            >
-              <span className="inline-flex items-center gap-1"><Trash2 size={13} /> Delete</span>
-            </button>
-            {selectedLeaves > 0 && (
-              <button
-                onClick={batchPlan}
-                className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-all active:scale-95 shrink-0 shadow-xs"
-                style={{ background: accent }}
-              >
-                Plan {selectedLeaves}
-              </button>
-            )}
-            <button
-              onClick={() => setSelected(new Set())}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors shrink-0"
-              title="Clear selection"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Floating Paste Bar */}
       {clipboard.length > 0 && (
         <div className="fixed bottom-20 inset-x-4 z-40 max-w-md mx-auto">

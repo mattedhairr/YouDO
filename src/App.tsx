@@ -115,6 +115,22 @@ function AppInner() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
+  // Batch selection state (owned by App, fed from GoalView via onSelectionChange)
+  const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([]);
+  const [batchLeafIds, setBatchLeafIds] = useState<string[]>([]);
+  const clearSelectionRef = useRef<() => void>(() => {});
+
+  const handleSelectionChange = useCallback((ids: string[], leafIds: string[]) => {
+    setBatchSelectedIds(ids);
+    setBatchLeafIds(leafIds);
+  }, []);
+
+  const handleBatchCancel = useCallback(() => {
+    clearSelectionRef.current();
+    setBatchSelectedIds([]);
+    setBatchLeafIds([]);
+  }, []);
+
   // High-priority modal interceptor ref for popstate (device back gesture)
   const modalCloseRef = useRef<() => boolean>(() => false);
   modalCloseRef.current = () => {
@@ -188,6 +204,36 @@ function AppInner() {
     pushModalState();
     setSliceNode(node);
   };
+
+  const handleBatchCopy = useCallback(() => {
+    copyGoalNodes(batchSelectedIds);
+    clearSelectionRef.current();
+    setBatchSelectedIds([]);
+    setBatchLeafIds([]);
+  }, [copyGoalNodes, batchSelectedIds]);
+
+  const handleBatchDelete = useCallback(() => {
+    deleteGoalNodes(batchSelectedIds);
+    clearSelectionRef.current();
+    setBatchSelectedIds([]);
+    setBatchLeafIds([]);
+  }, [deleteGoalNodes, batchSelectedIds]);
+
+  const handleBatchSchedule = useCallback(() => {
+    if (batchLeafIds.length === 0) return;
+    // Open StepSliceSheet for the first selected schedulable leaf.
+    // The user can repeat for subsequent leaves.
+    const allNodes: GoalNode[] = [];
+    const flatten = (n: GoalNode) => { allNodes.push(n); n.children.forEach(flatten); };
+    goals.forEach(flatten);
+    const firstNode = allNodes.find((n) => n.id === batchLeafIds[0]) ?? null;
+    if (!firstNode) return;
+    pushModalState();
+    setSliceNode(firstNode);
+    clearSelectionRef.current();
+    setBatchSelectedIds([]);
+    setBatchLeafIds([]);
+  }, [batchLeafIds, goals, pushModalState]);
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
@@ -477,6 +523,8 @@ function AppInner() {
                 onPaste={pasteGoalNode}
                 onCancelPaste={clearClipboard}
                 clipboard={clipboard}
+                onSelectionChange={handleSelectionChange}
+                clearSelectionRef={clearSelectionRef}
               />
             )}
           </div>
@@ -494,7 +542,7 @@ function AppInner() {
           </button>
         )}
 
-        {/* Bottom Floating Navigation Bar */}
+        {/* Bottom Floating Navigation Bar / Batch Action Bar */}
         <CommandBar
           view={view}
           onNavigate={handleNavigateTab}
@@ -503,6 +551,14 @@ function AppInner() {
           todayCount={todayCount}
           todayDone={todayDone}
           goalsCount={goals.length}
+          batch={batchSelectedIds.length > 0 ? {
+            count: batchSelectedIds.length,
+            leafCount: batchLeafIds.length,
+            onCopy: handleBatchCopy,
+            onDelete: handleBatchDelete,
+            onSchedule: handleBatchSchedule,
+            onCancel: handleBatchCancel,
+          } : undefined}
         />
       </div>
 
