@@ -196,11 +196,14 @@ interface Store {
   pasteGoalNode: (parentId: string | null) => void;
   /** Clear the clipboard (cancel copy/paste) */
   clearClipboard: () => void;
-  /** Restore data from backup */
-  restoreData: (data: { tasks: Task[]; goals: GoalNode[] }) => void;
   /** Clipboard nodes available to paste */
   clipboard: GoalNode[];
-
+  /** Export full state as dated JSON backup */
+  exportBackup: () => void;
+  /** Import full state from JSON file with validation */
+  importBackup: (jsonData: string) => boolean;
+  /** Download latest automated local snapshot */
+  downloadAutoSnapshot: () => boolean;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -212,94 +215,7 @@ export function useStore() {
 }
 
 const SEED_TASKS: Task[] = [];
-
-function mkSteps(labels: string[], doneCount: number) {
-  return { steps: labels, stepDone: labels.map((_, i) => i < doneCount) };
-}
-
-const SEED_GOALS: GoalNode[] = [
-  (() => {
-    const l1 = mkSteps(['Watch', 'Notes', 'Practice'], 3);
-    const l2 = mkSteps(['Watch', 'Notes', 'Practice'], 0);
-    const l3 = mkSteps(['Watch', 'Notes', 'Practice'], 0);
-    return {
-      id: 'goal-gate',
-      kind: 'goal' as const,
-      title: 'GATE 2027',
-      description: 'Graduate Aptitude Test in Engineering',
-      startDate: '2026-08-01',
-      endDate: '2027-02-01',
-      createdAt: Date.now() - 10000,
-      children: [
-        {
-          id: 'phase-1',
-          kind: 'phase' as const,
-          title: 'Phase 1: Syllabus',
-          startDate: '2026-08-01',
-          endDate: '2026-10-24',
-          createdAt: Date.now() - 9000,
-          children: [
-            {
-              id: 'sec-maths',
-              kind: 'section' as const,
-              title: 'Section 1: Maths',
-              startDate: '2026-08-01',
-              endDate: '2026-08-29',
-              createdAt: Date.now() - 8000,
-              children: [
-                {
-                  id: 'ch1',
-                  kind: 'task' as const,
-                  title: 'Chapter 1: Linear Algebra',
-                  startDate: '2026-08-01',
-                  endDate: '2026-08-08',
-                  createdAt: Date.now() - 7000,
-                  children: [
-                    {
-                      id: 'ch1-lec',
-                      kind: 'sub' as const,
-                      title: 'Lectures',
-                      createdAt: Date.now() - 6000,
-                      children: [
-                        {
-                          id: 'lec-1',
-                          kind: 'leaf' as const,
-                          title: 'Lec-1: Vector Spaces',
-                          ...l1,
-                          completed: true,
-                          createdAt: Date.now() - 5000,
-                          children: [],
-                        },
-                        {
-                          id: 'lec-2',
-                          kind: 'leaf' as const,
-                          title: 'Lec-2: Eigenvalues',
-                          ...l2,
-                          completed: false,
-                          createdAt: Date.now() - 4000,
-                          children: [],
-                        },
-                        {
-                          id: 'lec-3',
-                          kind: 'leaf' as const,
-                          title: 'Lec-3: Matrix Decomposition',
-                          ...l3,
-                          completed: false,
-                          createdAt: Date.now() - 3000,
-                          children: [],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-  })(),
-];
+const SEED_GOALS: GoalNode[] = [];
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useLocalStorage<Task[]>('tudo-tasks-v3', SEED_TASKS);
@@ -319,12 +235,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       return cleaned.length !== prev.length ? cleaned : prev;
     });
-  }, [setTasks]);
+
+    setGoals((prev) => {
+      const cleaned = prev.filter((g) => {
+        const isSeedId = g.id.startsWith('goal-gate') || g.id.startsWith('gate-2027') || g.id.startsWith('seed-');
+        const titleLower = g.title.toLowerCase();
+        const isSampleTitle =
+          titleLower.includes('gate 2027') ||
+          titleLower.includes('phase 1: syllabus') ||
+          titleLower.includes('section 1: maths') ||
+          titleLower.includes('chapter 1: linear algebra');
+        return !isSeedId && !isSampleTitle;
+      });
+      return cleaned.length !== prev.length ? cleaned : prev;
+    });
+  }, [setTasks, setGoals]);
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
   const goalsRef = useRef(goals);
   goalsRef.current = goals;
+
+  // Automated Hourly Local State Snapshot
+  useEffect(() => {
+    const takeSnapshot = () => {
+      try {
+        const snapshotData = {
+          app: 'YouDO',
+          tasks: tasksRef.current,
+          goals: goalsRef.current,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem('youdo-auto-snapshot-v1', JSON.stringify(snapshotData));
+      } catch (err) {
+        console.error('Failed to create local auto-snapshot:', err);
+      }
+    };
+
+    takeSnapshot();
+    const timer = setInterval(takeSnapshot, 3600000);
+    return () => clearInterval(timer);
+  }, []);
 
   /* ---------- Daily task ops ---------- */
 
@@ -639,25 +590,73 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setGoals, setTasks],
   );
 
-  const restoreData = useCallback(
-    (data: { tasks: Task[]; goals: GoalNode[] }) => {
-      setTasks(data.tasks);
-      setGoals(data.goals);
+  const exportBackup = useCallback(() => {
+    const data = {
+      app: 'YouDO',
+      version: '1.0.0',
+      exportedAt: new Date().toISOString(),
+      tasks: tasksRef.current,
+      goals: goalsRef.current,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `youdo-backup-${dateStr}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const importBackup = useCallback(
+    (jsonData: string): boolean => {
+      try {
+        const parsed = JSON.parse(jsonData);
+        if (!parsed || typeof parsed !== 'object') return false;
+        const importedTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+        const importedGoals = Array.isArray(parsed.goals) ? parsed.goals : [];
+        setTasks(importedTasks);
+        setGoals(importedGoals);
+        return true;
+      } catch {
+        return false;
+      }
     },
     [setTasks, setGoals],
   );
+
+  const downloadAutoSnapshot = useCallback((): boolean => {
+    try {
+      const raw = localStorage.getItem('youdo-auto-snapshot-v1');
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      const blob = new Blob([JSON.stringify(parsed, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const dateStr = new Date(parsed.timestamp || Date.now()).toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `youdo-auto-snapshot-${dateStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const value = useMemo<Store>(
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
-      copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes, restoreData,
+      copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
+      exportBackup, importBackup, downloadAutoSnapshot,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
-      copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, restoreData],
+      copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
+      exportBackup, importBackup, downloadAutoSnapshot],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
