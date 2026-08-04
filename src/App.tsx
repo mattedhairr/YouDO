@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ListChecks, Plus, Quote, Sparkles } from 'lucide-react';
+import { ListChecks, Plus, Quote } from 'lucide-react';
 import type { GoalNode, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { isToday, pathTitles, useStore } from './store';
@@ -26,6 +26,29 @@ const MOTIVATIONAL_QUOTES = [
   { text: "You must do the thing you think you cannot do.", author: "Eleanor Roosevelt" },
   { text: "Greatness is not given, it's earned.", author: "Unknown" },
 ];
+
+function YouDoIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M4 4L11.5 13.5V20"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-blue-500 dark:text-blue-400"
+      />
+      <path
+        d="M20 4L11.5 13.5L8.5 10"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-emerald-400 dark:text-emerald-300"
+      />
+    </svg>
+  );
+}
 
 function parseNavigationState(): { initialView: View; initialPathIds: string[] } {
   try {
@@ -358,28 +381,39 @@ function AppInner() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Strict Fixed-Height Top Header */}
-        <header className="pt-3 pb-2 space-y-2 shrink-0 overflow-hidden">
-          {/* Logo & Date Row */}
-          <div className="flex items-center justify-between gap-3 h-10">
-            <div className="flex items-center gap-2.5 min-w-0">
+        {/* Single Sleek Consolidated Top Header */}
+        <header className="pt-3 pb-1 space-y-2 shrink-0 overflow-hidden">
+          {/* Inline Top Row: Brand + Date (Left) | Marquee Quote Ticker (Right) */}
+          <div className="flex items-center justify-between gap-2.5 h-10">
+            {/* Left: YouDO Icon + Brand + Date */}
+            <div className="flex items-center gap-2 shrink-0">
               <span className="grid place-items-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700/60 shadow-xs shrink-0">
-                <Sparkles size={16} className="text-blue-500 dark:text-blue-300" />
+                <YouDoIcon size={18} />
               </span>
-              <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400 font-extrabold leading-none">TUDO</div>
-                <div className="text-[14px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight mt-0.5 truncate">
+              <div className="shrink-0">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400 font-extrabold leading-none">YouDO</div>
+                <div className="text-[13px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">
                   {view === 'goals'
-                    ? 'Goals Blueprint'
+                    ? 'Goals'
                     : view === 'calendar'
-                      ? 'Calendar Schedule'
+                      ? 'Calendar'
                       : new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Inline Marquee Scrolling Quote Ticker */}
+            <div className="flex-1 min-w-0 card h-9 px-2.5 flex items-center gap-1.5 border border-white/10 overflow-hidden">
+              <Quote size={11} className="text-blue-500 dark:text-blue-400 shrink-0" />
+              <div className="marquee-container flex-1">
+                <div className="marquee-content text-[11px] italic font-medium text-slate-700 dark:text-slate-200">
+                  "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[9.5px] ml-1.5">— {randomQuote.author}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Unified Linear Glass Progress Bar (Today Tab ONLY) */}
+          {/* Secondary Row: Unified Horizontal Linear Progress Bar (Today Tab ONLY) */}
           {view === 'tasks' && (
             <div className="card p-2.5 space-y-1.5 border border-white/10">
               <div className="flex items-center justify-between text-[11px] font-bold">
@@ -396,16 +430,6 @@ function AppInner() {
               </div>
             </div>
           )}
-
-          {/* Marquee Ticker Quote Display */}
-          <div className="card h-9 px-3 flex items-center gap-2 border border-white/10 overflow-hidden">
-            <Quote size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
-            <div className="marquee-container flex-1">
-              <div className="marquee-content text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200">
-                "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[10px] ml-2">— {randomQuote.author}</span>
-              </div>
-            </div>
-          </div>
         </header>
 
         {/* Main View Area */}
