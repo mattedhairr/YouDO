@@ -51,9 +51,32 @@ function YouDoIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
+  while (el && el !== document.body) {
+    const tagName = el.tagName ? el.tagName.toLowerCase() : '';
+    if (['input', 'textarea', 'button', 'select', 'a'].includes(tagName)) return true;
+    if (el.getAttribute && el.getAttribute('draggable') === 'true') return true;
+    if (el.classList) {
+      if (el.classList.contains('no-swipe') || el.classList.contains('glass-nav') || el.classList.contains('dragging-card')) {
+        return true;
+      }
+    }
+    // Check horizontal scrollability
+    if (el.scrollWidth > el.clientWidth + 5) {
+      const style = window.getComputedStyle(el);
+      if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
+        return true;
+      }
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
 export default function App() {
   return <AppInner />;
 }
+
 
 function AppInner() {
   const {
@@ -134,6 +157,8 @@ function AppInner() {
 
   const sortedTasks = useMemo(() => [...todayTasks].sort((a, b) => a.order - b.order), [todayTasks]);
 
+
+
   const touchState = useRef<{
     startX: number;
     startY: number;
@@ -152,19 +177,25 @@ function AppInner() {
     tracking: false,
   });
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    if (sheetOpen || goalSheetOpen || settingsOpen || !!sliceNode) return;
-    const touch = e.touches[0];
-    touchState.current = {
-      startX: touch.clientX,
-      startY: touch.clientY,
-      currentX: touch.clientX,
-      currentY: touch.clientY,
-      startTime: Date.now(),
-      isHorizontal: null,
-      tracking: true,
-    };
-  }, [sheetOpen, goalSheetOpen, settingsOpen, sliceNode]);
+  const onTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (sheetOpen || goalSheetOpen || settingsOpen || !!sliceNode) return;
+      const target = e.target as HTMLElement | null;
+      if (isInteractiveOrScrollable(target)) return;
+
+      const touch = e.touches[0];
+      touchState.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        currentX: touch.clientX,
+        currentY: touch.clientY,
+        startTime: Date.now(),
+        isHorizontal: null,
+        tracking: true,
+      };
+    },
+    [sheetOpen, goalSheetOpen, settingsOpen, sliceNode],
+  );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
     if (!touchState.current.tracking) return;
@@ -176,48 +207,60 @@ function AppInner() {
     const dy = touch.clientY - touchState.current.startY;
 
     if (touchState.current.isHorizontal === null) {
-      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-        touchState.current.isHorizontal = Math.abs(dx) > Math.abs(dy);
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          // Vertical scroll detected: cancel tracking immediately to prevent tab jumps while scrolling
+          touchState.current.isHorizontal = false;
+          touchState.current.tracking = false;
+        } else {
+          touchState.current.isHorizontal = true;
+        }
       }
     }
   }, []);
 
-  const onTouchEnd = useCallback((_e: React.TouchEvent) => {
-    if (!touchState.current.tracking) return;
-    touchState.current.tracking = false;
-
-    const dx = touchState.current.currentX - touchState.current.startX;
-    const dy = touchState.current.currentY - touchState.current.startY;
-    const dt = Date.now() - touchState.current.startTime;
-
-    // Strict 50px distance threshold, horizontal gesture ratio (dy <= dx * 0.8), and max 750ms duration
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.8 || dt > 750) return;
-
-    // Deep tree swipe-right back navigation when viewing nested goals
-    if (view === 'goals' && goalPathIds.length > 0) {
-      if (dx > 50) {
-        window.history.back();
+  const onTouchEnd = useCallback(
+    (_e: React.TouchEvent) => {
+      if (!touchState.current.tracking || touchState.current.isHorizontal !== true) {
+        touchState.current.tracking = false;
+        return;
       }
-      return;
-    }
+      touchState.current.tracking = false;
 
-    // Strict 3-tab linear sequence: 0: Today ('tasks'), 1: Goals ('goals'), 2: Calendar ('calendar')
-    const currentIdx = tabs.indexOf(view);
+      const dx = touchState.current.currentX - touchState.current.startX;
+      const dy = touchState.current.currentY - touchState.current.startY;
+      const dt = Date.now() - touchState.current.startTime;
 
-    if (dx <= -50) {
-      // Swipe LEFT: Move to NEXT tab (tasks -> goals -> calendar), clamped at index 2 (calendar)
-      const nextIdx = Math.min(tabs.length - 1, currentIdx + 1);
-      if (nextIdx !== currentIdx) {
-        handleNavigateTab(tabs[nextIdx]);
+      // Strict gesture validation: >= 50px distance, dy <= dx * 0.75 ratio, <= 750ms duration
+      if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.75 || dt > 750) return;
+
+      // Deep goal tree swipe-right back navigation when viewing nested goals
+      if (view === 'goals' && goalPathIds.length > 0) {
+        if (dx >= 50) {
+          window.history.back();
+        }
+        return;
       }
-    } else if (dx >= 50) {
-      // Swipe RIGHT: Move to PREVIOUS tab (calendar -> goals -> tasks), clamped at index 0 (tasks)
-      const prevIdx = Math.max(0, currentIdx - 1);
-      if (prevIdx !== currentIdx) {
-        handleNavigateTab(tabs[prevIdx]);
+
+      // Strict 3-tab linear sequence: 0: Today ('tasks'), 1: Goals ('goals'), 2: Calendar ('calendar')
+      const currentIdx = tabs.indexOf(view);
+
+      if (dx <= -50) {
+        // Swipe LEFT: Move to NEXT tab (tasks -> goals -> calendar), clamped at index 2 (calendar)
+        const nextIdx = Math.min(tabs.length - 1, currentIdx + 1);
+        if (nextIdx !== currentIdx) {
+          handleNavigateTab(tabs[nextIdx]);
+        }
+      } else if (dx >= 50) {
+        // Swipe RIGHT: Move to PREVIOUS tab (calendar -> goals -> tasks), clamped at index 0 (tasks)
+        const prevIdx = Math.max(0, currentIdx - 1);
+        if (prevIdx !== currentIdx) {
+          handleNavigateTab(tabs[prevIdx]);
+        }
       }
-    }
-  }, [view, goalPathIds, tabs, handleNavigateTab]);
+    },
+    [view, goalPathIds, tabs, handleNavigateTab],
+  );
 
   const openAddTask = (date?: string) => {
     setSheetInitialDate(date ?? null);

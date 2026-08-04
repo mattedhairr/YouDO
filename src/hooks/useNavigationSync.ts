@@ -81,6 +81,11 @@ export function useNavigationSync() {
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | 'fade'>('fade');
   const isNavigatingHistory = useRef(false);
 
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const pathIdsRef = useRef(goalPathIds);
+  pathIdsRef.current = goalPathIds;
+
   // Sync initial URL and local storage on mount
   useEffect(() => {
     syncUrlAndStorage(view, goalPathIds, false);
@@ -90,7 +95,7 @@ export function useNavigationSync() {
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       isNavigatingHistory.current = true;
-      let targetView: View = view;
+      let targetView: View = viewRef.current;
       let targetPathIds: string[] = [];
 
       const state = e.state;
@@ -107,7 +112,7 @@ export function useNavigationSync() {
         targetPathIds = parsed.initialPathIds;
       }
 
-      const currentIdx = TABS.indexOf(view);
+      const currentIdx = TABS.indexOf(viewRef.current);
       const targetIdx = TABS.indexOf(targetView);
       setSlideDirection(targetIdx > currentIdx ? 'right' : 'left');
       setView(targetView);
@@ -122,23 +127,21 @@ export function useNavigationSync() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [view]);
+  }, []);
 
   // Tab navigation handler with URL push
-  const handleNavigateTab = useCallback(
-    (targetView: View) => {
-      if (targetView === view) return;
-      const currentIdx = TABS.indexOf(view);
-      const targetIdx = TABS.indexOf(targetView);
-      const direction = targetIdx > currentIdx ? 'right' : 'left';
-      setSlideDirection(direction);
-      setView(targetView);
-      if (!isNavigatingHistory.current) {
-        syncUrlAndStorage(targetView, goalPathIds, true);
-      }
-    },
-    [view, goalPathIds],
-  );
+  const handleNavigateTab = useCallback((targetView: View) => {
+    const currentView = viewRef.current;
+    if (targetView === currentView) return;
+    const currentIdx = TABS.indexOf(currentView);
+    const targetIdx = TABS.indexOf(targetView);
+    const direction = targetIdx > currentIdx ? 'right' : 'left';
+    setSlideDirection(direction);
+    setView(targetView);
+    if (!isNavigatingHistory.current) {
+      syncUrlAndStorage(targetView, pathIdsRef.current, true);
+    }
+  }, []);
 
   // Goal path update with URL push
   const handleUpdateGoalPath = useCallback((newPath: string[]) => {
@@ -156,3 +159,4 @@ export function useNavigationSync() {
     handleNavigateTab,
   };
 }
+
