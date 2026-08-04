@@ -94,7 +94,6 @@ function AppInner() {
     updateGoalNode,
     deleteGoalNode,
     planTask,
-    planBatch,
     copyGoalNode,
     copyGoalNodes,
     pasteGoalNode,
@@ -584,11 +583,9 @@ function AppInner() {
         open={sliceNodes.length > 0}
         nodes={sliceNodes}
         onClose={closeSliceNode}
-        onConfirm={(nodeIds, slice, date) => {
-          if (nodeIds.length === 1) {
-            planTask(nodeIds[0], date, slice);
-          } else {
-            planBatch(nodeIds, date);
+        onConfirm={(plans, targetDate) => {
+          for (const plan of plans) {
+            planTask(plan.nodeId, targetDate, plan.stepSlice);
           }
         }}
       />

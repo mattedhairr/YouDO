@@ -1,31 +1,40 @@
 import { useEffect, useState } from 'react';
-import { Calendar, CheckSquare, Sparkles, Square, X, Zap } from 'lucide-react';
+import { Calendar, CheckSquare, Square, X, Zap } from 'lucide-react';
 import type { GoalNode } from '../types';
 import { formatDDMMYYYY, todayISO } from '../store';
+
+export interface NodePlan {
+  nodeId: string;
+  stepSlice?: number[];
+}
 
 interface Props {
   open: boolean;
   nodes?: GoalNode[];
   node?: GoalNode | null;
   onClose: () => void;
-  onConfirm: (nodeIds: string[], stepSlice: number[] | undefined, targetDate: string) => void;
+  onConfirm: (plans: NodePlan[], targetDate: string) => void;
 }
 
 export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }: Props) {
   const targetNodes = nodes && nodes.length > 0 ? nodes : node ? [node] : [];
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  // Map of nodeId -> Set of selected step indices
+  const [selectedMap, setSelectedMap] = useState<Record<string, Set<number>>>({});
   const [date, setDate] = useState(todayISO());
 
   useEffect(() => {
     if (open && targetNodes.length > 0) {
-      const singleNode = targetNodes.length === 1 ? targetNodes[0] : null;
-      if (singleNode && singleNode.steps && singleNode.steps.length > 0) {
-        const stepDone = singleNode.stepDone ?? [];
-        const remaining = singleNode.steps.map((_, i) => i).filter((i) => !stepDone[i]);
-        setSelected(new Set(remaining.length ? remaining : singleNode.steps.map((_, i) => i)));
-      } else {
-        setSelected(new Set());
+      const initialMap: Record<string, Set<number>> = {};
+      for (const n of targetNodes) {
+        if (n.steps && n.steps.length > 0) {
+          const stepDone = n.stepDone ?? [];
+          const remaining = n.steps.map((_, i) => i).filter((i) => !stepDone[i]);
+          initialMap[n.id] = new Set(remaining.length ? remaining : n.steps.map((_, i) => i));
+        } else {
+          initialMap[n.id] = new Set();
+        }
       }
+      setSelectedMap(initialMap);
       setDate(todayISO());
     }
   }, [open, nodes, node]);
@@ -33,32 +42,55 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
   if (!open || targetNodes.length === 0) return null;
 
   const isMulti = targetNodes.length > 1;
-  const singleNode = !isMulti ? targetNodes[0] : null;
-  const steps = singleNode?.steps ?? [];
-  const stepDone = singleNode?.stepDone ?? [];
 
-  const toggle = (i: number) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
+  const toggleStep = (nodeId: string, i: number) => {
+    setSelectedMap((prev) => {
+      const cur = new Set(prev[nodeId] ?? []);
+      if (cur.has(i)) cur.delete(i);
+      else cur.add(i);
+      return { ...prev, [nodeId]: cur };
     });
+  };
 
-  const selectAll = () => setSelected(new Set(steps.map((_, i) => i)));
-  const deselectAll = () => setSelected(new Set());
+  const selectAll = (n: GoalNode) => {
+    const steps = n.steps ?? [];
+    setSelectedMap((prev) => ({
+      ...prev,
+      [n.id]: new Set(steps.map((_, i) => i)),
+    }));
+  };
+
+  const deselectAll = (n: GoalNode) => {
+    setSelectedMap((prev) => ({
+      ...prev,
+      [n.id]: new Set(),
+    }));
+  };
 
   const confirm = () => {
-    const nodeIds = targetNodes.map((n) => n.id);
-    if (!isMulti && steps.length > 0) {
-      const slice = [...selected].sort((a, b) => a - b);
-      if (slice.length === 0) return;
-      onConfirm(nodeIds, slice, date);
-    } else {
-      onConfirm(nodeIds, undefined, date);
-    }
+    const plans: NodePlan[] = targetNodes.map((n) => {
+      const steps = n.steps ?? [];
+      if (steps.length > 0) {
+        const set = selectedMap[n.id] ?? new Set();
+        const slice = [...set].sort((a, b) => a - b);
+        return { nodeId: n.id, stepSlice: slice };
+      }
+      return { nodeId: n.id, stepSlice: undefined };
+    });
+    onConfirm(plans, date);
     onClose();
   };
+
+  // Calculate total steps assigned
+  let totalAssignedSteps = 0;
+  let totalStepsExist = 0;
+  for (const n of targetNodes) {
+    const count = n.steps?.length ?? 0;
+    totalStepsExist += count;
+    if (count > 0) {
+      totalAssignedSteps += (selectedMap[n.id]?.size ?? 0);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
@@ -78,31 +110,8 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
           </button>
         </div>
 
-        {/* Subtitle / Selected Nodes List */}
-        {isMulti ? (
-          <div className="mb-4 ml-8">
-            <p className="text-[12px] text-slate-500 dark:text-slate-400 mb-2">
-              The following <span className="font-semibold text-slate-700 dark:text-slate-200">{targetNodes.length} tasks</span> will be scheduled:
-            </p>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {targetNodes.map((n) => (
-                <span
-                  key={n.id}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 truncate max-w-[200px]"
-                >
-                  {n.title}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-[12px] text-slate-500 dark:text-slate-400 mb-4 ml-8">
-            Target date & steps for <span className="font-semibold text-slate-700 dark:text-slate-200">{singleNode?.title}</span>
-          </p>
-        )}
-
-        {/* Date picker Section with DD-MM-YYYY format badge */}
-        <div className="mb-4 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200/80 dark:border-slate-600/80">
+        {/* Date picker Section */}
+        <div className="mb-4 mt-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200/80 dark:border-slate-600/80">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Calendar size={15} className="text-blue-500 shrink-0" />
@@ -121,74 +130,88 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
           />
         </div>
 
-        {/* Single-task Micro-step Chips */}
-        {!isMulti && (
-          steps.length === 0 ? (
-            <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/40 text-center my-2">
-              <Sparkles size={18} className="mx-auto text-blue-500 mb-1" />
-              <p className="text-[12px] font-medium text-slate-600 dark:text-slate-300">
-                Single-card task (no sub-steps). It will be scheduled for <span className="font-bold text-blue-600 dark:text-blue-400">{formatDDMMYYYY(date)}</span>.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">
-                  Steps to assign ({selected.size}/{steps.length})
-                </span>
-                <div className="flex gap-2">
-                  <button onClick={selectAll} className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline">All</button>
-                  <span className="text-slate-300 dark:text-slate-600">·</span>
-                  <button onClick={deselectAll} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">None</button>
+        {/* Micro-steps selection list for each task */}
+        <div className="space-y-4">
+          {targetNodes.map((n) => {
+            const steps = n.steps ?? [];
+            const stepDone = n.stepDone ?? [];
+            const selSet = selectedMap[n.id] ?? new Set();
+
+            if (steps.length === 0) {
+              return (
+                <div key={n.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600/60">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{n.title}</span>
+                    <span className="text-[10px] font-medium text-slate-400 dark:text-slate-400 shrink-0">Single card (no steps)</span>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={n.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600/60 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0 pr-2">
+                    <h4 className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{n.title}</h4>
+                    <span className="text-[10.5px] font-semibold text-slate-400 dark:text-slate-400">
+                      Steps assigned ({selSet.size}/{steps.length})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => selectAll(n)} className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline">All</button>
+                    <span className="text-slate-300 dark:text-slate-600">·</span>
+                    <button onClick={() => deselectAll(n)} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">None</button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  {steps.map((s, i) => {
+                    const alreadyDone = stepDone[i];
+                    const isSel = selSet.has(i);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => !alreadyDone && toggleStep(n.id, i)}
+                        disabled={alreadyDone}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                          alreadyDone
+                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-50 cursor-not-allowed'
+                            : isSel
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-500'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                        }`}
+                      >
+                        {alreadyDone ? (
+                          <CheckSquare size={16} className="shrink-0 text-emerald-500" />
+                        ) : isSel ? (
+                          <CheckSquare size={16} className="shrink-0 text-blue-500" />
+                        ) : (
+                          <Square size={16} className="shrink-0 text-slate-300 dark:text-slate-500" />
+                        )}
+                        <span className={`flex-1 text-[11.5px] font-semibold ${alreadyDone ? 'text-slate-400 line-through dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                          Step {i + 1}: {s}
+                        </span>
+                        {alreadyDone && <span className="text-[9px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-bold">Done</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="space-y-2">
-                {steps.map((s, i) => {
-                  const alreadyDone = stepDone[i];
-                  const isSel = selected.has(i);
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => !alreadyDone && toggle(i)}
-                      disabled={alreadyDone}
-                      className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border text-left transition-all ${
-                        alreadyDone
-                          ? 'bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-700 opacity-50 cursor-not-allowed'
-                          : isSel
-                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-500'
-                            : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
-                      }`}
-                    >
-                      {alreadyDone ? (
-                        <CheckSquare size={18} className="shrink-0 text-emerald-500" />
-                      ) : isSel ? (
-                        <CheckSquare size={18} className="shrink-0 text-blue-500" />
-                      ) : (
-                        <Square size={18} className="shrink-0 text-slate-300 dark:text-slate-500" />
-                      )}
-                      <span className={`flex-1 text-xs font-semibold ${alreadyDone ? 'text-slate-400 line-through dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
-                        Step {i + 1}: {s}
-                      </span>
-                      {alreadyDone && <span className="text-[9px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-bold">Done</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )
-        )}
+            );
+          })}
+        </div>
 
         <button
           onClick={confirm}
-          disabled={!isMulti && steps.length > 0 && selected.size === 0}
           className="mt-5 w-full py-3 rounded-2xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2"
         >
           <Zap size={15} />
           {isMulti
             ? `Schedule ${targetNodes.length} Tasks`
-            : steps.length === 0
+            : totalStepsExist === 0
             ? 'Schedule Task'
-            : `Schedule ${selected.size} Step${selected.size !== 1 ? 's' : ''}`}
+            : `Schedule ${totalAssignedSteps} Step${totalAssignedSteps !== 1 ? 's' : ''}`}
         </button>
       </div>
     </div>
