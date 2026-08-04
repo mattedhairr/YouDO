@@ -4,7 +4,6 @@ import {
   ArrowUp,
   CheckCircle2,
   ChevronRight,
-  Circle,
   CircleDot,
   Clipboard,
   Copy,
@@ -259,7 +258,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
           const Icon = meta.icon;
           // Any container node (goal, phase, section, task, sub) can be drilled into
           const canDrill = child.kind !== 'leaf';
-          // Executable nodes that can be directly completed
+          // Executable nodes that can be directly completed (task, sub, leaf)
           const isTaskKind = child.kind === 'task' || child.kind === 'sub' || child.kind === 'leaf';
           // Any childless node is considered leaf-like and can be dispatched to Today
           const isLeafLike = child.children.length === 0;
@@ -267,6 +266,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
           const stepDone = child.stepDone ?? [];
           const pct = isLeafLike && hasSteps ? Math.round((stepDone.filter(Boolean).length / child.steps!.length) * 100) : rollupPct(child);
           const isSelected = selected.has(child.id);
+          const isDone = child.completed || pct === 100;
 
           return (
             <div
@@ -285,11 +285,11 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                 setDragId(null);
                 setOverId(null);
               }}
-              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01]' : ''} ${child.completed || pct === 100 ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30 animate-glow-pulse' : ''}`}
+              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01]' : ''} ${isDone ? 'opacity-70 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30' : ''}`}
             >
-              {/* Primary Header Row */}
-              <div className="flex items-start gap-2">
-                {/* Batch multi-select checkbox */}
+              {/* Header Row */}
+              <div className="flex items-start gap-2.5">
+                {/* Batch select checkbox */}
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -298,32 +298,14 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   title="Select for batch operations"
                 />
 
-                {/* Instant Completion Check Circle — Tasks, Sub-tasks & Leaves ONLY */}
-                {isTaskKind && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleNodeCompletion(child.id);
-                    }}
-                    className="mt-0.5 shrink-0 p-0.5 hover:scale-110 transition-transform cursor-pointer"
-                    title={child.completed || pct === 100 ? 'Mark as incomplete' : 'Mark as done'}
-                  >
-                    {child.completed || pct === 100 ? (
-                      <CheckCircle2 size={19} className="text-emerald-500 fill-emerald-500/20" />
-                    ) : (
-                      <Circle size={19} className="text-slate-300 dark:text-slate-600 hover:text-emerald-500 transition-colors" />
-                    )}
-                  </button>
-                )}
-
+                {/* Title + meta */}
                 <div
                   className={`flex-1 min-w-0 ${canDrill ? 'cursor-pointer' : ''}`}
                   onClick={() => canDrill && drillInto(child)}
                 >
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
-                    <h3 className={`text-[14px] font-semibold leading-snug break-words ${child.completed || pct === 100 ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                    <h3 className={`text-[14px] font-semibold leading-snug break-words ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
                       {child.title}
                     </h3>
                     {child.pinned && <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />}
@@ -333,14 +315,16 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-400">
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
                     <span style={{ color: meta.tint }} className="font-semibold">{meta.label}</span>
                     {!isLeafLike && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
                     {isLeafLike && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
                   </div>
                 </div>
-                <div className="shrink-0 flex items-center gap-1.5">
-                  <span className="text-[13px] font-bold tabular-nums text-slate-600 dark:text-slate-300">{pct}%</span>
+
+                {/* Progress % + drill */}
+                <div className="shrink-0 flex items-center gap-0.5">
+                  <span className={`text-[13px] font-bold tabular-nums ${isDone ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{pct}%</span>
                   {canDrill && (
                     <button
                       onClick={() => drillInto(child)}
@@ -355,7 +339,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
 
               {/* Progress Bar */}
               <div className="mt-2.5 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                <div className="h-full rounded-full progress-bar-fill" style={{ width: `${pct}%`, background: meta.tint }} />
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: isDone ? '#10b981' : meta.tint }} />
               </div>
 
               {/* Micro-step chips */}
@@ -367,7 +351,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                       onClick={(e) => { e.stopPropagation(); toggleGoalStep(child.id, i); }}
                       className={`text-[10.5px] font-medium px-2 py-1 rounded-lg border transition-all active:scale-95 ${
                         stepDone[i]
-                          ? 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through animate-stamp'
+                          ? 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through'
                           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-500'
                       }`}
                     >
@@ -377,9 +361,11 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                 </div>
               )}
 
-              {/* Action Toolbar Row */}
+              {/* Toolbar */}
               <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
+
+                {/* Left: icon buttons */}
+                <div className="flex items-center gap-0.5">
                   <button
                     onClick={() => togglePin(child.id)}
                     className={`p-1.5 rounded-lg transition-colors ${child.pinned ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
@@ -389,21 +375,19 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   </button>
                   <button
                     onClick={() => onEditNode(child)}
-                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     title="Edit"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => onCopy(child.id)}
-                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                     title="Copy"
                   >
                     <Copy size={14} />
                   </button>
-
-                  {/* Rearrange Up / Down Buttons */}
-                  <div className="flex items-center gap-0.5 border-l border-slate-200/60 dark:border-slate-700/60 pl-1.5 ml-0.5">
+                  <div className="flex items-center gap-0 border-l border-slate-200/60 dark:border-slate-700/60 ml-1 pl-1">
                     <button
                       onClick={() => moveGoalNode(current ? current.id : null, child.id, 'up')}
                       disabled={childIdx === 0}
@@ -423,23 +407,25 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   </div>
                 </div>
 
+                {/* Right: action pills */}
                 <div className="flex items-center gap-1.5">
-                  {/* Done button — Tasks, Sub-tasks & Leaves ONLY */}
+                  {/* Done pill — Task / Sub-task / Leaf only */}
                   {isTaskKind && (
                     <button
                       onClick={() => toggleNodeCompletion(child.id)}
-                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl border transition-all ${
-                        child.completed || pct === 100
-                          ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                          : 'bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-emerald-400'
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl border transition-all active:scale-95 ${
+                        isDone
+                          ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700'
+                          : 'bg-transparent text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-600 hover:text-emerald-600 dark:hover:text-emerald-400'
                       }`}
-                      title={child.completed || pct === 100 ? 'Mark as incomplete' : 'Mark as done'}
+                      title={isDone ? 'Mark as incomplete' : 'Mark as done'}
                     >
-                      <CheckCircle2 size={12} className={child.completed || pct === 100 ? 'text-emerald-500 fill-emerald-500/20' : 'text-slate-400'} />
-                      <span>Done</span>
+                      <CheckCircle2 size={12} className={isDone ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-500'} />
+                      Done
                     </button>
                   )}
 
+                  {/* Schedule / Replan / Unplan — leaf-like & not completed */}
                   {isLeafLike && !child.completed && (
                     <>
                       {child.todayTaskId ? (
@@ -447,7 +433,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                           <button
                             onClick={() => onPushNode(child)}
                             className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all"
-                            title="Replan (choose date & steps)"
+                            title="Replan"
                           >
                             <Zap size={12} /> Replan
                           </button>
@@ -462,7 +448,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                       ) : (
                         <button
                           onClick={() => onPushNode(child)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-95"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all active:scale-95"
                         >
                           <Zap size={12} /> Schedule
                         </button>
