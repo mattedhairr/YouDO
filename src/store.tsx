@@ -49,17 +49,34 @@ export function countCompletedDirectChildren(node: GoalNode): number {
   return node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
 }
 
+let rollupCache = new Map<string, number>();
+
+export function clearRollupCache() {
+  rollupCache.clear();
+}
+
 export function rollupPct(node: GoalNode): number {
+  if (rollupCache.has(node.id)) {
+    return rollupCache.get(node.id)!;
+  }
+  let pct = 0;
   if (node.children.length === 0) {
     if (node.steps && node.steps.length > 0) {
-      return Math.round(((node.stepDone ?? []).filter(Boolean).length / node.steps.length) * 100);
+      pct = Math.round(((node.stepDone ?? []).filter(Boolean).length / node.steps.length) * 100);
+    } else {
+      pct = node.completed ? 100 : 0;
     }
-    return node.completed ? 100 : 0;
+  } else {
+    const total = node.children.length;
+    if (total === 0) {
+      pct = 0;
+    } else {
+      const doneCount = node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
+      pct = Math.round((doneCount / total) * 100);
+    }
   }
-  const total = node.children.length;
-  if (total === 0) return 0;
-  const doneCount = node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
-  return Math.round((doneCount / total) * 100);
+  rollupCache.set(node.id, pct);
+  return pct;
 }
 
 // Retain legacy aliases for compatibility
@@ -119,6 +136,43 @@ export function collectDescendantTaskIds(node: GoalNode): string[] {
   }
   return ids;
 }
+
+/**
+ * Tree sanitizer pass:
+ * 1. Ensures all GoalNodes have unique IDs (resolves duplicates if any imported or legacy state has them)
+ * 2. Cleans stale todayTaskId pointers (pointers referencing task IDs that don't exist in tasks)
+ */
+export function sanitizeTreeAndTasks(goals: GoalNode[], tasks: Task[]): { cleanedGoals: GoalNode[]; cleanedTasks: Task[] } {
+  const existingTaskIds = new Set(tasks.map((t) => t.id));
+  const seenNodeIds = new Set<string>();
+
+  function sanitizeNode(node: GoalNode): GoalNode {
+    // 1. Resolve duplicate or missing IDs
+    let id = node.id;
+    if (!id || seenNodeIds.has(id)) {
+      id = uid('goal');
+    }
+    seenNodeIds.add(id);
+
+    // 2. Clean stale todayTaskId pointer
+    let todayTaskId = node.todayTaskId;
+    if (todayTaskId && !existingTaskIds.has(todayTaskId)) {
+      todayTaskId = null;
+    }
+
+    const children = (node.children ?? []).map(sanitizeNode);
+    return {
+      ...node,
+      id,
+      todayTaskId,
+      children,
+    };
+  }
+
+  const cleanedGoals = (goals ?? []).map(sanitizeNode);
+  return { cleanedGoals, cleanedTasks: tasks ?? [] };
+}
+
 
 
 export function pathTitles(root: GoalNode, id: string): string[] {
@@ -238,35 +292,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useLocalStorage<Task[]>('tudo-tasks-v3', SEED_TASKS);
   const [goals, setGoals] = useLocalStorage<GoalNode[]>('tudo-goals-v3', SEED_GOALS);
 
-  // Automatic One-Time Startup Sample Data Purge
+  // Invalidate rollup cache whenever goals tree changes
   useEffect(() => {
-    setTasks((prev) => {
-      const cleaned = prev.filter((t) => {
-        const isSeedId = t.id.startsWith('seed-');
-        const titleLower = t.title.toLowerCase();
-        const isSampleTitle =
-          titleLower.includes('finish react tutorial') ||
-          titleLower.includes('plan weekend trip') ||
-          titleLower.includes('water the plants');
-        return !isSeedId && !isSampleTitle;
-      });
-      return cleaned.length !== prev.length ? cleaned : prev;
+    clearRollupCache();
+  }, [goals]);
+
+  // Automatic Startup Tree Repair & Sample Data Purge Pass
+  useEffect(() => {
+    const rawTasks = tasksRef.current;
+    const rawGoals = goalsRef.current;
+
+    const purgeTasks = rawTasks.filter((t) => {
+      const isSeedId = t.id.startsWith('seed-');
+      const titleLower = t.title.toLowerCase();
+      const isSampleTitle =
+        titleLower.includes('finish react tutorial') ||
+        titleLower.includes('plan weekend trip') ||
+        titleLower.includes('water the plants');
+      return !isSeedId && !isSampleTitle;
     });
 
-    setGoals((prev) => {
-      const cleaned = prev.filter((g) => {
-        const isSeedId = g.id.startsWith('goal-gate') || g.id.startsWith('gate-2027') || g.id.startsWith('seed-');
-        const titleLower = g.title.toLowerCase();
-        const isSampleTitle =
-          titleLower.includes('gate 2027') ||
-          titleLower.includes('phase 1: syllabus') ||
-          titleLower.includes('section 1: maths') ||
-          titleLower.includes('chapter 1: linear algebra');
-        return !isSeedId && !isSampleTitle;
-      });
-      return cleaned.length !== prev.length ? cleaned : prev;
+    const purgeGoals = rawGoals.filter((g) => {
+      const isSeedId = g.id.startsWith('goal-gate') || g.id.startsWith('gate-2027') || g.id.startsWith('seed-');
+      const titleLower = g.title.toLowerCase();
+      const isSampleTitle =
+        titleLower.includes('gate 2027') ||
+        titleLower.includes('phase 1: syllabus') ||
+        titleLower.includes('section 1: maths') ||
+        titleLower.includes('chapter 1: linear algebra');
+      return !isSeedId && !isSampleTitle;
     });
-  }, [setTasks, setGoals]);
+
+    const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(purgeGoals, purgeTasks);
+    setTasks(cleanedTasks);
+    setGoals(cleanedGoals);
+  }, []);
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
@@ -654,8 +714,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (rawTasks.length > 0 && importedTasks.length === 0) return false;
         if (rawGoals.length > 0 && importedGoals.length === 0) return false;
 
-        setTasks(importedTasks);
-        setGoals(importedGoals);
+        // Run sanitize & repair pass on imported data (duplicate IDs, stale pointers)
+        const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(importedGoals, importedTasks);
+
+        setTasks(cleanedTasks);
+        setGoals(cleanedGoals);
+        clearRollupCache();
         return true;
       } catch {
         return false;

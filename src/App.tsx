@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListChecks, Plus, Quote } from 'lucide-react';
 import type { GoalNode, View } from './types';
 import { useTheme } from './hooks/useTheme';
+import { useNavigationSync } from './hooks/useNavigationSync';
 import { isTaskComplete, isToday, pathTitles, useStore } from './store';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
@@ -50,77 +51,6 @@ function YouDoIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-function parseNavigationState(): { initialView: View; initialPathIds: string[] } {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('view');
-    const pathParam = params.get('path');
-
-    let initialView: View = 'tasks';
-    if (viewParam === 'tasks' || viewParam === 'goals' || viewParam === 'calendar') {
-      initialView = viewParam as View;
-    } else {
-      const savedView = localStorage.getItem('todo.view');
-      if (savedView) {
-        try {
-          const parsed = JSON.parse(savedView);
-          if (parsed === 'tasks' || parsed === 'goals' || parsed === 'calendar') {
-            initialView = parsed as View;
-          }
-        } catch {
-          if (savedView === 'tasks' || savedView === 'goals' || savedView === 'calendar') {
-            initialView = savedView as View;
-          }
-        }
-      }
-    }
-
-    let initialPathIds: string[] = [];
-    if (pathParam) {
-      initialPathIds = pathParam.split('/').filter(Boolean);
-    } else {
-      const savedPath = localStorage.getItem('todo.goalPathIds');
-      if (savedPath) {
-        try {
-          initialPathIds = JSON.parse(savedPath);
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-
-    return { initialView, initialPathIds };
-  } catch {
-    return { initialView: 'tasks', initialPathIds: [] };
-  }
-}
-
-function syncUrlAndStorage(targetView: View, targetPathIds: string[], pushHistory: boolean) {
-  try {
-    localStorage.setItem('todo.view', JSON.stringify(targetView));
-    localStorage.setItem('todo.goalPathIds', JSON.stringify(targetPathIds));
-
-    const params = new URLSearchParams();
-    params.set('view', targetView);
-    if (targetView === 'goals' && targetPathIds.length > 0) {
-      params.set('path', targetPathIds.join('/'));
-    } else {
-      // Explicitly clear path param when not on Goals tab to avoid stale URL state
-      params.delete('path');
-    }
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    const stateObj = { view: targetView, goalPathIds: targetPathIds };
-
-    if (pushHistory) {
-      window.history.pushState(stateObj, '', newUrl);
-    } else {
-      window.history.replaceState(stateObj, '', newUrl);
-    }
-  } catch (err) {
-    console.error('Failed to sync navigation URL:', err);
-  }
-}
-
 export default function App() {
   return <AppInner />;
 }
@@ -151,14 +81,13 @@ function AppInner() {
   const [theme, setTheme] = useTheme();
   const dark = theme.darkMode;
 
+  const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab } = useNavigationSync();
+  const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
 
-  const initialNav = useMemo(() => parseNavigationState(), []);
-  const [view, setView] = useState<View>(initialNav.initialView);
-  const [goalPathIds, setGoalPathIds] = useState<string[]>(initialNav.initialPathIds);
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | 'fade'>('fade');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -168,79 +97,12 @@ function AppInner() {
   const [sliceNode, setSliceNode] = useState<GoalNode | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  const isNavigatingHistory = useRef(false);
 
   // Single random quote selected on startup/refresh
   const [randomQuote] = useState(() => {
     const idx = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
     return MOTIVATIONAL_QUOTES[idx];
   });
-
-  const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
-
-  // Sync initial URL and local storage on mount
-  useEffect(() => {
-    syncUrlAndStorage(view, goalPathIds, false);
-  }, []);
-
-  // Sync back-button (popstate) with views and deep goal tree navigation
-  useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      isNavigatingHistory.current = true;
-      let targetView: View = view;
-      let targetPathIds: string[] = [];
-
-      const state = e.state;
-      if (state) {
-        if (state.view && tabs.includes(state.view)) {
-          targetView = state.view;
-        }
-        if (Array.isArray(state.goalPathIds)) {
-          targetPathIds = state.goalPathIds;
-        }
-      } else {
-        const parsed = parseNavigationState();
-        targetView = parsed.initialView;
-        targetPathIds = parsed.initialPathIds;
-      }
-
-      const currentIdx = tabs.indexOf(view);
-      const targetIdx = tabs.indexOf(targetView);
-      setSlideDirection(targetIdx > currentIdx ? 'right' : 'left');
-      setView(targetView);
-      setGoalPathIds(targetPathIds);
-
-      syncUrlAndStorage(targetView, targetPathIds, false);
-
-      setTimeout(() => {
-        isNavigatingHistory.current = false;
-      }, 50);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [view, tabs]);
-
-  // Tab navigation handler with URL push
-  const handleNavigateTab = useCallback((targetView: View) => {
-    if (targetView === view) return;
-    const currentIdx = tabs.indexOf(view);
-    const targetIdx = tabs.indexOf(targetView);
-    const direction = targetIdx > currentIdx ? 'right' : 'left';
-    setSlideDirection(direction);
-    setView(targetView);
-    if (!isNavigatingHistory.current) {
-      syncUrlAndStorage(targetView, goalPathIds, true);
-    }
-  }, [view, tabs, goalPathIds]);
-
-  // Goal path update with URL push
-  const handleUpdateGoalPath = useCallback((newPath: string[]) => {
-    setGoalPathIds(newPath);
-    if (!isNavigatingHistory.current) {
-      syncUrlAndStorage('goals', newPath, true);
-    }
-  }, []);
 
   const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
   const todayCount = todayTasks.length;
@@ -478,7 +340,7 @@ function AppInner() {
               <GoalView
                 accent={ACCENT}
                 pathIds={goalPathIds}
-                setPathIds={handleUpdateGoalPath}
+                setPathIds={setGoalPathIds}
                 onAddChild={openAddGoal}
                 onEditNode={openEditGoal}
                 onPushNode={handlePushNode}
