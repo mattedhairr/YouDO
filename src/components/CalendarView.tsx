@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Link2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Link2, Plus, Trash2 } from 'lucide-react';
 import type { Task } from '../types';
 import { useStore } from '../store';
 
@@ -18,7 +18,7 @@ function localISODate(d: Date): string {
 }
 
 export default function CalendarView({ tasks, onAddTask }: Props) {
-  const { advance } = useStore();
+  const { advance, removeTask, unlinkTask } = useStore();
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
@@ -173,6 +173,21 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
                       </span>
                     )}
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">{t.progress}/{t.steps.length || 1}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (t.goalNodeId) {
+                          unlinkTask(t.id);
+                        } else {
+                          removeTask(t.id);
+                        }
+                      }}
+                      className="p-1 rounded-md text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors shrink-0"
+                      title="Delete task"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                   {t.description && <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 line-clamp-1">{t.description}</p>}
                   

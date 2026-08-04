@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -210,32 +211,7 @@ export function useStore() {
   return c;
 }
 
-const SEED_TASKS: Task[] = [
-  {
-    id: 'seed-1',
-    title: 'Finish React tutorial',
-    description: 'Complete the advanced hooks module and build a demo.',
-    priority: 'high',
-    targetDate: todayISO(),
-    deadline: new Date(Date.now() + 2 * 86_400_000).toISOString(),
-    steps: ['Watch', 'Write notes', 'Revise'],
-    progress: 1,
-    createdAt: Date.now() - 5000,
-    order: 0,
-  },
-  {
-    id: 'seed-3',
-    title: 'Water the plants',
-    description: '',
-    priority: 'low',
-    targetDate: null,
-    deadline: null,
-    steps: [],
-    progress: 0,
-    createdAt: Date.now() - 3000,
-    order: 1,
-  },
-];
+const SEED_TASKS: Task[] = [];
 
 function mkSteps(labels: string[], doneCount: number) {
   return { steps: labels, stepDone: labels.map((_, i) => i < doneCount) };
@@ -328,6 +304,22 @@ const SEED_GOALS: GoalNode[] = [
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useLocalStorage<Task[]>('tudo-tasks-v3', SEED_TASKS);
   const [goals, setGoals] = useLocalStorage<GoalNode[]>('tudo-goals-v3', SEED_GOALS);
+
+  // Automatic One-Time Startup Sample Data Purge
+  useEffect(() => {
+    setTasks((prev) => {
+      const cleaned = prev.filter((t) => {
+        const isSeedId = t.id.startsWith('seed-');
+        const titleLower = t.title.toLowerCase();
+        const isSampleTitle =
+          titleLower.includes('finish react tutorial') ||
+          titleLower.includes('plan weekend trip') ||
+          titleLower.includes('water the plants');
+        return !isSeedId && !isSampleTitle;
+      });
+      return cleaned.length !== prev.length ? cleaned : prev;
+    });
+  }, [setTasks]);
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
