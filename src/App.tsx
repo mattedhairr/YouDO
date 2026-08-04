@@ -190,23 +190,32 @@ function AppInner() {
     const dy = touchState.current.currentY - touchState.current.startY;
     const dt = Date.now() - touchState.current.startTime;
 
-    // Mobile swipe sensitivity threshold (30px distance, 750ms duration)
-    if (Math.abs(dx) < 30 || Math.abs(dy) > Math.abs(dx) * 1.1 || dt > 750) return;
+    // Strict 50px distance threshold, horizontal gesture ratio (dy <= dx * 0.8), and max 750ms duration
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.8 || dt > 750) return;
 
-    // Deep tree swipe-right back navigation
+    // Deep tree swipe-right back navigation when viewing nested goals
     if (view === 'goals' && goalPathIds.length > 0) {
-      if (dx > 30) {
+      if (dx > 50) {
         window.history.back();
       }
       return;
     }
 
-    // Top view tab swiping
+    // Strict 3-tab linear sequence: 0: Today ('tasks'), 1: Goals ('goals'), 2: Calendar ('calendar')
     const currentIdx = tabs.indexOf(view);
-    if (dx < -30 && currentIdx < tabs.length - 1) {
-      handleNavigateTab(tabs[currentIdx + 1]);
-    } else if (dx > 30 && currentIdx > 0) {
-      handleNavigateTab(tabs[currentIdx - 1]);
+
+    if (dx <= -50) {
+      // Swipe LEFT: Move to NEXT tab (tasks -> goals -> calendar), clamped at index 2 (calendar)
+      const nextIdx = Math.min(tabs.length - 1, currentIdx + 1);
+      if (nextIdx !== currentIdx) {
+        handleNavigateTab(tabs[nextIdx]);
+      }
+    } else if (dx >= 50) {
+      // Swipe RIGHT: Move to PREVIOUS tab (calendar -> goals -> tasks), clamped at index 0 (tasks)
+      const prevIdx = Math.max(0, currentIdx - 1);
+      if (prevIdx !== currentIdx) {
+        handleNavigateTab(tabs[prevIdx]);
+      }
     }
   }, [view, goalPathIds, tabs, handleNavigateTab]);
 

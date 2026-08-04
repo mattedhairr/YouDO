@@ -30,12 +30,12 @@ export default function CommandBar({ view, onNavigate, onSettings, accent, today
             <button
               key={tab.id}
               onClick={() => onNavigate(tab.id)}
-              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+              className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-semibold outline-none select-none transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                 active
-                  ? 'text-white shadow-md shadow-blue-500/25 scale-[1.03]'
+                  ? 'text-white shadow-md shadow-blue-500/25 scale-[1.03] z-10'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-white/5 active:scale-95'
               }`}
-              style={active ? { background: accent } : undefined}
+              style={active ? { background: accent } : { background: 'transparent' }}
             >
               <Icon size={16} />
               <span>{tab.label}</span>
