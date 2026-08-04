@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, Download, GitMerge, Layers, Moon, Sun, Upload, X, Zap } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, ChevronDown, ChevronRight, Download, GitMerge, Layers, Moon, Sun, Upload, X, Zap } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
 import { useStore } from '../store';
 
@@ -15,6 +15,7 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
   const [darkMode, setDarkMode] = useState(theme.darkMode);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
+  const [guideExpanded, setGuideExpanded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -155,82 +156,102 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
           )}
         </div>
 
-        {/* 4. The YouDO Execution System Guide */}
-        <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <BookOpen size={16} className="text-blue-500" />
-            <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 dark:text-slate-100">The YouDO Execution System</h3>
-          </div>
-
-          <div className="space-y-3.5 text-[11.5px] leading-relaxed text-slate-600 dark:text-slate-300">
-            {/* Core Concept */}
-            <div className="card p-3.5 space-y-1.5 border border-white/10">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
-                <Zap size={14} className="text-blue-500" />
-                <span>Core Concept</span>
-              </div>
-              <p>
-                YouDO bridges the gap between massive long-term ambitions and daily action. Most todo apps fail because flat lists become overwhelming, while project boards are disconnected from daily routines. YouDO solves this by converting long-term blueprints into synced daily execution steps.
-              </p>
-            </div>
-
-            {/* 1. Deep Blueprint Hierarchy */}
-            <div className="card p-3.5 space-y-2 border border-white/10">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
-                <Layers size={14} className="text-indigo-500" />
-                <span>1. Deep Blueprint Hierarchy</span>
-              </div>
-              <p>
-                Structure long-term objectives into granular, organized layers (Goals &rarr; Phases &rarr; Sections &rarr; Tasks &rarr; Sub-tasks).
-              </p>
-              <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 leading-relaxed">
-                <div>Goal: "Competitive Exam Preparation"</div>
-                <div className="pl-3 text-blue-600 dark:text-blue-400">↳ Phase 1: Core Syllabus</div>
-                <div className="pl-6 text-indigo-600 dark:text-indigo-400">↳ Section: Subject Modules</div>
-                <div className="pl-9 text-purple-600 dark:text-purple-400">↳ Task: Topic 1</div>
-                <div className="pl-12 text-emerald-600 dark:text-emerald-400">↳ Sub-tasks: Video Lessons, Revision Notes, Practice Sets</div>
+        {/* 4. The YouDO Execution System Guide (Collapsible Accordion) */}
+        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setGuideExpanded((prev) => !prev)}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 transition-all text-left group"
+          >
+            <div className="flex items-center gap-2.5">
+              <BookOpen size={16} className="text-blue-500 shrink-0" />
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 dark:text-slate-100">
+                  The YouDO Execution System
+                </h3>
+                <p className="text-[10.5px] font-semibold text-slate-400 dark:text-slate-400 mt-0.5">
+                  Architecture, concept guide & USP
+                </p>
               </div>
             </div>
+            {guideExpanded ? (
+              <ChevronDown size={18} className="text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 shrink-0 transition-transform duration-200" />
+            ) : (
+              <ChevronRight size={18} className="text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 shrink-0 transition-transform duration-200" />
+            )}
+          </button>
 
-            {/* 2. Multi-Tap Micro-Progress */}
-            <div className="card p-3.5 space-y-2 border border-white/10">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
-                <CheckCircle2 size={14} className="text-emerald-500" />
-                <span>2. Multi-Tap Micro-Progress (Step-Slices)</span>
+          {guideExpanded && (
+            <div className="space-y-3.5 text-[11.5px] leading-relaxed text-slate-600 dark:text-slate-300 fade-in pt-1">
+              {/* Core Concept */}
+              <div className="card p-3.5 space-y-1.5 border border-white/10">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
+                  <Zap size={14} className="text-blue-500" />
+                  <span>Core Concept</span>
+                </div>
+                <p>
+                  YouDO bridges the gap between massive long-term ambitions and daily action. Most todo apps fail because flat lists become overwhelming, while project boards are disconnected from daily routines. YouDO solves this by converting long-term blueprints into synced daily execution steps.
+                </p>
               </div>
-              <p>
-                Tasks aren't just "done" or "not done." Break single tasks into progressive execution steps requiring multiple taps to complete.
-              </p>
-              <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 space-y-0.5">
-                <div className="font-bold text-slate-900 dark:text-slate-100">For study task "Lecture 1" (3 steps):</div>
-                <div>• Tap 1: Video Lesson Watched</div>
-                <div>• Tap 2: Notes Prepared</div>
-                <div>• Tap 3: Revision Complete</div>
+
+              {/* 1. Deep Blueprint Hierarchy */}
+              <div className="card p-3.5 space-y-2 border border-white/10">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
+                  <Layers size={14} className="text-indigo-500" />
+                  <span>1. Deep Blueprint Hierarchy</span>
+                </div>
+                <p>
+                  Structure long-term objectives into granular, organized layers (Goals &rarr; Phases &rarr; Sections &rarr; Tasks &rarr; Sub-tasks).
+                </p>
+                <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 leading-relaxed">
+                  <div>Goal: "Competitive Exam Preparation"</div>
+                  <div className="pl-3 text-blue-600 dark:text-blue-400">↳ Phase 1: Core Syllabus</div>
+                  <div className="pl-6 text-indigo-600 dark:text-indigo-400">↳ Section: Subject Modules</div>
+                  <div className="pl-9 text-purple-600 dark:text-purple-400">↳ Task: Topic 1</div>
+                  <div className="pl-12 text-emerald-600 dark:text-emerald-400">↳ Sub-tasks: Video Lessons, Revision Notes, Practice Sets</div>
+                </div>
+              </div>
+
+              {/* 2. Multi-Tap Micro-Progress */}
+              <div className="card p-3.5 space-y-2 border border-white/10">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
+                  <CheckCircle2 size={14} className="text-emerald-500" />
+                  <span>2. Multi-Tap Micro-Progress (Step-Slices)</span>
+                </div>
+                <p>
+                  Tasks aren't just "done" or "not done." Break single tasks into progressive execution steps requiring multiple taps to complete.
+                </p>
+                <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 space-y-0.5">
+                  <div className="font-bold text-slate-900 dark:text-slate-100">For study task "Lecture 1" (3 steps):</div>
+                  <div>• Tap 1: Video Lesson Watched</div>
+                  <div>• Tap 2: Notes Prepared</div>
+                  <div>• Tap 3: Revision Complete</div>
+                </div>
+              </div>
+
+              {/* 3. Synced Daily Dispatch */}
+              <div className="card p-3.5 space-y-1.5 border border-white/10">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
+                  <GitMerge size={14} className="text-purple-500" />
+                  <span>3. Synced Daily Dispatch</span>
+                </div>
+                <p>
+                  Drill down into your master Goal Blueprint, select any pending sub-task, and dispatch it directly to "Today's Execution". Any progress made on the Today view automatically updates the master Goal tree in real-time.
+                </p>
+              </div>
+
+              {/* 4. Focused Direct-Child Counting */}
+              <div className="card p-3.5 space-y-1.5 border border-white/10">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
+                  <CalendarCheck size={14} className="text-amber-500" />
+                  <span>4. Focused Direct-Child Counting</span>
+                </div>
+                <p>
+                  Parent nodes display only immediate child progress (e.g., a Goal shows "0/3 Phases", while a Phase shows "0/4 Sections"). This eliminates intimidating total count numbers and keeps your mind focused strictly on the current tier.
+                </p>
               </div>
             </div>
-
-            {/* 3. Synced Daily Dispatch */}
-            <div className="card p-3.5 space-y-1.5 border border-white/10">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
-                <GitMerge size={14} className="text-purple-500" />
-                <span>3. Synced Daily Dispatch</span>
-              </div>
-              <p>
-                Drill down into your master Goal Blueprint, select any pending sub-task, and dispatch it directly to "Today's Execution". Any progress made on the Today view automatically updates the master Goal tree in real-time.
-              </p>
-            </div>
-
-            {/* 4. Focused Direct-Child Counting */}
-            <div className="card p-3.5 space-y-1.5 border border-white/10">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
-                <CalendarCheck size={14} className="text-amber-500" />
-                <span>4. Focused Direct-Child Counting</span>
-              </div>
-              <p>
-                Parent nodes display only immediate child progress (e.g., a Goal shows "0/3 Phases", while a Phase shows "0/4 Sections"). This eliminates intimidating total count numbers and keeps your mind focused strictly on the current tier.
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Apply & Save */}
