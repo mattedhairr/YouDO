@@ -94,6 +94,7 @@ function AppInner() {
     updateGoalNode,
     deleteGoalNode,
     planTask,
+    planBatch,
     copyGoalNode,
     copyGoalNodes,
     pasteGoalNode,
@@ -111,7 +112,7 @@ function AppInner() {
   const [goalParentId, setGoalParentId] = useState<string | null>(null);
   const [goalParentKind, setGoalParentKind] = useState<GoalKind | undefined>(undefined);
   const [editingNode, setEditingNode] = useState<GoalNode | null>(null);
-  const [sliceNode, setSliceNode] = useState<GoalNode | null>(null);
+  const [sliceNodes, setSliceNodes] = useState<GoalNode[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -146,8 +147,8 @@ function AppInner() {
       setSettingsOpen(false);
       return true;
     }
-    if (sliceNode) {
-      setSliceNode(null);
+    if (sliceNodes.length > 0) {
+      setSliceNodes([]);
       return true;
     }
     return false;
@@ -202,7 +203,7 @@ function AppInner() {
 
   const handlePushNode = (node: GoalNode) => {
     pushModalState();
-    setSliceNode(node);
+    setSliceNodes([node]);
   };
 
   const handleBatchCopy = useCallback(() => {
@@ -221,15 +222,13 @@ function AppInner() {
 
   const handleBatchSchedule = useCallback(() => {
     if (batchLeafIds.length === 0) return;
-    // Open StepSliceSheet for the first selected schedulable leaf.
-    // The user can repeat for subsequent leaves.
     const allNodes: GoalNode[] = [];
     const flatten = (n: GoalNode) => { allNodes.push(n); n.children.forEach(flatten); };
     goals.forEach(flatten);
-    const firstNode = allNodes.find((n) => n.id === batchLeafIds[0]) ?? null;
-    if (!firstNode) return;
+    const selectedNodes = allNodes.filter((n) => batchLeafIds.includes(n.id));
+    if (selectedNodes.length === 0) return;
     pushModalState();
-    setSliceNode(firstNode);
+    setSliceNodes(selectedNodes);
     clearSelectionRef.current();
     setBatchSelectedIds([]);
     setBatchLeafIds([]);
@@ -257,7 +256,7 @@ function AppInner() {
   }, []);
 
   const closeSliceNode = useCallback(() => {
-    setSliceNode(null);
+    setSliceNodes([]);
     if (window.history.state?.modal) {
       window.history.back();
     }
@@ -321,7 +320,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || settingsOpen || !!sliceNode) return;
+      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -336,7 +335,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, settingsOpen, sliceNode],
+    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -582,10 +581,16 @@ function AppInner() {
       />
 
       <StepSliceSheet
-        open={!!sliceNode}
-        node={sliceNode}
+        open={sliceNodes.length > 0}
+        nodes={sliceNodes}
         onClose={closeSliceNode}
-        onConfirm={(nodeId, slice, date) => planTask(nodeId, date, slice)}
+        onConfirm={(nodeIds, slice, date) => {
+          if (nodeIds.length === 1) {
+            planTask(nodeIds[0], date, slice);
+          } else {
+            planBatch(nodeIds, date);
+          }
+        }}
       />
 
       <SettingsSheet

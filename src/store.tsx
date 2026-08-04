@@ -26,8 +26,22 @@ function isToday(iso: string | null): boolean {
   );
 }
 
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+export function todayISO(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function formatDDMMYYYY(isoStr: string | null | undefined): string {
+  if (!isoStr) return '';
+  const parts = isoStr.slice(0, 10).split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return `${d}-${m}-${y}`;
+  }
+  return isoStr;
 }
 
 /* ---------- Tree helpers ---------- */
@@ -851,5 +865,5 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export { isToday, todayISO, uid };
+export { isToday, uid };
 
