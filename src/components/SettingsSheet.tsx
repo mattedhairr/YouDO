@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { AlertTriangle, BookOpen, Clock, Download, HardDrive, Layers, Moon, ShieldCheck, Sun, Upload, X, Zap } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, Download, GitMerge, Layers, Moon, Sun, Upload, X, Zap } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
 import { useStore } from '../store';
 
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function SettingsSheet({ open, theme, onClose, onApply }: Props) {
-  const { exportBackup, importBackup, downloadAutoSnapshot } = useStore();
+  const { exportBackup, importBackup } = useStore();
   const [darkMode, setDarkMode] = useState(theme.darkMode);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -42,15 +42,6 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
     reader.readAsText(file);
   };
 
-  const handleAutoSnapshotDownload = () => {
-    const ok = downloadAutoSnapshot();
-    if (ok) {
-      setMsg({ text: 'Latest automated snapshot downloaded!' });
-    } else {
-      setMsg({ text: 'No automated snapshot found yet.', error: true });
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={onClose} />
@@ -58,7 +49,7 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">Settings & Concept Guide</h2>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">Settings & System Guide</h2>
             <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-400">Manage appearance, backups & execution workflow</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -89,38 +80,31 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
         <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/60 p-4 space-y-2">
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-extrabold text-[12px]">
             <AlertTriangle size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />
-            <span>CRITICAL DATA NOTICE</span>
+            <span>CRITICAL DATA SAFETY NOTICE</span>
           </div>
           <p className="text-[11.5px] leading-relaxed text-amber-900/90 dark:text-amber-200/90 font-medium">
-            YouDO is a 100% local, offline-first application. There are no cloud servers or user accounts. Do NOT uninstall the app, clear browser data, or reset app site data without exporting a JSON backup file first, or all your progress will be permanently lost!
+            YouDO operates 100% locally on your device for absolute privacy and offline execution. There are no cloud servers or external accounts. DO NOT uninstall the app, reset site permissions, or clear browser storage without exporting a backup JSON file first, or your progress will be permanently lost!
           </p>
         </div>
 
-        {/* 3. Backup & Restore Manager */}
+        {/* 3. Clean Data Management (Export / Import Backup Controls Only) */}
         <div className="space-y-3">
-          <label className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">2. Backup & Snapshot Manager</label>
+          <label className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">2. Data Management</label>
           <div className="grid grid-cols-2 gap-2.5">
             <button
               onClick={handleExport}
               className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:border-blue-300 border border-slate-200 dark:border-slate-700 transition-all"
             >
-              <Download size={15} className="text-blue-500" /> Export JSON
+              <Download size={15} className="text-blue-500" /> Export Backup (JSON)
             </button>
             <button
               onClick={() => fileRef.current?.click()}
               className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:border-blue-300 border border-slate-200 dark:border-slate-700 transition-all"
             >
-              <Upload size={15} className="text-emerald-500" /> Import JSON
+              <Upload size={15} className="text-emerald-500" /> Import Backup (JSON)
             </button>
           </div>
           <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => handleImport(e.target.files?.[0])} />
-
-          <button
-            onClick={handleAutoSnapshotDownload}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl text-[11.5px] font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-700/60 transition-colors"
-          >
-            <Clock size={14} className="text-indigo-400" /> Download Latest Auto-Snapshot (Hourly)
-          </button>
 
           {msg && (
             <p className={`text-[11.5px] font-bold text-center ${msg.error ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -129,55 +113,79 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
           )}
         </div>
 
-        {/* 4. App Tutorial & Concept Guide Section */}
+        {/* 4. The YouDO Execution System Guide */}
         <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <BookOpen size={16} className="text-blue-500" />
-            <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 dark:text-slate-100">App Concept & Tutorial Guide</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 dark:text-slate-100">The YouDO Execution System</h3>
           </div>
 
           <div className="space-y-3.5 text-[11.5px] leading-relaxed text-slate-600 dark:text-slate-300">
-            {/* Concept & USP */}
+            {/* Core Concept */}
             <div className="card p-3.5 space-y-1.5 border border-white/10">
               <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
                 <Zap size={14} className="text-blue-500" />
-                <span>Why YouDO Differs from Flat Todo Apps</span>
+                <span>Core Concept</span>
               </div>
               <p>
-                Flat todo apps quickly overflow into endless, daunting lists. YouDO uses <strong>deep hierarchical execution trees</strong> (Goal &rarr; Phase &rarr; Section &rarr; Task &rarr; Steps) to break overwhelming ambitions into actionable step-sliced daily execution.
+                YouDO bridges the gap between massive long-term ambitions and daily action. Most todo apps fail because flat lists become overwhelming, while project boards are disconnected from daily routines. YouDO solves this by converting long-term blueprints into synced daily execution steps.
               </p>
             </div>
 
-            {/* Goals & Breakdown */}
-            <div className="card p-3.5 space-y-1.5 border border-white/10">
+            {/* 1. Deep Blueprint Hierarchy */}
+            <div className="card p-3.5 space-y-2 border border-white/10">
               <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
                 <Layers size={14} className="text-indigo-500" />
-                <span>Structuring Multi-Phase Projects</span>
+                <span>1. Deep Blueprint Hierarchy</span>
               </div>
               <p>
-                Example: Goal <em>"Marathon Preparation"</em> &rarr; Phase 1 <em>"Base Conditioning"</em> &rarr; Section 1 <em>"Weekly Runs"</em> &rarr; Step-slice <em>"Long Run 10km"</em> into actionable sub-steps. You can schedule individual step slices for specific days without cluttering your master blueprint.
+                Structure long-term objectives into granular, organized layers (Goals &rarr; Phases &rarr; Sections &rarr; Tasks &rarr; Sub-tasks).
+              </p>
+              <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 leading-relaxed">
+                <div>Goal: "Competitive Exam Preparation"</div>
+                <div className="pl-3 text-blue-600 dark:text-blue-400">↳ Phase 1: Core Syllabus</div>
+                <div className="pl-6 text-indigo-600 dark:text-indigo-400">↳ Section: Subject Modules</div>
+                <div className="pl-9 text-purple-600 dark:text-purple-400">↳ Task: Topic 1</div>
+                <div className="pl-12 text-emerald-600 dark:text-emerald-400">↳ Sub-tasks: Video Lessons, Revision Notes, Practice Sets</div>
+              </div>
+            </div>
+
+            {/* 2. Multi-Tap Micro-Progress */}
+            <div className="card p-3.5 space-y-2 border border-white/10">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
+                <CheckCircle2 size={14} className="text-emerald-500" />
+                <span>2. Multi-Tap Micro-Progress (Step-Slices)</span>
+              </div>
+              <p>
+                Tasks aren't just "done" or "not done." Break single tasks into progressive execution steps requiring multiple taps to complete.
+              </p>
+              <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 space-y-0.5">
+                <div className="font-bold text-slate-900 dark:text-slate-100">For study task "Lecture 1" (3 steps):</div>
+                <div>• Tap 1: Video Lesson Watched</div>
+                <div>• Tap 2: Notes Prepared</div>
+                <div>• Tap 3: Revision Complete</div>
+              </div>
+            </div>
+
+            {/* 3. Synced Daily Dispatch */}
+            <div className="card p-3.5 space-y-1.5 border border-white/10">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
+                <GitMerge size={14} className="text-purple-500" />
+                <span>3. Synced Daily Dispatch</span>
+              </div>
+              <p>
+                Drill down into your master Goal Blueprint, select any pending sub-task, and dispatch it directly to "Today's Execution". Any progress made on the Today view automatically updates the master Goal tree in real-time.
               </p>
             </div>
 
-            {/* Direct Child Tracking */}
+            {/* 4. Focused Direct-Child Counting */}
             <div className="card p-3.5 space-y-1.5 border border-white/10">
               <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
-                <ShieldCheck size={14} className="text-emerald-500" />
-                <span>Direct Child Progress Isolation</span>
+                <CalendarCheck size={14} className="text-amber-500" />
+                <span>4. Focused Direct-Child Counting</span>
               </div>
               <p>
-                To maintain razor-sharp focus, parent nodes only track immediate direct children (e.g. a Goal shows <code>0/3 phases done</code>, and inside a Phase shows <code>0/5 tasks done</code>). When all sub-tasks in a phase reach 100%, that phase automatically marks complete for the goal.
-              </p>
-            </div>
-
-            {/* Offline-First */}
-            <div className="card p-3.5 space-y-1.5 border border-white/10">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
-                <HardDrive size={14} className="text-purple-500" />
-                <span>100% Offline-First & Private</span>
-              </div>
-              <p>
-                Your goals and daily logs are stored <strong>strictly on your local device</strong> via HTML5 LocalStorage and Workbox Service Worker precaching. YouDO launches instantly without internet access.
+                Parent nodes display only immediate child progress (e.g., a Goal shows "0/3 Phases", while a Phase shows "0/4 Sections"). This eliminates intimidating total count numbers and keeps your mind focused strictly on the current tier.
               </p>
             </div>
           </div>

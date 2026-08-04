@@ -202,8 +202,6 @@ interface Store {
   exportBackup: () => void;
   /** Import full state from JSON file with validation */
   importBackup: (jsonData: string) => boolean;
-  /** Download latest automated local snapshot */
-  downloadAutoSnapshot: () => boolean;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -255,27 +253,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   tasksRef.current = tasks;
   const goalsRef = useRef(goals);
   goalsRef.current = goals;
-
-  // Automated Hourly Local State Snapshot
-  useEffect(() => {
-    const takeSnapshot = () => {
-      try {
-        const snapshotData = {
-          app: 'YouDO',
-          tasks: tasksRef.current,
-          goals: goalsRef.current,
-          timestamp: Date.now(),
-        };
-        localStorage.setItem('youdo-auto-snapshot-v1', JSON.stringify(snapshotData));
-      } catch (err) {
-        console.error('Failed to create local auto-snapshot:', err);
-      }
-    };
-
-    takeSnapshot();
-    const timer = setInterval(takeSnapshot, 3600000);
-    return () => clearInterval(timer);
-  }, []);
 
   /* ---------- Daily task ops ---------- */
 
@@ -625,38 +602,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setTasks, setGoals],
   );
 
-  const downloadAutoSnapshot = useCallback((): boolean => {
-    try {
-      const raw = localStorage.getItem('youdo-auto-snapshot-v1');
-      if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      const blob = new Blob([JSON.stringify(parsed, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const dateStr = new Date(parsed.timestamp || Date.now()).toISOString().slice(0, 10);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `youdo-auto-snapshot-${dateStr}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
-
   const value = useMemo<Store>(
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
-      exportBackup, importBackup, downloadAutoSnapshot,
+      exportBackup, importBackup,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
-      exportBackup, importBackup, downloadAutoSnapshot],
+      exportBackup, importBackup],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
