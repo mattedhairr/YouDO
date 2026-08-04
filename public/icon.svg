@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#05060a"/>
+    </linearGradient>
+    <linearGradient id="liquid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(256,256)">
+    <circle r="150" fill="none" stroke="url(#liquid)" stroke-width="20" stroke-linecap="round" stroke-dasharray="707" stroke-dashoffset="177" transform="rotate(-90)"/>
+    <text x="0" y="18" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="120" font-weight="800" fill="#ffffff">Tu</text>
+  </g>
+</svg>

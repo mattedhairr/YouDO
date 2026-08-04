@@ -1,0 +1,19 @@
+{
+  "name": "TuDo",
+  "short_name": "TuDo",
+  "description": "A glassmorphism to-do list with liquid progress, sub-steps, and drag-and-drop.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#05060a",
+  "theme_color": "#05060a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

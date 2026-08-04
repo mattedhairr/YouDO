@@ -1,0 +1,491 @@
+import { useMemo, useState } from 'react';
+import {
+  ChevronRight,
+  CircleDot,
+  Clipboard,
+  Copy,
+  Flag,
+  Layers,
+  ListTree,
+  Pencil,
+  Pin,
+  PinOff,
+  Plus,
+  Star,
+  Target,
+  Trash2,
+  Unlink,
+  X,
+  Zap,
+} from 'lucide-react';
+import type { GoalKind, GoalNode } from '../types';
+import { countLeaves, countCompletedLeaves, findNode, rollupPct, useStore } from '../store';
+
+function findGoalInTree(id: string, nodes: GoalNode[]): GoalNode | undefined {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const found = findGoalInTree(id, n.children);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function findPath(root: GoalNode, ids: string[]): GoalNode[] {
+  if (ids.length === 0) return [];
+  if (root.id === ids[0]) {
+    if (ids.length === 1) return [root];
+    for (const child of root.children) {
+      const sub = findPath(child, ids.slice(1));
+      if (sub.length) return [root, ...sub];
+    }
+  }
+  return [];
+}
+
+function collectPinned(root: GoalNode, acc: { node: GoalNode; path: GoalNode[] }[] = [], path: GoalNode[] = []): { node: GoalNode; path: GoalNode[] }[] {
+  const cur = [...path, root];
+  if (root.pinned) acc.push({ node: root, path: cur });
+  for (const child of root.children) collectPinned(child, acc, cur);
+  return acc;
+}
+
+interface Props {
+  accent: string;
+  pathIds: string[];
+  setPathIds: (ids: string[]) => void;
+  onAddChild: (parentId: string | null) => void;
+  onEditNode: (node: GoalNode) => void;
+  onPushNode: (node: GoalNode) => void;
+  onUnplan: (taskId: string) => void;
+  onCopy: (nodeId: string) => void;
+  onCopyMany: (nodeIds: string[]) => void;
+  onDeleteMany: (nodeIds: string[]) => void;
+  onPaste: (parentId: string | null) => void;
+  onCancelPaste: () => void;
+  clipboard: GoalNode[];
+}
+
+const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
+  goal: { icon: Target, tint: '#3b82f6', label: 'Goal' },
+  phase: { icon: Flag, tint: '#8b5cf6', label: 'Phase' },
+  section: { icon: Layers, tint: '#06b6d4', label: 'Section' },
+  task: { icon: ListTree, tint: '#10b981', label: 'Task' },
+  sub: { icon: CircleDot, tint: '#f59e0b', label: 'Sub' },
+  leaf: { icon: CircleDot, tint: '#f43f5e', label: 'Leaf' },
+};
+
+export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onCopyMany, onDeleteMany, onPaste, onCancelPaste, clipboard }: Props) {
+  const { goals, planBatch, toggleGoalStep, togglePin } = useStore();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const current = useMemo(() => {
+    if (pathIds.length === 0) return null;
+    for (const root of goals) {
+      const [found] = findNode(root, pathIds[pathIds.length - 1]);
+      if (found) return found;
+    }
+    return null;
+  }, [goals, pathIds]);
+
+  const path = useMemo(() => {
+    for (const root of goals) {
+      const chain = findPath(root, pathIds);
+      if (chain.length) return chain;
+    }
+    return [];
+  }, [goals, pathIds]);
+
+  const pinned = useMemo(() => {
+    const acc: { node: GoalNode; path: GoalNode[] }[] = [];
+    for (const root of goals) collectPinned(root, acc, []);
+    return acc;
+  }, [goals]);
+
+  const children = current ? current.children : goals;
+
+  const selectedLeaves = useMemo(
+    () => [...selected].filter((id) => {
+      const n = findGoalInTree(id, children);
+      return n && n.kind === 'leaf' && !n.todayTaskId;
+    }).length,
+    [selected, children],
+  );
+
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const drillInto = (node: GoalNode) => {
+    setPathIds([...pathIds, node.id]);
+    setSelected(new Set());
+  };
+
+  const goTo = (index: number) => {
+    setPathIds(pathIds.slice(0, index + 1));
+    setSelected(new Set());
+  };
+
+  const goRoot = () => {
+    setPathIds([]);
+    setSelected(new Set());
+  };
+
+  const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
+    setPathIds(p.path.map((n) => n.id));
+    setSelected(new Set());
+  };
+
+  const batchPlan = () => {
+    planBatch([...selected], new Date().toISOString().slice(0, 10));
+    setSelected(new Set());
+  };
+
+  return (
+    <div className="fade-in pb-20">
+      {/* Sticky Top Glass Breadcrumb Header */}
+      <div className="sticky top-0 z-30 -mx-4 px-4 py-2.5 glass-header mb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap shadow-xs">
+        <button
+          onClick={goRoot}
+          className={`px-2.5 py-1 rounded-xl text-[12px] font-semibold transition-all shrink-0 ${
+            path.length === 0
+              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          All Goals
+        </button>
+        {path.map((n, i) => (
+          <div key={n.id} className="flex items-center gap-1 shrink-0">
+            <ChevronRight size={13} className="text-slate-300 dark:text-slate-600" />
+            <button
+              onClick={() => goTo(i)}
+              className={`px-2.5 py-1 rounded-xl text-[12px] font-semibold transition-all max-w-[150px] truncate ${
+                i === path.length - 1
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              {n.title}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Pinned/Favorites section */}
+      {pinned.length > 0 && pathIds.length === 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold uppercase tracking-wide text-amber-500 dark:text-amber-400">
+            <Star size={12} className="fill-amber-400 text-amber-400" />
+            Pinned Goals
+          </div>
+          <div className="space-y-1.5">
+            {pinned.map((p) => {
+              const meta = kindMeta[p.node.kind];
+              const Icon = meta.icon;
+              return (
+                <button
+                  key={p.node.id}
+                  onClick={() => jumpToPinned(p)}
+                  className="w-full card p-2.5 flex items-center gap-2.5 hover:ring-1 hover:ring-amber-400/50 transition-all fade-in"
+                >
+                  <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
+                  <div className="flex-1 text-left min-w-0">
+                    <div className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{p.node.title}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-400 truncate">{p.path.slice(0, -1).map((n) => n.title).join(' > ') || 'Root'}</div>
+                  </div>
+                  <span className="text-[11px] font-semibold tabular-nums text-slate-500 dark:text-slate-400 shrink-0">{rollupPct(p.node)}%</span>
+                  <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Current node header card */}
+      {current && (
+        <div className="card p-4 mb-3.5 fade-in">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                {(() => { const Icon = kindMeta[current.kind].icon; return <Icon size={16} style={{ color: kindMeta[current.kind].tint }} />; })()}
+                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 truncate">{current.title}</h2>
+              </div>
+              {current.description && <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400">{current.description}</p>}
+              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-400">
+                <span style={{ color: kindMeta[current.kind].tint }}>{kindMeta[current.kind].label}</span>
+                <span>{countCompletedLeaves(current)}/{countLeaves(current)} done</span>
+                {current.startDate && <span>· {fmtShort(current.startDate)}</span>}
+                {current.endDate && <span>→ {fmtShort(current.endDate)}</span>}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="text-right mr-1">
+                <div className="text-lg font-bold tabular-nums" style={{ color: accent }}>{rollupPct(current)}%</div>
+              </div>
+              <button
+                onClick={() => togglePin(current.id)}
+                className={`p-2 rounded-lg transition-colors ${current.pinned ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
+                title={current.pinned ? 'Unpin' : 'Pin to favorites'}
+              >
+                {current.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              </button>
+              <button onClick={() => onEditNode(current)} className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors" title="Edit">
+                <Pencil size={14} />
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-700/60 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${rollupPct(current)}%`, background: accent }} />
+          </div>
+        </div>
+      )}
+
+      {/* Children list */}
+      <div className="space-y-2.5">
+        {children.map((child) => {
+          const meta = kindMeta[child.kind];
+          const Icon = meta.icon;
+          const isLeaf = child.kind === 'leaf';
+          const hasSteps = !!child.steps && child.steps.length > 0;
+          const stepDone = child.stepDone ?? [];
+          const pct = isLeaf && hasSteps ? Math.round((stepDone.filter(Boolean).length / child.steps!.length) * 100) : rollupPct(child);
+          const isSelected = selected.has(child.id);
+
+          return (
+            <div
+              key={child.id}
+              className={`card p-3.5 transition-all fade-in ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${child.completed ? 'opacity-60' : ''}`}
+            >
+              {/* Primary Header Row */}
+              <div className="flex items-start gap-2.5">
+                {!child.completed && (
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(child.id)}
+                    className="mt-0.5 w-4 h-4 rounded accent-blue-500 cursor-pointer shrink-0"
+                  />
+                )}
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => !isLeaf && drillInto(child)}
+                >
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
+                    <h3 className={`text-[14px] font-semibold leading-snug break-words ${child.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                      {child.title}
+                    </h3>
+                    {child.pinned && <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />}
+                    {child.todayTaskId && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                        <Zap size={9} /> Scheduled
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-400">
+                    <span style={{ color: meta.tint }} className="font-semibold">{meta.label}</span>
+                    {!isLeaf && <span>· {countLeaves(child)} items</span>}
+                    {isLeaf && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
+                  </div>
+                </div>
+                <div className="shrink-0 flex items-center gap-1.5">
+                  <span className="text-[13px] font-bold tabular-nums text-slate-600 dark:text-slate-300">{pct}%</span>
+                  {!isLeaf && (
+                    <button
+                      onClick={() => drillInto(child)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mt-2.5 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: meta.tint }} />
+              </div>
+
+              {/* Micro-step chips */}
+              {isLeaf && hasSteps && (
+                <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                  {child.steps!.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={(e) => { e.stopPropagation(); toggleGoalStep(child.id, i); }}
+                      className={`text-[10.5px] font-medium px-2 py-1 rounded-lg border transition-colors ${
+                        stepDone[i]
+                          ? 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-500'
+                      }`}
+                    >
+                      {stepDone[i] ? '✓' : `${i + 1}.`} {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Action Toolbar Row */}
+              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => togglePin(child.id)}
+                    className={`p-1.5 rounded-lg transition-colors ${child.pinned ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                    title={child.pinned ? 'Unpin' : 'Pin'}
+                  >
+                    {child.pinned ? <Star size={14} className="fill-amber-400" /> : <Pin size={14} />}
+                  </button>
+                  <button
+                    onClick={() => onEditNode(child)}
+                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => onCopy(child.id)}
+                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    title="Copy"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
+
+                {isLeaf && !child.completed && (
+                  <div className="flex items-center gap-1.5">
+                    {child.todayTaskId ? (
+                      <>
+                        <button
+                          onClick={() => onPushNode(child)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all"
+                          title="Replan (choose date & steps)"
+                        >
+                          <Zap size={12} /> Replan
+                        </button>
+                        <button
+                          onClick={() => child.todayTaskId && onUnplan(child.todayTaskId)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 transition-all"
+                          title="Unschedule"
+                        >
+                          <Unlink size={12} /> Unplan
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => onPushNode(child)}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-95"
+                      >
+                        <Zap size={12} /> Schedule
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => onAddChild(current?.id ?? null)}
+        className="mt-4 w-full py-3 rounded-2xl text-sm font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 hover:border-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors flex items-center justify-center gap-1.5"
+      >
+        <Plus size={15} />
+        {current ? `Add to ${current.title}` : 'Create Goal'}
+      </button>
+
+      {/* Floating Batch Selection Bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-20 inset-x-4 z-40 max-w-md mx-auto">
+          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl glass-nav shadow-2xl border border-slate-200/80 dark:border-white/15">
+            <span className="text-[12px] font-bold text-slate-800 dark:text-slate-100 shrink-0">{selected.size} selected</span>
+            <div className="flex-1" />
+            <button
+              onClick={() => { onCopyMany([...selected]); setSelected(new Set()); }}
+              className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-all active:scale-95 shrink-0 shadow-xs"
+              style={{ background: accent }}
+            >
+              <span className="inline-flex items-center gap-1"><Copy size={13} /> Copy</span>
+            </button>
+            <button
+              onClick={() => { onDeleteMany([...selected]); setSelected(new Set()); }}
+              className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white bg-rose-500 hover:bg-rose-600 transition-all active:scale-95 shrink-0 shadow-xs"
+            >
+              <span className="inline-flex items-center gap-1"><Trash2 size={13} /> Delete</span>
+            </button>
+            {selectedLeaves > 0 && (
+              <button
+                onClick={batchPlan}
+                className="px-3 py-2 rounded-xl text-[12px] font-semibold text-white transition-all active:scale-95 shrink-0 shadow-xs"
+                style={{ background: accent }}
+              >
+                Plan {selectedLeaves}
+              </button>
+            )}
+            <button
+              onClick={() => setSelected(new Set())}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors shrink-0"
+              title="Clear selection"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Paste Bar */}
+      {clipboard.length > 0 && (
+        <div className="fixed bottom-20 inset-x-4 z-40 max-w-md mx-auto">
+          <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl glass-nav shadow-2xl border border-slate-200/80 dark:border-white/15">
+            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-500 shrink-0">
+              <Clipboard size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">
+                {clipboard.length === 1 ? clipboard[0].title : `${clipboard.length} copied items`}
+              </div>
+              <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                Paste into {current ? current.title : 'root level'}
+              </div>
+            </div>
+            <button
+              onClick={onCancelPaste}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors shrink-0"
+              title="Cancel paste"
+            >
+              <X size={16} />
+            </button>
+            <button
+              onClick={() => onPaste(current?.id ?? null)}
+              className="px-3.5 py-2 rounded-xl text-[12px] font-bold text-white shadow-md shadow-blue-500/25 transition-all active:scale-95 shrink-0"
+              style={{ background: accent }}
+            >
+              Paste here
+            </button>
+          </div>
+        </div>
+      )}
+
+      {goals.length === 0 && (
+        <div className="card p-10 text-center fade-in mt-4">
+          <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700/50">
+            <Target size={26} className="text-slate-400" />
+          </div>
+          <h3 className="mt-4 text-base font-semibold text-slate-700 dark:text-slate-200">No goals yet</h3>
+          <p className="mt-1 text-sm text-slate-400 dark:text-slate-400">Map your big ambitions into daily action.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtShort(date: string): string {
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return date;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
