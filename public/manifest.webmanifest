@@ -1,12 +1,13 @@
 {
-  "name": "TuDo",
-  "short_name": "TuDo",
-  "description": "A glassmorphism to-do list with liquid progress, sub-steps, and drag-and-drop.",
+  "name": "TUDO Glass Tasks",
+  "short_name": "TUDO",
+  "description": "Glassmorphism Task & Goal Blueprint Manager",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#05060a",
-  "theme_color": "#05060a",
+  "display_override": ["fullscreen", "minimal-ui", "standalone"],
+  "background_color": "#0B0F17",
+  "theme_color": "#0B0F17",
   "orientation": "portrait",
   "icons": [
     {
@@ -17,3 +18,4 @@
     }
   ]
 }
+

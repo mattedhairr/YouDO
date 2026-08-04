@@ -16,6 +16,7 @@ export default defineConfig({
         theme_color: '#0B0F17',
         background_color: '#0B0F17',
         display: 'standalone',
+        display_override: ['fullscreen', 'minimal-ui', 'standalone'],
         orientation: 'portrait',
         icons: [
           {
