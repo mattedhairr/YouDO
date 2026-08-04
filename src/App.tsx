@@ -17,9 +17,15 @@ const ACCENT = '#3b82f6';
 
 const MOTIVATIONAL_QUOTES = [
   { text: "Giving up is not in the blood sir... not in the blood", author: "Nimsdai Purja" },
-  { text: "It's not about being the best. It's about being better than you were yesterday.", author: "Unknown" },
   { text: "Discipline equals freedom.", author: "Jocko Willink" },
+  { text: "Who's going to carry the boats and the logs?", author: "David Goggins" },
+  { text: "Don't count the days, make the days count.", author: "Muhammad Ali" },
+  { text: "Suffer the pain of discipline or suffer the pain of regret.", author: "Jim Rohn" },
+  { text: "Pain is weakness leaving the body.", author: "General Lewis B. Puller" },
+  { text: "The mind is the limit. As long as the mind can envision the fact that you can do something, you can do it.", author: "Arnold Schwarzenegger" },
+  { text: "He who has a why to live can bear almost any how.", author: "Friedrich Nietzsche" },
   { text: "You must do the thing you think you cannot do.", author: "Eleanor Roosevelt" },
+  { text: "Greatness is not given, it's earned.", author: "Unknown" },
 ];
 
 function parseNavigationState(): { initialView: View; initialPathIds: string[] } {
@@ -138,16 +144,12 @@ function AppInner() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const isNavigatingHistory = useRef(false);
-  const [quoteIdx, setQuoteIdx] = useState(0);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setQuoteIdx((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length);
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const currentQuote = MOTIVATIONAL_QUOTES[quoteIdx];
+  // Single random quote selected on startup/refresh
+  const [randomQuote] = useState(() => {
+    const idx = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
+    return MOTIVATIONAL_QUOTES[idx];
+  });
 
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
 
@@ -216,15 +218,11 @@ function AppInner() {
   }, []);
 
   const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
-
-  const completionPct = useMemo(() => {
-    if (tasks.length === 0) return 0;
-    const done = tasks.filter((t) => t.steps.length > 0 && t.progress >= t.steps.length).length;
-    return Math.round((done / tasks.length) * 100);
-  }, [tasks]);
-
   const todayCount = todayTasks.length;
   const todayDone = todayTasks.filter((t) => t.steps.length > 0 && t.progress >= t.steps.length).length;
+  
+  // Today's Progress calculation: 0 if todayCount is 0, never NaN
+  const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
 
   const originFor = (taskId: string): string | undefined => {
     const task = tasks.find((t) => t.id === taskId);
@@ -361,68 +359,70 @@ function AppInner() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Header */}
-        <header className="pt-4 pb-2 space-y-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="grid place-items-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700/60 shadow-xs">
+        {/* Strict Fixed-Height Top Header */}
+        <header className="pt-3 pb-2 h-[106px] overflow-hidden flex flex-col justify-between shrink-0">
+          <div className="flex items-center justify-between gap-3 h-10">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="grid place-items-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700/60 shadow-xs shrink-0">
                 <Sparkles size={16} className="text-blue-500 dark:text-blue-300" />
               </span>
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400 font-extrabold">TuDo</div>
-                <div className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400 font-extrabold leading-none">TUDO</div>
+                <div className="text-[14px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight mt-0.5 truncate">
                   {view === 'goals'
                     ? 'Goals Blueprint'
                     : view === 'calendar'
                       ? 'Calendar Schedule'
-                      : new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                      : new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums font-bold">
-                {view === 'goals'
-                  ? `${goals.length} goal${goals.length !== 1 ? 's' : ''}`
-                  : view === 'calendar'
-                    ? `${tasks.filter((t) => t.targetDate).length} planned`
-                    : `${todayDone}/${todayCount} today`}
-              </span>
-              <ProgressRing percent={completionPct} accent={ACCENT} dark={dark} />
-            </div>
+
+            {/* Today Progress Indicator — ONLY on 'tasks' tab! */}
+            {view === 'tasks' ? (
+              <div className="flex items-center gap-2.5 shrink-0">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums font-bold">
+                  {todayDone}/{todayCount}
+                </span>
+                <ProgressRing percent={todayProgress} accent={ACCENT} dark={dark} />
+              </div>
+            ) : (
+              <div className="shrink-0 text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
+                {view === 'goals' ? `${goals.length} goals` : `${tasks.filter((t) => t.targetDate).length} planned`}
+              </div>
+            )}
           </div>
 
-          {/* Animated Progress Bar */}
-          <div className="card p-3 space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-bold">
-              <span className="text-slate-600 dark:text-slate-300">Today's Execution</span>
-              <span className="text-blue-500 dark:text-blue-400 tabular-nums">{completionPct}% Completed</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-700 ease-out shadow-sm shadow-blue-500/30"
-                style={{ width: `${completionPct}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Dynamic Rotating Motivational Quote Card */}
-          <div
-            onClick={() => setQuoteIdx((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length)}
-            className="card p-2.5 cursor-pointer hover:border-blue-400/40 transition-all active:scale-[0.99] group"
-            title="Tap to cycle motivational quote"
-          >
-            <div className="flex items-start gap-2.5">
-              <Quote size={13} className="text-blue-500 dark:text-blue-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200 leading-snug">
-                  "{currentQuote.text}"
-                </p>
-                <p className="mt-0.5 text-[9.5px] font-bold tracking-wide uppercase text-blue-600 dark:text-blue-400">
-                  — {currentQuote.author}
-                </p>
+          {/* Row 2: Random Quote & Progress Bar (Tab Isolated) */}
+          {view === 'tasks' ? (
+            <div className="card h-11 px-3 py-1.5 flex items-center justify-between gap-3 border border-white/10 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Quote size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
+                <span className="text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200 truncate leading-none">
+                  "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[10px]"> — {randomQuote.author}</span>
+                </span>
+              </div>
+              <div className="w-20 shrink-0 space-y-0.5">
+                <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-500 dark:text-slate-400">
+                  <span>Today</span>
+                  <span className="text-blue-500 dark:text-blue-400 tabular-nums">{todayProgress}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-500 ease-out"
+                    style={{ width: `${todayProgress}%` }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="card h-11 px-3 py-1.5 flex items-center gap-2 border border-white/10 overflow-hidden">
+              <Quote size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
+              <span className="text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200 truncate leading-none">
+                "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[10px]"> — {randomQuote.author}</span>
+              </span>
+            </div>
+          )}
         </header>
 
         {/* Main View Area */}
