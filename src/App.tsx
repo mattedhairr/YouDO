@@ -61,7 +61,8 @@ function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
         return true;
       }
     }
-    if (el.getAttribute && el.getAttribute('draggable') === 'true') return true;
+    // NOTE: Do NOT bail on draggable elements — drag uses dragstart, not touchstart.
+    // Bailing here would block swipe navigation over every goal card.
     if (el.classList) {
       if (el.classList.contains('no-swipe') || el.classList.contains('glass-nav') || el.classList.contains('dragging-card')) {
         return true;

@@ -289,14 +289,16 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
             >
               {/* Header Row */}
               <div className="flex items-start gap-2.5">
-                {/* Batch select checkbox */}
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleSelect(child.id)}
-                  className="mt-1 w-4 h-4 rounded accent-blue-500 cursor-pointer shrink-0"
-                  title="Select for batch operations"
-                />
+                {/* Batch select checkbox — Tasks, Sub-tasks & Leaves only */}
+                {isTaskKind && (
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(child.id)}
+                    className="mt-1 w-4 h-4 rounded accent-blue-500 cursor-pointer shrink-0"
+                    title="Select for batch operations"
+                  />
+                )}
 
                 {/* Title + meta */}
                 <div
