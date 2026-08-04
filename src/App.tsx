@@ -3,7 +3,6 @@ import { ListChecks, Plus, Quote, Sparkles } from 'lucide-react';
 import type { GoalNode, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { isToday, pathTitles, useStore } from './store';
-import ProgressRing from './components/ProgressRing';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
@@ -360,7 +359,8 @@ function AppInner() {
         onTouchEnd={onTouchEnd}
       >
         {/* Strict Fixed-Height Top Header */}
-        <header className="pt-3 pb-2 h-[106px] overflow-hidden flex flex-col justify-between shrink-0">
+        <header className="pt-3 pb-2 space-y-2 shrink-0 overflow-hidden">
+          {/* Logo & Date Row */}
           <div className="flex items-center justify-between gap-3 h-10">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="grid place-items-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700/60 shadow-xs shrink-0">
@@ -377,52 +377,35 @@ function AppInner() {
                 </div>
               </div>
             </div>
-
-            {/* Today Progress Indicator — ONLY on 'tasks' tab! */}
-            {view === 'tasks' ? (
-              <div className="flex items-center gap-2.5 shrink-0">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums font-bold">
-                  {todayDone}/{todayCount}
-                </span>
-                <ProgressRing percent={todayProgress} accent={ACCENT} dark={dark} />
-              </div>
-            ) : (
-              <div className="shrink-0 text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
-                {view === 'goals' ? `${goals.length} goals` : `${tasks.filter((t) => t.targetDate).length} planned`}
-              </div>
-            )}
           </div>
 
-          {/* Row 2: Random Quote & Progress Bar (Tab Isolated) */}
-          {view === 'tasks' ? (
-            <div className="card h-11 px-3 py-1.5 flex items-center justify-between gap-3 border border-white/10 overflow-hidden">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <Quote size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
-                <span className="text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200 truncate leading-none">
-                  "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[10px]"> — {randomQuote.author}</span>
+          {/* Unified Linear Glass Progress Bar (Today Tab ONLY) */}
+          {view === 'tasks' && (
+            <div className="card p-2.5 space-y-1.5 border border-white/10">
+              <div className="flex items-center justify-between text-[11px] font-bold">
+                <span className="text-slate-600 dark:text-slate-300">Today's Execution</span>
+                <span className="text-blue-500 dark:text-blue-400 tabular-nums">
+                  {todayDone}/{todayCount} tasks • {todayProgress}%
                 </span>
               </div>
-              <div className="w-20 shrink-0 space-y-0.5">
-                <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-500 dark:text-slate-400">
-                  <span>Today</span>
-                  <span className="text-blue-500 dark:text-blue-400 tabular-nums">{todayProgress}%</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-500 ease-out"
-                    style={{ width: `${todayProgress}%` }}
-                  />
-                </div>
+              <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-500 ease-out shadow-sm shadow-blue-500/30"
+                  style={{ width: `${todayProgress}%` }}
+                />
               </div>
             </div>
-          ) : (
-            <div className="card h-11 px-3 py-1.5 flex items-center gap-2 border border-white/10 overflow-hidden">
-              <Quote size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
-              <span className="text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200 truncate leading-none">
-                "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[10px]"> — {randomQuote.author}</span>
-              </span>
-            </div>
           )}
+
+          {/* Marquee Ticker Quote Display */}
+          <div className="card h-9 px-3 flex items-center gap-2 border border-white/10 overflow-hidden">
+            <Quote size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
+            <div className="marquee-container flex-1">
+              <div className="marquee-content text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200">
+                "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[10px] ml-2">— {randomQuote.author}</span>
+              </div>
+            </div>
+          </div>
         </header>
 
         {/* Main View Area */}
