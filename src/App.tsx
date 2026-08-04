@@ -427,7 +427,7 @@ function AppInner() {
               </div>
               <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-500 ease-out shadow-sm shadow-blue-500/30"
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 progress-bar-fill shadow-sm shadow-blue-500/30"
                   style={{ width: `${todayProgress}%` }}
                 />
               </div>
@@ -556,7 +556,7 @@ function AppInner() {
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="card p-10 text-center fade-in dark:bg-slate-800 dark:border-slate-700">
-      <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700">
+      <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700 animate-float">
         <ListChecks size={26} className="text-slate-400 dark:text-slate-500" />
       </div>
       <h3 className="mt-4 text-base font-semibold text-slate-700 dark:text-slate-200">No tasks today</h3>

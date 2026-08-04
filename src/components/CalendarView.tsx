@@ -164,7 +164,7 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
                 <div
                   key={t.id}
                   onClick={() => !complete && advance(t.id)}
-                  className={`card p-3.5 cursor-pointer transition-all hover:border-blue-300 dark:hover:border-blue-400/50 ${complete ? 'opacity-60' : ''}`}
+                  className={`card p-3.5 cursor-pointer transition-all hover:border-blue-300 dark:hover:border-blue-400/50 ${complete ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30 animate-glow-pulse' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <h4 className={`flex-1 text-[13.5px] font-semibold ${complete ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{t.title}</h4>
@@ -197,9 +197,9 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
                       {t.steps.map((s, i) => (
                         <span
                           key={i}
-                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border transition-colors ${
+                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border transition-all ${
                             i < t.progress
-                              ? 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through'
+                              ? 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through animate-stamp'
                               : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'
                           }`}
                         >
@@ -210,7 +210,7 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
                   )}
 
                   <div className="mt-2.5 h-1 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                    <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${fillPct}%` }} />
+                    <div className="h-full rounded-full bg-blue-500 progress-bar-fill" style={{ width: `${fillPct}%` }} />
                   </div>
                 </div>
               );

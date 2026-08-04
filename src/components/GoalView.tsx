@@ -261,7 +261,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
           return (
             <div
               key={child.id}
-              className={`card p-3.5 transition-all fade-in ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${child.completed ? 'opacity-60' : ''}`}
+              className={`card p-3.5 transition-all fade-in ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${child.completed || pct === 100 ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30 animate-glow-pulse' : ''}`}
             >
               {/* Primary Header Row */}
               <div className="flex items-start gap-2.5">
@@ -310,7 +310,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
 
               {/* Progress Bar */}
               <div className="mt-2.5 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: meta.tint }} />
+                <div className="h-full rounded-full progress-bar-fill" style={{ width: `${pct}%`, background: meta.tint }} />
               </div>
 
               {/* Micro-step chips */}
@@ -320,9 +320,9 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                     <button
                       key={i}
                       onClick={(e) => { e.stopPropagation(); toggleGoalStep(child.id, i); }}
-                      className={`text-[10.5px] font-medium px-2 py-1 rounded-lg border transition-colors ${
+                      className={`text-[10.5px] font-medium px-2 py-1 rounded-lg border transition-all active:scale-95 ${
                         stepDone[i]
-                          ? 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through'
+                          ? 'bg-slate-100 dark:bg-slate-700/60 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through animate-stamp'
                           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-500'
                       }`}
                     >
@@ -475,7 +475,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
 
       {goals.length === 0 && (
         <div className="card p-10 text-center fade-in mt-4">
-          <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700/50">
+          <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700/50 animate-float">
             <Target size={26} className="text-slate-400" />
           </div>
           <h3 className="mt-4 text-base font-semibold text-slate-700 dark:text-slate-200">No goals yet</h3>

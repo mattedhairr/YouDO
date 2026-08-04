@@ -63,7 +63,7 @@ export default function TaskCard({
 
   return (
     <div
-      className={`card p-3.5 transition-all ${isDragging ? 'dragging-card' : ''} ${dragOver ? 'ring-2 ring-blue-400' : ''} ${complete ? 'opacity-60' : ''}`}
+      className={`card p-3.5 transition-all ${isDragging ? 'dragging-card' : ''} ${dragOver ? 'ring-2 ring-blue-400' : ''} ${complete ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30 animate-glow-pulse' : ''}`}
       onClick={() => !complete && onAdvance(task.id)}
       draggable
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', task.id); onDragStart(task.id); }}
@@ -93,7 +93,7 @@ export default function TaskCard({
           {task.steps.length > 0 && (
             <div className="mt-2 flex items-center gap-1.5 flex-wrap">
               {task.steps.map((s, i) => (
-                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded-md border transition-colors ${i < task.progress ? stepDoneBg : stepTodoBg}`}>
+                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded-md border transition-all ${i < task.progress ? `${stepDoneBg} animate-stamp` : stepTodoBg}`}>
                   {i < task.progress ? '✓' : `${i + 1}.`} {s}
                 </span>
               ))}
@@ -123,8 +123,9 @@ export default function TaskCard({
         </div>
       </div>
       <div className={`mt-3 h-1.5 rounded-full ${trackBg} overflow-hidden`}>
-        <div className={`h-full rounded-full transition-all duration-500 ${ps.bar}`} style={{ width: `${fillPct}%` }} />
+        <div className={`h-full rounded-full progress-bar-fill ${ps.bar}`} style={{ width: `${fillPct}%` }} />
       </div>
     </div>
+
   );
 }
