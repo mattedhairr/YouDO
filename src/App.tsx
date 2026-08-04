@@ -157,32 +157,68 @@ function AppInner() {
 
   const sortedTasks = useMemo(() => [...todayTasks].sort((a, b) => a.order - b.order), [todayTasks]);
 
-  const swipeState = useRef<{ startX: number; startY: number; startTime: number; tracking: boolean }>({
-    startX: 0, startY: 0, startTime: 0, tracking: false
+  const touchState = useRef<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    startTime: number;
+    isHorizontal: boolean | null;
+    tracking: boolean;
+  }>({
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0,
+    startTime: 0,
+    isHorizontal: null,
+    tracking: false,
   });
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    swipeState.current = {
-      startX: e.touches[0].clientX,
-      startY: e.touches[0].clientY,
+    if (sheetOpen || goalSheetOpen || settingsOpen || !!sliceNode) return;
+    const touch = e.touches[0];
+    touchState.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      currentX: touch.clientX,
+      currentY: touch.clientY,
       startTime: Date.now(),
+      isHorizontal: null,
       tracking: true,
     };
+  }, [sheetOpen, goalSheetOpen, settingsOpen, sliceNode]);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchState.current.tracking) return;
+    const touch = e.touches[0];
+    touchState.current.currentX = touch.clientX;
+    touchState.current.currentY = touch.clientY;
+
+    const dx = touch.clientX - touchState.current.startX;
+    const dy = touch.clientY - touchState.current.startY;
+
+    if (touchState.current.isHorizontal === null) {
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        touchState.current.isHorizontal = Math.abs(dx) > Math.abs(dy);
+      }
+    }
   }, []);
 
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!swipeState.current.tracking) return;
-    swipeState.current.tracking = false;
-    const dx = e.changedTouches[0].clientX - swipeState.current.startX;
-    const dy = e.changedTouches[0].clientY - swipeState.current.startY;
-    const dt = Date.now() - swipeState.current.startTime;
+  const onTouchEnd = useCallback((_e: React.TouchEvent) => {
+    if (!touchState.current.tracking) return;
+    touchState.current.tracking = false;
 
-    // Threshold checks for swipe gesture
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.85 || dt > 450) return;
+    const dx = touchState.current.currentX - touchState.current.startX;
+    const dy = touchState.current.currentY - touchState.current.startY;
+    const dt = Date.now() - touchState.current.startTime;
 
-    // If deep in goal tree, swiping right goes back up one level in history
+    // Mobile swipe sensitivity threshold (30px distance, 750ms duration)
+    if (Math.abs(dx) < 30 || Math.abs(dy) > Math.abs(dx) * 1.1 || dt > 750) return;
+
+    // Deep tree swipe-right back navigation
     if (view === 'goals' && goalPathIds.length > 0) {
-      if (dx > 0) {
+      if (dx > 30) {
         window.history.back();
       }
       return;
@@ -190,9 +226,9 @@ function AppInner() {
 
     // Top view tab swiping
     const currentIdx = tabs.indexOf(view);
-    if (dx < 0 && currentIdx < tabs.length - 1) {
+    if (dx < -30 && currentIdx < tabs.length - 1) {
       handleNavigateTab(tabs[currentIdx + 1]);
-    } else if (dx > 0 && currentIdx > 0) {
+    } else if (dx > 30 && currentIdx > 0) {
       handleNavigateTab(tabs[currentIdx - 1]);
     }
   }, [view, goalPathIds, tabs, handleNavigateTab]);
@@ -227,7 +263,12 @@ function AppInner() {
         <div className={`absolute -bottom-32 left-1/4 w-96 h-96 rounded-full blur-3xl transition-opacity duration-700 ${dark ? 'bg-purple-600/15 opacity-100' : 'bg-purple-400/10 opacity-70'}`} />
       </div>
 
-      <div className="relative z-10 min-h-screen w-full max-w-md mx-auto px-4 pb-28">
+      <div
+        className="relative z-10 min-h-screen w-full max-w-md mx-auto px-4 pb-28"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         {/* Header */}
         <header className="flex items-center justify-between gap-3 pt-4 pb-1">
           <div className="flex items-center gap-2.5">
@@ -258,7 +299,7 @@ function AppInner() {
         </header>
 
         {/* Main View Area */}
-        <main className="mt-3 overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <main className="mt-3 overflow-hidden">
           <div
             key={`${view}-${goalPathIds.join('-')}`}
             className={
