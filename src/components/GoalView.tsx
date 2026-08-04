@@ -141,7 +141,11 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
   };
 
   const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
-    setPathIds(p.path.map((n) => n.id));
+    // Navigate to the pinned item's PARENT level so the item is visible in the list.
+    // This means one swipe/back returns straight to root instead of climbing every ancestor.
+    // p.path = [...ancestors, pinnedNode] — drop the last element to land at the parent.
+    const parentPath = p.path.slice(0, -1);
+    setPathIds(parentPath.map((n) => n.id));
     setSelected(new Set());
   };
 
