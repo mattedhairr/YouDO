@@ -6,6 +6,7 @@ import { uid } from '../store';
 interface Props {
   open: boolean;
   parentId: string | null;
+  parentKind?: GoalKind;
   editing?: GoalNode | null;
   onClose: () => void;
   onAddRoot: (node: GoalNode) => void;
@@ -22,18 +23,28 @@ const kindOptions: { value: GoalKind; label: string }[] = [
   { value: 'leaf', label: 'Leaf' },
 ];
 
+function getDefaultChildKind(parentKind?: GoalKind): GoalKind {
+  if (parentKind === 'goal') return 'phase';
+  if (parentKind === 'phase') return 'section';
+  if (parentKind === 'section') return 'task';
+  if (parentKind === 'task') return 'sub';
+  if (parentKind === 'sub') return 'leaf';
+  return 'phase';
+}
+
 export default function AddGoalSheet({
-  open, parentId, editing, onClose, onAddRoot, onAddChild, onUpdateNode, onDeleteNode,
+  open, parentId, parentKind, editing, onClose, onAddRoot, onAddChild, onUpdateNode, onDeleteNode,
 }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [kind, setKind] = useState<GoalKind>('leaf');
+  const [kind, setKind] = useState<GoalKind>('goal');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [steps, setSteps] = useState<string[]>(['']);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const isEditing = !!editing;
+  const isRootGoal = !editing && !parentId;
 
   useEffect(() => {
     if (!open) return;
@@ -47,19 +58,21 @@ export default function AddGoalSheet({
     } else {
       setTitle('');
       setDescription('');
-      setKind(parentId ? 'leaf' : 'goal');
+      setKind(parentId ? getDefaultChildKind(parentKind) : 'goal');
       setStartDate('');
       setEndDate('');
       setSteps(['']);
     }
     setTimeout(() => titleRef.current?.focus(), 120);
-  }, [open, parentId, editing]);
+  }, [open, parentId, parentKind, editing]);
 
   if (!open) return null;
 
   const submit = () => {
     if (!title.trim()) return;
     const cleanSteps = steps.map((s) => s.trim()).filter(Boolean);
+    const finalKind = isEditing ? kind : (parentId ? kind : 'goal');
+
     if (isEditing && editing) {
       const prevStepDone = editing.stepDone ?? [];
       const newStepDone = cleanSteps.map((_, i) => prevStepDone[i] ?? false);
@@ -67,23 +80,23 @@ export default function AddGoalSheet({
         ...n,
         title: title.trim(),
         description: description.trim() || undefined,
-        kind: isEditing ? kind : (parentId ? kind : 'goal'),
+        kind: finalKind,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        steps: kind === 'leaf' ? cleanSteps : n.steps,
-        stepDone: kind === 'leaf' ? newStepDone : n.stepDone,
-        completed: kind === 'leaf' && cleanSteps.length > 0 ? newStepDone.every(Boolean) : n.completed,
+        steps: finalKind === 'leaf' ? cleanSteps : n.steps,
+        stepDone: finalKind === 'leaf' ? newStepDone : n.stepDone,
+        completed: finalKind === 'leaf' && cleanSteps.length > 0 ? newStepDone.every(Boolean) : n.completed,
       }));
     } else {
       const node: GoalNode = {
         id: uid('goal'),
-        kind: parentId ? kind : 'goal',
+        kind: finalKind,
         title: title.trim(),
         description: description.trim() || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        steps: kind === 'leaf' ? cleanSteps : undefined,
-        stepDone: kind === 'leaf' ? cleanSteps.map(() => false) : undefined,
+        steps: finalKind === 'leaf' ? cleanSteps : undefined,
+        stepDone: finalKind === 'leaf' ? cleanSteps.map(() => false) : undefined,
         completed: false,
         createdAt: Date.now(),
         children: [],
@@ -94,13 +107,20 @@ export default function AddGoalSheet({
     onClose();
   };
 
+  const getHeaderTitle = () => {
+    if (isEditing) return `Edit ${editing?.kind === 'goal' ? 'Goal' : 'Node'}`;
+    if (isRootGoal) return 'New Goal';
+    const currentKindLabel = kindOptions.find((k) => k.value === kind)?.label ?? 'Node';
+    return `Add ${currentKindLabel}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="sheet-up relative w-full max-w-md bg-white dark:bg-slate-800 rounded-t-3xl p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-            {isEditing ? 'Edit Node' : parentId ? 'Add Node' : 'New Goal'}
+            {getHeaderTitle()}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
             <X size={18} />
@@ -109,13 +129,15 @@ export default function AddGoalSheet({
 
         <div className="space-y-4">
           <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Title</label>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+              {isRootGoal ? 'Goal Title' : 'Title'}
+            </label>
             <input
               ref={titleRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
-              placeholder="e.g. Chapter 2: Calculus"
+              placeholder={isRootGoal ? 'e.g. Competitive Exam Prep' : 'e.g. Core Syllabus Module'}
               className="mt-1 w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-slate-600 transition-colors"
             />
           </div>
@@ -131,7 +153,8 @@ export default function AddGoalSheet({
             />
           </div>
 
-          {(parentId || isEditing) && (
+          {/* Node Type Selector: Only shown when adding a child or editing a child node */}
+          {!isRootGoal && (editing?.kind !== 'goal') && (
             <div>
               <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Node type</label>
               <div className="mt-1.5 grid grid-cols-5 gap-1.5">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListChecks, Plus, Quote } from 'lucide-react';
-import type { GoalNode, View } from './types';
+import type { GoalKind, GoalNode, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { isTaskComplete, isToday, pathTitles, useStore } from './store';
@@ -108,6 +108,7 @@ function AppInner() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalSheetOpen, setGoalSheetOpen] = useState(false);
   const [goalParentId, setGoalParentId] = useState<string | null>(null);
+  const [goalParentKind, setGoalParentKind] = useState<GoalKind | undefined>(undefined);
   const [editingNode, setEditingNode] = useState<GoalNode | null>(null);
   const [sliceNode, setSliceNode] = useState<GoalNode | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -162,10 +163,11 @@ function AppInner() {
     setSheetOpen(true);
   };
 
-  const openAddGoal = (parentId: string | null) => {
+  const openAddGoal = (parentId: string | null, parentKind?: GoalKind) => {
     pushModalState();
     setEditingNode(null);
     setGoalParentId(parentId);
+    setGoalParentKind(parentKind);
     setGoalSheetOpen(true);
   };
 
@@ -513,6 +515,7 @@ function AppInner() {
       <AddGoalSheet
         open={goalSheetOpen}
         parentId={goalParentId}
+        parentKind={goalParentKind}
         editing={editingNode}
         onClose={closeGoalSheet}
         onAddRoot={addGoalRoot}

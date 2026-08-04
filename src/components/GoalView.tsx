@@ -53,7 +53,7 @@ interface Props {
   accent: string;
   pathIds: string[];
   setPathIds: (ids: string[]) => void;
-  onAddChild: (parentId: string | null) => void;
+  onAddChild: (parentId: string | null, parentKind?: GoalKind) => void;
   onEditNode: (node: GoalNode) => void;
   onPushNode: (node: GoalNode) => void;
   onUnplan: (taskId: string) => void;
@@ -251,7 +251,9 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
         {children.map((child) => {
           const meta = kindMeta[child.kind];
           const Icon = meta.icon;
-          // Any childless node is considered leaf-like and can be dispatched
+          // Any container node (goal, phase, section, task, sub) can be drilled into
+          const canDrill = child.kind !== 'leaf';
+          // Any childless node is considered leaf-like and can be dispatched to Today
           const isLeafLike = child.children.length === 0;
           const hasSteps = !!child.steps && child.steps.length > 0;
           const stepDone = child.stepDone ?? [];
@@ -274,8 +276,8 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   />
                 )}
                 <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => !isLeafLike && drillInto(child)}
+                  className={`flex-1 min-w-0 ${canDrill ? 'cursor-pointer' : ''}`}
+                  onClick={() => canDrill && drillInto(child)}
                 >
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
@@ -297,10 +299,11 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                 </div>
                 <div className="shrink-0 flex items-center gap-1.5">
                   <span className="text-[13px] font-bold tabular-nums text-slate-600 dark:text-slate-300">{pct}%</span>
-                  {!isLeafLike && (
+                  {canDrill && (
                     <button
                       onClick={() => drillInto(child)}
                       className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      title={`Open ${meta.label}`}
                     >
                       <ChevronRight size={18} />
                     </button>
@@ -394,7 +397,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
       </div>
 
       <button
-        onClick={() => onAddChild(current?.id ?? null)}
+        onClick={() => onAddChild(current?.id ?? null, current?.kind)}
         className="mt-4 w-full py-3 rounded-2xl text-sm font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 hover:border-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors flex items-center justify-center gap-1.5"
       >
         <Plus size={15} />
