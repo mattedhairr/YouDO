@@ -234,6 +234,28 @@ export function isTaskComplete(task: { steps: string[]; progress: number }): boo
   return task.steps.length > 0 && task.progress >= task.steps.length;
 }
 
+export function reorderNodesArray(nodes: GoalNode[], fromId: string, toId: string): GoalNode[] {
+  const fromIdx = nodes.findIndex((n) => n.id === fromId);
+  const toIdx = nodes.findIndex((n) => n.id === toId);
+  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return nodes;
+  const result = [...nodes];
+  const [removed] = result.splice(fromIdx, 1);
+  result.splice(toIdx, 0, removed);
+  return result;
+}
+
+export function moveNodeInArray(nodes: GoalNode[], id: string, direction: 'up' | 'down'): GoalNode[] {
+  const idx = nodes.findIndex((n) => n.id === id);
+  if (idx === -1) return nodes;
+  const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= nodes.length) return nodes;
+  const result = [...nodes];
+  const temp = result[idx];
+  result[idx] = result[targetIdx];
+  result[targetIdx] = temp;
+  return result;
+}
+
 interface Store {
   tasks: Task[];
   goals: GoalNode[];
@@ -250,6 +272,12 @@ interface Store {
   deleteGoalNode: (rootId: string, nodeId: string) => void;
   /** Delete multiple goal nodes at once */
   deleteGoalNodes: (nodeIds: string[]) => void;
+  /** Reorder goal nodes at any level */
+  reorderGoalNodes: (parentId: string | null, fromId: string, toId: string) => void;
+  /** Move a goal node up or down */
+  moveGoalNode: (parentId: string | null, nodeId: string, direction: 'up' | 'down') => void;
+  /** Toggle completed status of any goal node (goal, phase, section, task, sub, leaf) */
+  toggleNodeCompletion: (nodeId: string) => void;
 
   /** Plan a goal leaf to a specific date, optionally with a step slice */
   planTask: (nodeId: string, targetDate: string, stepSlice?: number[]) => void;
@@ -603,6 +631,81 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setGoals],
   );
 
+  const reorderGoalNodes = useCallback(
+    (parentId: string | null, fromId: string, toId: string) => {
+      if (parentId === null) {
+        setGoals((prev) => reorderNodesArray(prev, fromId, toId));
+      } else {
+        setGoals((prev) =>
+          prev.map((root) =>
+            updateNode(root, parentId, (n) => ({
+              ...n,
+              children: reorderNodesArray(n.children, fromId, toId),
+            })),
+          ),
+        );
+      }
+    },
+    [setGoals],
+  );
+
+  const moveGoalNode = useCallback(
+    (parentId: string | null, nodeId: string, direction: 'up' | 'down') => {
+      if (parentId === null) {
+        setGoals((prev) => moveNodeInArray(prev, nodeId, direction));
+      } else {
+        setGoals((prev) =>
+          prev.map((root) =>
+            updateNode(root, parentId, (n) => ({
+              ...n,
+              children: moveNodeInArray(n.children, nodeId, direction),
+            })),
+          ),
+        );
+      }
+    },
+    [setGoals],
+  );
+
+  const toggleNodeCompletion = useCallback(
+    (nodeId: string) => {
+      const node = findGoal(goalsRef.current, nodeId);
+      if (!node) return;
+
+      const nextCompleted = !node.completed;
+
+      const setCompletedTree = (n: GoalNode, isDone: boolean): GoalNode => {
+        const steps = n.steps ?? [];
+        const stepDone = steps.map(() => isDone);
+        return {
+          ...n,
+          completed: isDone,
+          stepDone: steps.length > 0 ? stepDone : n.stepDone,
+          children: n.children.map((child) => setCompletedTree(child, isDone)),
+        };
+      };
+
+      setGoals((prev) =>
+        prev.map((root) =>
+          updateNode(root, nodeId, (target) => setCompletedTree(target, nextCompleted)),
+        ),
+      );
+
+      if (node.todayTaskId) {
+        setTasks((prev) =>
+          prev.map((t) => {
+            if (t.id === node.todayTaskId) {
+              const maxProgress = t.steps.length > 0 ? t.steps.length : 1;
+              return { ...t, progress: nextCompleted ? maxProgress : 0 };
+            }
+            return t;
+          }),
+        );
+      }
+    },
+    [setGoals, setTasks],
+  );
+
   const [clipboard, setClipboard] = useState<GoalNode[]>([]);
 
   const copyGoalNode = useCallback(
@@ -732,12 +835,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode,
+      reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
       exportBackup, importBackup,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
+      reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
       exportBackup, importBackup],

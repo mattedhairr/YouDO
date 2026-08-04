@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
   ChevronRight,
+  Circle,
   CircleDot,
   Clipboard,
   Copy,
@@ -75,8 +79,10 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
 };
 
 export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onCopyMany, onDeleteMany, onPaste, onCancelPaste, clipboard }: Props) {
-  const { goals, planBatch, toggleGoalStep, togglePin } = useStore();
+  const { goals, planBatch, toggleGoalStep, togglePin, reorderGoalNodes, moveGoalNode, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const current = useMemo(() => {
     if (pathIds.length === 0) return null;
@@ -248,7 +254,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
 
       {/* Children list */}
       <div className="space-y-2.5">
-        {children.map((child) => {
+        {children.map((child, childIdx) => {
           const meta = kindMeta[child.kind];
           const Icon = meta.icon;
           // Any container node (goal, phase, section, task, sub) can be drilled into
@@ -263,25 +269,57 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
           return (
             <div
               key={child.id}
-              className={`card p-3.5 transition-all fade-in ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${child.completed || pct === 100 ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30 animate-glow-pulse' : ''}`}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', child.id);
+                setDragId(child.id);
+              }}
+              onDragEnter={() => setOverId(child.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnd={() => {
+                if (dragId && overId && dragId !== overId) {
+                  reorderGoalNodes(current ? current.id : null, dragId, overId);
+                }
+                setDragId(null);
+                setOverId(null);
+              }}
+              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01]' : ''} ${child.completed || pct === 100 ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30 animate-glow-pulse' : ''}`}
             >
               {/* Primary Header Row */}
-              <div className="flex items-start gap-2.5">
-                {!child.completed && (
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleSelect(child.id)}
-                    className="mt-0.5 w-4 h-4 rounded accent-blue-500 cursor-pointer shrink-0"
-                  />
-                )}
+              <div className="flex items-start gap-2">
+                {/* Batch multi-select checkbox */}
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleSelect(child.id)}
+                  className="mt-1 w-4 h-4 rounded accent-blue-500 cursor-pointer shrink-0"
+                  title="Select for batch operations"
+                />
+
+                {/* Instant Completion Check Circle */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleNodeCompletion(child.id);
+                  }}
+                  className="mt-0.5 shrink-0 p-0.5 hover:scale-110 transition-transform cursor-pointer"
+                  title={child.completed || pct === 100 ? 'Mark as incomplete' : 'Mark as complete'}
+                >
+                  {child.completed || pct === 100 ? (
+                    <CheckCircle2 size={19} className="text-emerald-500 fill-emerald-500/20" />
+                  ) : (
+                    <Circle size={19} className="text-slate-300 dark:text-slate-600 hover:text-emerald-500 transition-colors" />
+                  )}
+                </button>
+
                 <div
                   className={`flex-1 min-w-0 ${canDrill ? 'cursor-pointer' : ''}`}
                   onClick={() => canDrill && drillInto(child)}
                 >
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
-                    <h3 className={`text-[14px] font-semibold leading-snug break-words ${child.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                    <h3 className={`text-[14px] font-semibold leading-snug break-words ${child.completed || pct === 100 ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
                       {child.title}
                     </h3>
                     {child.pinned && <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />}
@@ -359,37 +397,73 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   >
                     <Copy size={14} />
                   </button>
+
+                  {/* Rearrange Up / Down Buttons */}
+                  <div className="flex items-center gap-0.5 border-l border-slate-200/60 dark:border-slate-700/60 pl-1.5 ml-0.5">
+                    <button
+                      onClick={() => moveGoalNode(current ? current.id : null, child.id, 'up')}
+                      disabled={childIdx === 0}
+                      className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                      title="Move up"
+                    >
+                      <ArrowUp size={13} />
+                    </button>
+                    <button
+                      onClick={() => moveGoalNode(current ? current.id : null, child.id, 'down')}
+                      disabled={childIdx === children.length - 1}
+                      className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                      title="Move down"
+                    >
+                      <ArrowDown size={13} />
+                    </button>
+                  </div>
                 </div>
 
-                {isLeafLike && !child.completed && (
-                  <div className="flex items-center gap-1.5">
-                    {child.todayTaskId ? (
-                      <>
+                <div className="flex items-center gap-1.5">
+                  {/* Mark Complete / Pending button */}
+                  <button
+                    onClick={() => toggleNodeCompletion(child.id)}
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl border transition-all ${
+                      child.completed || pct === 100
+                        ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-emerald-400'
+                    }`}
+                    title={child.completed ? 'Mark as incomplete' : 'Mark as complete'}
+                  >
+                    <CheckCircle2 size={12} className={child.completed || pct === 100 ? 'text-emerald-500 fill-emerald-500/20' : 'text-slate-400'} />
+                    {child.completed || pct === 100 ? 'Done' : 'Mark Done'}
+                  </button>
+
+                  {isLeafLike && !child.completed && (
+                    <>
+                      {child.todayTaskId ? (
+                        <>
+                          <button
+                            onClick={() => onPushNode(child)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all"
+                            title="Replan (choose date & steps)"
+                          >
+                            <Zap size={12} /> Replan
+                          </button>
+                          <button
+                            onClick={() => child.todayTaskId && onUnplan(child.todayTaskId)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 transition-all"
+                            title="Unschedule"
+                          >
+                            <Unlink size={12} /> Unplan
+                          </button>
+                        </>
+                      ) : (
                         <button
                           onClick={() => onPushNode(child)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all"
-                          title="Replan (choose date & steps)"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-95"
                         >
-                          <Zap size={12} /> Replan
+                          <Zap size={12} /> Schedule
                         </button>
-                        <button
-                          onClick={() => child.todayTaskId && onUnplan(child.todayTaskId)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800 transition-all"
-                          title="Unschedule"
-                        >
-                          <Unlink size={12} /> Unplan
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => onPushNode(child)}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-all active:scale-95"
-                      >
-                        <Zap size={12} /> Schedule
-                      </button>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           );
