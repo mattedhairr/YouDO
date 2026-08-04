@@ -259,6 +259,8 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
           const Icon = meta.icon;
           // Any container node (goal, phase, section, task, sub) can be drilled into
           const canDrill = child.kind !== 'leaf';
+          // Executable nodes that can be directly completed
+          const isTaskKind = child.kind === 'task' || child.kind === 'sub' || child.kind === 'leaf';
           // Any childless node is considered leaf-like and can be dispatched to Today
           const isLeafLike = child.children.length === 0;
           const hasSteps = !!child.steps && child.steps.length > 0;
@@ -296,22 +298,24 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   title="Select for batch operations"
                 />
 
-                {/* Instant Completion Check Circle */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleNodeCompletion(child.id);
-                  }}
-                  className="mt-0.5 shrink-0 p-0.5 hover:scale-110 transition-transform cursor-pointer"
-                  title={child.completed || pct === 100 ? 'Mark as incomplete' : 'Mark as complete'}
-                >
-                  {child.completed || pct === 100 ? (
-                    <CheckCircle2 size={19} className="text-emerald-500 fill-emerald-500/20" />
-                  ) : (
-                    <Circle size={19} className="text-slate-300 dark:text-slate-600 hover:text-emerald-500 transition-colors" />
-                  )}
-                </button>
+                {/* Instant Completion Check Circle — Tasks, Sub-tasks & Leaves ONLY */}
+                {isTaskKind && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleNodeCompletion(child.id);
+                    }}
+                    className="mt-0.5 shrink-0 p-0.5 hover:scale-110 transition-transform cursor-pointer"
+                    title={child.completed || pct === 100 ? 'Mark as incomplete' : 'Mark as done'}
+                  >
+                    {child.completed || pct === 100 ? (
+                      <CheckCircle2 size={19} className="text-emerald-500 fill-emerald-500/20" />
+                    ) : (
+                      <Circle size={19} className="text-slate-300 dark:text-slate-600 hover:text-emerald-500 transition-colors" />
+                    )}
+                  </button>
+                )}
 
                 <div
                   className={`flex-1 min-w-0 ${canDrill ? 'cursor-pointer' : ''}`}
@@ -420,19 +424,21 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  {/* Mark Complete / Pending button */}
-                  <button
-                    onClick={() => toggleNodeCompletion(child.id)}
-                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl border transition-all ${
-                      child.completed || pct === 100
-                        ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                        : 'bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-emerald-400'
-                    }`}
-                    title={child.completed ? 'Mark as incomplete' : 'Mark as complete'}
-                  >
-                    <CheckCircle2 size={12} className={child.completed || pct === 100 ? 'text-emerald-500 fill-emerald-500/20' : 'text-slate-400'} />
-                    {child.completed || pct === 100 ? 'Done' : 'Mark Done'}
-                  </button>
+                  {/* Done button — Tasks, Sub-tasks & Leaves ONLY */}
+                  {isTaskKind && (
+                    <button
+                      onClick={() => toggleNodeCompletion(child.id)}
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl border transition-all ${
+                        child.completed || pct === 100
+                          ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                          : 'bg-slate-50 dark:bg-slate-700/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-emerald-400'
+                      }`}
+                      title={child.completed || pct === 100 ? 'Mark as incomplete' : 'Mark as done'}
+                    >
+                      <CheckCircle2 size={12} className={child.completed || pct === 100 ? 'text-emerald-500 fill-emerald-500/20' : 'text-slate-400'} />
+                      <span>Done</span>
+                    </button>
+                  )}
 
                   {isLeafLike && !child.completed && (
                     <>
