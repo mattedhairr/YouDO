@@ -19,7 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
-import { countLeaves, countCompletedLeaves, findNode, rollupPct, useStore } from '../store';
+import { countDirectChildren, countCompletedDirectChildren, findNode, rollupPct, useStore } from '../store';
 
 function findGoalInTree(id: string, nodes: GoalNode[]): GoalNode | undefined {
   for (const n of nodes) {
@@ -218,7 +218,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
               {current.description && <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400">{current.description}</p>}
               <div className="mt-1.5 flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-400">
                 <span style={{ color: kindMeta[current.kind].tint }}>{kindMeta[current.kind].label}</span>
-                <span>{countCompletedLeaves(current)}/{countLeaves(current)} done</span>
+                <span>{countCompletedDirectChildren(current)}/{countDirectChildren(current)} done</span>
                 {current.startDate && <span>· {fmtShort(current.startDate)}</span>}
                 {current.endDate && <span>→ {fmtShort(current.endDate)}</span>}
               </div>
@@ -289,7 +289,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-400">
                     <span style={{ color: meta.tint }} className="font-semibold">{meta.label}</span>
-                    {!isLeaf && <span>· {countLeaves(child)} items</span>}
+                    {!isLeaf && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
                     {isLeaf && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
                   </div>
                 </div>

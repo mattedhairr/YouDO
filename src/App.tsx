@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ListChecks, Plus, Sparkles } from 'lucide-react';
+import { ListChecks, Plus, Quote, Sparkles } from 'lucide-react';
 import type { GoalNode, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { isToday, pathTitles, useStore } from './store';
@@ -14,6 +14,13 @@ import StepSliceSheet from './components/StepSliceSheet';
 import CalendarView from './components/CalendarView';
 
 const ACCENT = '#3b82f6';
+
+const MOTIVATIONAL_QUOTES = [
+  { text: "Giving up is not in the blood sir... not in the blood", author: "Nimsdai Purja" },
+  { text: "It's not about being the best. It's about being better than you were yesterday.", author: "Unknown" },
+  { text: "Discipline equals freedom.", author: "Jocko Willink" },
+  { text: "You must do the thing you think you cannot do.", author: "Eleanor Roosevelt" },
+];
 
 function parseNavigationState(): { initialView: View; initialPathIds: string[] } {
   try {
@@ -131,6 +138,16 @@ function AppInner() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const isNavigatingHistory = useRef(false);
+  const [quoteIdx, setQuoteIdx] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setQuoteIdx((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentQuote = MOTIVATIONAL_QUOTES[quoteIdx];
 
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
 
@@ -345,31 +362,66 @@ function AppInner() {
         onTouchEnd={onTouchEnd}
       >
         {/* Header */}
-        <header className="flex items-center justify-between gap-3 pt-4 pb-1">
-          <div className="flex items-center gap-2.5">
-            <span className="grid place-items-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800">
-              <Sparkles size={16} className="text-blue-500 dark:text-blue-300" />
-            </span>
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400 dark:text-slate-400 leading-none font-bold">TuDo</div>
-              <div className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">
-                {view === 'goals'
-                  ? 'Goals'
-                  : view === 'calendar'
-                    ? 'Calendar'
-                    : new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+        <header className="pt-4 pb-2 space-y-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="grid place-items-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700/60 shadow-xs">
+                <Sparkles size={16} className="text-blue-500 dark:text-blue-300" />
+              </span>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400 font-extrabold">TuDo</div>
+                <div className="text-[15px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">
+                  {view === 'goals'
+                    ? 'Goals Blueprint'
+                    : view === 'calendar'
+                      ? 'Calendar Schedule'
+                      : new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                </div>
               </div>
             </div>
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums font-bold">
+                {view === 'goals'
+                  ? `${goals.length} goal${goals.length !== 1 ? 's' : ''}`
+                  : view === 'calendar'
+                    ? `${tasks.filter((t) => t.targetDate).length} planned`
+                    : `${todayDone}/${todayCount} today`}
+              </span>
+              <ProgressRing percent={completionPct} accent={ACCENT} dark={dark} />
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums font-semibold">
-              {view === 'goals'
-                ? `${goals.length} goal${goals.length !== 1 ? 's' : ''}`
-                : view === 'calendar'
-                  ? `${tasks.filter((t) => t.targetDate).length} planned`
-                  : `${todayDone}/${todayCount} today`}
-            </span>
-            <ProgressRing percent={completionPct} accent={ACCENT} dark={dark} />
+
+          {/* Animated Progress Bar */}
+          <div className="card p-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="text-slate-600 dark:text-slate-300">Today's Execution</span>
+              <span className="text-blue-500 dark:text-blue-400 tabular-nums">{completionPct}% Completed</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-700 ease-out shadow-sm shadow-blue-500/30"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Dynamic Rotating Motivational Quote Card */}
+          <div
+            onClick={() => setQuoteIdx((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length)}
+            className="card p-2.5 cursor-pointer hover:border-blue-400/40 transition-all active:scale-[0.99] group"
+            title="Tap to cycle motivational quote"
+          >
+            <div className="flex items-start gap-2.5">
+              <Quote size={13} className="text-blue-500 dark:text-blue-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11.5px] italic font-medium text-slate-700 dark:text-slate-200 leading-snug">
+                  "{currentQuote.text}"
+                </p>
+                <p className="mt-0.5 text-[9.5px] font-bold tracking-wide uppercase text-blue-600 dark:text-blue-400">
+                  — {currentQuote.author}
+                </p>
+              </div>
+            </div>
           </div>
         </header>
 

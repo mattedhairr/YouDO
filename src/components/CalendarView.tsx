@@ -10,8 +10,11 @@ interface Props {
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function localISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export default function CalendarView({ tasks, onAddTask }: Props) {
@@ -20,7 +23,7 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
-  const [selectedDate, setSelectedDate] = useState<string | null>(isoDate(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string | null>(localISODate(new Date()));
 
   const tasksByDate = useMemo(() => {
     const map: Record<string, Task[]> = {};
@@ -37,7 +40,7 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayStr = isoDate(new Date());
+  const todayStr = localISODate(new Date());
 
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -73,7 +76,7 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
         <div className="grid grid-cols-7 gap-1">
           {cells.map((day, i) => {
             if (day === null) return <div key={i} />;
-            const dateStr = isoDate(new Date(year, month, day));
+            const dateStr = localISODate(new Date(year, month, day));
             const dayTasks = tasksByDate[dateStr] ?? [];
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selectedDate;

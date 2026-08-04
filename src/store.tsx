@@ -31,21 +31,39 @@ function todayISO(): string {
 
 /* ---------- Tree helpers ---------- */
 
-export function countLeaves(node: GoalNode): number {
-  if (node.children.length === 0) return 1;
-  return node.children.reduce((s, c) => s + countLeaves(c), 0);
+export function countDirectChildren(node: GoalNode): number {
+  if (node.children.length === 0) {
+    return node.steps && node.steps.length > 0 ? node.steps.length : 1;
+  }
+  return node.children.length;
 }
 
-export function countCompletedLeaves(node: GoalNode): number {
-  if (node.children.length === 0) return node.completed ? 1 : 0;
-  return node.children.reduce((s, c) => s + countCompletedLeaves(c), 0);
+export function countCompletedDirectChildren(node: GoalNode): number {
+  if (node.children.length === 0) {
+    if (node.steps && node.steps.length > 0) {
+      return (node.stepDone ?? []).filter(Boolean).length;
+    }
+    return node.completed ? 1 : 0;
+  }
+  return node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
 }
 
 export function rollupPct(node: GoalNode): number {
-  const total = countLeaves(node);
+  if (node.children.length === 0) {
+    if (node.steps && node.steps.length > 0) {
+      return Math.round(((node.stepDone ?? []).filter(Boolean).length / node.steps.length) * 100);
+    }
+    return node.completed ? 100 : 0;
+  }
+  const total = node.children.length;
   if (total === 0) return 0;
-  return Math.round((countCompletedLeaves(node) / total) * 100);
+  const doneCount = node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
+  return Math.round((doneCount / total) * 100);
 }
+
+// Retain legacy aliases for compatibility
+export const countLeaves = countDirectChildren;
+export const countCompletedLeaves = countCompletedDirectChildren;
 
 export function findNode(
   root: GoalNode,
@@ -206,18 +224,6 @@ const SEED_TASKS: Task[] = [
     order: 0,
   },
   {
-    id: 'seed-2',
-    title: 'Plan weekend trip',
-    description: 'Book hotel and pack essentials.',
-    priority: 'medium',
-    targetDate: new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10),
-    deadline: new Date(Date.now() + 6 * 86_400_000).toISOString(),
-    steps: ['Book', 'Pack', 'Confirm'],
-    progress: 0,
-    createdAt: Date.now() - 4000,
-    order: 1,
-  },
-  {
     id: 'seed-3',
     title: 'Water the plants',
     description: '',
@@ -227,7 +233,7 @@ const SEED_TASKS: Task[] = [
     steps: [],
     progress: 0,
     createdAt: Date.now() - 3000,
-    order: 2,
+    order: 1,
   },
 ];
 
