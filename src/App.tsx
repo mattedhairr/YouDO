@@ -30,21 +30,21 @@ const MOTIVATIONAL_QUOTES = [
 function YouDoIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Y-stem: left arm descending to centre — electric blue */}
       <path
         d="M4 4L11.5 13.5V20"
-        stroke="currentColor"
+        stroke="#3b82f6"
         strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-blue-500 dark:text-blue-400"
       />
+      {/* Y-arm: right arm with execution checkmark sweep — emerald */}
       <path
         d="M20 4L11.5 13.5L8.5 10"
-        stroke="currentColor"
+        stroke="#10b981"
         strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-emerald-400 dark:text-emerald-300"
       />
     </svg>
   );
