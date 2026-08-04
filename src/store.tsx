@@ -110,6 +110,17 @@ export function collectLeaves(node: GoalNode): GoalNode[] {
   return node.children.flatMap(collectLeaves);
 }
 
+/** Recursively collect every todayTaskId in a node's subtree (including itself). */
+export function collectDescendantTaskIds(node: GoalNode): string[] {
+  const ids: string[] = [];
+  if (node.todayTaskId) ids.push(node.todayTaskId);
+  for (const child of node.children) {
+    ids.push(...collectDescendantTaskIds(child));
+  }
+  return ids;
+}
+
+
 export function pathTitles(root: GoalNode, id: string): string[] {
   if (root.id === id) return [root.title];
   for (const child of root.children) {
@@ -370,9 +381,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteGoalNode = useCallback(
     (rootId: string, nodeId: string) => {
+      // Recursively collect ALL todayTaskIds in the subtree being deleted
       const node = findGoal(goalsRef.current, nodeId);
-      if (node?.todayTaskId) {
-        setTasks((prev) => prev.filter((t) => t.id !== node.todayTaskId));
+      if (node) {
+        const descendantTaskIds = collectDescendantTaskIds(node);
+        if (descendantTaskIds.length > 0) {
+          const removeSet = new Set(descendantTaskIds);
+          setTasks((prev) => prev.filter((t) => !removeSet.has(t.id)));
+        }
       }
       if (rootId === nodeId) {
         setGoals((prev) => prev.filter((root) => root.id !== rootId));
@@ -553,10 +569,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const deleteGoalNodes = useCallback(
     (nodeIds: string[]) => {
       const idSet = new Set(nodeIds);
+      // Recursively collect ALL todayTaskIds across all selected nodes and their descendants
       const taskIdsToRemove: string[] = [];
       for (const id of nodeIds) {
         const node = findGoal(goalsRef.current, id);
-        if (node?.todayTaskId) taskIdsToRemove.push(node.todayTaskId);
+        if (node) taskIdsToRemove.push(...collectDescendantTaskIds(node));
       }
       if (taskIdsToRemove.length) {
         const removeTaskSet = new Set(taskIdsToRemove);
@@ -590,8 +607,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const parsed = JSON.parse(jsonData);
         if (!parsed || typeof parsed !== 'object') return false;
-        const importedTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-        const importedGoals = Array.isArray(parsed.goals) ? parsed.goals : [];
+
+        // Validate tasks: require id (string), title (string), steps (array)
+        const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+        const importedTasks: Task[] = rawTasks.filter(
+          (t: unknown): t is Task =>
+            typeof t === 'object' && t !== null &&
+            typeof (t as Task).id === 'string' && (t as Task).id.length > 0 &&
+            typeof (t as Task).title === 'string' && (t as Task).title.length > 0 &&
+            Array.isArray((t as Task).steps) &&
+            typeof (t as Task).progress === 'number' &&
+            typeof (t as Task).createdAt === 'number',
+        );
+
+        // Validate goal nodes: require id (string), title (string), kind (string), children (array)
+        const rawGoals = Array.isArray(parsed.goals) ? parsed.goals : [];
+        const validKinds = new Set(['goal', 'phase', 'section', 'task', 'sub', 'leaf']);
+        const importedGoals: GoalNode[] = rawGoals.filter(
+          (g: unknown): g is GoalNode =>
+            typeof g === 'object' && g !== null &&
+            typeof (g as GoalNode).id === 'string' && (g as GoalNode).id.length > 0 &&
+            typeof (g as GoalNode).title === 'string' && (g as GoalNode).title.length > 0 &&
+            validKinds.has((g as GoalNode).kind) &&
+            Array.isArray((g as GoalNode).children) &&
+            typeof (g as GoalNode).createdAt === 'number',
+        );
+
+        // Require at least one valid tasks or goals entry to treat as a real backup
+        if (rawTasks.length > 0 && importedTasks.length === 0) return false;
+        if (rawGoals.length > 0 && importedGoals.length === 0) return false;
+
         setTasks(importedTasks);
         setGoals(importedGoals);
         return true;

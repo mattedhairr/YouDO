@@ -104,6 +104,9 @@ function syncUrlAndStorage(targetView: View, targetPathIds: string[], pushHistor
     params.set('view', targetView);
     if (targetView === 'goals' && targetPathIds.length > 0) {
       params.set('path', targetPathIds.join('/'));
+    } else {
+      // Explicitly clear path param when not on Goals tab to avoid stale URL state
+      params.delete('path');
     }
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     const stateObj = { view: targetView, goalPathIds: targetPathIds };

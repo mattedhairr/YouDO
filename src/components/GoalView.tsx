@@ -106,7 +106,8 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
   const selectedLeaves = useMemo(
     () => [...selected].filter((id) => {
       const n = findGoalInTree(id, children);
-      return n && n.kind === 'leaf' && !n.todayTaskId;
+      // Any childless node (regardless of kind) can be dispatched to Today
+      return n && n.children.length === 0 && !n.todayTaskId;
     }).length,
     [selected, children],
   );
@@ -250,10 +251,11 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
         {children.map((child) => {
           const meta = kindMeta[child.kind];
           const Icon = meta.icon;
-          const isLeaf = child.kind === 'leaf';
+          // Any childless node is considered leaf-like and can be dispatched
+          const isLeafLike = child.children.length === 0;
           const hasSteps = !!child.steps && child.steps.length > 0;
           const stepDone = child.stepDone ?? [];
-          const pct = isLeaf && hasSteps ? Math.round((stepDone.filter(Boolean).length / child.steps!.length) * 100) : rollupPct(child);
+          const pct = isLeafLike && hasSteps ? Math.round((stepDone.filter(Boolean).length / child.steps!.length) * 100) : rollupPct(child);
           const isSelected = selected.has(child.id);
 
           return (
@@ -273,7 +275,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                 )}
                 <div
                   className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => !isLeaf && drillInto(child)}
+                  onClick={() => !isLeafLike && drillInto(child)}
                 >
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
@@ -289,13 +291,13 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-400">
                     <span style={{ color: meta.tint }} className="font-semibold">{meta.label}</span>
-                    {!isLeaf && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
-                    {isLeaf && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
+                    {!isLeafLike && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
+                    {isLeafLike && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
                   </div>
                 </div>
                 <div className="shrink-0 flex items-center gap-1.5">
                   <span className="text-[13px] font-bold tabular-nums text-slate-600 dark:text-slate-300">{pct}%</span>
-                  {!isLeaf && (
+                  {!isLeafLike && (
                     <button
                       onClick={() => drillInto(child)}
                       className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
@@ -312,7 +314,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
               </div>
 
               {/* Micro-step chips */}
-              {isLeaf && hasSteps && (
+              {isLeafLike && hasSteps && (
                 <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
                   {child.steps!.map((s, i) => (
                     <button
@@ -356,7 +358,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   </button>
                 </div>
 
-                {isLeaf && !child.completed && (
+                {isLeafLike && !child.completed && (
                   <div className="flex items-center gap-1.5">
                     {child.todayTaskId ? (
                       <>
