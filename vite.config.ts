@@ -56,9 +56,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'YouDO Glass Tasks',
+        name: 'YouDO',
         short_name: 'YouDO',
-        description: 'Glassmorphism Task & Goal Blueprint Manager',
+        description: 'Execution & Goal Tracker',
         theme_color: '#0B0F17',
         background_color: '#0B0F17',
         display: 'standalone',
