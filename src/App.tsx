@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListChecks, Plus, Quote } from 'lucide-react';
 import type { GoalNode, View } from './types';
 import { useTheme } from './hooks/useTheme';
-import { isToday, pathTitles, useStore } from './store';
+import { isTaskComplete, isToday, pathTitles, useStore } from './store';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
@@ -244,7 +244,7 @@ function AppInner() {
 
   const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
   const todayCount = todayTasks.length;
-  const todayDone = todayTasks.filter((t) => t.steps.length > 0 && t.progress >= t.steps.length).length;
+  const todayDone = todayTasks.filter(isTaskComplete).length;
   
   // Today's Progress calculation: 0 if todayCount is 0, never NaN
   const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;

@@ -1,5 +1,6 @@
 import { Calendar, Clock, Copy, GripVertical, Link2, RotateCcw, X } from 'lucide-react';
 import type { Priority, Task } from '../types';
+import { isTaskComplete } from '../store';
 
 interface Props {
   task: Task;
@@ -45,7 +46,7 @@ export default function TaskCard({
   const ps = priorityStyles[task.priority];
   const total = task.steps.length || 1;
   const fillPct = (task.progress / total) * 100;
-  const complete = task.progress >= total && task.steps.length > 0;
+  const complete = isTaskComplete(task);
 
   const titleColor = complete
     ? 'line-through text-slate-400 dark:text-slate-500'

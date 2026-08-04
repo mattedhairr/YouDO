@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Link2, Plus, Trash2 } from 'lucide-react';
 import type { Task } from '../types';
 import { useStore } from '../store';
+import { isTaskComplete } from '../store';
 
 interface Props {
   tasks: Task[];
@@ -51,7 +52,7 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
   const nextMonth = () => setCursor(new Date(year, month + 1, 1));
 
   const selectedTasks = selectedDate ? (tasksByDate[selectedDate] ?? []) : [];
-  const selectedDone = selectedTasks.filter((t) => t.steps.length > 0 && t.progress >= t.steps.length).length;
+  const selectedDone = selectedTasks.filter(isTaskComplete).length;
 
   return (
     <div className="fade-in">
@@ -158,7 +159,7 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
             {selectedTasks.map((t) => {
               const total = t.steps.length || 1;
               const fillPct = (t.progress / total) * 100;
-              const complete = t.steps.length > 0 && t.progress >= t.steps.length;
+              const complete = isTaskComplete(t);
               return (
                 <div
                   key={t.id}

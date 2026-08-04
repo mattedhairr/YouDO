@@ -178,7 +178,7 @@ export default function AddGoalSheet({
             <div>
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Micro-progress steps</label>
-                <span className="text-[10px] text-slate-300 dark:text-slate-500">{steps.length}/5</span>
+                <span className="text-[10px] text-slate-300 dark:text-slate-500">{steps.length}/8</span>
               </div>
               <div className="mt-1.5 space-y-2">
                 {steps.map((s, i) => (
@@ -195,7 +195,7 @@ export default function AddGoalSheet({
                   />
                 ))}
               </div>
-              {steps.length < 5 && (
+              {steps.length < 8 && (
                 <button
                   type="button"
                   onClick={() => setSteps([...steps, ''])}

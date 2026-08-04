@@ -172,6 +172,14 @@ function countSlicedDone(node: GoalNode, slice: number[] | undefined): number {
 
 /* ---------- Store ---------- */
 
+/**
+ * Canonical completion check used across Today, Calendar, and progress calculations.
+ * A task with no steps is never automatically complete — it must be explicitly handled by the UI.
+ */
+export function isTaskComplete(task: { steps: string[]; progress: number }): boolean {
+  return task.steps.length > 0 && task.progress >= task.steps.length;
+}
+
 interface Store {
   tasks: Task[];
   goals: GoalNode[];
@@ -447,6 +455,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (const id of nodeIds) {
         const target = findGoal(goalsRef.current, id);
         if (!target || target.todayTaskId) continue;
+
+        // Mirror planTask: use full step array as the slice (no partial selection in batch)
+        const masterSteps = target.steps ?? [];
+        const slice = masterSteps.map((_, i) => i); // full slice — all steps
+        const slicedStepLabels = slice.map((idx) => masterSteps[idx] ?? `Step ${idx + 1}`);
+        // Seed progress from current stepDone state so already-done steps carry over
+        const slicedDoneCount = countSlicedDone(target, undefined);
+
         const taskId = uid('task');
         newTasks.push({
           id: taskId,
@@ -455,11 +471,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           priority: 'medium',
           targetDate,
           deadline: null,
-          steps: target.steps ?? [],
-          progress: countSlicedDone(target, undefined),
+          steps: slicedStepLabels,
+          progress: slicedDoneCount,
           createdAt: Date.now(),
           order: orderBase++,
           goalNodeId: target.id,
+          // stepSlice omitted (undefined) when all steps selected — matches planTask behaviour
         });
         patches.push({ id: target.id, taskId });
       }
@@ -666,3 +683,4 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 }
 
 export { isToday, todayISO, uid };
+

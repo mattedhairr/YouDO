@@ -14,6 +14,7 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
   const { exportBackup, importBackup } = useStore();
   const [darkMode, setDarkMode] = useState(theme.darkMode);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
+  const [confirmImport, setConfirmImport] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -30,16 +31,30 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
 
   const handleImport = (file?: File) => {
     if (!file) return;
+    setConfirmImport(false);
     const reader = new FileReader();
     reader.onload = () => {
       const ok = importBackup(reader.result as string);
       if (ok) {
         setMsg({ text: 'Backup restored successfully! All goals and tasks are back.' });
       } else {
-        setMsg({ text: 'Failed to restore: Invalid JSON backup file.', error: true });
+        setMsg({ text: 'Failed to restore: Invalid or corrupted backup file.', error: true });
       }
     };
     reader.readAsText(file);
+  };
+
+  const requestImport = () => {
+    setMsg(null);
+    setConfirmImport(true);
+  };
+
+  const cancelImport = () => {
+    setConfirmImport(false);
+  };
+
+  const proceedImport = () => {
+    fileRef.current?.click();
   };
 
   return (
@@ -98,13 +113,40 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
               <Download size={15} className="text-blue-500" /> Export Backup (JSON)
             </button>
             <button
-              onClick={() => fileRef.current?.click()}
+              onClick={requestImport}
               className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:border-blue-300 border border-slate-200 dark:border-slate-700 transition-all"
             >
               <Upload size={15} className="text-emerald-500" /> Import Backup (JSON)
             </button>
           </div>
-          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => handleImport(e.target.files?.[0])} />
+          <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => { handleImport(e.target.files?.[0]); if (fileRef.current) fileRef.current.value = ''; }} />
+
+          {/* Import confirmation warning banner */}
+          {confirmImport && (
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300/80 dark:border-rose-700/60 p-3.5 space-y-2.5">
+              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-extrabold text-[12px]">
+                <AlertTriangle size={16} className="shrink-0" />
+                <span>This will permanently replace ALL current data</span>
+              </div>
+              <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 font-medium leading-relaxed">
+                Your current goals, phases, and tasks will be overwritten by the backup file. This action cannot be undone. Export a backup first if you want to preserve your current progress.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={proceedImport}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-rose-500 hover:bg-rose-600 transition-colors"
+                >
+                  Yes, Replace All Data
+                </button>
+                <button
+                  onClick={cancelImport}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {msg && (
             <p className={`text-[11.5px] font-bold text-center ${msg.error ? 'text-rose-500 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
