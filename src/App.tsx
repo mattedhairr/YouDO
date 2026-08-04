@@ -244,9 +244,9 @@ function AppInner() {
         }
       } else if (dx >= 50) {
         // Swipe RIGHT:
-        // If inside nested goal breadcrumbs, pop history back up the goal tree
+        // If inside nested goal breadcrumbs, step back up the goal hierarchy
         if (view === 'goals' && goalPathIds.length > 0) {
-          window.history.back();
+          setGoalPathIds(goalPathIds.slice(0, -1));
           return;
         }
         // Otherwise move to PREVIOUS tab (calendar -> goals -> tasks), clamped at index 0 (tasks)
@@ -256,7 +256,7 @@ function AppInner() {
         }
       }
     },
-    [view, goalPathIds, tabs, handleNavigateTab],
+    [view, goalPathIds, tabs, handleNavigateTab, setGoalPathIds],
   );
 
   const openAddTask = (date?: string) => {

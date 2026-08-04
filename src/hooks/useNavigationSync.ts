@@ -138,8 +138,10 @@ export function useNavigationSync() {
     const direction = targetIdx > currentIdx ? 'right' : 'left';
     setSlideDirection(direction);
     setView(targetView);
+    // Reset goal path breadcrumbs to root level when navigating between top-level tabs
+    setGoalPathIdsState([]);
     if (!isNavigatingHistory.current) {
-      syncUrlAndStorage(targetView, pathIdsRef.current, true);
+      syncUrlAndStorage(targetView, [], true);
     }
   }, []);
 
