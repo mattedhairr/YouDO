@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListChecks, Plus, Sparkles } from 'lucide-react';
 import type { GoalNode, View } from './types';
 import { useTheme } from './hooks/useTheme';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { isToday, pathTitles, useStore } from './store';
 import ProgressRing from './components/ProgressRing';
 import TaskCard from './components/TaskCard';
@@ -15,6 +14,74 @@ import StepSliceSheet from './components/StepSliceSheet';
 import CalendarView from './components/CalendarView';
 
 const ACCENT = '#3b82f6';
+
+function parseNavigationState(): { initialView: View; initialPathIds: string[] } {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    const pathParam = params.get('path');
+
+    let initialView: View = 'tasks';
+    if (viewParam === 'tasks' || viewParam === 'goals' || viewParam === 'calendar') {
+      initialView = viewParam as View;
+    } else {
+      const savedView = localStorage.getItem('todo.view');
+      if (savedView) {
+        try {
+          const parsed = JSON.parse(savedView);
+          if (parsed === 'tasks' || parsed === 'goals' || parsed === 'calendar') {
+            initialView = parsed as View;
+          }
+        } catch {
+          if (savedView === 'tasks' || savedView === 'goals' || savedView === 'calendar') {
+            initialView = savedView as View;
+          }
+        }
+      }
+    }
+
+    let initialPathIds: string[] = [];
+    if (pathParam) {
+      initialPathIds = pathParam.split('/').filter(Boolean);
+    } else {
+      const savedPath = localStorage.getItem('todo.goalPathIds');
+      if (savedPath) {
+        try {
+          initialPathIds = JSON.parse(savedPath);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    return { initialView, initialPathIds };
+  } catch {
+    return { initialView: 'tasks', initialPathIds: [] };
+  }
+}
+
+function syncUrlAndStorage(targetView: View, targetPathIds: string[], pushHistory: boolean) {
+  try {
+    localStorage.setItem('todo.view', JSON.stringify(targetView));
+    localStorage.setItem('todo.goalPathIds', JSON.stringify(targetPathIds));
+
+    const params = new URLSearchParams();
+    params.set('view', targetView);
+    if (targetView === 'goals' && targetPathIds.length > 0) {
+      params.set('path', targetPathIds.join('/'));
+    }
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    const stateObj = { view: targetView, goalPathIds: targetPathIds };
+
+    if (pushHistory) {
+      window.history.pushState(stateObj, '', newUrl);
+    } else {
+      window.history.replaceState(stateObj, '', newUrl);
+    }
+  } catch (err) {
+    console.error('Failed to sync navigation URL:', err);
+  }
+}
 
 export default function App() {
   return <AppInner />;
@@ -50,7 +117,9 @@ function AppInner() {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
 
-  const [view, setView] = useLocalStorage<View>('todo.view', 'tasks');
+  const initialNav = useMemo(() => parseNavigationState(), []);
+  const [view, setView] = useState<View>(initialNav.initialView);
+  const [goalPathIds, setGoalPathIds] = useState<string[]>(initialNav.initialPathIds);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | 'fade'>('fade');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
@@ -61,38 +130,44 @@ function AppInner() {
   const [sliceNode, setSliceNode] = useState<GoalNode | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  const [goalPathIds, setGoalPathIds] = useState<string[]>([]);
   const isNavigatingHistory = useRef(false);
 
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
 
-  // Initialize history state on load
+  // Sync initial URL and local storage on mount
   useEffect(() => {
-    if (!window.history.state) {
-      window.history.replaceState({ view, goalPathIds: [] }, '');
-    }
+    syncUrlAndStorage(view, goalPathIds, false);
   }, []);
 
   // Sync back-button (popstate) with views and deep goal tree navigation
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       isNavigatingHistory.current = true;
+      let targetView: View = view;
+      let targetPathIds: string[] = [];
+
       const state = e.state;
       if (state) {
         if (state.view && tabs.includes(state.view)) {
-          const currentIdx = tabs.indexOf(view);
-          const targetIdx = tabs.indexOf(state.view);
-          setSlideDirection(targetIdx > currentIdx ? 'right' : 'left');
-          setView(state.view);
+          targetView = state.view;
         }
         if (Array.isArray(state.goalPathIds)) {
-          setGoalPathIds(state.goalPathIds);
-        } else {
-          setGoalPathIds([]);
+          targetPathIds = state.goalPathIds;
         }
       } else {
-        setGoalPathIds([]);
+        const parsed = parseNavigationState();
+        targetView = parsed.initialView;
+        targetPathIds = parsed.initialPathIds;
       }
+
+      const currentIdx = tabs.indexOf(view);
+      const targetIdx = tabs.indexOf(targetView);
+      setSlideDirection(targetIdx > currentIdx ? 'right' : 'left');
+      setView(targetView);
+      setGoalPathIds(targetPathIds);
+
+      syncUrlAndStorage(targetView, targetPathIds, false);
+
       setTimeout(() => {
         isNavigatingHistory.current = false;
       }, 50);
@@ -100,9 +175,9 @@ function AppInner() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [view, tabs, setView]);
+  }, [view, tabs]);
 
-  // Tab navigation handler with history push
+  // Tab navigation handler with URL push
   const handleNavigateTab = useCallback((targetView: View) => {
     if (targetView === view) return;
     const currentIdx = tabs.indexOf(view);
@@ -111,16 +186,16 @@ function AppInner() {
     setSlideDirection(direction);
     setView(targetView);
     if (!isNavigatingHistory.current) {
-      window.history.pushState({ view: targetView, goalPathIds: targetView === 'goals' ? goalPathIds : [] }, '');
+      syncUrlAndStorage(targetView, goalPathIds, true);
     }
-  }, [view, tabs, goalPathIds, setView]);
+  }, [view, tabs, goalPathIds]);
 
-  // Goal path update with history push
+  // Goal path update with URL push
   const handleUpdateGoalPath = useCallback((newPath: string[]) => {
-    if (!isNavigatingHistory.current) {
-      window.history.pushState({ view: 'goals', goalPathIds: newPath }, '');
-    }
     setGoalPathIds(newPath);
+    if (!isNavigatingHistory.current) {
+      syncUrlAndStorage('goals', newPath, true);
+    }
   }, []);
 
   const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
