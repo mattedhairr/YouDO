@@ -18,6 +18,7 @@ interface Props {
   dark?: boolean;
   onCardClick?: () => void;
   backlogAction?: React.ReactNode;
+  onJumpToGoal?: () => void;
 }
 
 const priorityStyles: Record<Priority, { dot: string; bar: string; glow: string }> = {
@@ -44,7 +45,7 @@ function fmtCountdown(deadline: string | null): string {
 export default function TaskCard({
   task, onAdvance, onUndo, onDelete, onDuplicate,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, origin, softRemove, dark = false,
-  onCardClick, backlogAction,
+  onCardClick, backlogAction, onJumpToGoal,
 }: Props) {
   const ps = priorityStyles[task.priority];
   const total = task.steps.length || 1;
@@ -133,13 +134,24 @@ export default function TaskCard({
 
             {/* ── Origin breadcrumb ── */}
             {origin && (
-              <div className="mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/50 dark:border-blue-800/50 rounded-lg px-2 py-1 w-full leading-normal">
-                <Link2 size={10} className="shrink-0 text-blue-400 mr-0.5" />
+              <div
+                onClick={(e) => {
+                  if (onJumpToGoal) {
+                    e.stopPropagation();
+                    onJumpToGoal();
+                  }
+                }}
+                className={`mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/50 dark:border-blue-800/50 rounded-lg px-2 py-1 w-full leading-normal ${
+                  onJumpToGoal ? 'cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 hover:border-blue-300 dark:hover:border-blue-600 transition-all group/path' : ''
+                }`}
+                title={onJumpToGoal ? 'Jump to this task in Goal Blueprint' : undefined}
+              >
+                <Link2 size={10} className="shrink-0 text-blue-500 dark:text-blue-400 mr-0.5 group-hover/path:scale-110 transition-transform" />
                 {origin.split(' > ').map((seg, i, arr) => (
                   <span key={i} className="inline-flex items-center gap-1">
                     <span className={i === arr.length - 1
-                      ? 'font-bold text-blue-700 dark:text-blue-300'
-                      : 'font-medium text-slate-500 dark:text-slate-400'
+                      ? 'font-bold text-blue-700 dark:text-blue-300 group-hover/path:underline'
+                      : 'font-medium text-slate-500 dark:text-slate-400 group-hover/path:text-slate-700 dark:group-hover/path:text-slate-200'
                     }>{seg}</span>
                     {i < arr.length - 1 && <span className="text-slate-300 dark:text-slate-600">/</span>}
                   </span>

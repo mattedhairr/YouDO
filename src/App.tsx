@@ -591,6 +591,7 @@ function AppInner() {
                           origin={originFor(t.id)}
                           softRemove={!!t.goalNodeId}
                           dark={dark}
+                          onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                         />
                       ))}
                     </div>
@@ -647,6 +648,7 @@ function AppInner() {
                               softRemove={!!t.goalNodeId}
                               dark={dark}
                               onCardClick={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                              onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                               backlogAction={
                                 <button
                                   onClick={(e) => {
