@@ -53,9 +53,6 @@ export default function TaskCard({
   const complete = isTaskComplete(task);
   const hasSteps = task.steps.length > 0;
 
-  const titleColor = complete
-    ? 'line-through text-slate-400 dark:text-slate-500'
-    : 'text-slate-800 dark:text-slate-100';
   const dateColor = dark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400';
   const trackBg   = dark ? 'bg-slate-800' : 'bg-slate-100 dark:bg-slate-800/80';
 
@@ -106,12 +103,22 @@ export default function TaskCard({
           {/* Content column */}
           <div className="flex-1 min-w-0">
 
-            {/* ── Title row: dot + title + actions ── */}
+            {/* ── Title row: dot + title highlight box + actions ── */}
             <div className="flex items-start gap-2">
-              <span className={`mt-[5px] w-2 h-2 rounded-full shrink-0 ${ps.dot}`} />
-              <h3 className={`flex-1 text-[14px] font-semibold leading-snug ${titleColor}`}>
-                {task.title}
-              </h3>
+              <span className={`mt-[6px] w-2 h-2 rounded-full shrink-0 ${ps.dot}`} />
+              <div className={`flex-1 min-w-0 ${
+                !complete
+                  ? 'bg-slate-100/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-xl px-2.5 py-1 shadow-2xs'
+                  : 'py-0.5'
+              }`}>
+                <h3 className={`text-[14px] leading-snug ${
+                  !complete
+                    ? 'font-bold text-slate-900 dark:text-slate-50 tracking-[0.01em]'
+                    : 'font-semibold text-slate-400 dark:text-slate-500 line-through'
+                }`}>
+                  {task.title}
+                </h3>
+              </div>
               {/* Action buttons — stay in title row, right-aligned */}
               <div
                 className="flex items-center gap-1 shrink-0 -mr-1 -mt-0.5"
