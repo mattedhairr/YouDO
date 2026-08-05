@@ -402,13 +402,19 @@ function AppInner() {
   );
 
 
+  const isGlass = theme.glassUI;
+
   return (
-    <div className={dark ? 'dark bg-[#0B0F17] text-slate-100 min-h-screen relative overflow-x-hidden' : 'bg-slate-50 text-slate-900 min-h-screen relative overflow-x-hidden'}>
-      {/* Ambient Glowing Orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className={`absolute -top-32 -left-20 w-96 h-96 rounded-full blur-3xl transition-opacity duration-700 ${dark ? 'bg-blue-600/15 opacity-100' : 'bg-blue-400/10 opacity-70'}`} />
-        <div className={`absolute top-1/3 -right-24 w-96 h-96 rounded-full blur-3xl transition-opacity duration-700 ${dark ? 'bg-indigo-600/15 opacity-100' : 'bg-indigo-400/10 opacity-70'}`} />
-        <div className={`absolute -bottom-32 left-1/4 w-96 h-96 rounded-full blur-3xl transition-opacity duration-700 ${dark ? 'bg-purple-600/15 opacity-100' : 'bg-purple-400/10 opacity-70'}`} />
+    <div className={`min-h-screen relative overflow-x-hidden transition-colors duration-300 ${
+      dark
+        ? isGlass ? 'dark bg-[#05080E] text-slate-100' : 'dark bg-[#070A0F] text-slate-100'
+        : isGlass ? 'bg-[#EBF0F7] text-slate-900' : 'bg-[#F1F5F9] text-slate-900'
+    }`}>
+      {/* Ambient Glowing Orbs — ONLY visible when Frosted Glass mode is enabled */}
+      <div className={`fixed inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700 ${isGlass ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`absolute -top-32 -left-20 w-96 h-96 rounded-full blur-3xl transition-all duration-700 ${dark ? 'bg-blue-600/25' : 'bg-blue-500/20'}`} />
+        <div className={`absolute top-1/3 -right-24 w-96 h-96 rounded-full blur-3xl transition-all duration-700 ${dark ? 'bg-indigo-600/25' : 'bg-purple-500/20'}`} />
+        <div className={`absolute -bottom-32 left-1/4 w-96 h-96 rounded-full blur-3xl transition-all duration-700 ${dark ? 'bg-emerald-600/20' : 'bg-cyan-500/18'}`} />
       </div>
 
       <div
