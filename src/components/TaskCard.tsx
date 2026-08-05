@@ -16,6 +16,8 @@ interface Props {
   origin?: string;
   softRemove?: boolean;
   dark?: boolean;
+  onCardClick?: () => void;
+  backlogAction?: React.ReactNode;
 }
 
 const priorityStyles: Record<Priority, { dot: string; bar: string; glow: string }> = {
@@ -42,6 +44,7 @@ function fmtCountdown(deadline: string | null): string {
 export default function TaskCard({
   task, onAdvance, onUndo, onDelete, onDuplicate,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, origin, softRemove, dark = false,
+  onCardClick, backlogAction,
 }: Props) {
   const ps = priorityStyles[task.priority];
   const total = task.steps.length || 1;
@@ -71,7 +74,13 @@ export default function TaskCard({
         ${dragOver  ? 'ring-2 ring-blue-400' : ''}
         ${complete  ? 'opacity-70 ring-1 ring-emerald-500/30 dark:ring-emerald-400/20 animate-glow-pulse' : ''}
       `}
-      onClick={() => !complete && onAdvance(task.id)}
+      onClick={() => {
+        if (onCardClick) {
+          onCardClick();
+        } else if (!complete) {
+          onAdvance(task.id);
+        }
+      }}
       draggable
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', task.id); onDragStart(task.id); }}
       onDragEnter={(e) => { e.preventDefault(); onDragEnter(task.id); }}
@@ -104,9 +113,10 @@ export default function TaskCard({
               </h3>
               {/* Action buttons — stay in title row, right-aligned */}
               <div
-                className="flex items-center gap-0.5 shrink-0 -mr-1 -mt-0.5"
+                className="flex items-center gap-1 shrink-0 -mr-1 -mt-0.5"
                 onClick={(e) => e.stopPropagation()}
               >
+                {backlogAction}
                 {task.progress > 0 && (
                   <button onClick={() => onUndo(task.id)} className={btnNeutral} title="Undo last step">
                     <RotateCcw size={13} />

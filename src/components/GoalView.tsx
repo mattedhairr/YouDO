@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   CheckCircle2,
@@ -21,7 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
-import { countDirectChildren, countCompletedDirectChildren, findNode, rollupPct, useStore } from '../store';
+import { countDirectChildren, countCompletedDirectChildren, findNode, isBacklogTask, rollupPct, useStore } from '../store';
 
 function findGoalInTree(id: string, nodes: GoalNode[]): GoalNode | undefined {
   for (const n of nodes) {
@@ -81,7 +82,7 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
 };
 
 export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef }: Props) {
-  const { goals, toggleGoalStep, togglePin, reorderGoalNodes, moveGoalNode, toggleNodeCompletion } = useStore();
+  const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, moveGoalNode, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -315,6 +316,9 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
           const pct = isLeafLike && hasSteps ? Math.round((stepDone.filter(Boolean).length / child.steps!.length) * 100) : rollupPct(child);
           const isSelected = selected.has(child.id);
           const isDone = child.completed || pct === 100;
+          const linkedTask = child.todayTaskId ? tasks.find((t) => t.id === child.todayTaskId) : null;
+          const isBacklogged = linkedTask ? isBacklogTask(linkedTask) : false;
+          const isScheduled = linkedTask && !isBacklogged;
 
           return (
             <div
@@ -359,9 +363,14 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                       {child.title}
                     </h3>
                     {child.pinned && <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />}
-                    {child.todayTaskId && (
+                    {isScheduled && (
                       <span className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
                         <Zap size={9} /> Scheduled
+                      </span>
+                    )}
+                    {isBacklogged && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
+                        <AlertTriangle size={9} /> Backlog
                       </span>
                     )}
                   </div>
@@ -478,7 +487,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   {/* Schedule / Replan / Unplan — leaf-like & not completed */}
                   {isLeafLike && !child.completed && (
                     <>
-                      {child.todayTaskId ? (
+                      {isScheduled ? (
                         <>
                           <button
                             onClick={() => onPushNode(child)}
@@ -495,6 +504,14 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                             <Unlink size={12} /> Unplan
                           </button>
                         </>
+                      ) : isBacklogged ? (
+                        <button
+                          onClick={() => onPushNode(child)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl text-white bg-rose-600 hover:bg-rose-700 shadow-sm shadow-rose-500/30 transition-all active:scale-95"
+                          title="Schedule Backlogged Task"
+                        >
+                          <Zap size={12} className="fill-white" /> Schedule
+                        </button>
                       ) : (
                         <button
                           onClick={() => onPushNode(child)}

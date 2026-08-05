@@ -198,6 +198,15 @@ export function pathTitles(root: GoalNode, id: string): string[] {
   return [];
 }
 
+export function pathNodes(root: GoalNode, id: string): GoalNode[] {
+  if (root.id === id) return [root];
+  for (const child of root.children) {
+    const sub = pathNodes(child, id);
+    if (sub.length) return [root, ...sub];
+  }
+  return [];
+}
+
 export function findGoal(goals: GoalNode[], id: string): GoalNode | null {
   for (const root of goals) {
     const [n] = findNode(root, id);
@@ -246,6 +255,12 @@ function countSlicedDone(node: GoalNode, slice: number[] | undefined): number {
  */
 export function isTaskComplete(task: { steps: string[]; progress: number }): boolean {
   return task.steps.length > 0 && task.progress >= task.steps.length;
+}
+
+export function isBacklogTask(task: Task): boolean {
+  if (!task.targetDate) return false;
+  if (isTaskComplete(task)) return false;
+  return task.targetDate < todayISO();
 }
 
 export function reorderNodesArray(nodes: GoalNode[], fromId: string, toId: string): GoalNode[] {

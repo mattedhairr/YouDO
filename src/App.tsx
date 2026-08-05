@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ListChecks, Plus, Quote } from 'lucide-react';
-import type { GoalKind, GoalNode, View } from './types';
+import { AlertTriangle, Calendar, Flame, ListChecks, Plus, Quote, Zap } from 'lucide-react';
+import type { GoalKind, GoalNode, Task, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { isTaskComplete, isToday, pathTitles, useStore } from './store';
+import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore } from './store';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
@@ -268,12 +268,62 @@ function AppInner() {
     return MOTIVATIONAL_QUOTES[idx];
   });
 
+  const [todaySubTab, setTodaySubTab] = useState<'today' | 'backlog'>('today');
+
   const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
+  const backlogTasks = useMemo(() => tasks.filter(isBacklogTask), [tasks]);
   const todayCount = todayTasks.length;
   const todayDone = todayTasks.filter(isTaskComplete).length;
   
   // Today's Progress calculation: 0 if todayCount is 0, never NaN
   const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
+
+  const backlogByDate = useMemo(() => {
+    const groups: Record<string, Task[]> = {};
+    for (const t of backlogTasks) {
+      const d = t.targetDate || 'No Date';
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(t);
+    }
+    const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+    return sortedDates.map((date) => ({
+      date,
+      formattedDate: formatDDMMYYYY(date),
+      tasks: groups[date],
+    }));
+  }, [backlogTasks]);
+
+  const jumpToGoalTask = useCallback(
+    (goalNodeId: string | null | undefined) => {
+      if (!goalNodeId) return;
+      for (const root of goals) {
+        const nodes = pathNodes(root, goalNodeId);
+        if (nodes.length > 0) {
+          const parentPath = nodes.slice(0, -1);
+          setGoalPathIds(parentPath.map((n) => n.id));
+          handleNavigateTab('goals');
+          return;
+        }
+      }
+    },
+    [goals, setGoalPathIds, handleNavigateTab],
+  );
+
+  const handlePushBacklogTask = useCallback(
+    (t: Task) => {
+      if (t.goalNodeId) {
+        for (const root of goals) {
+          const [found] = findNode(root, t.goalNodeId);
+          if (found) {
+            pushModalState();
+            setSliceNodes([found]);
+            return;
+          }
+        }
+      }
+    },
+    [goals, pushModalState],
+  );
 
   const originFor = (taskId: string): string | undefined => {
     const task = tasks.find((t) => t.id === taskId);
@@ -487,30 +537,136 @@ function AppInner() {
             }
           >
             {view === 'tasks' ? (
-              sortedTasks.length === 0 ? (
-                <EmptyState onAdd={() => openAddTask()} />
-              ) : (
-                <div className="space-y-2.5">
-                  {sortedTasks.map((t) => (
-                    <TaskCard
-                      key={t.id}
-                      task={t}
-                      onAdvance={advance}
-                      onUndo={undo}
-                      onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                      onDuplicate={duplicateTask}
-                      onDragStart={(id) => setDragId(id)}
-                      onDragEnter={(id) => setOverId(id)}
-                      onDragEnd={doReorder}
-                      isDragging={dragId === t.id}
-                      dragOver={overId === t.id && dragId !== t.id}
-                      origin={originFor(t.id)}
-                      softRemove={!!t.goalNodeId}
-                      dark={dark}
-                    />
-                  ))}
+              <div className="space-y-3">
+                {/* Sub-tab Switcher: Today vs Backlog */}
+                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-200/50 dark:bg-slate-800/60 border border-slate-300/50 dark:border-slate-700/50 w-full">
+                  <button
+                    onClick={() => setTodaySubTab('today')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      todaySubTab === 'today'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <span>Today</span>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${todaySubTab === 'today' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300' : 'bg-slate-300/50 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                      {todayTasks.length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setTodaySubTab('backlog')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      todaySubTab === 'backlog'
+                        ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400'
+                    }`}
+                  >
+                    <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-rose-500' : 'text-slate-400'} />
+                    <span>Backlog</span>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${backlogTasks.length > 0 ? 'bg-rose-500 text-white shadow-xs' : 'bg-slate-300/50 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                      {backlogTasks.length}
+                    </span>
+                  </button>
                 </div>
-              )
+
+                {/* Sub-tab Content */}
+                {todaySubTab === 'today' ? (
+                  sortedTasks.length === 0 ? (
+                    <EmptyState onAdd={() => openAddTask()} />
+                  ) : (
+                    <div className="space-y-2.5 fade-in">
+                      {sortedTasks.map((t) => (
+                        <TaskCard
+                          key={t.id}
+                          task={t}
+                          onAdvance={advance}
+                          onUndo={undo}
+                          onDelete={t.goalNodeId ? unlinkTask : removeTask}
+                          onDuplicate={duplicateTask}
+                          onDragStart={(id) => setDragId(id)}
+                          onDragEnter={(id) => setOverId(id)}
+                          onDragEnd={doReorder}
+                          isDragging={dragId === t.id}
+                          dragOver={overId === t.id && dragId !== t.id}
+                          origin={originFor(t.id)}
+                          softRemove={!!t.goalNodeId}
+                          dark={dark}
+                        />
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="space-y-4 fade-in">
+                    {/* Backlog Loss Aversion / Appreciation Tagline */}
+                    {backlogTasks.length > 0 ? (
+                      <div className="card p-3.5 bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/30 dark:border-rose-500/40 rounded-2xl space-y-1">
+                        <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-extrabold text-xs uppercase tracking-wider">
+                          <AlertTriangle size={15} /> Backlog Momentum Alert
+                        </div>
+                        <p className="text-[12px] text-rose-800 dark:text-rose-200 font-medium leading-relaxed">
+                          ⚠️ You are losing momentum! <span className="font-extrabold underline decoration-rose-400">{backlogTasks.length} task{backlogTasks.length > 1 ? 's' : ''}</span> slipped into backlog. Don't let your blueprint decay — reschedule or finish them now!
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="card p-4 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 dark:border-emerald-500/40 rounded-2xl text-center space-y-1.5">
+                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-500 mb-1">
+                          <Flame size={20} />
+                        </div>
+                        <h3 className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                          Zero Backlog — Flawless Execution!
+                        </h3>
+                        <p className="text-[12px] text-emerald-800/90 dark:text-emerald-200/90 font-medium leading-relaxed max-w-xs mx-auto">
+                          🔥 Outstanding momentum! You have zero backlogged tasks. All your goals are executing on schedule.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Date-wise Grouped Tasks */}
+                    {backlogByDate.map((group) => (
+                      <div key={group.date} className="space-y-2">
+                        <div className="flex items-center gap-2 px-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                          <Calendar size={12} />
+                          <span>Due: {group.formattedDate}</span>
+                          <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">({group.tasks.length} task{group.tasks.length > 1 ? 's' : ''})</span>
+                        </div>
+                        <div className="space-y-2">
+                          {group.tasks.map((t) => (
+                            <TaskCard
+                              key={t.id}
+                              task={t}
+                              onAdvance={advance}
+                              onUndo={undo}
+                              onDelete={t.goalNodeId ? unlinkTask : removeTask}
+                              onDuplicate={duplicateTask}
+                              onDragStart={() => {}}
+                              onDragEnter={() => {}}
+                              onDragEnd={() => {}}
+                              isDragging={false}
+                              dragOver={false}
+                              origin={originFor(t.id)}
+                              softRemove={!!t.goalNodeId}
+                              dark={dark}
+                              onCardClick={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                              backlogAction={
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePushBacklogTask(t);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-xl text-white bg-rose-600 hover:bg-rose-700 shadow-xs shadow-rose-500/30 transition-all active:scale-95 shrink-0"
+                                  title="Schedule task for Today or future date"
+                                >
+                                  <Zap size={12} className="fill-white" /> Schedule
+                                </button>
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : view === 'calendar' ? (
               <CalendarView tasks={tasks} onAddTask={(date) => openAddTask(date)} />
             ) : (
