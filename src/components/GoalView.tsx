@@ -94,6 +94,19 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
     clearSelectionRef.current = clearSelection;
   });
 
+  // Auto-scroll & center target node when jumpToGoalTask is activated
+  useEffect(() => {
+    if (highlightNodeId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`goal-node-${highlightNodeId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightNodeId, pathIds]);
+
   const current = useMemo(() => {
     if (pathIds.length === 0) return null;
     for (const root of goals) {
@@ -326,6 +339,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
           return (
             <div
               key={child.id}
+              id={`goal-node-${child.id}`}
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', child.id);
@@ -342,7 +356,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               }}
               className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing ${
                 isHighlighted
-                  ? 'ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-500/10 dark:bg-blue-900/30 scale-[1.02] shadow-lg shadow-blue-500/25 animate-pulse z-10'
+                  ? 'ring-4 ring-blue-500 dark:ring-blue-400 bg-blue-500/20 dark:bg-blue-900/40 scale-[1.03] shadow-xl shadow-blue-500/40 animate-pulse z-20'
                   : isSelected
                     ? 'ring-2 ring-blue-400 dark:ring-blue-500'
                     : ''
