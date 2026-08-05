@@ -82,9 +82,18 @@ export default function TaskCard({
             <h3 className={`text-[14px] font-semibold leading-tight ${titleColor}`}>{task.title}</h3>
           </div>
           {origin && (
-            <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-md px-1.5 py-0.5">
-              <Link2 size={9} />
-              <span className="truncate max-w-[200px]">{origin}</span>
+            <div className="mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 rounded-lg px-2 py-1 leading-normal w-full">
+              <Link2 size={11} className="shrink-0 text-blue-500 mr-0.5" />
+              {origin.split(' > ').map((segment, idx, arr) => (
+                <span key={idx} className="inline-flex items-center gap-1">
+                  <span className={idx === arr.length - 1 ? 'font-bold text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400 font-medium'}>
+                    {segment}
+                  </span>
+                  {idx < arr.length - 1 && (
+                    <span className="text-slate-300 dark:text-slate-600 font-normal">/</span>
+                  )}
+                </span>
+              ))}
             </div>
           )}
           {task.description && (
