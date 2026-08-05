@@ -94,17 +94,23 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
     clearSelectionRef.current = clearSelection;
   });
 
-  // Auto-scroll & center target node when jumpToGoalTask is activated
+  // Auto-scroll & center target node when jumpToGoalTask is activated (polled for instant DOM mounting)
   useEffect(() => {
-    if (highlightNodeId) {
-      const timer = setTimeout(() => {
-        const el = document.getElementById(`goal-node-${highlightNodeId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 120);
-      return () => clearTimeout(timer);
-    }
+    if (!highlightNodeId) return;
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const el = document.getElementById(`goal-node-${highlightNodeId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        clearInterval(interval);
+      } else if (attempts >= 15) {
+        clearInterval(interval);
+      }
+    }, 40);
+
+    return () => clearInterval(interval);
   }, [highlightNodeId, pathIds]);
 
   const current = useMemo(() => {

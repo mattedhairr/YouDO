@@ -305,7 +305,7 @@ function AppInner() {
           const parentIds = parentPath.map((n) => n.id);
           setHighlightNodeId(goalNodeId);
           navigateToGoalPath(parentIds);
-          setTimeout(() => setHighlightNodeId(null), 3000);
+          setTimeout(() => setHighlightNodeId(null), 3500);
           return;
         }
       }
