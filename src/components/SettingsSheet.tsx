@@ -279,52 +279,41 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
           )}
         </div>
 
-        {/* 5. Creator & Concept Attribution Card */}
-        <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 p-4 space-y-2.5 text-white shadow-lg">
+        {/* 5. Developer Info */}
+        <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 p-3.5 space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-black text-xs">
-                JP
-              </div>
-              <div>
-                <div className="text-[9.5px] uppercase font-extrabold tracking-widest text-slate-400">Original Concept & Code</div>
-                <div className="text-xs font-extrabold text-slate-100">Jatin Parmar (@mattedhairr)</div>
-              </div>
-            </div>
-            <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-              Creator
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-400">
+              Developer
+            </span>
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+              Jatin Parmar (@mattedhairr)
             </span>
           </div>
 
-          <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
-            YouDO is an original blueprint-driven daily execution system engineered by Jatin Parmar.
-          </p>
-
-          {/* Social Profiles */}
-          <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+          <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
             <a
               href="https://github.com/mattedhairr"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all"
+              className="flex-1 py-1.5 px-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10.5px] font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 hover:text-blue-500 transition-colors"
             >
-              <Github size={12} className="text-blue-400" /> GitHub
+              <Github size={12} /> GitHub
             </a>
             <a
               href="https://www.linkedin.com/in/jatin-parmar-9b1b962ba"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all"
+              className="flex-1 py-1.5 px-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10.5px] font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 hover:text-blue-500 transition-colors"
             >
-              <Linkedin size={12} className="text-blue-400" /> LinkedIn
+              <Linkedin size={12} /> LinkedIn
             </a>
             <a
               href="https://instagram.com/mattedhairr"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all"
+              className="flex-1 py-1.5 px-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10.5px] font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 hover:text-pink-500 transition-colors"
             >
-              <Instagram size={12} className="text-pink-400" /> Instagram
+              <Instagram size={12} /> Instagram
             </a>
           </div>
         </div>
