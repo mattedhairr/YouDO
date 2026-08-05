@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, ChevronDown, ChevronRight, Download, GitMerge, Layers, Moon, Sparkles, Square, Sun, Upload, X, Zap } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, ChevronDown, ChevronRight, Download, Github, GitMerge, Instagram, Layers, Linkedin, Moon, Sparkles, Square, Sun, Upload, X, Zap } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
 import { useStore } from '../store';
 
@@ -277,6 +277,56 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
               </div>
             </div>
           )}
+        </div>
+
+        {/* 5. Creator & Concept Attribution Card */}
+        <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 p-4 space-y-2.5 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-black text-xs">
+                JP
+              </div>
+              <div>
+                <div className="text-[9.5px] uppercase font-extrabold tracking-widest text-slate-400">Original Concept & Code</div>
+                <div className="text-xs font-extrabold text-slate-100">Jatin Parmar (@mattedhairr)</div>
+              </div>
+            </div>
+            <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              Creator
+            </span>
+          </div>
+
+          <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+            YouDO is an original blueprint-driven daily execution system engineered by Jatin Parmar.
+          </p>
+
+          {/* Social Profiles */}
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80">
+            <a
+              href="https://github.com/mattedhairr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all"
+            >
+              <Github size={12} className="text-blue-400" /> GitHub
+            </a>
+            <a
+              href="https://www.linkedin.com/in/jatin-parmar-9b1b962ba"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all"
+            >
+              <Linkedin size={12} className="text-blue-400" /> LinkedIn
+            </a>
+            <a
+              href="https://instagram.com/mattedhairr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10.5px] font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all"
+            >
+              <Instagram size={12} className="text-pink-400" /> Instagram
+            </a>
+          </div>
         </div>
 
         {/* Apply & Save */}
