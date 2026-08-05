@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Activity, ChevronLeft, ChevronRight, Flame, Link2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, Link2, Plus } from 'lucide-react';
 import type { Task } from '../types';
 import { isTaskComplete } from '../store';
 
@@ -79,22 +79,10 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
-  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthName = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-  // Performance metrics
+  // Performance metrics: Absolute Execution Streak (00:00 midnight completion with zero backlog)
   const streak = useMemo(() => computeStreak(tasks), [tasks]);
-  const totalCompleted = useMemo(() => tasks.filter(isTaskComplete).length, [tasks]);
-  const activeDaysCount = useMemo(
-    () => new Set(tasks.filter(isTaskComplete).map((t) => t.targetDate)).size,
-    [tasks],
-  );
-  const monthTasks = useMemo(
-    () => tasks.filter((t) => t.targetDate && t.targetDate.startsWith(monthPrefix)),
-    [tasks, monthPrefix],
-  );
-  const monthDone = useMemo(() => monthTasks.filter(isTaskComplete).length, [monthTasks]);
-  const monthRate = monthTasks.length > 0 ? Math.round((monthDone / monthTasks.length) * 100) : 0;
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -113,53 +101,29 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
 
   return (
     <div className="fade-in space-y-4">
-      {/* ── Executive Performance Tracker Card ── */}
-      <div className="card p-4 bg-slate-900/90 text-white border border-slate-700/60 shadow-lg">
-        {/* Card Header: Title + Streak Badge */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-700/60 mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-              <Activity size={18} />
-            </div>
-            <div>
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
-                Execution Performance
-              </h3>
-              <p className="text-[10.5px] font-semibold text-slate-400">
-                Consistency & Streak Analytics
-              </p>
-            </div>
+      {/* ── Absolute Execution Streak Card ── */}
+      <div className="card p-4 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white border border-slate-700/60 shadow-lg flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-xs">
+            <Flame size={22} className="fill-amber-400 text-amber-400" />
           </div>
-          <div className="text-right">
-            <div className="text-base font-black text-amber-400 flex items-center justify-end gap-1.5">
-              <Flame size={18} className="fill-amber-400 text-amber-400" />
-              <span>{streak} Day{streak !== 1 ? 's' : ''}</span>
-            </div>
-            <span className="text-[9px] uppercase font-bold text-amber-300/80 tracking-wider">
-              Absolute Streak
-            </span>
+          <div>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
+              Absolute Execution Streak
+            </h3>
+            <p className="text-[10.5px] font-semibold text-slate-400 mt-0.5">
+              00:00 midnight completion with zero backlog slips
+            </p>
           </div>
         </div>
-
-        {/* 3 Metric Chips Row */}
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Monthly Rate</div>
-            <div className="text-base font-black text-blue-400 mt-0.5 tabular-nums">{monthRate}%</div>
-            <div className="text-[9px] text-slate-400 font-medium mt-0.5">{monthDone}/{monthTasks.length} done</div>
+        <div className="text-right shrink-0">
+          <div className="text-xl font-black text-amber-400 flex items-center justify-end gap-1 tabular-nums">
+            <span>{streak}</span>
+            <span className="text-xs font-bold text-amber-300">Day{streak !== 1 ? 's' : ''}</span>
           </div>
-
-          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Total Done</div>
-            <div className="text-base font-black text-emerald-400 mt-0.5 tabular-nums">{totalCompleted}</div>
-            <div className="text-[9px] text-slate-400 font-medium mt-0.5">all-time tasks</div>
-          </div>
-
-          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-            <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Active Days</div>
-            <div className="text-base font-black text-purple-400 mt-0.5 tabular-nums">{activeDaysCount}</div>
-            <div className="text-[9px] text-slate-400 font-medium mt-0.5">days executed</div>
-          </div>
+          <span className="text-[9px] uppercase font-extrabold text-emerald-400 tracking-wider">
+            {streak > 0 ? '🔥 Active Streak' : '⚡ Ready to Build'}
+          </span>
         </div>
       </div>
 

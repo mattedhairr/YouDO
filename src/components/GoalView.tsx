@@ -94,25 +94,6 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
     clearSelectionRef.current = clearSelection;
   });
 
-  // Auto-scroll & center target node when jumpToGoalTask is activated (polled for instant DOM mounting)
-  useEffect(() => {
-    if (!highlightNodeId) return;
-
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      const el = document.getElementById(`goal-node-${highlightNodeId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        clearInterval(interval);
-      } else if (attempts >= 15) {
-        clearInterval(interval);
-      }
-    }, 40);
-
-    return () => clearInterval(interval);
-  }, [highlightNodeId, pathIds]);
-
   const current = useMemo(() => {
     if (pathIds.length === 0) return null;
     for (const root of goals) {
@@ -137,6 +118,36 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
   }, [goals]);
 
   const children = current ? current.children : goals;
+
+  // Auto-scroll & center target node:
+  // 1. If explicit highlightNodeId is active (jumping from Today or Calendar), scroll to it.
+  // 2. Otherwise, auto-scroll to the FIRST UNSCHEDULED child task (!child.todayTaskId && !child.completed) so the user never has to scroll past scheduled tasks.
+  useEffect(() => {
+    let targetId = highlightNodeId;
+
+    if (!targetId && children.length > 0) {
+      const unscheduledChild = children.find((c) => !c.todayTaskId && !c.completed);
+      if (unscheduledChild) {
+        targetId = unscheduledChild.id;
+      }
+    }
+
+    if (!targetId) return;
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      const el = document.getElementById(`goal-node-${targetId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        clearInterval(interval);
+      } else if (attempts >= 15) {
+        clearInterval(interval);
+      }
+    }, 40);
+
+    return () => clearInterval(interval);
+  }, [highlightNodeId, pathIds, children]);
 
 
   const toggleSelect = (id: string) =>
