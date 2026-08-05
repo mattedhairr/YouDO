@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Link2, Plus, Trash2 } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Flame, Link2, Plus, Trash2 } from 'lucide-react';
 import type { Task } from '../types';
-import { useStore } from '../store';
-import { isTaskComplete } from '../store';
+import { useStore, isTaskComplete } from '../store';
 
 interface Props {
   tasks: Task[];
@@ -16,6 +15,49 @@ function localISODate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function computeStreak(tasks: Task[]): number {
+  const tasksByDate: Record<string, Task[]> = {};
+  for (const t of tasks) {
+    if (!t.targetDate) continue;
+    (tasksByDate[t.targetDate] ??= []).push(t);
+  }
+
+  const todayStr = localISODate(new Date());
+  const todayTasks = tasksByDate[todayStr] ?? [];
+  const todayHasTasks = todayTasks.length > 0;
+  const todayAllDone = todayHasTasks && todayTasks.every(isTaskComplete);
+
+  let streak = 0;
+  const checkDate = new Date();
+
+  // If today has tasks and all are done, streak starts including today
+  if (todayHasTasks && todayAllDone) {
+    streak++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  } else {
+    // Start checking backwards from yesterday
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  // Check past days (up to 365 days back)
+  for (let i = 0; i < 365; i++) {
+    const dateStr = localISODate(checkDate);
+    const dayTasks = tasksByDate[dateStr] ?? [];
+    if (dayTasks.length > 0) {
+      if (dayTasks.every(isTaskComplete)) {
+        streak++;
+      } else {
+        // Break on first day that had tasks left incomplete
+        break;
+      }
+    }
+    // Days with 0 tasks don't break streak, continue checking previous day
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  return streak;
 }
 
 export default function CalendarView({ tasks, onAddTask }: Props) {
@@ -37,7 +79,22 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthName = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  // Performance metrics
+  const streak = useMemo(() => computeStreak(tasks), [tasks]);
+  const totalCompleted = useMemo(() => tasks.filter(isTaskComplete).length, [tasks]);
+  const activeDaysCount = useMemo(
+    () => new Set(tasks.filter(isTaskComplete).map((t) => t.targetDate)).size,
+    [tasks],
+  );
+  const monthTasks = useMemo(
+    () => tasks.filter((t) => t.targetDate && t.targetDate.startsWith(monthPrefix)),
+    [tasks, monthPrefix],
+  );
+  const monthDone = useMemo(() => monthTasks.filter(isTaskComplete).length, [monthTasks]);
+  const monthRate = monthTasks.length > 0 ? Math.round((monthDone / monthTasks.length) * 100) : 0;
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -55,9 +112,59 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
   const selectedDone = selectedTasks.filter(isTaskComplete).length;
 
   return (
-    <div className="fade-in">
+    <div className="fade-in space-y-4">
+      {/* ── Executive Performance Tracker Card ── */}
+      <div className="card p-4 bg-slate-900/90 text-white border border-slate-700/60 shadow-lg">
+        {/* Card Header: Title + Streak Badge */}
+        <div className="flex items-center justify-between pb-3 border-b border-slate-700/60 mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <Activity size={18} />
+            </div>
+            <div>
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
+                Execution Performance
+              </h3>
+              <p className="text-[10.5px] font-semibold text-slate-400">
+                Consistency & Streak Analytics
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-base font-black text-amber-400 flex items-center justify-end gap-1.5">
+              <Flame size={18} className="fill-amber-400 text-amber-400" />
+              <span>{streak} Day{streak !== 1 ? 's' : ''}</span>
+            </div>
+            <span className="text-[9px] uppercase font-bold text-amber-300/80 tracking-wider">
+              Absolute Streak
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Metric Chips Row */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+            <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Monthly Rate</div>
+            <div className="text-base font-black text-blue-400 mt-0.5 tabular-nums">{monthRate}%</div>
+            <div className="text-[9px] text-slate-400 font-medium mt-0.5">{monthDone}/{monthTasks.length} done</div>
+          </div>
+
+          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+            <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Total Done</div>
+            <div className="text-base font-black text-emerald-400 mt-0.5 tabular-nums">{totalCompleted}</div>
+            <div className="text-[9px] text-slate-400 font-medium mt-0.5">all-time tasks</div>
+          </div>
+
+          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+            <div className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">Active Days</div>
+            <div className="text-base font-black text-purple-400 mt-0.5 tabular-nums">{activeDaysCount}</div>
+            <div className="text-[9px] text-slate-400 font-medium mt-0.5">days executed</div>
+          </div>
+        </div>
+      </div>
+
       {/* Month navigation */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <button onClick={prevMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
           <ChevronLeft size={18} />
         </button>
