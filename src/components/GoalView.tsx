@@ -213,15 +213,36 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                   <button
                     key={p.node.id}
                     onClick={() => jumpToPinned(p)}
-                    className="w-full card p-2.5 flex items-center gap-2.5 hover:ring-1 hover:ring-amber-400/50 transition-all fade-in bg-white dark:bg-slate-800"
+                    className="w-full card p-3 flex items-start gap-2.5 hover:ring-1 hover:ring-amber-400/50 transition-all fade-in bg-white dark:bg-slate-800"
                   >
-                    <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
+                    <Icon size={16} style={{ color: meta.tint }} className="shrink-0 mt-0.5" />
                     <div className="flex-1 text-left min-w-0">
-                      <div className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{p.node.title}</div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-400 truncate">{p.path.slice(0, -1).map((n) => n.title).join(' > ') || 'Root'}</div>
+                      <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">{p.node.title}</div>
+                      {(() => {
+                        const ancestorTitles = p.path.slice(0, -1).map((n) => n.title);
+                        if (ancestorTitles.length === 0) {
+                          return <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">Root Goal</div>;
+                        }
+                        return (
+                          <div className="mt-1 flex items-center gap-1 flex-wrap text-[10px] font-medium leading-normal">
+                            {ancestorTitles.map((title, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1">
+                                <span className={idx === ancestorTitles.length - 1 ? 'font-semibold text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}>
+                                  {title}
+                                </span>
+                                {idx < ancestorTitles.length - 1 && (
+                                  <span className="text-slate-300 dark:text-slate-600">/</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
-                    <span className="text-[11px] font-semibold tabular-nums text-slate-500 dark:text-slate-400 shrink-0">{rollupPct(p.node)}%</span>
-                    <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      <span className="text-[11px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">{rollupPct(p.node)}%</span>
+                      <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />
+                    </div>
                   </button>
                 );
               })}
