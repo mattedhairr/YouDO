@@ -103,25 +103,17 @@ export default function TaskCard({
           {/* Content column */}
           <div className="flex-1 min-w-0">
 
-            {/* ── Title row: dot + title highlight box + actions ── */}
-            <div className="flex items-start gap-2">
-              <span className={`mt-[6px] w-2 h-2 rounded-full shrink-0 ${ps.dot}`} />
-              <div className={`flex-1 min-w-0 ${
-                !complete
-                  ? 'bg-slate-100/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 rounded-xl px-2.5 py-1 shadow-2xs'
-                  : 'py-0.5'
+            {/* ── Title row: dot + clean title + actions ── */}
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${ps.dot}`} />
+              <h3 className={`flex-1 text-[14px] font-bold leading-snug ${
+                complete ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'
               }`}>
-                <h3 className={`text-[14px] leading-snug ${
-                  !complete
-                    ? 'font-bold text-slate-900 dark:text-slate-50 tracking-[0.01em]'
-                    : 'font-semibold text-slate-400 dark:text-slate-500 line-through'
-                }`}>
-                  {task.title}
-                </h3>
-              </div>
+                {task.title}
+              </h3>
               {/* Action buttons — stay in title row, right-aligned */}
               <div
-                className="flex items-center gap-1 shrink-0 -mr-1 -mt-0.5"
+                className="flex items-center gap-1 shrink-0 -mr-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 {backlogAction}
