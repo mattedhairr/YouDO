@@ -163,7 +163,8 @@ function AppInner() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
-  }, [dark]);
+    document.documentElement.classList.toggle('glass', theme.glassUI);
+  }, [dark, theme.glassUI]);
 
   // Push history state when opening a modal sheet
   const pushModalState = useCallback(() => {

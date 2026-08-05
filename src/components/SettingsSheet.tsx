@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, ChevronDown, ChevronRight, Download, GitMerge, Layers, Moon, Sun, Upload, X, Zap } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarCheck, CheckCircle2, ChevronDown, ChevronRight, Download, GitMerge, Layers, Moon, Sparkles, Square, Sun, Upload, X, Zap } from 'lucide-react';
 import type { Theme } from '../hooks/useTheme';
 import { useStore } from '../store';
 
@@ -13,6 +13,7 @@ interface Props {
 export default function SettingsSheet({ open, theme, onClose, onApply }: Props) {
   const { exportBackup, importBackup } = useStore();
   const [darkMode, setDarkMode] = useState(theme.darkMode);
+  const [glassUI, setGlassUI] = useState(theme.glassUI);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
   const [guideExpanded, setGuideExpanded] = useState(false);
@@ -21,7 +22,7 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
   if (!open) return null;
 
   const apply = () => {
-    onApply({ darkMode });
+    onApply({ darkMode, glassUI });
     onClose();
   };
 
@@ -73,22 +74,46 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
           </button>
         </div>
 
-        {/* 1. Appearance (Dark / Light Mode) */}
-        <div>
-          <label className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">1. Appearance</label>
-          <div className="mt-2 grid grid-cols-2 gap-2.5">
-            <button
-              onClick={() => setDarkMode(false)}
-              className={`flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-bold border transition-all ${!darkMode ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-600 dark:text-blue-300 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}`}
-            >
-              <Sun size={16} /> Light Mode
-            </button>
-            <button
-              onClick={() => setDarkMode(true)}
-              className={`flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-bold border transition-all ${darkMode ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-600 dark:text-blue-300 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}`}
-            >
-              <Moon size={16} /> Dark Glass
-            </button>
+        {/* 1. Appearance (Theme & Glass UI Options) */}
+        <div className="space-y-3">
+          <label className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">1. Appearance & Theme</label>
+
+          {/* Light / Dark Mode Toggle */}
+          <div className="space-y-1">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Color Palette</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setDarkMode(false)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold border transition-all ${!darkMode ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-600 dark:text-blue-300 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}`}
+              >
+                <Sun size={15} /> Light Mode
+              </button>
+              <button
+                onClick={() => setDarkMode(true)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold border transition-all ${darkMode ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-600 dark:text-blue-300 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}`}
+              >
+                <Moon size={15} /> Dark Mode
+              </button>
+            </div>
+          </div>
+
+          {/* Glass UI vs Solid Mode Toggle */}
+          <div className="space-y-1">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Visual Effect</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setGlassUI(true)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold border transition-all ${glassUI ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-600 dark:text-blue-300 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}`}
+              >
+                <Sparkles size={15} className="text-amber-500" /> Frosted Glass
+              </button>
+              <button
+                onClick={() => setGlassUI(false)}
+                className={`flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold border transition-all ${!glassUI ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-600 dark:text-blue-300 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}`}
+              >
+                <Square size={15} /> Solid Minimal
+              </button>
+            </div>
           </div>
         </div>
 

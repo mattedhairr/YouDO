@@ -164,7 +164,7 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
   return (
     <div className="fade-in pb-20">
       {/* Sticky Top Glass Breadcrumb Header */}
-      <div className="sticky top-0 z-30 -mx-4 px-4 py-2.5 glass-header mb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap shadow-xs">
+      <div className="sticky top-0 z-30 no-swipe rounded-2xl px-3 py-2 glass-header mb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap shadow-xs">
         <button
           onClick={goRoot}
           className={`px-2.5 py-1 rounded-xl text-[12px] font-semibold transition-all shrink-0 ${
