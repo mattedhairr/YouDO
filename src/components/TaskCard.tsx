@@ -99,15 +99,6 @@ export default function TaskCard({
           {task.description && (
             <p className={`mt-1 text-[12px] ${descColor} leading-snug line-clamp-2`}>{task.description}</p>
           )}
-          {task.steps.length > 0 && (
-            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-              {task.steps.map((s, i) => (
-                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded-md border transition-all ${i < task.progress ? `${stepDoneBg} animate-stamp` : stepTodoBg}`}>
-                  {i < task.progress ? '✓' : `${i + 1}.`} {s}
-                </span>
-              ))}
-            </div>
-          )}
           <div className={`mt-2 flex items-center gap-3 text-[11px] ${dateColor}`}>
             <span className="inline-flex items-center gap-1"><Calendar size={11} /> {fmtDate(task.targetDate)}</span>
             {task.deadline && (
@@ -117,18 +108,37 @@ export default function TaskCard({
             )}
           </div>
         </div>
-        <div className="shrink-0 flex items-center gap-0.5">
-          {task.progress > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); onUndo(task.id); }} className={`p-1.5 rounded-lg transition-colors ${btnColor}`} title="Undo last step">
-              <RotateCcw size={14} />
-            </button>
+
+        {/* Right Section: Vertical Micro-steps column + Action buttons */}
+        <div className="shrink-0 flex items-start gap-2">
+          {task.steps.length > 0 && (
+            <div className="flex flex-col gap-1 justify-center pl-2.5 border-l border-slate-200/60 dark:border-slate-700/60 max-w-[140px] shrink-0">
+              <div className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Steps ({task.progress}/{task.steps.length})
+              </div>
+              <div className="flex flex-col gap-1 max-h-[85px] overflow-y-auto no-scrollbar">
+                {task.steps.map((s, i) => (
+                  <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded-md border truncate transition-all ${i < task.progress ? `${stepDoneBg} animate-stamp` : stepTodoBg}`}>
+                    {i < task.progress ? '✓' : `${i + 1}.`} {s}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
-          <button onClick={(e) => { e.stopPropagation(); onDuplicate(task.id); }} className={`p-1.5 rounded-lg transition-colors ${dupBtn}`} title="Duplicate task">
-            <Copy size={14} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className={`p-1.5 rounded-lg transition-colors ${delBtn}`} title={softRemove ? 'Remove from Today' : 'Delete task'}>
-            <X size={14} />
-          </button>
+
+          <div className="flex items-center gap-0.5">
+            {task.progress > 0 && (
+              <button onClick={(e) => { e.stopPropagation(); onUndo(task.id); }} className={`p-1.5 rounded-lg transition-colors ${btnColor}`} title="Undo last step">
+                <RotateCcw size={14} />
+              </button>
+            )}
+            <button onClick={(e) => { e.stopPropagation(); onDuplicate(task.id); }} className={`p-1.5 rounded-lg transition-colors ${dupBtn}`} title="Duplicate task">
+              <Copy size={14} />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className={`p-1.5 rounded-lg transition-colors ${delBtn}`} title={softRemove ? 'Remove from Today' : 'Delete task'}>
+              <X size={14} />
+            </button>
+          </div>
         </div>
       </div>
       <div className={`mt-3 h-1.5 rounded-full ${trackBg} overflow-hidden`}>

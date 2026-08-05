@@ -194,33 +194,49 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
 
       {/* Pinned/Favorites section */}
       {pinned.length > 0 && pathIds.length === 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-1.5 mb-2 text-[11px] font-semibold uppercase tracking-wide text-amber-500 dark:text-amber-400">
-            <Star size={12} className="fill-amber-400 text-amber-400" />
-            Pinned Goals
+        <>
+          <div className="mb-4 p-3 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 dark:border-amber-500/30 shadow-2xs">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <Star size={13} className="fill-amber-400 text-amber-400" />
+                Pinned & Favorites
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300">
+                {pinned.length}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {pinned.map((p) => {
+                const meta = kindMeta[p.node.kind];
+                const Icon = meta.icon;
+                return (
+                  <button
+                    key={p.node.id}
+                    onClick={() => jumpToPinned(p)}
+                    className="w-full card p-2.5 flex items-center gap-2.5 hover:ring-1 hover:ring-amber-400/50 transition-all fade-in bg-white dark:bg-slate-800"
+                  >
+                    <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{p.node.title}</div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-400 truncate">{p.path.slice(0, -1).map((n) => n.title).join(' > ') || 'Root'}</div>
+                    </div>
+                    <span className="text-[11px] font-semibold tabular-nums text-slate-500 dark:text-slate-400 shrink-0">{rollupPct(p.node)}%</span>
+                    <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="space-y-1.5">
-            {pinned.map((p) => {
-              const meta = kindMeta[p.node.kind];
-              const Icon = meta.icon;
-              return (
-                <button
-                  key={p.node.id}
-                  onClick={() => jumpToPinned(p)}
-                  className="w-full card p-2.5 flex items-center gap-2.5 hover:ring-1 hover:ring-amber-400/50 transition-all fade-in"
-                >
-                  <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
-                  <div className="flex-1 text-left min-w-0">
-                    <div className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{p.node.title}</div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-400 truncate">{p.path.slice(0, -1).map((n) => n.title).join(' > ') || 'Root'}</div>
-                  </div>
-                  <span className="text-[11px] font-semibold tabular-nums text-slate-500 dark:text-slate-400 shrink-0">{rollupPct(p.node)}%</span>
-                  <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />
-                </button>
-              );
-            })}
+
+          {/* Partition Divider */}
+          <div className="flex items-center gap-3 my-4">
+            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700/80" />
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              All Goals
+            </span>
+            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700/80" />
           </div>
-        </div>
+        </>
       )}
 
       {/* Current node header card */}
