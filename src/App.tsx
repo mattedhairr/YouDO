@@ -293,15 +293,19 @@ function AppInner() {
     }));
   }, [backlogTasks]);
 
+  const [highlightNodeId, setHighlightNodeId] = useState<string | null>(null);
+
   const jumpToGoalTask = useCallback(
     (goalNodeId: string | null | undefined) => {
       if (!goalNodeId) return;
       for (const root of goals) {
         const nodes = pathNodes(root, goalNodeId);
         if (nodes.length > 0) {
-          const parentPath = nodes.slice(0, -1);
+          const parentPath = nodes.length > 1 ? nodes.slice(0, -1) : [];
           const parentIds = parentPath.map((n) => n.id);
+          setHighlightNodeId(goalNodeId);
           navigateToGoalPath(parentIds);
+          setTimeout(() => setHighlightNodeId(null), 3000);
           return;
         }
       }
@@ -676,6 +680,7 @@ function AppInner() {
                 accent={ACCENT}
                 pathIds={goalPathIds}
                 setPathIds={setGoalPathIds}
+                highlightNodeId={highlightNodeId}
                 onAddChild={openAddGoal}
                 onEditNode={openEditGoal}
                 onPushNode={handlePushNode}

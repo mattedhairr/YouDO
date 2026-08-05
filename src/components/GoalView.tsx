@@ -56,6 +56,7 @@ interface Props {
   accent: string;
   pathIds: string[];
   setPathIds: (ids: string[]) => void;
+  highlightNodeId?: string | null;
   onAddChild: (parentId: string | null, parentKind?: GoalKind) => void;
   onEditNode: (node: GoalNode) => void;
   onPushNode: (node: GoalNode) => void;
@@ -81,7 +82,7 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf: { icon: CircleDot, tint: '#f43f5e', label: 'Leaf' },
 };
 
-export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef }: Props) {
+export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, moveGoalNode, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
@@ -320,6 +321,8 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
           const isBacklogged = linkedTask ? isBacklogTask(linkedTask) : false;
           const isScheduled = linkedTask && !isBacklogged;
 
+          const isHighlighted = child.id === highlightNodeId;
+
           return (
             <div
               key={child.id}
@@ -337,7 +340,13 @@ export default function GoalView({ accent, pathIds, setPathIds, onAddChild, onEd
                 setDragId(null);
                 setOverId(null);
               }}
-              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''} ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01]' : ''} ${isDone ? 'opacity-70 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30' : ''}`}
+              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing ${
+                isHighlighted
+                  ? 'ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-500/10 dark:bg-blue-900/30 scale-[1.02] shadow-lg shadow-blue-500/25 animate-pulse z-10'
+                  : isSelected
+                    ? 'ring-2 ring-blue-400 dark:ring-blue-500'
+                    : ''
+              } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01]' : ''} ${isDone && !isHighlighted ? 'opacity-70 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30' : ''}`}
             >
               {/* Header Row */}
               <div className="flex items-start gap-2.5">
