@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Activity, ChevronLeft, ChevronRight, Flame, Link2, Plus, Trash2 } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Flame, Link2, Plus } from 'lucide-react';
 import type { Task } from '../types';
-import { useStore, isTaskComplete } from '../store';
+import { isTaskComplete } from '../store';
 
 interface Props {
   tasks: Task[];
   onAddTask: (date: string) => void;
+  onJumpToGoal: (goalNodeId: string | null | undefined) => void;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -60,8 +61,7 @@ function computeStreak(tasks: Task[]): number {
   return streak;
 }
 
-export default function CalendarView({ tasks, onAddTask }: Props) {
-  const { advance, removeTask, unlinkTask } = useStore();
+export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) {
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
@@ -270,32 +270,24 @@ export default function CalendarView({ tasks, onAddTask }: Props) {
               return (
                 <div
                   key={t.id}
-                  onClick={() => !complete && advance(t.id)}
-                  className={`card p-3.5 cursor-pointer transition-all hover:border-blue-300 dark:hover:border-blue-400/50 ${complete ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30 animate-glow-pulse' : ''}`}
+                  className={`card p-3.5 transition-all ${complete ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     <h4 className={`flex-1 text-[13.5px] font-semibold ${complete ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{t.title}</h4>
                     {t.goalNodeId && (
-                      <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-md px-1.5 py-0.5">
-                        <Link2 size={8} /> Goal
-                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onJumpToGoal(t.goalNodeId);
+                        }}
+                        className="inline-flex items-center gap-1 text-[9.5px] font-bold text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/70 border border-blue-200 dark:border-blue-700/60 rounded-md px-2 py-0.5 transition-all shadow-2xs hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+                        title="Jump to original task in Goal Blueprint"
+                      >
+                        <Link2 size={10} className="text-blue-500 shrink-0" /> Goal Blueprint
+                      </button>
                     )}
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">{t.progress}/{t.steps.length || 1}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (t.goalNodeId) {
-                          unlinkTask(t.id);
-                        } else {
-                          removeTask(t.id);
-                        }
-                      }}
-                      className="p-1 rounded-md text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors shrink-0"
-                      title="Delete task"
-                    >
-                      <Trash2 size={13} />
-                    </button>
                   </div>
                   {t.description && <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 line-clamp-1">{t.description}</p>}
                   

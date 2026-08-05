@@ -670,7 +670,7 @@ function AppInner() {
                 )}
               </div>
             ) : view === 'calendar' ? (
-              <CalendarView tasks={tasks} onAddTask={(date) => openAddTask(date)} />
+              <CalendarView tasks={tasks} onAddTask={(date) => openAddTask(date)} onJumpToGoal={jumpToGoalTask} />
             ) : (
               <GoalView
                 accent={ACCENT}
