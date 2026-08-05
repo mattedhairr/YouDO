@@ -157,7 +157,7 @@ function AppInner() {
     return modalCloseRef.current();
   }, []);
 
-  const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab } =
+  const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab, navigateToGoalPath } =
     useNavigationSync(handleModalPopState);
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
 
@@ -300,13 +300,13 @@ function AppInner() {
         const nodes = pathNodes(root, goalNodeId);
         if (nodes.length > 0) {
           const parentPath = nodes.slice(0, -1);
-          setGoalPathIds(parentPath.map((n) => n.id));
-          handleNavigateTab('goals');
+          const parentIds = parentPath.map((n) => n.id);
+          navigateToGoalPath(parentIds);
           return;
         }
       }
     },
-    [goals, setGoalPathIds, handleNavigateTab],
+    [goals, navigateToGoalPath],
   );
 
   const handlePushBacklogTask = useCallback(

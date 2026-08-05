@@ -161,12 +161,27 @@ export function useNavigationSync(onPopState?: () => boolean) {
     }
   }, []);
 
+  // Direct navigation to a specific deep goal path
+  const navigateToGoalPath = useCallback((targetPathIds: string[]) => {
+    const currentView = viewRef.current;
+    const currentIdx = TABS.indexOf(currentView);
+    const targetIdx = TABS.indexOf('goals');
+    const direction = targetIdx > currentIdx ? 'right' : 'left';
+    setSlideDirection(direction);
+    setView('goals');
+    setGoalPathIdsState(targetPathIds);
+    if (!isNavigatingHistory.current) {
+      syncUrlAndStorage('goals', targetPathIds, true);
+    }
+  }, []);
+
   return {
     view,
     goalPathIds,
     slideDirection,
     setGoalPathIds: handleUpdateGoalPath,
     handleNavigateTab,
+    navigateToGoalPath,
   };
 }
 
