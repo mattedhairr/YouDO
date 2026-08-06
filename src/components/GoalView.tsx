@@ -22,7 +22,26 @@ import {
   Zap,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
-import { countDirectChildren, countCompletedDirectChildren, findNode, isBacklogTask, rollupPct, useStore } from '../store';
+import { countDirectChildren, countCompletedDirectChildren, findNode, formatDDMMYYYY, isBacklogTask, rollupPct, useStore } from '../store';
+
+function localISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getScheduledDateLabel(targetDate: string | null | undefined): string {
+  if (!targetDate) return 'Scheduled';
+  const today = localISODate(new Date());
+  const tom = new Date();
+  tom.setDate(tom.getDate() + 1);
+  const tomStr = localISODate(tom);
+
+  if (targetDate === today) return 'Today';
+  if (targetDate === tomStr) return 'Tomorrow';
+  return formatDDMMYYYY(targetDate);
+}
 
 function findGoalInTree(id: string, nodes: GoalNode[]): GoalNode | undefined {
   for (const n of nodes) {
@@ -404,8 +423,11 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                     </h3>
                     {child.pinned && <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />}
                     {isScheduled && (
-                      <span className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
-                        <Zap size={9} /> Scheduled
+                      <span
+                        className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 px-2 py-0.5 rounded-full shadow-2xs"
+                        title={`Scheduled for ${linkedTask?.targetDate ? formatDDMMYYYY(linkedTask.targetDate) : ''}`}
+                      >
+                        <Zap size={9} className="fill-emerald-500 text-emerald-500" /> Scheduled ({getScheduledDateLabel(linkedTask?.targetDate)})
                       </span>
                     )}
                     {isBacklogged && (

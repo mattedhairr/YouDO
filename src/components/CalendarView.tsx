@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Flame, Link2, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Link2, Plus } from 'lucide-react';
 import type { Task } from '../types';
 import { isTaskComplete } from '../store';
 
@@ -16,49 +16,6 @@ function localISODate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-function computeStreak(tasks: Task[]): number {
-  const tasksByDate: Record<string, Task[]> = {};
-  for (const t of tasks) {
-    if (!t.targetDate) continue;
-    (tasksByDate[t.targetDate] ??= []).push(t);
-  }
-
-  const todayStr = localISODate(new Date());
-  const todayTasks = tasksByDate[todayStr] ?? [];
-  const todayHasTasks = todayTasks.length > 0;
-  const todayAllDone = todayHasTasks && todayTasks.every(isTaskComplete);
-
-  let streak = 0;
-  const checkDate = new Date();
-
-  // If today has tasks and all are done, streak starts including today
-  if (todayHasTasks && todayAllDone) {
-    streak++;
-    checkDate.setDate(checkDate.getDate() - 1);
-  } else {
-    // Start checking backwards from yesterday
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-
-  // Check past days (up to 365 days back)
-  for (let i = 0; i < 365; i++) {
-    const dateStr = localISODate(checkDate);
-    const dayTasks = tasksByDate[dateStr] ?? [];
-    if (dayTasks.length > 0) {
-      if (dayTasks.every(isTaskComplete)) {
-        streak++;
-      } else {
-        // Break on first day that had tasks left incomplete
-        break;
-      }
-    }
-    // Days with 0 tasks don't break streak, continue checking previous day
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-
-  return streak;
 }
 
 export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) {
@@ -81,9 +38,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
   const month = cursor.getMonth();
   const monthName = cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
-  // Performance metrics: Absolute Execution Streak (00:00 midnight completion with zero backlog)
-  const streak = useMemo(() => computeStreak(tasks), [tasks]);
-
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr = localISODate(new Date());
@@ -101,32 +55,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
 
   return (
     <div className="fade-in space-y-4">
-      {/* ── Absolute Execution Streak Card ── */}
-      <div className="card p-4 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white border border-slate-700/60 shadow-lg flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-xs">
-            <Flame size={22} className="fill-amber-400 text-amber-400" />
-          </div>
-          <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
-              Absolute Execution Streak
-            </h3>
-            <p className="text-[10.5px] font-semibold text-slate-400 mt-0.5">
-              00:00 midnight completion with zero backlog slips
-            </p>
-          </div>
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-xl font-black text-amber-400 flex items-center justify-end gap-1 tabular-nums">
-            <span>{streak}</span>
-            <span className="text-xs font-bold text-amber-300">Day{streak !== 1 ? 's' : ''}</span>
-          </div>
-          <span className="text-[9px] uppercase font-extrabold text-emerald-400 tracking-wider">
-            {streak > 0 ? '🔥 Active Streak' : '⚡ Ready to Build'}
-          </span>
-        </div>
-      </div>
-
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-2">
         <button onClick={prevMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
