@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Calendar, CheckSquare, Square, X, Zap } from 'lucide-react';
 import type { GoalNode } from '../types';
-import { formatDDMMYYYY, todayISO } from '../store';
+import { formatDDMMYYYY, todayISO, tomorrowISO } from '../store';
 
 export interface NodePlan {
   nodeId: string;
@@ -120,6 +120,32 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
             <span className="text-[12px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 tabular-nums">
               {formatDDMMYYYY(date)}
             </span>
+          </div>
+
+          {/* Quick Schedule Templates */}
+          <div className="flex items-center gap-2 mb-2.5">
+            <button
+              type="button"
+              onClick={() => setDate(todayISO())}
+              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+                date === todayISO()
+                  ? 'bg-blue-500 text-white border-blue-500 shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
+              }`}
+            >
+              📅 Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setDate(tomorrowISO())}
+              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+                date === tomorrowISO()
+                  ? 'bg-blue-500 text-white border-blue-500 shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
+              }`}
+            >
+              🌅 Tomorrow
+            </button>
           </div>
 
           <input
