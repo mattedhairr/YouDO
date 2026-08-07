@@ -254,7 +254,8 @@ function countSlicedDone(node: GoalNode, slice: number[] | undefined): number {
  * A task with no steps is never automatically complete — it must be explicitly handled by the UI.
  */
 export function isTaskComplete(task: { steps: string[]; progress: number }): boolean {
-  return task.steps.length > 0 && task.progress >= task.steps.length;
+  const total = task.steps.length > 0 ? task.steps.length : 1;
+  return task.progress >= total;
 }
 
 export function isBacklogTask(task: Task): boolean {
@@ -395,16 +396,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const advance = useCallback(
     (id: string) => {
       const t = tasksRef.current.find((x) => x.id === id);
-      if (!t || t.steps.length === 0) return;
-      const nextProgress = Math.min(t.progress + 1, t.steps.length);
+      if (!t) return;
+      const totalSteps = t.steps.length > 0 ? t.steps.length : 1;
+      if (t.progress >= totalSteps) return;
+      const nextProgress = t.progress + 1;
       setTasks((prev) => prev.map((x) => (x.id === id ? { ...x, progress: nextProgress } : x)));
       if (t.goalNodeId) {
         setGoals((prev) =>
           prev.map((root) =>
             updateNode(root, t.goalNodeId!, (n) => {
-              if (!n.steps) return n;
-              const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
-              return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
+              const hasMicroSteps = !!n.steps && n.steps.length > 0;
+              if (hasMicroSteps) {
+                const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
+                return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
+              }
+              return { ...n, completed: true };
             }),
           ),
         );
@@ -423,9 +429,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setGoals((prev) =>
           prev.map((root) =>
             updateNode(root, t.goalNodeId!, (n) => {
-              if (!n.steps) return n;
-              const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
-              return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
+              const hasMicroSteps = !!n.steps && n.steps.length > 0;
+              if (hasMicroSteps) {
+                const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
+                return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
+              }
+              return { ...n, completed: nextProgress > 0 };
             }),
           ),
         );
