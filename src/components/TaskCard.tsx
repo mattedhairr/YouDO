@@ -159,27 +159,8 @@ export default function TaskCard({
               </div>
             )}
 
-            {/* ── Description preview ── */}
-            {task.description && (
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onOpenDescription) {
-                    onOpenDescription(task.title, task.description);
-                  }
-                }}
-                className="mt-2 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/50 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-all group/desc"
-                title="Click to view full description"
-              >
-                <div className="flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-0.5">
-                  <FileText size={11} className="text-blue-500 shrink-0" /> Description <span className="text-[9px] font-semibold text-blue-500 dark:text-blue-400 opacity-80 group-hover/desc:opacity-100 transition-opacity">· Tap to expand 🔍</span>
-                </div>
-                <p className="line-clamp-2">{task.description}</p>
-              </div>
-            )}
-
-            {/* ── Date / deadline row ── */}
-            <div className={`mt-2 flex items-center gap-3 text-[11px] ${dateColor}`}>
+            {/* ── Date / deadline / description row ── */}
+            <div className={`mt-2 flex items-center gap-3 text-[11px] ${dateColor} flex-wrap`}>
               <span className="inline-flex items-center gap-1">
                 <Calendar size={11} /> {fmtDate(task.targetDate)}
               </span>
@@ -189,6 +170,21 @@ export default function TaskCard({
                 }`}>
                   <Clock size={11} /> {fmtCountdown(task.deadline)}
                 </span>
+              )}
+              {task.description && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenDescription) {
+                      onOpenDescription(task.title, task.description);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 font-medium text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                  title="View full description"
+                >
+                  <FileText size={11} className="text-blue-500 shrink-0" />
+                  <span className="max-w-[140px] sm:max-w-[200px] truncate">{task.description}</span>
+                </button>
               )}
             </div>
           </div>

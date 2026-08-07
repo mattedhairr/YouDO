@@ -436,30 +436,29 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
                     <span style={{ color: meta.tint }} className="font-semibold">{meta.label}</span>
                     {!isLeafLike && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
                     {isLeafLike && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
+                    {child.description && (
+                      <>
+                        <span>·</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenDescription) {
+                              onOpenDescription(child.title, child.description!);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                          title="View full description"
+                        >
+                          <FileText size={11} className="text-blue-500 shrink-0" />
+                          <span className="max-w-[130px] sm:max-w-[200px] truncate">{child.description}</span>
+                        </button>
+                      </>
+                    )}
                   </div>
-
-                  {/* Description Preview Pill */}
-                  {child.description && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onOpenDescription) {
-                          onOpenDescription(child.title, child.description!);
-                        }
-                      }}
-                      className="mt-2.5 p-2 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-all group/desc"
-                      title="Click to view full description"
-                    >
-                      <div className="flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-0.5">
-                        <FileText size={11} className="text-blue-500 shrink-0" /> Description <span className="text-[9px] font-semibold text-blue-500 dark:text-blue-400 opacity-80 group-hover/desc:opacity-100 transition-opacity">· Tap to expand 🔍</span>
-                      </div>
-                      <p className="line-clamp-2">{child.description}</p>
-                    </div>
-                  )}
                 </div>
 
                 {/* Progress % + drill */}
