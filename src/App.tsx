@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calendar, Flame, ListChecks, Plus, Quote, Zap } from 'lucide-react';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap } from 'lucide-react';
 import type { GoalKind, GoalNode, Task, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { useNavigationSync } from './hooks/useNavigationSync';
@@ -114,6 +114,7 @@ function AppInner() {
   const [sliceNodes, setSliceNodes] = useState<GoalNode[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [descModalData, setDescModalData] = useState<{ title: string; description: string } | null>(null);
 
   // Batch selection state (owned by App, fed from GoalView via onSelectionChange)
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([]);
@@ -257,6 +258,21 @@ function AppInner() {
 
   const closeSliceNode = useCallback(() => {
     setSliceNodes([]);
+    if (window.history.state?.modal) {
+      window.history.back();
+    }
+  }, []);
+
+  const openDescriptionModal = useCallback(
+    (title: string, description: string) => {
+      pushModalState();
+      setDescModalData({ title, description });
+    },
+    [pushModalState],
+  );
+
+  const closeDescriptionModal = useCallback(() => {
+    setDescModalData(null);
     if (window.history.state?.modal) {
       window.history.back();
     }
@@ -596,6 +612,7 @@ function AppInner() {
                           softRemove={!!t.goalNodeId}
                           dark={dark}
                           onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                          onOpenDescription={openDescriptionModal}
                         />
                       ))}
                     </div>
@@ -650,9 +667,9 @@ function AppInner() {
                               dragOver={false}
                               origin={originFor(t.id)}
                               softRemove={!!t.goalNodeId}
-                              dark={dark}
                               onCardClick={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                               onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                              onOpenDescription={openDescriptionModal}
                               backlogAction={
                                 <button
                                   onClick={(e) => {
@@ -693,6 +710,7 @@ function AppInner() {
                 clipboard={clipboard}
                 onSelectionChange={handleSelectionChange}
                 clearSelectionRef={clearSelectionRef}
+                onOpenDescription={openDescriptionModal}
               />
             )}
           </div>
@@ -766,6 +784,46 @@ function AppInner() {
         onClose={closeSettings}
         onApply={(t) => { setTheme(t); closeSettings(); }}
       />
+
+      {/* ── Description Viewer Modal Pop-up ── */}
+      {descModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={closeDescriptionModal} />
+          <div className="sheet-up relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl p-5 pb-6 shadow-2xl space-y-4 border border-slate-200/80 dark:border-slate-800 max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 shrink-0 mt-0.5">
+                  <FileText size={18} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">Full Description</span>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100 leading-snug break-words">{descModalData.title}</h3>
+                </div>
+              </div>
+              <button
+                onClick={closeDescriptionModal}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Description Body (Scrollable) */}
+            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-medium bg-slate-50/70 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/80">
+              {descModalData.description}
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={closeDescriptionModal}
+              className="w-full py-3 rounded-2xl text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 transition-all active:scale-[0.99]"
+            >
+              Close Description
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

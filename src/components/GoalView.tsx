@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  ArrowDown,
-  ArrowUp,
   CheckCircle2,
   ChevronRight,
   CircleDot,
   Clipboard,
   Copy,
+  FileText,
   Flag,
   Layers,
   ListTree,
@@ -90,6 +89,7 @@ interface Props {
   onSelectionChange: (selectedIds: string[], leafIds: string[]) => void;
   /** Ref App provides — GoalView stores its clearSelection fn here so App can call it */
   clearSelectionRef: React.MutableRefObject<() => void>;
+  onOpenDescription?: (title: string, description: string) => void;
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
@@ -101,8 +101,8 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf: { icon: CircleDot, tint: '#f43f5e', label: 'Leaf' },
 };
 
-export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef }: Props) {
-  const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, moveGoalNode, toggleNodeCompletion } = useStore();
+export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef, onOpenDescription }: Props) {
+  const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -352,7 +352,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
 
       {/* Children list */}
       <div className="space-y-2.5">
-        {children.map((child, childIdx) => {
+        {children.map((child) => {
           const meta = kindMeta[child.kind];
           const Icon = meta.icon;
           // Any container node (goal, phase, section, task, sub) can be drilled into
@@ -441,6 +441,25 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                     {!isLeafLike && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
                     {isLeafLike && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
                   </div>
+
+                  {/* Description Preview Pill */}
+                  {child.description && (
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenDescription) {
+                          onOpenDescription(child.title, child.description!);
+                        }
+                      }}
+                      className="mt-2.5 p-2 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-all group/desc"
+                      title="Click to view full description"
+                    >
+                      <div className="flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-0.5">
+                        <FileText size={11} className="text-blue-500 shrink-0" /> Description <span className="text-[9px] font-semibold text-blue-500 dark:text-blue-400 opacity-80 group-hover/desc:opacity-100 transition-opacity">· Tap to expand 🔍</span>
+                      </div>
+                      <p className="line-clamp-2">{child.description}</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress % + drill */}
@@ -508,24 +527,6 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                   >
                     <Copy size={14} />
                   </button>
-                  <div className="flex items-center gap-0 border-l border-slate-200/60 dark:border-slate-700/60 ml-1 pl-1">
-                    <button
-                      onClick={() => moveGoalNode(current ? current.id : null, child.id, 'up')}
-                      disabled={childIdx === 0}
-                      className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-                      title="Move up"
-                    >
-                      <ArrowUp size={13} />
-                    </button>
-                    <button
-                      onClick={() => moveGoalNode(current ? current.id : null, child.id, 'down')}
-                      disabled={childIdx === children.length - 1}
-                      className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-                      title="Move down"
-                    >
-                      <ArrowDown size={13} />
-                    </button>
-                  </div>
                 </div>
 
                 {/* Right: action pills */}

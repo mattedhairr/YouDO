@@ -1,4 +1,4 @@
-import { Calendar, Clock, Copy, GripVertical, Link2, RotateCcw, X } from 'lucide-react';
+import { Calendar, Clock, Copy, FileText, GripVertical, Link2, RotateCcw, X } from 'lucide-react';
 import type { Priority, Task } from '../types';
 import { isTaskComplete } from '../store';
 
@@ -19,6 +19,7 @@ interface Props {
   onCardClick?: () => void;
   backlogAction?: React.ReactNode;
   onJumpToGoal?: () => void;
+  onOpenDescription?: (title: string, description: string) => void;
 }
 
 const priorityStyles: Record<Priority, { dot: string; bar: string; glow: string }> = {
@@ -45,7 +46,7 @@ function fmtCountdown(deadline: string | null): string {
 export default function TaskCard({
   task, onAdvance, onUndo, onDelete, onDuplicate,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, origin, softRemove, dark = false,
-  onCardClick, backlogAction, onJumpToGoal,
+  onCardClick, backlogAction, onJumpToGoal, onOpenDescription,
 }: Props) {
   const ps = priorityStyles[task.priority];
   const total = task.steps.length || 1;
@@ -158,11 +159,23 @@ export default function TaskCard({
               </div>
             )}
 
-            {/* ── Description ── */}
+            {/* ── Description preview ── */}
             {task.description && (
-              <p className={`mt-1.5 text-[11.5px] leading-snug line-clamp-2 ${dateColor}`}>
-                {task.description}
-              </p>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onOpenDescription) {
+                    onOpenDescription(task.title, task.description);
+                  }
+                }}
+                className="mt-2 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/50 text-[11.5px] leading-snug text-slate-600 dark:text-slate-300 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-all group/desc"
+                title="Click to view full description"
+              >
+                <div className="flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-0.5">
+                  <FileText size={11} className="text-blue-500 shrink-0" /> Description <span className="text-[9px] font-semibold text-blue-500 dark:text-blue-400 opacity-80 group-hover/desc:opacity-100 transition-opacity">· Tap to expand 🔍</span>
+                </div>
+                <p className="line-clamp-2">{task.description}</p>
+              </div>
             )}
 
             {/* ── Date / deadline row ── */}
