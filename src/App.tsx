@@ -667,7 +667,7 @@ function AppInner() {
                               dragOver={false}
                               origin={originFor(t.id)}
                               softRemove={!!t.goalNodeId}
-                              onCardClick={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                              dark={dark}
                               onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                               onOpenDescription={openDescriptionModal}
                               backlogAction={
