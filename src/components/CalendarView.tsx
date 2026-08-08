@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Link2, Plus } from 'lucide-react';
 import type { Task } from '../types';
-import { isTaskComplete } from '../store';
+import { isTaskComplete, pathTitles, useStore } from '../store';
 
 interface Props {
   tasks: Task[];
@@ -19,11 +19,21 @@ function localISODate(d: Date): string {
 }
 
 export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) {
+  const { goals } = useStore();
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(localISODate(new Date()));
+
+  const getOriginPath = (goalNodeId: string | undefined): string | null => {
+    if (!goalNodeId) return null;
+    for (const root of goals) {
+      const titles = pathTitles(root, goalNodeId);
+      if (titles.length) return titles.join(' / ');
+    }
+    return null;
+  };
 
   const tasksByDate = useMemo(() => {
     const map: Record<string, Task[]> = {};
@@ -166,19 +176,35 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                 >
                   <div className="flex items-center gap-2">
                     <h4 className={`flex-1 text-[13.5px] font-semibold ${complete ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{t.title}</h4>
-                    {t.goalNodeId && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onJumpToGoal(t.goalNodeId);
-                        }}
-                        className="inline-flex items-center gap-1 text-[9.5px] font-bold text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/70 border border-blue-200 dark:border-blue-700/60 rounded-md px-2 py-0.5 transition-all shadow-2xs hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
-                        title="Jump to original task in Goal Blueprint"
-                      >
-                        <Link2 size={10} className="text-blue-500 shrink-0" /> Goal Blueprint
-                      </button>
-                    )}
+                    {t.goalNodeId && (() => {
+                      const originPath = getOriginPath(t.goalNodeId);
+                      const pathText = originPath || 'Goal Blueprint';
+                      const pathSegs = pathText.split(' / ');
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onJumpToGoal(t.goalNodeId);
+                          }}
+                          className="inline-flex items-center gap-1 text-[9.5px] font-bold text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/70 border border-blue-200 dark:border-blue-700/60 rounded-md px-2 py-0.5 transition-all shadow-2xs hover:scale-105 active:scale-95 shrink-0 cursor-pointer max-w-[180px] sm:max-w-[280px] group/path"
+                          title={`Jump to ${pathText} in Goal Blueprint`}
+                        >
+                          <Link2 size={10} className="text-blue-500 shrink-0" />
+                          <div className="truncate flex items-center gap-1 min-w-0">
+                            {pathSegs.map((seg, i) => (
+                              <span key={i} className="inline-flex items-center gap-1 shrink-0">
+                                <span className={i === pathSegs.length - 1
+                                  ? 'font-extrabold text-blue-700 dark:text-blue-300 group-hover/path:underline'
+                                  : 'font-semibold text-slate-500 dark:text-slate-400'
+                                }>{seg}</span>
+                                {i < pathSegs.length - 1 && <span className="text-slate-300 dark:text-slate-600">/</span>}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      );
+                    })()}
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">{t.progress}/{t.steps.length || 1}</span>
                   </div>
                   {t.description && <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 line-clamp-1">{t.description}</p>}
