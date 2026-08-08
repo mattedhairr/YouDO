@@ -176,37 +176,36 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                 >
                   <div className="flex items-center gap-2">
                     <h4 className={`flex-1 text-[13.5px] font-semibold ${complete ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{t.title}</h4>
-                    {t.goalNodeId && (() => {
-                      const originPath = getOriginPath(t.goalNodeId);
-                      const pathText = originPath || 'Goal Blueprint';
-                      const pathSegs = pathText.split(' / ');
-                      return (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onJumpToGoal(t.goalNodeId);
-                          }}
-                          className="inline-flex items-center gap-1 text-[9.5px] font-bold text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/70 border border-blue-200 dark:border-blue-700/60 rounded-md px-2 py-0.5 transition-all shadow-2xs hover:scale-105 active:scale-95 shrink-0 cursor-pointer max-w-[180px] sm:max-w-[280px] group/path"
-                          title={`Jump to ${pathText} in Goal Blueprint`}
-                        >
-                          <Link2 size={10} className="text-blue-500 shrink-0" />
-                          <div className="truncate flex items-center gap-1 min-w-0">
-                            {pathSegs.map((seg, i) => (
-                              <span key={i} className="inline-flex items-center gap-1 shrink-0">
-                                <span className={i === pathSegs.length - 1
-                                  ? 'font-extrabold text-blue-700 dark:text-blue-300 group-hover/path:underline'
-                                  : 'font-semibold text-slate-500 dark:text-slate-400'
-                                }>{seg}</span>
-                                {i < pathSegs.length - 1 && <span className="text-slate-300 dark:text-slate-600">/</span>}
-                              </span>
-                            ))}
-                          </div>
-                        </button>
-                      );
-                    })()}
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">{t.progress}/{t.steps.length || 1}</span>
                   </div>
+
+                  {/* ── Full-width, fully visible wrapping origin path banner (identical to Today section) ── */}
+                  {t.goalNodeId && (() => {
+                    const originPath = getOriginPath(t.goalNodeId);
+                    if (!originPath) return null;
+                    const pathSegs = originPath.split(' / ');
+                    return (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onJumpToGoal(t.goalNodeId);
+                        }}
+                        className="mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/50 dark:border-blue-800/50 rounded-lg px-2 py-1 w-full leading-normal cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 hover:border-blue-300 dark:hover:border-blue-600 transition-all group/path"
+                        title="Jump to this task in Goal Blueprint"
+                      >
+                        <Link2 size={10} className="shrink-0 text-blue-500 dark:text-blue-400 mr-0.5 group-hover/path:scale-110 transition-transform" />
+                        {pathSegs.map((seg, i) => (
+                          <span key={i} className="inline-flex items-center gap-1">
+                            <span className={i === pathSegs.length - 1
+                              ? 'font-bold text-blue-700 dark:text-blue-300 group-hover/path:underline'
+                              : 'font-medium text-slate-500 dark:text-slate-400 group-hover/path:text-slate-700 dark:group-hover/path:text-slate-200'
+                            }>{seg}</span>
+                            {i < pathSegs.length - 1 && <span className="text-slate-300 dark:text-slate-600">/</span>}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {t.description && <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 line-clamp-1">{t.description}</p>}
                   
                   {t.steps.length > 0 && (
