@@ -207,13 +207,17 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
   };
 
   const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
-    // Drill directly INTO the pinned node itself so its sub-tasks/micro-steps/tasks are displayed!
-    // p.path = [...ancestors, pinnedNode]
-    const fullPathIds = p.path.map((n) => n.id);
+    // Generalized rule: If pinned item has children (Goal/Phase/Section/Task/Sub), drill INTO it to display its children.
+    // If pinned item is a leaf node (0 children), open its parent level so the item is highlighted in context.
+    const targetIds =
+      p.node.children.length > 0
+        ? p.path.map((n) => n.id)
+        : p.path.slice(0, -1).map((n) => n.id);
+
     if (onNavigateToPath) {
-      onNavigateToPath(fullPathIds);
+      onNavigateToPath(targetIds);
     } else {
-      setPathIds(fullPathIds);
+      setPathIds(targetIds);
     }
     setSelected(new Set());
     onSelectionChange([], []);

@@ -329,10 +329,14 @@ function AppInner() {
       for (const root of goals) {
         const nodes = pathNodes(root, goalNodeId);
         if (nodes.length > 0) {
-          // Direct jump to the target node itself so its sub-tasks/micro-steps are shown!
-          const fullPathIds = nodes.map((n) => n.id);
+          const targetNode = nodes[nodes.length - 1];
+          const targetIds =
+            targetNode.children.length > 0
+              ? nodes.map((n) => n.id)
+              : nodes.slice(0, -1).map((n) => n.id);
+
           setHighlightNodeId(goalNodeId);
-          navigateToGoalPath(fullPathIds);
+          navigateToGoalPath(targetIds);
           setTimeout(() => setHighlightNodeId(null), 3500);
           return;
         }
