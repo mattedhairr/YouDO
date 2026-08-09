@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">YouDO</string>
+    <string name="title_activity_main">YouDO</string>
+    <string name="package_name">com.mattedhairr.youdo</string>
+    <string name="custom_url_scheme">com.mattedhairr.youdo</string>
+</resources>
