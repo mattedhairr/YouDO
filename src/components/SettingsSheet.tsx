@@ -215,7 +215,7 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
                   <span>Aspirant Core Architecture</span>
                 </div>
                 <p>
-                  TuDO is built specifically as the ultimate execution companion for students and competitive exam aspirants (UPSC, JEE, NEET, GATE, CAT). Flat to-do lists fail because massive exam syllabi get overwhelming. TuDO solves this by transforming entire exam syllabi into structured Goal Blueprints synced with daily micro-targets.
+                  YouDO is built specifically as the ultimate execution companion for students and competitive exam aspirants (UPSC, JEE, NEET, GATE, CAT). Flat to-do lists fail because massive exam syllabi get overwhelming. YouDO solves this by transforming entire exam syllabi into structured Goal Blueprints synced with daily micro-targets.
                 </p>
               </div>
 

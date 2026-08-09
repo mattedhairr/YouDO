@@ -1,4 +1,4 @@
-# TuDO — Aspirant Execution Companion
+# YouDO — Aspirant Execution Companion
 
 > **The ultimate execution companion for students & competitive exam aspirants.**  
 > Transform massive exam syllabi into daily micro-targets and execute relentlessly.
@@ -9,7 +9,7 @@
 
 Preparing for competitive exams like **UPSC, JEE, NEET, GATE, CAT, USMLE, or Bar Exam** requires conquering intimidating, multi-subject syllabi. 
 
-Traditional to-do apps fail because flat lists become overwhelming, while complex project boards are disconnected from daily study routines. **TuDO** bridges this gap by offering a **structured 5-tier Goal Blueprint** synced with a **real-time Daily Execution Engine**.
+Traditional to-do apps fail because flat lists become overwhelming, while complex project boards are disconnected from daily study routines. **YouDO** bridges this gap by offering a **structured 5-tier Goal Blueprint** synced with a **real-time Daily Execution Engine**.
 
 ---
 
