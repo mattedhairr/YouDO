@@ -82,6 +82,9 @@ export function useNavigationSync(onPopState?: () => boolean) {
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | 'fade'>('fade');
   const isNavigatingHistory = useRef(false);
 
+  // Remembers origin location when jumping directly from Today / Calendar / Pinned cards
+  const jumpOriginRef = useRef<{ view: View; goalPathIds: string[] } | null>(null);
+
   const viewRef = useRef(view);
   viewRef.current = view;
   const pathIdsRef = useRef(goalPathIds);
@@ -104,6 +107,21 @@ export function useNavigationSync(onPopState?: () => boolean) {
       }
 
       isNavigatingHistory.current = true;
+
+      // Smart Jump Return: If this was a direct jump from another tab/location, return to jump origin in 1 step
+      if (jumpOriginRef.current) {
+        const origin = jumpOriginRef.current;
+        jumpOriginRef.current = null;
+        const currentIdx = TABS.indexOf(viewRef.current);
+        const targetIdx = TABS.indexOf(origin.view);
+        setSlideDirection(targetIdx > currentIdx ? 'right' : 'left');
+        setView(origin.view);
+        setGoalPathIdsState(origin.goalPathIds);
+        syncUrlAndStorage(origin.view, origin.goalPathIds, false);
+        setTimeout(() => { isNavigatingHistory.current = false; }, 50);
+        return;
+      }
+
       let targetView: View = viewRef.current;
       let targetPathIds: string[] = [];
 
@@ -148,7 +166,21 @@ export function useNavigationSync(onPopState?: () => boolean) {
           if (onPopStateRef.current && onPopStateRef.current()) {
             return;
           }
-          // 2. Deep Goal tree navigation: if inside a sub-folder/section in Goals, navigate up 1 level
+
+          // 2. Smart Jump Return: If user jumped directly to a deep task, 1 back returns to origin tab/location
+          if (jumpOriginRef.current) {
+            const origin = jumpOriginRef.current;
+            jumpOriginRef.current = null;
+            const currentIdx = TABS.indexOf(viewRef.current);
+            const targetIdx = TABS.indexOf(origin.view);
+            setSlideDirection(targetIdx > currentIdx ? 'right' : 'left');
+            setView(origin.view);
+            setGoalPathIdsState(origin.goalPathIds);
+            syncUrlAndStorage(origin.view, origin.goalPathIds, true);
+            return;
+          }
+
+          // 3. Deep Goal tree navigation: if user manually drilled into Goals, navigate up 1 level
           if (viewRef.current === 'goals' && pathIdsRef.current.length > 0) {
             const parentPath = pathIdsRef.current.slice(0, -1);
             setSlideDirection('left');
@@ -156,7 +188,8 @@ export function useNavigationSync(onPopState?: () => boolean) {
             syncUrlAndStorage('goals', parentPath, true);
             return;
           }
-          // 3. View navigation: if in Goals or Calendar view, navigate back to Today (tasks) tab
+
+          // 4. View navigation: if in Goals or Calendar view, navigate back to Today (tasks) tab
           if (viewRef.current !== 'tasks') {
             setSlideDirection('left');
             setView('tasks');
@@ -164,7 +197,8 @@ export function useNavigationSync(onPopState?: () => boolean) {
             syncUrlAndStorage('tasks', [], true);
             return;
           }
-          // 4. Root level in Today tab: exit/minimize app
+
+          // 5. Root level in Today tab: exit/minimize app
           CapApp.exitApp();
         });
       } catch {
@@ -184,6 +218,7 @@ export function useNavigationSync(onPopState?: () => boolean) {
   const handleNavigateTab = useCallback((targetView: View) => {
     const currentView = viewRef.current;
     if (targetView === currentView) return;
+    jumpOriginRef.current = null; // Clear jump origin on manual tab switch
     const currentIdx = TABS.indexOf(currentView);
     const targetIdx = TABS.indexOf(targetView);
     const direction = targetIdx > currentIdx ? 'right' : 'left';
@@ -196,8 +231,9 @@ export function useNavigationSync(onPopState?: () => boolean) {
     }
   }, []);
 
-  // Goal path update with URL push
+  // Goal path update with URL push (manual tree drilling)
   const handleUpdateGoalPath = useCallback((newPath: string[]) => {
+    jumpOriginRef.current = null; // Clear jump origin when user manually drills deeper
     setGoalPathIdsState(newPath);
     if (!isNavigatingHistory.current) {
       syncUrlAndStorage('goals', newPath, true);
@@ -207,6 +243,14 @@ export function useNavigationSync(onPopState?: () => boolean) {
   // Direct navigation to a specific deep goal path
   const navigateToGoalPath = useCallback((targetPathIds: string[]) => {
     const currentView = viewRef.current;
+    const currentPathIds = [...pathIdsRef.current];
+
+    // Record jump origin so 1 back returns directly to where the jump occurred
+    jumpOriginRef.current = {
+      view: currentView,
+      goalPathIds: currentPathIds,
+    };
+
     const currentIdx = TABS.indexOf(currentView);
     const targetIdx = TABS.indexOf('goals');
     const direction = targetIdx > currentIdx ? 'right' : 'left';
