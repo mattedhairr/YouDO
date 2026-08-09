@@ -192,10 +192,10 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
               <BookOpen size={16} className="text-blue-500 shrink-0" />
               <div>
                 <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 dark:text-slate-100">
-                  The YouDO Execution System
+                  Aspirant Execution System
                 </h3>
                 <p className="text-[10.5px] font-semibold text-slate-400 dark:text-slate-400 mt-0.5">
-                  Architecture, concept guide & USP
+                  Syllabus breakdown, study workflow & USP
                 </p>
               </div>
             </div>
@@ -212,10 +212,10 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
               <div className="card p-3.5 space-y-1.5 border border-white/10">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
                   <Zap size={14} className="text-blue-500" />
-                  <span>Core Concept</span>
+                  <span>Aspirant Core Architecture</span>
                 </div>
                 <p>
-                  YouDO bridges the gap between massive long-term ambitions and daily action. Most todo apps fail because flat lists become overwhelming, while project boards are disconnected from daily routines. YouDO solves this by converting long-term blueprints into synced daily execution steps.
+                  TuDO is built specifically as the ultimate execution companion for students and competitive exam aspirants (UPSC, JEE, NEET, GATE, CAT). Flat to-do lists fail because massive exam syllabi get overwhelming. TuDO solves this by transforming entire exam syllabi into structured Goal Blueprints synced with daily micro-targets.
                 </p>
               </div>
 
@@ -223,17 +223,17 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
               <div className="card p-3.5 space-y-2 border border-white/10">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs">
                   <Layers size={14} className="text-indigo-500" />
-                  <span>1. Deep Blueprint Hierarchy</span>
+                  <span>1. Syllabus Hierarchy Breakdown</span>
                 </div>
                 <p>
-                  Structure long-term objectives into granular, organized layers (Goals &rarr; Phases &rarr; Sections &rarr; Tasks &rarr; Sub-tasks).
+                  Structure your exam preparation into granular, non-intimidating tiers (Goal &rarr; Phase &rarr; Subject Section &rarr; Topic Task &rarr; Revision Sub-tasks).
                 </p>
                 <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 leading-relaxed">
-                  <div>Goal: "Competitive Exam Preparation"</div>
-                  <div className="pl-3 text-blue-600 dark:text-blue-400">↳ Phase 1: Core Syllabus</div>
-                  <div className="pl-6 text-indigo-600 dark:text-indigo-400">↳ Section: Subject Modules</div>
-                  <div className="pl-9 text-purple-600 dark:text-purple-400">↳ Task: Topic 1</div>
-                  <div className="pl-12 text-emerald-600 dark:text-emerald-400">↳ Sub-tasks: Video Lessons, Revision Notes, Practice Sets</div>
+                  <div>Goal: "UPSC / JEE / NEET Exam 2026"</div>
+                  <div className="pl-3 text-blue-600 dark:text-blue-400">↳ Phase 1: Core Physics & Chemistry</div>
+                  <div className="pl-6 text-indigo-600 dark:text-indigo-400">↳ Section: Mechanics Module</div>
+                  <div className="pl-9 text-purple-600 dark:text-purple-400">↳ Task: Rotational Motion</div>
+                  <div className="pl-12 text-emerald-600 dark:text-emerald-400">↳ Sub-tasks: Video Lecture, NCERT Reading, PYQ Practice, Revision</div>
                 </div>
               </div>
 
@@ -244,13 +244,13 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
                   <span>2. Multi-Tap Micro-Progress (Step-Slices)</span>
                 </div>
                 <p>
-                  Tasks aren't just "done" or "not done." Break single tasks into progressive execution steps requiring multiple taps to complete.
+                  Study topics aren't binary. Track step-by-step topic mastery with progressive multi-tap completion.
                 </p>
                 <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 space-y-0.5">
-                  <div className="font-bold text-slate-900 dark:text-slate-100">For study task "Lecture 1" (3 steps):</div>
-                  <div>• Tap 1: Video Lesson Watched</div>
-                  <div>• Tap 2: Notes Prepared</div>
-                  <div>• Tap 3: Revision Complete</div>
+                  <div className="font-bold text-slate-900 dark:text-slate-100">For topic "Rotational Dynamics" (3 steps):</div>
+                  <div>• Tap 1: Video Lecture Watched</div>
+                  <div>• Tap 2: PYQs Practiced</div>
+                  <div>• Tap 3: Formula Revision Complete</div>
                 </div>
               </div>
 
@@ -261,7 +261,7 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
                   <span>3. Synced Daily Dispatch</span>
                 </div>
                 <p>
-                  Drill down into your master Goal Blueprint, select any pending sub-task, and dispatch it directly to "Today's Execution". Any progress made on the Today view automatically updates the master Goal tree in real-time.
+                  Drill down into your master Syllabus Blueprint, select any pending chapter topic, and dispatch it directly to "Today's Execution". Progress made on your daily study schedule automatically updates your master syllabus tree in real-time.
                 </p>
               </div>
 
@@ -272,7 +272,7 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
                   <span>4. Focused Direct-Child Counting</span>
                 </div>
                 <p>
-                  Parent nodes display only immediate child progress (e.g., a Goal shows "0/3 Phases", while a Phase shows "0/4 Sections"). This eliminates intimidating total count numbers and keeps your mind focused strictly on the current tier.
+                  Parent nodes display only immediate sub-tier progress (e.g., a Goal displays "0/4 Subjects", while a Subject displays "0/5 Chapters"). This eliminates syllabus anxiety and keeps your focus strictly on today's target.
                 </p>
               </div>
             </div>

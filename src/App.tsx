@@ -17,15 +17,13 @@ const ACCENT = '#3b82f6';
 
 const MOTIVATIONAL_QUOTES = [
   { text: "Giving up is not in the blood sir... not in the blood", author: "Nimsdai Purja" },
+  { text: "Dream is not that which you see while sleeping, it is something that does not let you sleep.", author: "Dr. A.P.J. Abdul Kalam" },
   { text: "Discipline equals freedom.", author: "Jocko Willink" },
-  { text: "Who's going to carry the boats and the logs?", author: "David Goggins" },
-  { text: "Don't count the days, make the days count.", author: "Muhammad Ali" },
+  { text: "Cultivation of mind should be the ultimate aim of human existence.", author: "Dr. B.R. Ambedkar" },
+  { text: "Arise, awake, and stop not till the goal is reached.", author: "Swami Vivekananda" },
+  { text: "At dawn, when you have trouble getting out of bed, tell yourself: 'I have to go to work — as a human being.'", author: "Marcus Aurelius" },
   { text: "Suffer the pain of discipline or suffer the pain of regret.", author: "Jim Rohn" },
-  { text: "Pain is weakness leaving the body.", author: "General Lewis B. Puller" },
-  { text: "The mind is the limit. As long as the mind can envision the fact that you can do something, you can do it.", author: "Arnold Schwarzenegger" },
-  { text: "He who has a why to live can bear almost any how.", author: "Friedrich Nietzsche" },
-  { text: "You must do the thing you think you cannot do.", author: "Eleanor Roosevelt" },
-  { text: "Greatness is not given, it's earned.", author: "Unknown" },
+  { text: "Don't count the days, make the days count.", author: "Muhammad Ali" },
 ];
 
 function YouDoIcon({ size = 18 }: { size?: number }) {
@@ -834,10 +832,12 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700 animate-float">
         <ListChecks size={26} className="text-slate-400 dark:text-slate-500" />
       </div>
-      <h3 className="mt-4 text-base font-semibold text-slate-700 dark:text-slate-200">No tasks today</h3>
-      <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">Tap the + button to add a task, or plan one from your Goals.</p>
-      <button onClick={onAdd} className="mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors">
-        Add a task
+      <h3 className="mt-4 text-base font-bold text-slate-800 dark:text-slate-200">No study tasks for today</h3>
+      <p className="mt-1 text-sm text-slate-400 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+        Dispatch chapter topics from your Goal Blueprint or add quick study targets to keep your exam preparation on track.
+      </p>
+      <button onClick={onAdd} className="mt-4 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20">
+        Add Study Task
       </button>
     </div>
   );

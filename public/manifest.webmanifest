@@ -1,7 +1,7 @@
 {
-  "name": "YouDO",
-  "short_name": "YouDO",
-  "description": "Execution & Goal Tracker",
+  "name": "TuDO — Aspirant Execution Companion",
+  "short_name": "TuDO",
+  "description": "The ultimate execution companion for students and competitive exam aspirants. Break down massive syllabi into daily micro-targets.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
