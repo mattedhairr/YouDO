@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import type { View } from '../types';
 
 const TABS: View[] = ['tasks', 'goals', 'calendar'];
@@ -135,6 +136,48 @@ export function useNavigationSync(onPopState?: () => boolean) {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Native Capacitor Android hardware & gesture back button listener
+  useEffect(() => {
+    let backListenerHandle: any = null;
+    const registerCapacitorBack = async () => {
+      try {
+        backListenerHandle = await CapApp.addListener('backButton', () => {
+          // 1. High-priority modal interceptor: if any modal/sheet is open, close it
+          if (onPopStateRef.current && onPopStateRef.current()) {
+            return;
+          }
+          // 2. Deep Goal tree navigation: if inside a sub-folder/section in Goals, navigate up 1 level
+          if (viewRef.current === 'goals' && pathIdsRef.current.length > 0) {
+            const parentPath = pathIdsRef.current.slice(0, -1);
+            setSlideDirection('left');
+            setGoalPathIdsState(parentPath);
+            syncUrlAndStorage('goals', parentPath, true);
+            return;
+          }
+          // 3. View navigation: if in Goals or Calendar view, navigate back to Today (tasks) tab
+          if (viewRef.current !== 'tasks') {
+            setSlideDirection('left');
+            setView('tasks');
+            setGoalPathIdsState([]);
+            syncUrlAndStorage('tasks', [], true);
+            return;
+          }
+          // 4. Root level in Today tab: exit/minimize app
+          CapApp.exitApp();
+        });
+      } catch {
+        /* Non-capacitor browser environment */
+      }
+    };
+
+    registerCapacitorBack();
+    return () => {
+      if (backListenerHandle && backListenerHandle.remove) {
+        backListenerHandle.remove();
+      }
+    };
   }, []);
 
   // Tab navigation handler with URL push

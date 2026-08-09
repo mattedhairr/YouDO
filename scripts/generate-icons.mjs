@@ -1,97 +1,76 @@
 import sharp from 'sharp';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, '..', 'public');
+const resDir = join(__dirname, '..', 'android', 'app', 'src', 'main', 'res');
 const svgPath = join(publicDir, 'icon.svg');
 const svgBuffer = readFileSync(svgPath);
 
+const bgColor = { r: 11, g: 15, b: 23, alpha: 1 }; // #0B0F17
+
+async function generateMaskableIcon(size, targetPath) {
+  const iconPadded = await sharp(svgBuffer)
+    .resize(Math.round(size * 0.75), Math.round(size * 0.75))
+    .png()
+    .toBuffer();
+
+  await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: bgColor,
+    },
+  })
+    .composite([{
+      input: iconPadded,
+      gravity: 'center',
+    }])
+    .png()
+    .toFile(targetPath);
+}
+
 async function generate() {
   // Standard "any" icon — transparent background preserved
-  await sharp(svgBuffer)
-    .resize(192, 192)
-    .png()
-    .toFile(join(publicDir, 'icon-192.png'));
+  await sharp(svgBuffer).resize(192, 192).png().toFile(join(publicDir, 'icon-192.png'));
   console.log('✓ icon-192.png');
 
-  await sharp(svgBuffer)
-    .resize(512, 512)
-    .png()
-    .toFile(join(publicDir, 'icon-512.png'));
+  await sharp(svgBuffer).resize(512, 512).png().toFile(join(publicDir, 'icon-512.png'));
   console.log('✓ icon-512.png');
 
-  // Maskable icon — needs a solid "safe zone" background
-  // Android crops the icon into a circle/squircle, so the background must be solid
-  // We composite the icon on a solid dark background with padding
-  const bgColor = { r: 11, g: 15, b: 23, alpha: 1 }; // #0B0F17
-
-  // 512x512 maskable — icon occupies ~80% inner safe zone
-  const iconPadded512 = await sharp(svgBuffer)
-    .resize(Math.round(512 * 0.75), Math.round(512 * 0.75))
-    .png()
-    .toBuffer();
-
-  await sharp({
-    create: {
-      width: 512,
-      height: 512,
-      channels: 4,
-      background: bgColor,
-    },
-  })
-    .composite([{
-      input: iconPadded512,
-      gravity: 'center',
-    }])
-    .png()
-    .toFile(join(publicDir, 'icon-512-maskable.png'));
+  // Maskable icons
+  await generateMaskableIcon(512, join(publicDir, 'icon-512-maskable.png'));
   console.log('✓ icon-512-maskable.png');
 
-  // 192x192 maskable
-  const iconPadded192 = await sharp(svgBuffer)
-    .resize(Math.round(192 * 0.75), Math.round(192 * 0.75))
-    .png()
-    .toBuffer();
-
-  await sharp({
-    create: {
-      width: 192,
-      height: 192,
-      channels: 4,
-      background: bgColor,
-    },
-  })
-    .composite([{
-      input: iconPadded192,
-      gravity: 'center',
-    }])
-    .png()
-    .toFile(join(publicDir, 'icon-192-maskable.png'));
+  await generateMaskableIcon(192, join(publicDir, 'icon-192-maskable.png'));
   console.log('✓ icon-192-maskable.png');
 
-  // apple-touch-icon — 180x180 on solid background (Safari/iOS)
-  const iconPadded180 = await sharp(svgBuffer)
-    .resize(Math.round(180 * 0.75), Math.round(180 * 0.75))
-    .png()
-    .toBuffer();
-
-  await sharp({
-    create: {
-      width: 180,
-      height: 180,
-      channels: 4,
-      background: bgColor,
-    },
-  })
-    .composite([{
-      input: iconPadded180,
-      gravity: 'center',
-    }])
-    .png()
-    .toFile(join(publicDir, 'apple-touch-icon.png'));
+  await generateMaskableIcon(180, join(publicDir, 'apple-touch-icon.png'));
   console.log('✓ apple-touch-icon.png (180x180)');
+
+  // Android mipmap launcher icons
+  if (existsSync(resDir)) {
+    const androidSizes = [
+      { folder: 'mipmap-mdpi', size: 48 },
+      { folder: 'mipmap-hdpi', size: 72 },
+      { folder: 'mipmap-xhdpi', size: 96 },
+      { folder: 'mipmap-xxhdpi', size: 144 },
+      { folder: 'mipmap-xxxhdpi', size: 192 },
+    ];
+
+    for (const { folder, size } of androidSizes) {
+      const folderPath = join(resDir, folder);
+      if (existsSync(folderPath)) {
+        await generateMaskableIcon(size, join(folderPath, 'ic_launcher.png'));
+        await generateMaskableIcon(size, join(folderPath, 'ic_launcher_round.png'));
+        await generateMaskableIcon(size, join(folderPath, 'ic_launcher_foreground.png'));
+        console.log(`✓ Android ${folder} (${size}x${size})`);
+      }
+    }
+  }
 
   console.log('\nAll icons generated successfully!');
 }

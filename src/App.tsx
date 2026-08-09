@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap } from 'lucide-react';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { useNavigationSync } from './hooks/useNavigationSync';
@@ -282,6 +283,19 @@ function AppInner() {
     return MOTIVATIONAL_QUOTES[idx];
   });
 
+  // Native Android Status Bar safe area initialization
+  useEffect(() => {
+    const initStatusBar = async () => {
+      try {
+        await StatusBar.setStyle({ style: Style.Dark });
+        await StatusBar.setOverlaysWebView({ overlay: false });
+      } catch {
+        /* non-capacitor web fallback */
+      }
+    };
+    initStatusBar();
+  }, []);
+
   const [todaySubTab, setTodaySubTab] = useState<'today' | 'backlog'>('today');
 
   const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
@@ -492,7 +506,7 @@ function AppInner() {
         onTouchEnd={onTouchEnd}
       >
         {/* Single Sleek Consolidated Top Header */}
-        <header className="pt-3 pb-1 space-y-2 shrink-0 overflow-hidden">
+        <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-2 shrink-0 overflow-hidden">
           {/* Inline Top Row: Brand + Date (Left) | Marquee Quote Ticker (Right) */}
           <div className="flex items-center justify-between gap-2.5 h-10">
             {/* Left: YouDO Icon + Brand + Date */}
