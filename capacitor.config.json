@@ -1,8 +1,0 @@
-{
-  "appId": "com.mattedhairr.youdo",
-  "appName": "YouDO",
-  "webDir": "dist",
-  "server": {
-    "androidScheme": "https"
-  }
-}
