@@ -89,6 +89,8 @@ interface Props {
   onSelectionChange: (selectedIds: string[], leafIds: string[]) => void;
   /** Ref App provides — GoalView stores its clearSelection fn here so App can call it */
   clearSelectionRef: React.MutableRefObject<() => void>;
+  /** Optional direct navigation handler for recording jump origin for 1-step back navigation */
+  onNavigateToPath?: (pathIds: string[]) => void;
   onOpenDescription?: (title: string, description: string) => void;
 }
 
@@ -101,17 +103,19 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf: { icon: CircleDot, tint: '#f43f5e', label: 'Leaf' },
 };
 
-export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef, onOpenDescription }: Props) {
+export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
   // Register clearSelection so App can call it when batch actions complete
-  const clearSelection = () => setSelected(new Set());
   useEffect(() => {
-    clearSelectionRef.current = clearSelection;
-  });
+    clearSelectionRef.current = () => {
+      setSelected(new Set());
+      onSelectionChange([], []);
+    };
+  }, [clearSelectionRef, onSelectionChange]);
 
   const current = useMemo(() => {
     if (pathIds.length === 0) return null;
@@ -203,11 +207,14 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
   };
 
   const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
-    // Navigate to the pinned item's PARENT level so the item is visible in the list.
-    // This means one swipe/back returns straight to root instead of climbing every ancestor.
-    // p.path = [...ancestors, pinnedNode] — drop the last element to land at the parent.
-    const parentPath = p.path.slice(0, -1);
-    setPathIds(parentPath.map((n) => n.id));
+    // Drill directly INTO the pinned node itself so its sub-tasks/micro-steps/tasks are displayed!
+    // p.path = [...ancestors, pinnedNode]
+    const fullPathIds = p.path.map((n) => n.id);
+    if (onNavigateToPath) {
+      onNavigateToPath(fullPathIds);
+    } else {
+      setPathIds(fullPathIds);
+    }
     setSelected(new Set());
     onSelectionChange([], []);
   };

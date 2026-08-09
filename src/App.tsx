@@ -329,10 +329,10 @@ function AppInner() {
       for (const root of goals) {
         const nodes = pathNodes(root, goalNodeId);
         if (nodes.length > 0) {
-          const parentPath = nodes.length > 1 ? nodes.slice(0, -1) : [];
-          const parentIds = parentPath.map((n) => n.id);
+          // Direct jump to the target node itself so its sub-tasks/micro-steps are shown!
+          const fullPathIds = nodes.map((n) => n.id);
           setHighlightNodeId(goalNodeId);
-          navigateToGoalPath(parentIds);
+          navigateToGoalPath(fullPathIds);
           setTimeout(() => setHighlightNodeId(null), 3500);
           return;
         }
@@ -722,6 +722,7 @@ function AppInner() {
                 clipboard={clipboard}
                 onSelectionChange={handleSelectionChange}
                 clearSelectionRef={clearSelectionRef}
+                onNavigateToPath={navigateToGoalPath}
                 onOpenDescription={openDescriptionModal}
               />
             )}
