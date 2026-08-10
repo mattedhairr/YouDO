@@ -226,14 +226,15 @@ export default function SettingsSheet({ open, theme, onClose, onApply }: Props) 
                   <span>1. Syllabus Hierarchy Breakdown</span>
                 </div>
                 <p>
-                  Structure your exam preparation into granular, non-intimidating tiers (Goal &rarr; Phase &rarr; Subject Section &rarr; Topic Task &rarr; Revision Sub-tasks).
+                  Structure your exam preparation into granular, non-intimidating tiers (Goal &rarr; Phase &rarr; Section &rarr; Task &rarr; Sub-task &rarr; Leaf Task).
                 </p>
                 <div className="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 font-mono text-[10.5px] text-slate-800 dark:text-slate-200 leading-relaxed">
                   <div>Goal: "UPSC / JEE / NEET Exam 2026"</div>
-                  <div className="pl-3 text-blue-600 dark:text-blue-400">↳ Phase 1: Core Physics & Chemistry</div>
+                  <div className="pl-3 text-blue-600 dark:text-blue-400">↳ Phase: Core Physics & Chemistry</div>
                   <div className="pl-6 text-indigo-600 dark:text-indigo-400">↳ Section: Mechanics Module</div>
                   <div className="pl-9 text-purple-600 dark:text-purple-400">↳ Task: Rotational Motion</div>
-                  <div className="pl-12 text-emerald-600 dark:text-emerald-400">↳ Sub-tasks: Video Lecture, NCERT Reading, PYQ Practice, Revision</div>
+                  <div className="pl-12 text-amber-600 dark:text-amber-400">↳ Sub-task: Video Lectures</div>
+                  <div className="pl-14 text-emerald-600 dark:text-emerald-400">↳ Leaf Task: Watch Lecture 1 & Notes</div>
                 </div>
               </div>
 

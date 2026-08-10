@@ -23,14 +23,15 @@
 
 Preparing for competitive exams like **UPSC, JEE, NEET, GATE, CAT, USMLE, or Bar Exam** requires conquering intimidating, multi-subject syllabi. 
 
-Traditional to-do apps fail because flat lists become overwhelming, while complex project boards are disconnected from daily study routines. **YouDO** bridges this gap by offering a **structured 5-tier Goal Blueprint** synced with a **real-time Daily Execution Engine**.
+Traditional to-do apps fail because flat lists become overwhelming, while complex project boards are disconnected from daily study routines. **YouDO** bridges this gap by offering a **structured 6-tier Goal Blueprint** (`Goal` ➔ `Phase` ➔ `Section` ➔ `Task` ➔ `Sub-task` ➔ `Leaf Task`) synced with a **real-time Daily Execution Engine**.
 
 ```
-🎯 Goal: "UPSC / JEE / NEET Preparation"
- └── 💙 Phase 1: "Core Syllabus"
-      └── 💜 Section: "Mechanics & Dynamics"
+🎯 Goal: "UPSC / JEE / NEET Exam 2026"
+ └── 💙 Phase: "Phase 1: Core Physics & Chemistry"
+      └── 💜 Section: "Mechanics Module"
            └── 🟣 Task: "Rotational Motion"
-                └── 🟢 Sub-tasks: "1. Video Lecture" ➔ "2. PYQ Practice" ➔ "3. Revision"
+                └── 🟡 Sub-task: "Video Lectures"
+                     └── 🔴 Leaf Task: "Watch Lecture 1 & Take Notes"
 ```
 
 ---
@@ -51,7 +52,7 @@ Download the official pre-compiled `.apk` directly from [**GitHub Releases**](ht
 
 ## 🔥 Key Features
 
-- **🎯 Syllabus Blueprint Tree**: Structure your entire exam syllabus into granular, non-intimidating tiers (`Goal` &rarr; `Phase` &rarr; `Subject Section` &rarr; `Topic Task` &rarr; `Revision Sub-tasks`).
+- **🎯 6-Tier Syllabus Blueprint Tree**: Structure your entire exam syllabus into granular, non-intimidating tiers (`Goal` &rarr; `Phase` &rarr; `Section` &rarr; `Task` &rarr; `Sub-task` &rarr; `Leaf Task`).
 - **⚡ Step-Slice Multi-Tap Progress**: Track step-by-step topic mastery with progressive multi-tap completion (`1. Lecture Watched` &rarr; `2. PYQs Practiced` &rarr; `3. Formula Revision`).
 - **🔄 Synced Daily Dispatch**: Drill into any subject module, select pending topics, and dispatch them straight to **Today's Execution**. Daily progress updates your master syllabus tree in real-time.
 - **⚠️ Loss-Aversion Backlog Tab**: Overdue tasks automatically shift into a dedicated **Backlog** section with date-wise grouping and 1-tap re-scheduling.
