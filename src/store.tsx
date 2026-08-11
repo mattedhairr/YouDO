@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { GoalNode, Task } from './types';
+import type { ActiveSession, GoalNode, Task, TaskSession } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 function uid(prefix = 'n') {
@@ -338,10 +338,30 @@ interface Store {
   clearClipboard: () => void;
   /** Clipboard nodes available to paste */
   clipboard: GoalNode[];
-  /** Export full state as dated JSON backup */
+  /** Export full state as dated JSON backup (Android-compatible via Web Share API) */
   exportBackup: () => void;
   /** Import full state from JSON file with validation */
   importBackup: (jsonData: string) => boolean;
+
+  /* ── Session Timer ─────────────────────────────────────────────────────── */
+  /** The currently live session (null if none active) */
+  activeSession: ActiveSession | null;
+  /** Full session history keyed by taskId */
+  sessionHistory: Record<string, TaskSession[]>;
+  /** Start a new session for a task (auto-pauses any existing session) */
+  startSession: (taskId: string) => void;
+  /** Pause the active session */
+  pauseSession: () => void;
+  /** Resume a paused session */
+  resumeSession: () => void;
+  /** Stop the active session and record to history */
+  stopSession: (outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] }) => void;
+  /** Discard the active session without saving to history */
+  discardSession: () => void;
+  /** Heartbeat — update lastHeartbeat timestamp (call every 30s) */
+  heartbeatSession: () => void;
+  /** Mark specified step indices done and sync back to GoalBlueprint */
+  completeSessionSteps: (taskId: string, stepIndices: number[]) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -358,6 +378,8 @@ const SEED_GOALS: GoalNode[] = [];
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useLocalStorage<Task[]>('tudo-tasks-v3', SEED_TASKS);
   const [goals, setGoals] = useLocalStorage<GoalNode[]>('tudo-goals-v3', SEED_GOALS);
+  const [activeSession, setActiveSession] = useLocalStorage<ActiveSession | null>('youdo-active-session-v1', null);
+  const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>('youdo-session-history-v1', {});
 
   // Invalidate rollup cache whenever goals tree changes
   useEffect(() => {
@@ -399,6 +421,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   tasksRef.current = tasks;
   const goalsRef = useRef(goals);
   goalsRef.current = goals;
+  const activeSessionRef = useRef(activeSession);
+  activeSessionRef.current = activeSession;
 
   /* ---------- Daily task ops ---------- */
 
@@ -811,7 +835,166 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setGoals, setTasks],
   );
 
-  const exportBackup = useCallback(() => {
+  /* ── Session Timer callbacks ──────────────────────────────────────────── */
+
+  const formatWallClock = (ts: number): string => {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
+
+  const startSession = useCallback((taskId: string) => {
+    const now = Date.now();
+    // Auto-pause any existing session first
+    if (activeSessionRef.current && !activeSessionRef.current.isPaused) {
+      setActiveSession((prev) => {
+        if (!prev) return null;
+        return { ...prev, isPaused: true, pauseStart: now, lastHeartbeat: now,
+          pauses: [...prev.pauses, { start: now }] };
+      });
+    }
+    const session: ActiveSession = {
+      taskId,
+      startTime: now,
+      pausedDuration: 0,
+      isPaused: false,
+      lastHeartbeat: now,
+      pauses: [],
+      wallClockStart: formatWallClock(now),
+    };
+    setActiveSession(session);
+  }, [setActiveSession]);
+
+  const pauseSession = useCallback(() => {
+    setActiveSession((prev) => {
+      if (!prev || prev.isPaused) return prev;
+      const now = Date.now();
+      return { ...prev, isPaused: true, pauseStart: now, lastHeartbeat: now,
+        pauses: [...prev.pauses, { start: now }] };
+    });
+  }, [setActiveSession]);
+
+  const resumeSession = useCallback(() => {
+    setActiveSession((prev) => {
+      if (!prev || !prev.isPaused) return prev;
+      const now = Date.now();
+      const pauseDuration = prev.pauseStart ? now - prev.pauseStart : 0;
+      return {
+        ...prev,
+        isPaused: false,
+        pauseStart: undefined,
+        pausedDuration: prev.pausedDuration + pauseDuration,
+        lastHeartbeat: now,
+        pauses: prev.pauses.map((p, i) =>
+          i === prev.pauses.length - 1 ? { ...p, end: now } : p
+        ),
+      };
+    });
+  }, [setActiveSession]);
+
+  const stopSession = useCallback(
+    (outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] }) => {
+      const prev = activeSessionRef.current;
+      if (!prev) return;
+      const now = Date.now();
+      let finalPausedDuration = prev.pausedDuration;
+      let finalPauses = prev.pauses;
+      if (prev.isPaused && prev.pauseStart) {
+        finalPausedDuration += now - prev.pauseStart;
+        finalPauses = prev.pauses.map((p, i) =>
+          i === prev.pauses.length - 1 ? { ...p, end: now } : p
+        );
+      }
+      const netFocusMs = Math.max(0, (now - prev.startTime) - finalPausedDuration);
+      const session: TaskSession = {
+        id: uid('sess'),
+        taskId: prev.taskId,
+        startTime: prev.startTime,
+        endTime: now,
+        pausedDuration: finalPausedDuration,
+        pauses: finalPauses,
+        netFocusMs,
+        wallClockStart: prev.wallClockStart,
+        wallClockEnd: formatWallClock(now),
+        completed: outcome.completed,
+        completedStepIndices: outcome.completedStepIndices ?? [],
+      };
+      setSessionHistory((hist) => ({
+        ...hist,
+        [prev.taskId]: [...(hist[prev.taskId] ?? []), session],
+      }));
+      setActiveSession(null);
+    },
+    [setActiveSession, setSessionHistory],
+  );
+
+  const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
+
+  const heartbeatSession = useCallback(() => {
+    setActiveSession((prev) => prev ? { ...prev, lastHeartbeat: Date.now() } : null);
+  }, [setActiveSession]);
+
+  const completeSessionSteps = useCallback(
+    (taskId: string, stepIndices: number[]) => {
+      const task = tasksRef.current.find((t) => t.id === taskId);
+      if (!task) return;
+
+      if (!task.goalNodeId) {
+        // Standalone task — just bump progress to full
+        if (stepIndices.length > 0 || task.steps.length === 0) {
+          setTasks((prev) =>
+            prev.map((x) => x.id === taskId ? { ...x, progress: x.steps.length || 1 } : x)
+          );
+        }
+        return;
+      }
+
+      const masterIndices = stepIndices.map((i) =>
+        task.stepSlice ? task.stepSlice[i] : i
+      );
+
+      const node = findGoal(goalsRef.current, task.goalNodeId);
+      if (!node) return;
+
+      const hasSteps = !!node.steps && node.steps.length > 0;
+      let newProgress = task.progress;
+
+      if (hasSteps) {
+        const currentDone = node.stepDone ?? node.steps!.map(() => false);
+        const newStepDone = currentDone.map(
+          (done, idx) => done || masterIndices.includes(idx)
+        );
+        newProgress = task.stepSlice
+          ? task.stepSlice.filter((idx) => newStepDone[idx]).length
+          : newStepDone.filter(Boolean).length;
+        setGoals((prev) =>
+          prev.map((root) =>
+            updateNode(root, task.goalNodeId!, (n) => ({
+              ...n,
+              stepDone: newStepDone,
+              completed: newStepDone.every(Boolean),
+            }))
+          )
+        );
+      } else {
+        // No steps — mark node completed
+        setGoals((prev) =>
+          prev.map((root) =>
+            updateNode(root, task.goalNodeId!, (n) => ({ ...n, completed: true }))
+          )
+        );
+        newProgress = 1;
+      }
+
+      setTasks((prev) =>
+        prev.map((x) => x.id === taskId ? { ...x, progress: newProgress } : x)
+      );
+    },
+    [setGoals, setTasks],
+  );
+
+  /* ── Backup ───────────────────────────────────────────────────────────── */
+
+  const exportBackup = useCallback(async () => {
     const data = {
       app: 'YouDO',
       version: '1.0.0',
@@ -819,13 +1002,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tasks: tasksRef.current,
       goals: goalsRef.current,
     };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const jsonStr = JSON.stringify(data, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
+    const fileName = `youdo-backup-${dateStr}.json`;
+
+    // Try Web Share API first — works in Android Capacitor WebView
+    try {
+      const file = new File([jsonStr], fileName, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'YouDO Backup', text: 'Your YouDO data backup' });
+        return;
+      }
+    } catch {
+      // Fall through to anchor download
+    }
+
+    // Fallback: standard anchor download (works in desktop browser)
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `youdo-backup-${dateStr}.json`;
+    a.download = fileName;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, []);
 
@@ -886,13 +1086,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
       exportBackup, importBackup,
+      activeSession, sessionHistory,
+      startSession, pauseSession, resumeSession, stopSession,
+      discardSession, heartbeatSession, completeSessionSteps,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
-      exportBackup, importBackup],
+      exportBackup, importBackup,
+      activeSession, sessionHistory,
+      startSession, pauseSession, resumeSession, stopSession,
+      discardSession, heartbeatSession, completeSessionSteps],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

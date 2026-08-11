@@ -42,3 +42,37 @@ export interface GoalNode {
 }
 
 export type View = 'tasks' | 'goals' | 'calendar';
+
+/* ─── Session Timer Types ─────────────────────────────────────────────────── */
+
+export interface SessionPause {
+  start: number;  // Date.now() when paused
+  end?: number;   // Date.now() when resumed; undefined if still paused
+}
+
+/** A completed session record saved to history */
+export interface TaskSession {
+  id: string;
+  taskId: string;
+  startTime: number;             // Date.now() when session was started
+  endTime: number;               // Date.now() when session was stopped
+  pausedDuration: number;        // total milliseconds paused
+  pauses: SessionPause[];
+  netFocusMs: number;            // (endTime - startTime) - pausedDuration
+  wallClockStart: string;        // e.g. "8:12 AM"
+  wallClockEnd: string;          // e.g. "9:04 AM"
+  completed: boolean | 'partial';
+  completedStepIndices: number[]; // indices into task.steps[] marked done at stop
+}
+
+/** The single currently active (live) session */
+export interface ActiveSession {
+  taskId: string;
+  startTime: number;             // Date.now() when started
+  pausedDuration: number;        // accumulated ms paused so far
+  isPaused: boolean;
+  pauseStart?: number;           // Date.now() when last paused (if currently paused)
+  lastHeartbeat: number;         // updated every 30s; used for crash recovery
+  pauses: SessionPause[];
+  wallClockStart: string;        // "8:12 AM"
+}
