@@ -45,7 +45,7 @@ jobs:
       - name: Force AGP & Capacitor Script Alignment
         run: |
           mkdir -p android/capacitor-cordova-android-plugins
-          touch android/capacitor-cordova-android-plugins/cordova.variables.gradle
+          echo "ext { cdvPluginPostBuildExtras = [] }" > android/capacitor-cordova-android-plugins/cordova.variables.gradle
           sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.7.0'/g" android/build.gradle
           if [ -f android/capacitor-cordova-android-plugins/build.gradle ]; then
             sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.7.0'/g" android/capacitor-cordova-android-plugins/build.gradle
@@ -65,7 +65,7 @@ jobs:
           GRADLE_OPTS: "-Xmx6144m -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.unsafe.build-cache=false"
         run: |
           cd android
-          ./gradlew clean assembleDebug --no-daemon --no-build-cache --stacktrace -x lint
+          ./gradlew clean assembleDebug --no-daemon --no-build-cache --stacktrace --info -x lint
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
