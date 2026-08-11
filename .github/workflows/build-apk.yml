@@ -52,7 +52,18 @@ jobs:
           fi
           sed -i "s/sourceCompatibility JavaVersion.VERSION_.*/sourceCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
           sed -i "s/targetCompatibility JavaVersion.VERSION_.*/targetCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
-          sed -i 's|apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"|def cordovaVars = file("../capacitor-cordova-android-plugins/cordova.variables.gradle")\nif (cordovaVars.exists()) { apply from: cordovaVars }|g' android/app/capacitor.build.gradle
+          python3 << 'EOF'
+          with open('android/app/capacitor.build.gradle', 'r') as f:
+              content = f.read()
+          old_line = 'apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"'
+          new_lines = '''def cordovaVariables = file("../capacitor-cordova-android-plugins/cordova.variables.gradle")
+if (cordovaVariables.exists()) {
+    apply from: cordovaVariables
+}'''
+          content = content.replace(old_line, new_lines)
+          with open('android/app/capacitor.build.gradle', 'w') as f:
+              f.write(content)
+          EOF
 
       - name: Pre-warm Gradle Wrapper
         run: |
