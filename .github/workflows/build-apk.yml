@@ -42,12 +42,17 @@ jobs:
       - name: Sync Capacitor Assets to Android
         run: npx @capacitor/cli sync android
 
-      - name: Force AGP Version Alignment
+      - name: Force AGP & Capacitor Script Alignment
         run: |
+          mkdir -p android/capacitor-cordova-android-plugins
+          touch android/capacitor-cordova-android-plugins/cordova.variables.gradle
           sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.7.0'/g" android/build.gradle
-          sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.7.0'/g" android/capacitor-cordova-android-plugins/build.gradle
+          if [ -f android/capacitor-cordova-android-plugins/build.gradle ]; then
+            sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.7.0'/g" android/capacitor-cordova-android-plugins/build.gradle
+          fi
           sed -i "s/sourceCompatibility JavaVersion.VERSION_.*/sourceCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
           sed -i "s/targetCompatibility JavaVersion.VERSION_.*/targetCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
+          sed -i 's|apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"|def cordovaVars = file("../capacitor-cordova-android-plugins/cordova.variables.gradle")\nif (cordovaVars.exists()) { apply from: cordovaVars }|g' android/app/capacitor.build.gradle
 
       - name: Pre-warm Gradle Wrapper
         run: |
