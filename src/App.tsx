@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View } from './types';
-import { useTheme } from './hooks/useTheme';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore } from './store';
 import { AuthProvider } from './contexts/AuthContext';
@@ -115,7 +114,7 @@ function AppInner() {
     completeSessionSteps,
   } = useStore();
 
-  const [theme, setTheme] = useTheme();
+
   const dark = true; // Permanent dark mode
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -218,8 +217,8 @@ function AppInner() {
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
-    document.documentElement.classList.toggle('glass', theme.glassUI);
-  }, [theme.glassUI]);
+  }, []);
+
 
   const pushModalState = useCallback(() => {
     try {
@@ -519,16 +518,10 @@ function AppInner() {
     [view, goalPathIds, tabs, handleNavigateTab, setGoalPathIds],
   );
 
-  const isGlass = theme.glassUI;
+  const isGlass = false; // Solid mode permanently
 
   return (
     <div className={`min-h-screen relative overflow-x-hidden transition-colors duration-300 dark bg-[#0D0B14] text-slate-100`}>
-      {/* Ambient Glowing Orbs */}
-      <div className={`fixed inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700 ${isGlass ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="absolute -top-32 -left-20 w-96 h-96 rounded-full blur-3xl bg-violet-900/20" />
-        <div className="absolute top-1/3 -right-24 w-96 h-96 rounded-full blur-3xl bg-indigo-900/20" />
-        <div className="absolute -bottom-32 left-1/4 w-96 h-96 rounded-full blur-3xl bg-amber-950/15" />
-      </div>
 
       <div
         className="relative z-10 min-h-screen w-full max-w-md mx-auto px-4 pb-28"
@@ -671,37 +664,64 @@ function AppInner() {
                     </div>
                   )
                 ) : (
+                  /* ─────────── BACKLOG TAB ─────────── */
                   <div className="space-y-4 fade-in">
+                    {/* Summary header */}
                     {backlogTasks.length > 0 ? (
-                      <div className="card p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl space-y-1">
-                        <div className="flex items-center gap-2 text-rose-400 font-extrabold text-xs uppercase tracking-wider">
-                          <AlertTriangle size={15} /> Backlog Momentum Alert
+                      <div className="rounded-2xl border border-rose-500/22 p-4 space-y-3" style={{ background: 'rgba(20,8,14,0.85)' }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                              <AlertTriangle size={18} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-extrabold text-[#EEE9FC]">
+                                {backlogTasks.length} Task{backlogTasks.length > 1 ? 's' : ''} in Backlog
+                              </p>
+                              <p className="text-[10.5px] font-semibold text-rose-400/80">
+                                Across {backlogByDate.length} missed date{backlogByDate.length > 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] font-bold text-[#5F5980] uppercase tracking-wider">Oldest Due</p>
+                            <p className="text-xs font-extrabold text-rose-300">
+                              {backlogByDate.length > 0 ? backlogByDate[backlogByDate.length - 1].formattedDate : '—'}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-[12px] text-rose-200 font-medium leading-relaxed">
-                          ⚠️ You are losing momentum! <span className="font-extrabold underline decoration-rose-400">{backlogTasks.length} task{backlogTasks.length > 1 ? 's' : ''}</span> slipped into backlog. Reschedule or finish them now!
+                        <p className="text-[11px] text-rose-200/65 font-medium leading-relaxed border-t border-rose-500/12 pt-3">
+                          ⚡ Reschedule or complete these tasks to restore your momentum. Don't let backlog compound!
                         </p>
                       </div>
                     ) : (
-                      <div className="card p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center space-y-1.5">
-                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 mb-1">
-                          <Flame size={20} />
+                      <div className="card p-6 bg-emerald-500/8 border border-emerald-500/22 rounded-2xl text-center space-y-2">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 mb-1">
+                          <Flame size={22} />
                         </div>
-                        <h3 className="text-sm font-extrabold text-emerald-300 uppercase tracking-wider">
-                          Zero Backlog — Flawless Execution!
-                        </h3>
-                        <p className="text-[12px] text-emerald-200 font-medium leading-relaxed max-w-xs mx-auto">
-                          🔥 Outstanding momentum! Zero backlogged tasks.
+                        <h3 className="text-sm font-extrabold text-emerald-300 uppercase tracking-wider">Zero Backlog</h3>
+                        <p className="text-[12px] text-emerald-200/70 font-medium max-w-xs mx-auto">
+                          🔥 Outstanding! Every task is on schedule. Keep the streak alive.
                         </p>
                       </div>
                     )}
 
+                    {/* Date-grouped task lists */}
                     {backlogByDate.map((group) => (
                       <div key={group.date} className="space-y-2">
-                        <div className="flex items-center gap-2 px-1 text-[11px] font-bold text-rose-400 uppercase tracking-wider">
-                          <Calendar size={12} />
-                          <span>Due: {group.formattedDate}</span>
-                          <span className="text-[10px] font-semibold text-slate-400">({group.tasks.length} task{group.tasks.length > 1 ? 's' : ''})</span>
+                        {/* Group header row */}
+                        <div className="flex items-center gap-2 px-0.5">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/12 border border-rose-500/18">
+                            <Calendar size={11} className="text-rose-400" />
+                            <span className="text-[10.5px] font-extrabold text-rose-400">{group.formattedDate}</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-[#5F5980]">
+                            {group.tasks.length} task{group.tasks.length > 1 ? 's' : ''}
+                          </span>
+                          <div className="flex-1 h-px bg-white/5" />
                         </div>
+
+                        {/* Task cards */}
                         <div className="space-y-2">
                           {group.tasks.map((t) => (
                             <TaskCard
@@ -728,10 +748,10 @@ function AppInner() {
                                     e.stopPropagation();
                                     handlePushBacklogTask(t);
                                   }}
-                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-xl text-white bg-rose-600 hover:bg-rose-500 shadow-xs shadow-rose-500/30 transition-all active:scale-95 shrink-0"
-                                  title="Schedule task"
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl text-white bg-rose-600 hover:bg-rose-500 shadow-sm shadow-rose-500/30 transition-all active:scale-95 shrink-0"
+                                  title="Reschedule task"
                                 >
-                                  <Zap size={12} className="fill-white" /> Schedule
+                                  <Zap size={12} className="fill-white" /> Reschedule
                                 </button>
                               }
                             />
@@ -823,9 +843,7 @@ function AppInner() {
       />
       <SettingsSheet
         open={settingsOpen}
-        theme={theme}
         onClose={closeSettings}
-        onApply={(t) => { setTheme(t); closeSettings(); }}
         onOpenAuth={() => setAuthOpen(true)}
       />
 
