@@ -20,8 +20,12 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Wipe Gradle Home (nuclear cache clear)
-        run: rm -rf ~/.gradle
+      - name: Clear Gradle Caches
+        run: |
+          rm -rf ~/.gradle
+          rm -rf android/build
+          rm -rf android/.gradle
+          rm -rf android/app/build
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -37,6 +41,13 @@ jobs:
 
       - name: Sync Capacitor Assets to Android
         run: npx @capacitor/cli sync android
+
+      - name: Force AGP Version Alignment
+        run: |
+          sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.5.2'/g" android/build.gradle
+          sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.5.2'/g" android/capacitor-cordova-android-plugins/build.gradle
+          sed -i "s/sourceCompatibility JavaVersion.VERSION_.*/sourceCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
+          sed -i "s/targetCompatibility JavaVersion.VERSION_.*/targetCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
 
       - name: Pre-warm Gradle Wrapper
         run: |
