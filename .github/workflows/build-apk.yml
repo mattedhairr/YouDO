@@ -58,7 +58,7 @@ jobs:
 
       - name: Build Android Debug APK
         env:
-          GRADLE_OPTS: "-Xmx4096m -Dorg.gradle.daemon=false"
+          GRADLE_OPTS: "-Xmx6144m -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
         run: |
           cd android
           ./gradlew clean assembleDebug --no-daemon --no-build-cache --stacktrace
