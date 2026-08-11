@@ -3,31 +3,39 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* ── Obsidian surface layers ─────────────────────────────────── */
-  --surface-0: #06090F;           /* page background              */
-  --surface-1: #0D1117;           /* card base                    */
-  --surface-2: #161B25;           /* elevated card / sheet        */
-  --surface-3: #1E2736;           /* hover / active state         */
+  /* ── Deep Warm Purple Surface Layers ─────────────────────────────── */
+  --surface-0: #0D0B14;           /* page background (very deep warm dark) */
+  --surface-1: #14111F;           /* card base                             */
+  --surface-2: #1D1930;           /* elevated card / sheet                 */
+  --surface-3: #27233D;           /* hover / active state                  */
 
   /* ── Glass borders ──────────────────────────────────────────── */
-  --border-subtle:   rgba(255, 255, 255, 0.06);
+  --border-subtle:   rgba(255, 255, 255, 0.05);
   --border-default:  rgba(255, 255, 255, 0.10);
   --border-emphasis: rgba(255, 255, 255, 0.18);
 
   /* ── Accent palette ─────────────────────────────────────────── */
-  --accent-blue:      #3B82F6;
-  --accent-blue-dim:  rgba(59, 130, 246, 0.15);
-  --accent-emerald:   #10B981;
-  --accent-amber:     #F59E0B;
-  --accent-rose:      #F43F5E;
-  --accent-indigo:    #6366F1;
+  --accent-primary:       #7C3AED;   /* deep indigo-violet                  */
+  --accent-primary-light: #A78BFA;
+  --accent-primary-dim:   rgba(124, 58, 237, 0.18);
+  --accent-primary-glow:  rgba(124, 58, 237, 0.35);
+
+  --accent-amber:         #F59E0B;   /* warm amber / session active         */
+  --accent-amber-light:   #FCD34D;
+  --accent-amber-dim:     rgba(245, 158, 11, 0.18);
+
+  --accent-emerald:       #10B981;   /* completion / growth                 */
+  --accent-emerald-dim:   rgba(16, 185, 129, 0.18);
+
+  --accent-rose:          #F43F5E;   /* backlog / stop                      */
+  --accent-rose-dim:      rgba(244, 63, 94, 0.18);
 
   /* ── Text hierarchy ─────────────────────────────────────────── */
-  --text-primary:   #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted:     #475569;
+  --text-primary:   #EEE9FC;   /* warm white, not harsh               */
+  --text-secondary: #A09CB8;   /* muted purple-grey                   */
+  --text-muted:     #5F5980;   /* deep muted                          */
 
   /* ── Typography ─────────────────────────────────────────────── */
   --font-sans: 'Inter', 'SF Pro Display', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -39,12 +47,6 @@
   --leading-tight:   1.3;
 }
 
-html.dark,
-body.dark,
-.dark {
-  color-scheme: dark;
-}
-
 html,
 body,
 #root {
@@ -53,126 +55,54 @@ body,
   padding: 0;
 }
 
+html,
 body {
-  margin: 0;
+  background-color: var(--surface-0) !important;
+  color: var(--text-primary) !important;
   font-family: var(--font-sans);
-  background-color: #f8fafc;
-  color: #0f172a;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
 }
 
-html.dark,
-html.dark body,
-body.dark,
-.dark body {
-  background-color: #0b0f17 !important;
-  color: #f1f5f9 !important;
-}
-
 /* ---------- Surface & Glass Theme Definitions ---------- */
 @layer components {
-  /* 1. LIGHT MODE SOLID (Default Light) */
+  /* SOLID CARD (Default Dark) */
   .card {
-    background: #ffffff !important;
+    background: #14111F !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04) !important;
-    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, opacity 0.2s ease;
+    box-shadow: 0 6px 24px 0 rgba(0, 0, 0, 0.55) !important;
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, opacity 0.25s ease !important;
   }
 
   .card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.10) !important;
+    transform: translateY(-1.5px);
+    border-color: rgba(124, 58, 237, 0.3) !important;
+    box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.65), 0 0 12px 0 rgba(124, 58, 237, 0.12) !important;
   }
 
   .glass-header {
-    background: #ffffff !important;
+    background: #0f0c18 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
   }
 
   .glass-nav {
-    background: #ffffff !important;
+    background: #14111F !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border: 1px solid #cbd5e1 !important;
-    box-shadow: 0 10px 28px -4px rgba(15, 23, 42, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow: 0 14px 36px -4px rgba(0, 0, 0, 0.7) !important;
   }
 
-  /* 2. LIGHT MODE GLASS (.glass:not(.dark)) */
-  html.glass:not(.dark) .card {
-    background: rgba(255, 255, 255, 0.65) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.85) !important;
-    box-shadow: 
-      0 8px 32px 0 rgba(31, 38, 135, 0.08),
-      inset 0 1.5px 0 0 rgba(255, 255, 255, 0.95),
-      inset 0 -1px 0 0 rgba(226, 232, 240, 0.5) !important;
-  }
-
-  html.glass:not(.dark) .card:hover {
-    transform: translateY(-1px);
-    box-shadow: 
-      0 14px 36px 0 rgba(31, 38, 135, 0.12),
-      inset 0 1.5px 0 0 #ffffff !important;
-  }
-
-  html.glass:not(.dark) .glass-header {
-    background: rgba(255, 255, 255, 0.70) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.8) !important;
-  }
-
-  html.glass:not(.dark) .glass-nav {
-    background: rgba(255, 255, 255, 0.75) !important;
-    backdrop-filter: blur(28px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.9) !important;
-    box-shadow: 0 14px 36px -4px rgba(31, 38, 135, 0.12), inset 0 1.5px 0 0 #ffffff !important;
-  }
-
-  /* 3. DARK MODE SOLID (.dark:not(.glass)) */
-  html.dark:not(.glass) .card {
-    background: #131926 !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid #243044 !important;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.55) !important;
-  }
-
-  html.dark:not(.glass) .card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 30px 0 rgba(0, 0, 0, 0.65) !important;
-  }
-
-  html.dark:not(.glass) .glass-header {
-    background: #0e131d !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid #243044 !important;
-  }
-
-  html.dark:not(.glass) .glass-nav {
-    background: #111724 !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid #28354b !important;
-    box-shadow: 0 14px 36px -4px rgba(0, 0, 0, 0.6) !important;
-  }
-
-  /* 4. DARK MODE GLASS (.dark.glass) */
-  html.dark.glass .card {
-    background: rgba(13, 18, 28, 0.60) !important;
+  /* GLASS CARD (.glass) */
+  html.glass .card {
+    background: rgba(20, 17, 31, 0.65) !important;
     backdrop-filter: blur(28px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
     border: 1px solid rgba(255, 255, 255, 0.10) !important;
@@ -182,31 +112,63 @@ body.dark,
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.40) !important;
   }
 
-  html.dark.glass .card:hover {
-    transform: translateY(-1px);
+  html.glass .card:hover {
+    transform: translateY(-1.5px);
+    border-color: rgba(124, 58, 237, 0.35) !important;
     box-shadow:
       0 16px 44px 0 rgba(0, 0, 0, 0.75),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
-      inset 0 -1px 0 0 rgba(0, 0, 0, 0.40) !important;
+      0 0 16px 0 rgba(124, 58, 237, 0.18) !important;
   }
 
-  html.dark.glass .glass-header {
-    background: rgba(10, 14, 23, 0.68) !important;
+  html.glass .glass-header {
+    background: rgba(13, 11, 20, 0.75) !important;
     backdrop-filter: blur(24px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.11) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
   }
 
-  html.dark.glass .glass-nav {
-    background: rgba(14, 20, 32, 0.70) !important;
+  html.glass .glass-nav {
+    background: rgba(20, 17, 31, 0.75) !important;
     backdrop-filter: blur(28px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
-    box-shadow: 0 18px 44px -8px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.16) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 18px 44px -8px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.14) !important;
+  }
+
+  /* Inactive task dimming when session active */
+  .card-dimmed {
+    opacity: 0.55 !important;
+    transform: scale(0.985) !important;
+    filter: saturate(85%) !important;
+    pointer-events: auto !important;
+  }
+
+  /* Active session card glowing border */
+  .card-session-active {
+    border-color: rgba(245, 158, 11, 0.6) !important;
+    box-shadow: 0 0 20px 2px rgba(245, 158, 11, 0.25), 0 8px 32px 0 rgba(0, 0, 0, 0.7) !important;
+    animation: session-border-pulse 2.5s ease-in-out infinite !important;
+  }
+
+  /* Enhanced Drag Card Effect */
+  .dragging-card {
+    opacity: 0.85 !important;
+    transform: scale(1.03) rotate(1deg) !important;
+    box-shadow: 0 20px 48px rgba(124, 58, 237, 0.35), 0 0 0 2px rgba(124, 58, 237, 0.7) !important;
+    z-index: 50 !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+  }
+
+  .drag-over-card {
+    border-color: rgba(124, 58, 237, 0.8) !important;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.5), inset 0 0 12px rgba(124, 58, 237, 0.15) !important;
+    transform: translateY(4px) !important;
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 }
 
-/* ---------- Misc ---------- */
+/* ---------- Utilities ---------- */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -283,10 +245,6 @@ body.dark,
   }
 }
 
-.dragging-card {
-  opacity: 0.4;
-}
-
 /* ---------- Marquee / Ticker Animation ---------- */
 .marquee-container {
   overflow: hidden;
@@ -298,7 +256,6 @@ body.dark,
 .marquee-content {
   display: inline-block;
   white-space: nowrap;
-  /* No padding-left — start at translateX(40%) so text enters immediately from the right */
   animation: marquee 24s linear infinite;
 }
 
@@ -317,18 +274,10 @@ body.dark,
 
 /* ---------- Spring & Micro-Interactions ---------- */
 @keyframes stamp {
-  0% {
-    transform: scale(1);
-  }
-  40% {
-    transform: scale(0.85);
-  }
-  70% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
+  0% { transform: scale(1); }
+  40% { transform: scale(0.85); }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); }
 }
 
 .animate-stamp {
@@ -336,12 +285,8 @@ body.dark,
 }
 
 @keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
 .animate-float {
@@ -349,22 +294,46 @@ body.dark,
 }
 
 @keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
-  50% {
-    box-shadow: 0 0 16px 2px rgba(16, 185, 129, 0.35);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  50% { box-shadow: 0 0 16px 2px rgba(16, 185, 129, 0.35); }
 }
 
 .animate-glow-pulse {
   animation: glow-pulse 2.5s ease-in-out infinite;
 }
 
+@keyframes session-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  50% { transform: scale(1.2); opacity: 0.85; box-shadow: 0 0 8px 3px rgba(245, 158, 11, 0.4); }
+}
+
+.animate-session-pulse {
+  animation: session-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes session-border-pulse {
+  0%, 100% { border-color: rgba(245, 158, 11, 0.4); }
+  50% { border-color: rgba(245, 158, 11, 0.85); }
+}
+
+@keyframes ambient-clock-tick {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+
+.animate-ambient-clock {
+  animation: ambient-clock-tick 1s ease-in-out infinite;
+}
+
 .progress-bar-fill {
   transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
-
-
-
+/* Math Superscript Date Styling in Calendar */
+.task-sup {
+  font-size: 0.65em;
+  font-weight: 700;
+  line-height: 0;
+  vertical-align: super;
+  margin-left: 1px;
+}

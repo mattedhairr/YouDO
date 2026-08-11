@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap } from 'lucide-react';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock, RotateCcw } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View } from './types';
 import { useTheme } from './hooks/useTheme';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore } from './store';
+import { AuthProvider } from './contexts/AuthContext';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
@@ -13,8 +14,12 @@ import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
 import StepSliceSheet from './components/StepSliceSheet';
 import CalendarView from './components/CalendarView';
+import { AmbientScreen } from './components/AmbientScreen';
+import { SessionStopDialog } from './components/SessionStopDialog';
+import { TaskSessionStats } from './components/TaskSessionStats';
+import { AuthModal } from './components/AuthModal';
 
-const ACCENT = '#3b82f6';
+const ACCENT = '#7C3AED';
 
 const MOTIVATIONAL_QUOTES = [
   { text: "Giving up is not in the blood sir... not in the blood", author: "Nimsdai Purja" },
@@ -30,15 +35,13 @@ const MOTIVATIONAL_QUOTES = [
 function YouDoIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Y-stem: left arm descending to centre — electric blue */}
       <path
         d="M4 4L11.5 13.5V20"
-        stroke="#3b82f6"
+        stroke="#7C3AED"
         strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Y-arm: right arm with execution checkmark sweep — emerald */}
       <path
         d="M20 4L11.5 13.5L8.5 10"
         stroke="#10b981"
@@ -60,8 +63,6 @@ function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
         return true;
       }
     }
-    // NOTE: Do NOT bail on draggable elements — drag uses dragstart, not touchstart.
-    // Bailing here would block swipe navigation over every goal card.
     if (el.classList) {
       if (el.classList.contains('no-swipe') || el.classList.contains('glass-nav') || el.classList.contains('dragging-card')) {
         return true;
@@ -73,9 +74,12 @@ function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
 }
 
 export default function App() {
-  return <AppInner />;
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
+  );
 }
-
 
 function AppInner() {
   const {
@@ -99,9 +103,20 @@ function AppInner() {
     clearClipboard,
     clipboard,
     deleteGoalNodes,
+    // Session state & actions
+    activeSession,
+    sessionHistory,
+    startSession,
+    pauseSession,
+    resumeSession,
+    stopSession,
+    discardSession,
+    heartbeatSession,
+    completeSessionSteps,
   } = useStore();
+
   const [theme, setTheme] = useTheme();
-  const dark = theme.darkMode;
+  const dark = true; // Permanent dark mode
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
@@ -115,7 +130,31 @@ function AppInner() {
   const [overId, setOverId] = useState<string | null>(null);
   const [descModalData, setDescModalData] = useState<{ title: string; description: string } | null>(null);
 
-  // Batch selection state (owned by App, fed from GoalView via onSelectionChange)
+  // Session UI states
+  const [showAmbient, setShowAmbient] = useState(false);
+  const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null);
+  const [statsTask, setStatsTask] = useState<Task | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
+
+  // Heartbeat timer (30s)
+  useEffect(() => {
+    if (!activeSession) return;
+    const interval = setInterval(heartbeatSession, 30_000);
+    return () => clearInterval(interval);
+  }, [activeSession?.taskId, heartbeatSession]);
+
+  // Crash / Interrupted Session Recovery check on startup
+  useEffect(() => {
+    if (activeSession && activeSession.lastHeartbeat) {
+      const msSinceHeartbeat = Date.now() - activeSession.lastHeartbeat;
+      if (msSinceHeartbeat > 300_000) { // 5 mins
+        setRecoverySessionPrompt(true);
+      }
+    }
+  }, []);
+
+  // Batch selection state
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([]);
   const [batchLeafIds, setBatchLeafIds] = useState<string[]>([]);
   const clearSelectionRef = useRef<() => void>(() => {});
@@ -131,9 +170,25 @@ function AppInner() {
     setBatchLeafIds([]);
   }, []);
 
-  // High-priority modal interceptor ref for popstate (device back gesture)
+  // Modal close interceptor ref for popstate (device back gesture)
   const modalCloseRef = useRef<() => boolean>(() => false);
   modalCloseRef.current = () => {
+    if (showAmbient) {
+      setShowAmbient(false);
+      return true;
+    }
+    if (stopDialogTask) {
+      setStopDialogTask(null);
+      return true;
+    }
+    if (statsTask) {
+      setStatsTask(null);
+      return true;
+    }
+    if (authOpen) {
+      setAuthOpen(false);
+      return true;
+    }
     if (sheetOpen) {
       setSheetOpen(false);
       return true;
@@ -162,11 +217,10 @@ function AppInner() {
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.classList.add('dark');
     document.documentElement.classList.toggle('glass', theme.glassUI);
-  }, [dark, theme.glassUI]);
+  }, [theme.glassUI]);
 
-  // Push history state when opening a modal sheet
   const pushModalState = useCallback(() => {
     try {
       window.history.pushState({ modal: true }, '', window.location.href);
@@ -236,30 +290,22 @@ function AppInner() {
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
-    if (window.history.state?.modal) {
-      window.history.back();
-    }
+    if (window.history.state?.modal) window.history.back();
   }, []);
 
   const closeGoalSheet = useCallback(() => {
     setGoalSheetOpen(false);
-    if (window.history.state?.modal) {
-      window.history.back();
-    }
+    if (window.history.state?.modal) window.history.back();
   }, []);
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
-    if (window.history.state?.modal) {
-      window.history.back();
-    }
+    if (window.history.state?.modal) window.history.back();
   }, []);
 
   const closeSliceNode = useCallback(() => {
     setSliceNodes([]);
-    if (window.history.state?.modal) {
-      window.history.back();
-    }
+    if (window.history.state?.modal) window.history.back();
   }, []);
 
   const openDescriptionModal = useCallback(
@@ -272,25 +318,21 @@ function AppInner() {
 
   const closeDescriptionModal = useCallback(() => {
     setDescModalData(null);
-    if (window.history.state?.modal) {
-      window.history.back();
-    }
+    if (window.history.state?.modal) window.history.back();
   }, []);
 
-  // Single random quote selected on startup/refresh
   const [randomQuote] = useState(() => {
     const idx = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
     return MOTIVATIONAL_QUOTES[idx];
   });
 
-  // Native Android Status Bar safe area initialization
   useEffect(() => {
     const initStatusBar = async () => {
       try {
         await StatusBar.setStyle({ style: Style.Dark });
         await StatusBar.setOverlaysWebView({ overlay: false });
       } catch {
-        /* non-capacitor web fallback */
+        /* fallback */
       }
     };
     initStatusBar();
@@ -302,9 +344,12 @@ function AppInner() {
   const backlogTasks = useMemo(() => tasks.filter(isBacklogTask), [tasks]);
   const todayCount = todayTasks.length;
   const todayDone = todayTasks.filter(isTaskComplete).length;
-  
-  // Today's Progress calculation: 0 if todayCount is 0, never NaN
   const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
+
+  const activeTask = useMemo(() => {
+    if (!activeSession) return null;
+    return tasks.find((t) => t.id === activeSession.taskId) ?? null;
+  }, [activeSession, tasks]);
 
   const backlogByDate = useMemo(() => {
     const groups: Record<string, Task[]> = {};
@@ -384,8 +429,6 @@ function AppInner() {
 
   const sortedTasks = useMemo(() => [...todayTasks].sort((a, b) => a.order - b.order), [todayTasks]);
 
-
-
   const touchState = useRef<{
     startX: number;
     startY: number;
@@ -406,7 +449,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0) return;
+      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || statsTask) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -421,7 +464,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes],
+    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, statsTask],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -436,7 +479,6 @@ function AppInner() {
     if (touchState.current.isHorizontal === null) {
       if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
         if (Math.abs(dy) >= Math.abs(dx)) {
-          // Vertical scroll detected: cancel tracking immediately to prevent tab jumps while scrolling
           touchState.current.isHorizontal = false;
           touchState.current.tracking = false;
         } else {
@@ -458,49 +500,34 @@ function AppInner() {
       const dy = touchState.current.currentY - touchState.current.startY;
       const dt = Date.now() - touchState.current.startTime;
 
-      // Strict gesture validation: >= 50px distance, dy <= dx * 0.75 ratio, <= 750ms duration
       if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.75 || dt > 750) return;
 
-      // Strict 3-tab linear sequence: 0: Today ('tasks'), 1: Goals ('goals'), 2: Calendar ('calendar')
       const currentIdx = tabs.indexOf(view);
 
       if (dx <= -50) {
-        // Swipe LEFT: Move to NEXT tab (tasks -> goals -> calendar), clamped at index 2 (calendar)
         const nextIdx = Math.min(tabs.length - 1, currentIdx + 1);
-        if (nextIdx !== currentIdx) {
-          handleNavigateTab(tabs[nextIdx]);
-        }
+        if (nextIdx !== currentIdx) handleNavigateTab(tabs[nextIdx]);
       } else if (dx >= 50) {
-        // Swipe RIGHT:
-        // If inside nested goal breadcrumbs, step back up the goal hierarchy
         if (view === 'goals' && goalPathIds.length > 0) {
           setGoalPathIds(goalPathIds.slice(0, -1));
           return;
         }
-        // Otherwise move to PREVIOUS tab (calendar -> goals -> tasks), clamped at index 0 (tasks)
         const prevIdx = Math.max(0, currentIdx - 1);
-        if (prevIdx !== currentIdx) {
-          handleNavigateTab(tabs[prevIdx]);
-        }
+        if (prevIdx !== currentIdx) handleNavigateTab(tabs[prevIdx]);
       }
     },
     [view, goalPathIds, tabs, handleNavigateTab, setGoalPathIds],
   );
 
-
   const isGlass = theme.glassUI;
 
   return (
-    <div className={`min-h-screen relative overflow-x-hidden transition-colors duration-300 ${
-      dark
-        ? isGlass ? 'dark bg-[#05080E] text-slate-100' : 'dark bg-[#070A0F] text-slate-100'
-        : isGlass ? 'bg-[#EBF0F7] text-slate-900' : 'bg-[#F1F5F9] text-slate-900'
-    }`}>
-      {/* Ambient Glowing Orbs — ONLY visible when Frosted Glass mode is enabled */}
+    <div className={`min-h-screen relative overflow-x-hidden transition-colors duration-300 dark bg-[#0D0B14] text-slate-100`}>
+      {/* Ambient Glowing Orbs */}
       <div className={`fixed inset-0 pointer-events-none overflow-hidden z-0 transition-opacity duration-700 ${isGlass ? 'opacity-100' : 'opacity-0'}`}>
-        <div className={`absolute -top-32 -left-20 w-96 h-96 rounded-full blur-3xl transition-all duration-700 ${dark ? 'bg-blue-600/25' : 'bg-blue-500/20'}`} />
-        <div className={`absolute top-1/3 -right-24 w-96 h-96 rounded-full blur-3xl transition-all duration-700 ${dark ? 'bg-indigo-600/25' : 'bg-purple-500/20'}`} />
-        <div className={`absolute -bottom-32 left-1/4 w-96 h-96 rounded-full blur-3xl transition-all duration-700 ${dark ? 'bg-emerald-600/20' : 'bg-cyan-500/18'}`} />
+        <div className="absolute -top-32 -left-20 w-96 h-96 rounded-full blur-3xl bg-violet-900/20" />
+        <div className="absolute top-1/3 -right-24 w-96 h-96 rounded-full blur-3xl bg-indigo-900/20" />
+        <div className="absolute -bottom-32 left-1/4 w-96 h-96 rounded-full blur-3xl bg-amber-950/15" />
       </div>
 
       <div
@@ -509,18 +536,17 @@ function AppInner() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Single Sleek Consolidated Top Header */}
+        {/* Header */}
         <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-2 shrink-0 overflow-hidden">
-          {/* Inline Top Row: Brand + Date (Left) | Marquee Quote Ticker (Right) */}
           <div className="flex items-center justify-between gap-2.5 h-10">
-            {/* Left: YouDO Icon + Brand + Date */}
+            {/* Left: YouDO Icon + Brand */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="grid place-items-center w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 border border-blue-100 dark:border-blue-700/60 shadow-xs shrink-0">
+              <span className="grid place-items-center w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 shadow-xs shrink-0">
                 <YouDoIcon size={18} />
               </span>
               <div className="shrink-0">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-400 font-extrabold leading-none">YouDO</div>
-                <div className="text-[13px] font-extrabold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-extrabold leading-none">YouDO</div>
+                <div className="text-[13px] font-extrabold text-slate-100 leading-tight mt-0.5">
                   {view === 'goals'
                     ? 'Goals'
                     : view === 'calendar'
@@ -530,29 +556,29 @@ function AppInner() {
               </div>
             </div>
 
-            {/* Right: Inline Marquee Scrolling Quote Ticker */}
+            {/* Right: Marquee Quote Ticker */}
             <div className="flex-1 min-w-0 card h-9 px-2.5 flex items-center gap-1.5 border border-white/10 overflow-hidden">
-              <Quote size={11} className="text-blue-500 dark:text-blue-400 shrink-0" />
+              <Quote size={11} className="text-violet-400 shrink-0" />
               <div className="marquee-container flex-1">
-                <div className="marquee-content text-[11px] italic font-medium text-slate-700 dark:text-slate-200">
-                  "{randomQuote.text}" <span className="not-italic font-bold text-blue-600 dark:text-blue-400 text-[9.5px] ml-1.5">— {randomQuote.author}</span>
+                <div className="marquee-content text-[11px] italic font-medium text-slate-200">
+                  "{randomQuote.text}" <span className="not-italic font-bold text-violet-400 text-[9.5px] ml-1.5">— {randomQuote.author}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Secondary Row: Unified Horizontal Linear Progress Bar (Today Tab ONLY) */}
+          {/* Today Tab Progress Bar */}
           {view === 'tasks' && (
             <div className="card p-2.5 space-y-1.5 border border-white/10">
               <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="text-slate-600 dark:text-slate-300">Today's Execution</span>
-                <span className="text-blue-500 dark:text-blue-400 tabular-nums">
+                <span className="text-slate-300">Today's Execution</span>
+                <span className="text-violet-400 tabular-nums">
                   {todayDone}/{todayCount} tasks • {todayProgress}%
                 </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+              <div className="h-2 w-full rounded-full bg-[#1D1930] overflow-hidden border border-white/5">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 progress-bar-fill shadow-sm shadow-blue-500/30"
+                  className="h-full rounded-full bg-gradient-to-r from-violet-600 via-purple-500 to-emerald-400 progress-bar-fill shadow-sm shadow-violet-600/30"
                   style={{ width: `${todayProgress}%` }}
                 />
               </div>
@@ -574,18 +600,18 @@ function AppInner() {
           >
             {view === 'tasks' ? (
               <div className="space-y-3">
-                {/* Sub-tab Switcher: Today vs Backlog */}
-                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-200/50 dark:bg-slate-800/60 border border-slate-300/50 dark:border-slate-700/50 w-full">
+                {/* Today vs Backlog Sub-tabs */}
+                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#1D1930] border border-white/5 w-full">
                   <button
                     onClick={() => setTodaySubTab('today')}
                     className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'today'
-                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                        ? 'bg-[#27233D] text-slate-100 shadow-xs border border-white/10'
+                        : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
                     <span>Today</span>
-                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${todaySubTab === 'today' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300' : 'bg-slate-300/50 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${todaySubTab === 'today' ? 'bg-violet-600/30 text-violet-300' : 'bg-white/5 text-slate-400'}`}>
                       {todayTasks.length}
                     </span>
                   </button>
@@ -593,85 +619,95 @@ function AppInner() {
                     onClick={() => setTodaySubTab('backlog')}
                     className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'backlog'
-                        ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400'
+                        ? 'bg-[#27233D] text-rose-400 shadow-xs border border-white/10'
+                        : 'text-slate-400 hover:text-rose-400'
                     }`}
                   >
                     <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-rose-500' : 'text-slate-400'} />
                     <span>Backlog</span>
-                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${backlogTasks.length > 0 ? 'bg-rose-500 text-white shadow-xs' : 'bg-slate-300/50 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${backlogTasks.length > 0 ? 'bg-rose-500 text-white' : 'bg-white/5 text-slate-400'}`}>
                       {backlogTasks.length}
                     </span>
                   </button>
                 </div>
 
-                {/* Sub-tab Content */}
+                {/* Task List */}
                 {todaySubTab === 'today' ? (
                   sortedTasks.length === 0 ? (
                     <EmptyState onAdd={() => openAddTask()} />
                   ) : (
                     <div className="space-y-2.5 fade-in">
-                      {sortedTasks.map((t) => (
-                        <TaskCard
-                          key={t.id}
-                          task={t}
-                          onAdvance={advance}
-                          onUndo={undo}
-                          onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                          onDuplicate={duplicateTask}
-                          onDragStart={(id) => setDragId(id)}
-                          onDragEnter={(id) => setOverId(id)}
-                          onDragEnd={doReorder}
-                          isDragging={dragId === t.id}
-                          dragOver={overId === t.id && dragId !== t.id}
-                          origin={originFor(t.id)}
-                          softRemove={!!t.goalNodeId}
-                          dark={dark}
-                          onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
-                          onOpenDescription={openDescriptionModal}
-                        />
-                      ))}
+                      {sortedTasks.map((t) => {
+                        const isOtherTaskDimmed = activeSession !== null && activeSession.taskId !== t.id;
+                        return (
+                          <div key={t.id} className={isOtherTaskDimmed ? 'card-dimmed transition-all' : 'transition-all'}>
+                            <TaskCard
+                              task={t}
+                              activeSession={activeSession}
+                              onAdvance={advance}
+                              onUndo={undo}
+                              onDelete={t.goalNodeId ? unlinkTask : removeTask}
+                              onDuplicate={duplicateTask}
+                              onDragStart={(id) => setDragId(id)}
+                              onDragEnter={(id) => setOverId(id)}
+                              onDragEnd={doReorder}
+                              isDragging={dragId === t.id}
+                              dragOver={overId === t.id && dragId !== t.id}
+                              origin={originFor(t.id)}
+                              softRemove={!!t.goalNodeId}
+                              dark={dark}
+                              onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                              onOpenDescription={openDescriptionModal}
+                              onStartSession={startSession}
+                              onPauseSession={pauseSession}
+                              onResumeSession={resumeSession}
+                              onStopSession={() => setStopDialogTask(t)}
+                              onViewStats={(taskToView) => setStatsTask(taskToView)}
+                              onOpenAmbient={() => setShowAmbient(true)}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   )
                 ) : (
                   <div className="space-y-4 fade-in">
-                    {/* Backlog Loss Aversion / Appreciation Tagline */}
                     {backlogTasks.length > 0 ? (
-                      <div className="card p-3.5 bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/30 dark:border-rose-500/40 rounded-2xl space-y-1">
-                        <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-extrabold text-xs uppercase tracking-wider">
+                      <div className="card p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl space-y-1">
+                        <div className="flex items-center gap-2 text-rose-400 font-extrabold text-xs uppercase tracking-wider">
                           <AlertTriangle size={15} /> Backlog Momentum Alert
                         </div>
-                        <p className="text-[12px] text-rose-800 dark:text-rose-200 font-medium leading-relaxed">
-                          ⚠️ You are losing momentum! <span className="font-extrabold underline decoration-rose-400">{backlogTasks.length} task{backlogTasks.length > 1 ? 's' : ''}</span> slipped into backlog. Don't let your blueprint decay — reschedule or finish them now!
+                        <p className="text-[12px] text-rose-200 font-medium leading-relaxed">
+                          ⚠️ You are losing momentum! <span className="font-extrabold underline decoration-rose-400">{backlogTasks.length} task{backlogTasks.length > 1 ? 's' : ''}</span> slipped into backlog. Reschedule or finish them now!
                         </p>
                       </div>
                     ) : (
-                      <div className="card p-4 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 dark:border-emerald-500/40 rounded-2xl text-center space-y-1.5">
-                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-500 mb-1">
+                      <div className="card p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center space-y-1.5">
+                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 mb-1">
                           <Flame size={20} />
                         </div>
-                        <h3 className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                        <h3 className="text-sm font-extrabold text-emerald-300 uppercase tracking-wider">
                           Zero Backlog — Flawless Execution!
                         </h3>
-                        <p className="text-[12px] text-emerald-800/90 dark:text-emerald-200/90 font-medium leading-relaxed max-w-xs mx-auto">
-                          🔥 Outstanding momentum! You have zero backlogged tasks. All your goals are executing on schedule.
+                        <p className="text-[12px] text-emerald-200 font-medium leading-relaxed max-w-xs mx-auto">
+                          🔥 Outstanding momentum! Zero backlogged tasks.
                         </p>
                       </div>
                     )}
 
-                    {/* Date-wise Grouped Tasks */}
                     {backlogByDate.map((group) => (
                       <div key={group.date} className="space-y-2">
-                        <div className="flex items-center gap-2 px-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                        <div className="flex items-center gap-2 px-1 text-[11px] font-bold text-rose-400 uppercase tracking-wider">
                           <Calendar size={12} />
                           <span>Due: {group.formattedDate}</span>
-                          <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">({group.tasks.length} task{group.tasks.length > 1 ? 's' : ''})</span>
+                          <span className="text-[10px] font-semibold text-slate-400">({group.tasks.length} task{group.tasks.length > 1 ? 's' : ''})</span>
                         </div>
                         <div className="space-y-2">
                           {group.tasks.map((t) => (
                             <TaskCard
                               key={t.id}
                               task={t}
+                              activeSession={activeSession}
                               onAdvance={advance}
                               onUndo={undo}
                               onDelete={t.goalNodeId ? unlinkTask : removeTask}
@@ -692,8 +728,8 @@ function AppInner() {
                                     e.stopPropagation();
                                     handlePushBacklogTask(t);
                                   }}
-                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-xl text-white bg-rose-600 hover:bg-rose-700 shadow-xs shadow-rose-500/30 transition-all active:scale-95 shrink-0"
-                                  title="Schedule task for Today or future date"
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-xl text-white bg-rose-600 hover:bg-rose-500 shadow-xs shadow-rose-500/30 transition-all active:scale-95 shrink-0"
+                                  title="Schedule task"
                                 >
                                   <Zap size={12} className="fill-white" /> Schedule
                                 </button>
@@ -733,7 +769,7 @@ function AppInner() {
           </div>
         </main>
 
-        {/* FAB — only on Today view */}
+        {/* FAB */}
         {view === 'tasks' && (
           <button
             onClick={() => openAddTask()}
@@ -745,7 +781,7 @@ function AppInner() {
           </button>
         )}
 
-        {/* Bottom Floating Navigation Bar / Batch Action Bar */}
+        {/* Bottom Command Bar */}
         <CommandBar
           view={view}
           onNavigate={handleNavigateTab}
@@ -765,13 +801,7 @@ function AppInner() {
         />
       </div>
 
-      <AddTaskSheet
-        open={sheetOpen}
-        onClose={closeSheet}
-        onAdd={addTask}
-        initialDate={sheetInitialDate}
-      />
-
+      <AddTaskSheet open={sheetOpen} onClose={closeSheet} onAdd={addTask} initialDate={sheetInitialDate} />
       <AddGoalSheet
         open={goalSheetOpen}
         parentId={goalParentId}
@@ -783,61 +813,118 @@ function AppInner() {
         onUpdateNode={updateGoalNode}
         onDeleteNode={(id) => { for (const root of goals) deleteGoalNode(root.id, id); }}
       />
-
       <StepSliceSheet
         open={sliceNodes.length > 0}
         nodes={sliceNodes}
         onClose={closeSliceNode}
         onConfirm={(plans, targetDate) => {
-          for (const plan of plans) {
-            planTask(plan.nodeId, targetDate, plan.stepSlice);
-          }
+          for (const plan of plans) planTask(plan.nodeId, targetDate, plan.stepSlice);
         }}
       />
-
       <SettingsSheet
         open={settingsOpen}
         theme={theme}
         onClose={closeSettings}
         onApply={(t) => { setTheme(t); closeSettings(); }}
+        onOpenAuth={() => setAuthOpen(true)}
       />
 
-      {/* ── Description Viewer Modal Pop-up ── */}
+      {/* Description Viewer Modal */}
       {descModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={closeDescriptionModal} />
-          <div className="sheet-up relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl p-5 pb-6 shadow-2xl space-y-4 border border-slate-200/80 dark:border-slate-800 max-h-[85vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={closeDescriptionModal} />
+          <div className="sheet-up relative w-full max-w-lg bg-[#14111F] border border-white/10 rounded-3xl p-5 pb-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-start justify-between pb-3 border-b border-white/5 gap-2">
               <div className="flex items-start gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20 shrink-0 mt-0.5">
+                <div className="p-2 rounded-xl bg-violet-600/20 text-violet-400 border border-violet-500/30 shrink-0 mt-0.5">
                   <FileText size={18} />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">Full Description</span>
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100 leading-snug break-words">{descModalData.title}</h3>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-violet-400">Full Description</span>
+                  <h3 className="text-base font-extrabold text-slate-100 leading-snug break-words">{descModalData.title}</h3>
                 </div>
               </div>
-              <button
-                onClick={closeDescriptionModal}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-              >
+              <button onClick={closeDescriptionModal} className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition shrink-0">
                 <X size={18} />
               </button>
             </div>
-
-            {/* Description Body (Scrollable) */}
-            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-slate-700 dark:text-slate-200 whitespace-pre-wrap font-medium bg-slate-50/70 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/80">
+            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-slate-200 whitespace-pre-wrap font-medium bg-[#1D1930] p-4 rounded-2xl border border-white/5">
               {descModalData.description}
             </div>
-
-            {/* Close Button */}
-            <button
-              onClick={closeDescriptionModal}
-              className="w-full py-3 rounded-2xl text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 transition-all active:scale-[0.99]"
-            >
+            <button onClick={closeDescriptionModal} className="w-full py-3 rounded-2xl text-xs font-extrabold text-white bg-violet-600 hover:bg-violet-500 shadow-md shadow-violet-600/25 transition">
               Close Description
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Ambient Screen Component ── */}
+      {showAmbient && activeSession && activeTask && (
+        <AmbientScreen
+          activeSession={activeSession}
+          task={activeTask}
+          origin={originFor(activeTask.id)}
+          onPause={pauseSession}
+          onResume={resumeSession}
+          onStop={() => { setShowAmbient(false); setStopDialogTask(activeTask); }}
+          onMinimize={() => setShowAmbient(false)}
+        />
+      )}
+
+      {/* ── Session Stop Dialog ── */}
+      {stopDialogTask && (
+        <SessionStopDialog
+          open={!!stopDialogTask}
+          task={stopDialogTask}
+          onCancel={() => setStopDialogTask(null)}
+          onConfirm={(outcome) => {
+            stopSession(outcome);
+            if (outcome.completedStepIndices && outcome.completedStepIndices.length > 0) {
+              completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices);
+            }
+            setStopDialogTask(null);
+          }}
+        />
+      )}
+
+      {/* ── Task Session Stats ── */}
+      {statsTask && (
+        <TaskSessionStats
+          open={!!statsTask}
+          task={statsTask}
+          sessions={sessionHistory[statsTask.id] ?? []}
+          onClose={() => setStatsTask(null)}
+        />
+      )}
+
+      {/* ── Auth Modal ── */}
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+
+      {/* ── Session Crash Recovery Dialog ── */}
+      {recoverySessionPrompt && activeSession && activeTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">
+          <div className="card max-w-sm w-full bg-[#14111F] border border-amber-500/30 p-5 rounded-3xl space-y-4 shadow-2xl">
+            <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+              <Clock className="w-5 h-5 text-amber-400" />
+              <span>Interrupted Session Detected</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              You had an active focus session for <span className="font-bold text-slate-100">"{activeTask.title}"</span> that was interrupted. Would you like to resume it or discard it?
+            </p>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setRecoverySessionPrompt(false)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition"
+              >
+                Resume Session
+              </button>
+              <button
+                onClick={() => { discardSession(); setRecoverySessionPrompt(false); }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 text-slate-300 font-semibold text-xs hover:bg-white/10 border border-white/5 transition"
+              >
+                Discard
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -847,15 +934,15 @@ function AppInner() {
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="card p-10 text-center fade-in dark:bg-slate-800 dark:border-slate-700">
-      <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700 animate-float">
-        <ListChecks size={26} className="text-slate-400 dark:text-slate-500" />
+    <div className="card p-10 text-center fade-in bg-[#14111F] border-white/10">
+      <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-[#1D1930] animate-float">
+        <ListChecks size={26} className="text-slate-400" />
       </div>
-      <h3 className="mt-4 text-base font-bold text-slate-800 dark:text-slate-200">No study tasks for today</h3>
-      <p className="mt-1 text-sm text-slate-400 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+      <h3 className="mt-4 text-base font-bold text-slate-100">No study tasks for today</h3>
+      <p className="mt-1 text-sm text-slate-400 max-w-xs mx-auto leading-relaxed">
         Dispatch chapter topics from your Goal Blueprint or add quick study targets to keep your exam preparation on track.
       </p>
-      <button onClick={onAdd} className="mt-4 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20">
+      <button onClick={onAdd} className="mt-4 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-violet-600 hover:bg-violet-500 transition-colors shadow-lg shadow-violet-600/25">
         Add Study Task
       </button>
     </div>

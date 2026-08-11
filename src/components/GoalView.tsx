@@ -95,12 +95,12 @@ interface Props {
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
-  goal: { icon: Target, tint: '#3b82f6', label: 'Goal' },
-  phase: { icon: Flag, tint: '#8b5cf6', label: 'Phase' },
-  section: { icon: Layers, tint: '#06b6d4', label: 'Section' },
-  task: { icon: ListTree, tint: '#10b981', label: 'Task' },
-  sub: { icon: CircleDot, tint: '#f59e0b', label: 'Sub' },
-  leaf: { icon: CircleDot, tint: '#f43f5e', label: 'Leaf' },
+  goal: { icon: Target, tint: '#7C3AED', label: 'Goal' },
+  phase: { icon: Flag, tint: '#A78BFA', label: 'Phase' },
+  section: { icon: Layers, tint: '#38BDF8', label: 'Section' },
+  task: { icon: ListTree, tint: '#10B981', label: 'Task' },
+  sub: { icon: CircleDot, tint: '#F59E0B', label: 'Sub' },
+  leaf: { icon: CircleDot, tint: '#F43F5E', label: 'Leaf' },
 };
 
 export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription }: Props) {

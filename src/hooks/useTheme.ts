@@ -1,8 +1,8 @@
 import { useLocalStorage } from './useLocalStorage';
 
 export interface Theme {
-  darkMode: boolean;
-  glassUI: boolean;
+  darkMode: boolean; // Always true (Dark mode only)
+  glassUI: boolean;  // Glass UI vs Solid UI toggle
 }
 
 export const DEFAULT_THEME: Theme = {
@@ -13,7 +13,7 @@ export const DEFAULT_THEME: Theme = {
 export function useTheme() {
   const [theme, setTheme] = useLocalStorage<Theme>('tudo-theme-v3', DEFAULT_THEME);
   const normalizedTheme: Theme = {
-    darkMode: typeof theme?.darkMode === 'boolean' ? theme.darkMode : DEFAULT_THEME.darkMode,
+    darkMode: true, // Enforce dark mode permanently
     glassUI: typeof theme?.glassUI === 'boolean' ? theme.glassUI : DEFAULT_THEME.glassUI,
   };
   return [normalizedTheme, setTheme] as const;

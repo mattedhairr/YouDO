@@ -67,11 +67,11 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
     <div className="fade-in space-y-4">
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-2">
-        <button onClick={prevMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+        <button onClick={prevMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
           <ChevronLeft size={18} />
         </button>
-        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{monthName}</h2>
-        <button onClick={nextMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+        <h2 className="text-base font-bold text-slate-100">{monthName}</h2>
+        <button onClick={nextMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
           <ChevronRight size={18} />
         </button>
       </div>
@@ -80,7 +80,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
       <div className="card p-3.5">
         <div className="grid grid-cols-7 mb-2">
           {WEEKDAYS.map((d) => (
-            <div key={d} className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 py-1">{d}</div>
+            <div key={d} className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -91,42 +91,35 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selectedDate;
             const hasTasks = dayTasks.length > 0;
-            const allDone = hasTasks && dayTasks.every((t) => t.steps.length > 0 && t.progress >= t.steps.length);
+            const allDone = hasTasks && dayTasks.every((t) => t.steps.length > 0 ? t.progress >= t.steps.length : t.progress >= 1);
 
             return (
               <button
                 key={i}
                 onClick={() => setSelectedDate(dateStr)}
-                className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all text-[13px] ${
+                className={`relative aspect-square rounded-xl flex items-center justify-center transition-all text-[13px] font-medium ${
                   isSelected
-                    ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-500/30 scale-105 z-10'
+                    ? 'bg-violet-600 text-white font-bold shadow-lg shadow-violet-600/30 scale-105 z-10'
                     : isToday
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-700/60'
-                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-white/5'
+                      ? 'bg-violet-950/40 text-violet-300 font-bold border border-violet-700/60'
+                      : 'text-slate-200 hover:bg-white/5'
                 }`}
               >
-                <span>{day}</span>
-                {hasTasks && (
-                  <div className="flex gap-0.5 mt-0.5">
-                    {dayTasks.slice(0, 3).map((t, j) => (
-                      <span
-                        key={j}
-                        className={`w-1 h-1 rounded-full ${
-                          isSelected
-                            ? 'bg-white/80'
-                            : allDone
-                              ? 'bg-emerald-500'
-                              : t.steps.length > 0 && t.progress >= t.steps.length
-                                ? 'bg-emerald-500'
-                                : 'bg-blue-400'
-                        }`}
-                      />
-                    ))}
-                    {dayTasks.length > 3 && (
-                      <span className={`text-[8px] leading-none ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>+</span>
-                    )}
-                  </div>
-                )}
+                {/* Math Superscript Notation x^n */}
+                <span className="inline-flex items-baseline">
+                  <span>{day}</span>
+                  {hasTasks && (
+                    <sup className={`task-sup font-bold ${
+                      isSelected
+                        ? 'text-amber-300'
+                        : allDone
+                          ? 'text-emerald-400'
+                          : 'text-amber-400'
+                    }`}>
+                      {dayTasks.length}
+                    </sup>
+                  )}
+                </span>
               </button>
             );
           })}
@@ -137,13 +130,13 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
       <div className="mt-4">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">
+            <h3 className="text-[14px] font-bold text-slate-100">
               {selectedDate
                 ? new Date(selectedDate + 'T00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
                 : 'Select a date'}
             </h3>
             {selectedTasks.length > 0 && (
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              <p className="text-[11px] text-slate-400 font-medium">
                 {selectedDone}/{selectedTasks.length} done
               </p>
             )}
@@ -151,82 +144,83 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
           {selectedDate && (
             <button
               onClick={() => onAddTask(selectedDate)}
-              className="p-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-              title="Add task on this date"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md shadow-violet-600/25 transition-all"
             >
-              <Plus size={18} />
+              <Plus size={14} /> Add task
             </button>
           )}
         </div>
 
         {selectedTasks.length === 0 ? (
-          <div className="card p-6 text-center">
-            <p className="text-sm text-slate-400 dark:text-slate-400">No tasks planned for this day.</p>
+          <div className="card p-6 text-center text-slate-400 text-xs">
+            No tasks planned for this date.
           </div>
         ) : (
           <div className="space-y-2">
             {selectedTasks.map((t) => {
-              const total = t.steps.length || 1;
-              const fillPct = (t.progress / total) * 100;
               const complete = isTaskComplete(t);
+              const hasSteps = t.steps.length > 0;
+              const originPath = getOriginPath(t.goalNodeId);
               return (
                 <div
                   key={t.id}
-                  className={`card p-3.5 transition-all ${complete ? 'opacity-75 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30' : ''}`}
+                  className={`card p-3 transition-all ${
+                    complete ? 'opacity-60 bg-[#1D1930]/40' : ''
+                  }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <h4 className={`flex-1 text-[13.5px] font-semibold ${complete ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{t.title}</h4>
-                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">{t.progress}/{t.steps.length || 1}</span>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <span className={`text-[13px] font-bold ${complete ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                      {t.title}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400 shrink-0">
+                      {t.progress}/{hasSteps ? t.steps.length : 1}
+                    </span>
                   </div>
 
-                  {/* ── Full-width, fully visible wrapping origin path banner (identical to Today section) ── */}
-                  {t.goalNodeId && (() => {
-                    const originPath = getOriginPath(t.goalNodeId);
-                    if (!originPath) return null;
-                    const pathSegs = originPath.split(' / ');
-                    return (
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onJumpToGoal(t.goalNodeId);
-                        }}
-                        className="mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/50 dark:border-blue-800/50 rounded-lg px-2 py-1 w-full leading-normal cursor-pointer hover:bg-blue-100/80 dark:hover:bg-blue-900/60 hover:border-blue-300 dark:hover:border-blue-600 transition-all group/path"
-                        title="Jump to this task in Goal Blueprint"
-                      >
-                        <Link2 size={10} className="shrink-0 text-blue-500 dark:text-blue-400 mr-0.5 group-hover/path:scale-110 transition-transform" />
-                        {pathSegs.map((seg, i) => (
-                          <span key={i} className="inline-flex items-center gap-1">
-                            <span className={i === pathSegs.length - 1
-                              ? 'font-bold text-blue-700 dark:text-blue-300 group-hover/path:underline'
-                              : 'font-medium text-slate-500 dark:text-slate-400 group-hover/path:text-slate-700 dark:group-hover/path:text-slate-200'
-                            }>{seg}</span>
-                            {i < pathSegs.length - 1 && <span className="text-slate-300 dark:text-slate-600">/</span>}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  {t.description && <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 line-clamp-1">{t.description}</p>}
-                  
-                  {t.steps.length > 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                      {t.steps.map((s, i) => (
-                        <span
-                          key={i}
-                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border transition-all ${
-                            i < t.progress
-                              ? 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 line-through animate-stamp'
-                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          {i < t.progress ? '✓' : `${i + 1}.`} {s}
-                        </span>
-                      ))}
+                  {/* Origin banner */}
+                  {originPath && (
+                    <div
+                      onClick={() => onJumpToGoal(t.goalNodeId)}
+                      className="mt-1 mb-2 flex items-center gap-1 text-[10.5px] font-semibold text-violet-300 bg-violet-950/40 border border-violet-800/40 rounded-md px-2 py-0.5 w-fit hover:bg-violet-900/60 transition cursor-pointer"
+                    >
+                      <Link2 size={10} className="shrink-0" />
+                      <span className="truncate max-w-[240px]">{originPath}</span>
                     </div>
                   )}
 
-                  <div className="mt-2.5 h-1 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                    <div className="h-full rounded-full bg-blue-500 progress-bar-fill" style={{ width: `${fillPct}%` }} />
+                  {t.description && (
+                    <p className="text-[11px] text-slate-400 line-clamp-1 mb-2">
+                      {t.description}
+                    </p>
+                  )}
+
+                  {/* Step chips */}
+                  {hasSteps && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {t.steps.map((s, idx) => {
+                        const stepDone = idx < t.progress;
+                        return (
+                          <span
+                            key={idx}
+                            className={`text-[10px] px-2 py-0.5 rounded-md font-medium transition-all ${
+                              stepDone
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-stamp line-through'
+                                : 'bg-white/5 text-slate-400 border border-white/5'
+                            }`}
+                          >
+                            {stepDone ? '✓ ' : ''}{s}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Progress bar */}
+                  <div className="mt-2.5 h-1 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full bg-violet-500 progress-bar-fill rounded-full"
+                      style={{ width: `${(t.progress / (hasSteps ? t.steps.length : 1)) * 100}%` }}
+                    />
                   </div>
                 </div>
               );
