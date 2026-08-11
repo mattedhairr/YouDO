@@ -31,7 +31,6 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
 
   const handleOutcome = (outcome: boolean | 'partial') => {
     if (outcome === true && hasSteps) {
-      // Mark all steps checked if user selects Full Completion
       const allIndices = task.steps.map((_, i) => i);
       onConfirm({ completed: true, completedStepIndices: allIndices });
     } else if (outcome === false) {
@@ -39,6 +38,13 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
     } else {
       onConfirm({ completed: outcome, completedStepIndices: selectedSteps });
     }
+  };
+
+  const handleSaveStepsProgress = () => {
+    const isAll = selectedSteps.length === task.steps.length;
+    const isNone = selectedSteps.length === 0;
+    const outcome = isAll ? true : isNone ? false : 'partial';
+    onConfirm({ completed: outcome, completedStepIndices: selectedSteps });
   };
 
   return (
@@ -104,31 +110,33 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
         )}
 
         {/* Outcome Action Buttons */}
-        <div className="grid grid-cols-3 gap-2.5 pt-2">
+        {hasSteps ? (
           <button
-            onClick={() => handleOutcome(true)}
-            className="py-3 px-2 rounded-xl bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
+            onClick={handleSaveStepsProgress}
+            className="w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold flex items-center justify-center gap-2 transition shadow-md shadow-violet-600/20 active:scale-[0.98]"
           >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            Completed
+            <CheckCircle2 className="w-5 h-5" />
+            Save Progress
           </button>
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 pt-2">
+            <button
+              onClick={() => handleOutcome(true)}
+              className="py-3 px-2 rounded-xl bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              Completed
+            </button>
 
-          <button
-            onClick={() => handleOutcome('partial')}
-            className="py-3 px-2 rounded-xl bg-amber-600/20 border border-amber-500/40 hover:bg-amber-600/30 text-amber-300 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
-          >
-            <Clock className="w-4 h-4 text-amber-400" />
-            Partial
-          </button>
-
-          <button
-            onClick={() => handleOutcome(false)}
-            className="py-3 px-2 rounded-xl bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-300 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
-          >
-            <AlertCircle className="w-4 h-4 text-slate-400" />
-            Not Done
-          </button>
-        </div>
+            <button
+              onClick={() => handleOutcome(false)}
+              className="py-3 px-2 rounded-xl bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-300 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
+            >
+              <AlertCircle className="w-4 h-4 text-slate-400" />
+              Not Done
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -15,6 +15,8 @@ export interface Task {
   goalNodeId?: string;
   /** indices into the master goal node's steps array that this card targets */
   stepSlice?: number[];
+  /** date before it was moved to today from the backlog */
+  originalTargetDate?: string;
 }
 
 export type GoalKind = 'goal' | 'phase' | 'section' | 'task' | 'sub' | 'leaf';
@@ -63,6 +65,7 @@ export interface TaskSession {
   wallClockEnd: string;          // e.g. "9:04 AM"
   completed: boolean | 'partial';
   completedStepIndices: number[]; // indices into task.steps[] marked done at stop
+  goalNodeId?: string;           // link to Goal Blueprint node
 }
 
 /** The single currently active (live) session */

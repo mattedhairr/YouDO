@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pause, Play, Square, Minimize2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { KeepAwake } from '@capacitor-community/keep-awake';
+import { StatusBar } from '@capacitor/status-bar';
 import type { ActiveSession, Task } from '../types';
 
 interface Props {
@@ -22,6 +24,18 @@ export function AmbientScreen({
   onMinimize,
 }: Props) {
   const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    // Hide status bar & keep screen awake in ambient mode
+    StatusBar.hide().catch(() => {});
+    KeepAwake.keepOn().catch(() => {});
+
+    return () => {
+      // Restore when leaving ambient mode
+      StatusBar.show().catch(() => {});
+      KeepAwake.allowSleep().catch(() => {});
+    };
+  }, []);
 
   useEffect(() => {
     const calcElapsed = () => {
@@ -72,14 +86,13 @@ export function AmbientScreen({
 
       {/* Center Ticker & Task Info */}
       <div className="flex flex-col items-center justify-center text-center my-auto px-4">
-        {/* Origin Path */}
+        {/* Origin / Path */}
         {origin && (
-          <p className="text-xs font-medium text-slate-500 mb-3 tracking-wide truncate max-w-xs">
-            {origin}
-          </p>
-        )}
-
-        {/* Task Title */}
+          <div className="mb-8 flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md w-full max-w-sm mx-auto">
+            <Link2 size={12} className="shrink-0" />
+            <span className="break-words text-center">{origin}</span>
+          </div>
+        )}{/* Task Title */}
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mb-8 max-w-md leading-snug">
           {task.title}
         </h1>

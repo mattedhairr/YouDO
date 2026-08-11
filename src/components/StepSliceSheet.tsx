@@ -95,29 +95,29 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={onClose} />
-      <div className="sheet-up relative w-full max-w-md bg-white dark:bg-slate-800 rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto no-scrollbar shadow-2xl border-t border-slate-100 dark:border-slate-700">
+      <div className="sheet-up relative w-full max-w-md bg-[#14111F] rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto no-scrollbar shadow-2xl border-t border-white/10">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-500">
+            <span className="p-1.5 rounded-xl bg-violet-600/20 text-violet-400 border border-violet-500/30">
               <Zap size={18} />
             </span>
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-base font-bold text-slate-100">
               {isMulti ? `Schedule ${targetNodes.length} Tasks` : 'Schedule Task'}
             </h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
             <X size={16} />
           </button>
         </div>
 
         {/* Date picker Section */}
-        <div className="mb-4 mt-2 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200/80 dark:border-slate-600/80">
+        <div className="mb-4 mt-2 p-3.5 rounded-2xl bg-[#1D1930] border border-white/5">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Calendar size={15} className="text-blue-500 shrink-0" />
-              <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">Target Date</span>
+              <Calendar size={15} className="text-violet-400 shrink-0" />
+              <span className="text-[12px] font-semibold text-slate-200">Target Date</span>
             </div>
-            <span className="text-[12px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 tabular-nums">
+            <span className="text-[12px] font-bold text-violet-300 bg-violet-600/20 px-2.5 py-0.5 rounded-lg border border-violet-500/30 tabular-nums">
               {formatDDMMYYYY(date)}
             </span>
           </div>
@@ -129,8 +129,8 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
               onClick={() => setDate(todayISO())}
               className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
                 date === todayISO()
-                  ? 'bg-blue-500 text-white border-blue-500 shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
+                  ? 'bg-violet-600 text-white border-violet-500 shadow-sm shadow-violet-600/20'
+                  : 'bg-[#14111F] text-slate-200 border-white/10 hover:border-violet-500/50'
               }`}
             >
               📅 Today
@@ -140,8 +140,8 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
               onClick={() => setDate(tomorrowISO())}
               className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
                 date === tomorrowISO()
-                  ? 'bg-blue-500 text-white border-blue-500 shadow-xs'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
+                  ? 'bg-violet-600 text-white border-violet-500 shadow-sm shadow-violet-600/20'
+                  : 'bg-[#14111F] text-slate-200 border-white/10 hover:border-violet-500/50'
               }`}
             >
               🌅 Tomorrow
@@ -152,7 +152,7 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-[13px] font-medium text-slate-800 dark:text-slate-100 outline-none focus:border-blue-400 dark:focus:border-blue-500 transition-colors"
+            className="w-full bg-[#14111F] border border-white/10 rounded-xl px-3 py-2 text-[13px] font-medium text-slate-100 outline-none focus:border-violet-500 transition-colors"
           />
         </div>
 
@@ -165,28 +165,28 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
 
             if (steps.length === 0) {
               return (
-                <div key={n.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600/60">
+                <div key={n.id} className="p-3.5 rounded-2xl bg-[#1D1930]/60 border border-white/5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{n.title}</span>
-                    <span className="text-[10px] font-medium text-slate-400 dark:text-slate-400 shrink-0">Single card (no steps)</span>
+                    <span className="text-[13px] font-bold text-slate-100 truncate">{n.title}</span>
+                    <span className="text-[10px] font-medium text-slate-400 shrink-0">Single card (no steps)</span>
                   </div>
                 </div>
               );
             }
 
             return (
-              <div key={n.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-600/60 space-y-2.5">
+              <div key={n.id} className="p-3.5 rounded-2xl bg-[#1D1930]/60 border border-white/5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 pr-2">
-                    <h4 className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{n.title}</h4>
-                    <span className="text-[10.5px] font-semibold text-slate-400 dark:text-slate-400">
+                    <h4 className="text-[13px] font-bold text-slate-100 truncate">{n.title}</h4>
+                    <span className="text-[10.5px] font-semibold text-slate-400">
                       Steps assigned ({selSet.size}/{steps.length})
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => selectAll(n)} className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline">All</button>
-                    <span className="text-slate-300 dark:text-slate-600">·</span>
-                    <button onClick={() => deselectAll(n)} className="text-[11px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">None</button>
+                    <button onClick={() => selectAll(n)} className="text-[11px] font-bold text-violet-400 hover:underline">All</button>
+                    <span className="text-slate-600">·</span>
+                    <button onClick={() => deselectAll(n)} className="text-[11px] font-bold text-slate-500 hover:text-slate-300">None</button>
                   </div>
                 </div>
 
@@ -202,23 +202,23 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
                         disabled={alreadyDone}
                         className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all ${
                           alreadyDone
-                            ? 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-50 cursor-not-allowed'
+                            ? 'bg-slate-800/40 border-white/5 opacity-50 cursor-not-allowed'
                             : isSel
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-500'
-                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                              ? 'bg-violet-600/20 border-violet-500/50'
+                              : 'bg-[#14111F] border-white/10 hover:border-white/20'
                         }`}
                       >
                         {alreadyDone ? (
                           <CheckSquare size={16} className="shrink-0 text-emerald-500" />
                         ) : isSel ? (
-                          <CheckSquare size={16} className="shrink-0 text-blue-500" />
+                          <CheckSquare size={16} className="shrink-0 text-violet-400" />
                         ) : (
-                          <Square size={16} className="shrink-0 text-slate-300 dark:text-slate-500" />
+                          <Square size={16} className="shrink-0 text-slate-500" />
                         )}
-                        <span className={`flex-1 text-[11.5px] font-semibold ${alreadyDone ? 'text-slate-400 line-through dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                        <span className={`flex-1 text-[11.5px] font-semibold ${alreadyDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
                           Step {i + 1}: {s}
                         </span>
-                        {alreadyDone && <span className="text-[9px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400 font-bold">Done</span>}
+                        {alreadyDone && <span className="text-[9px] uppercase tracking-wide text-emerald-400 font-bold">Done</span>}
                       </button>
                     );
                   })}
@@ -230,9 +230,9 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
 
         <button
           onClick={confirm}
-          className="mt-5 w-full py-3 rounded-2xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2"
+          className="mt-5 w-full py-3 rounded-2xl text-sm font-semibold text-white bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-violet-600/20 active:scale-[0.99] flex items-center justify-center gap-2"
         >
-          <Zap size={15} />
+          <Zap size={15} className="fill-white" />
           {isMulti
             ? `Schedule ${targetNodes.length} Tasks`
             : totalStepsExist === 0

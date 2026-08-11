@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View } from './types';
@@ -132,7 +132,7 @@ function AppInner() {
   // Session UI states
   const [showAmbient, setShowAmbient] = useState(false);
   const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null);
-  const [statsTask, setStatsTask] = useState<Task | null>(null);
+  const [statsTarget, setStatsTarget] = useState<{ id: string; title: string; isGoal?: boolean } | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
 
@@ -141,7 +141,16 @@ function AppInner() {
     if (!activeSession) return;
     const interval = setInterval(heartbeatSession, 30_000);
     return () => clearInterval(interval);
-  }, [activeSession?.taskId, heartbeatSession]);
+  }, [activeSession, heartbeatSession]);
+
+  const targetSessions = useMemo(() => {
+    if (!statsTarget) return [];
+    if (!statsTarget.isGoal) {
+      return sessionHistory[statsTarget.id] ?? [];
+    }
+    // For a goal, gather all sessions with matching goalNodeId
+    return Object.values(sessionHistory).flat().filter(s => s.goalNodeId === statsTarget.id);
+  }, [statsTarget, sessionHistory]);
 
   // Crash / Interrupted Session Recovery check on startup
   useEffect(() => {
@@ -180,8 +189,8 @@ function AppInner() {
       setStopDialogTask(null);
       return true;
     }
-    if (statsTask) {
-      setStatsTask(null);
+    if (statsTarget) {
+      setStatsTarget(null);
       return true;
     }
     if (authOpen) {
@@ -448,7 +457,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || statsTask) return;
+      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || statsTarget) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -463,7 +472,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, statsTask],
+    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, statsTarget],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -596,8 +605,8 @@ function AppInner() {
                 {/* Today vs Backlog Sub-tabs */}
                 <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#1D1930] border border-white/5 w-full">
                   <button
-                    onClick={() => setTodaySubTab('today')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    onClick={() => startTransition(() => setTodaySubTab('today'))}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'today'
                         ? 'bg-[#27233D] text-slate-100 shadow-xs border border-white/10'
                         : 'text-slate-400 hover:text-slate-200'
@@ -609,8 +618,8 @@ function AppInner() {
                     </span>
                   </button>
                   <button
-                    onClick={() => setTodaySubTab('backlog')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    onClick={() => startTransition(() => setTodaySubTab('backlog'))}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'backlog'
                         ? 'bg-[#27233D] text-rose-400 shadow-xs border border-white/10'
                         : 'text-slate-400 hover:text-rose-400'
@@ -763,7 +772,12 @@ function AppInner() {
                 )}
               </div>
             ) : view === 'calendar' ? (
-              <CalendarView tasks={tasks} onAddTask={(date) => openAddTask(date)} onJumpToGoal={jumpToGoalTask} />
+              <CalendarView
+                tasks={tasks}
+                onAddTask={(date) => openAddTask(date)}
+                onJumpToGoal={jumpToGoalTask}
+                onViewStats={(id, title) => setStatsTarget({ id, title, isGoal: false })}
+              />
             ) : (
               <GoalView
                 accent={ACCENT}
@@ -784,6 +798,7 @@ function AppInner() {
                 clearSelectionRef={clearSelectionRef}
                 onNavigateToPath={navigateToGoalPath}
                 onOpenDescription={openDescriptionModal}
+                onViewStats={(id, title) => setStatsTarget({ id, title, isGoal: true })}
               />
             )}
           </div>
@@ -906,12 +921,12 @@ function AppInner() {
       )}
 
       {/* ── Task Session Stats ── */}
-      {statsTask && (
+      {statsTarget && (
         <TaskSessionStats
-          open={!!statsTask}
-          task={statsTask}
-          sessions={sessionHistory[statsTask.id] ?? []}
-          onClose={() => setStatsTask(null)}
+          open={!!statsTarget}
+          title={statsTarget.title}
+          sessions={targetSessions}
+          onClose={() => setStatsTarget(null)}
         />
       )}
 

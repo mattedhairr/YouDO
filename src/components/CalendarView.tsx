@@ -7,6 +7,7 @@ interface Props {
   tasks: Task[];
   onAddTask: (date: string) => void;
   onJumpToGoal: (goalNodeId: string | null | undefined) => void;
+  onViewStats?: (taskId: string, title: string) => void;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -18,7 +19,7 @@ function localISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) {
+export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewStats }: Props) {
   const { goals } = useStore();
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
@@ -164,7 +165,11 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
               return (
                 <div
                   key={t.id}
-                  className={`card p-3 transition-all ${
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (onViewStats) onViewStats(t.id, t.title);
+                  }}
+                  className={`card p-3 transition-all select-none ${
                     complete ? 'opacity-60 bg-[#1D1930]/40' : ''
                   }`}
                 >
@@ -177,14 +182,13 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                     </span>
                   </div>
 
-                  {/* Origin banner */}
                   {originPath && (
                     <div
                       onClick={() => onJumpToGoal(t.goalNodeId)}
-                      className="mt-1 mb-2 flex items-center gap-1 text-[10.5px] font-semibold text-violet-300 bg-violet-950/40 border border-violet-800/40 rounded-md px-2 py-0.5 w-fit hover:bg-violet-900/60 transition cursor-pointer"
+                      className="mt-1 mb-2 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold text-violet-300 bg-violet-950/40 border border-violet-800/40 rounded-md px-2 py-1 w-full hover:bg-violet-900/60 transition cursor-pointer leading-relaxed"
                     >
                       <Link2 size={10} className="shrink-0" />
-                      <span className="truncate max-w-[240px]">{originPath}</span>
+                      <span className="break-words">{originPath}</span>
                     </div>
                   )}
 

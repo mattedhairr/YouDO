@@ -3,12 +3,12 @@ import type { Task, TaskSession } from '../types';
 
 interface Props {
   open: boolean;
-  task: Task;
+  title: string;
   sessions: TaskSession[];
   onClose: () => void;
 }
 
-export function TaskSessionStats({ open, task, sessions, onClose }: Props) {
+export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
   if (!open) return null;
 
   const totalSessions = sessions.length;
@@ -33,8 +33,8 @@ export function TaskSessionStats({ open, task, sessions, onClose }: Props) {
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-100">Task Session Analytics</h3>
-              <p className="text-xs text-slate-400 truncate max-w-[220px]">{task.title}</p>
+              <h3 className="text-sm font-bold text-slate-100">Session Analytics</h3>
+              <p className="text-xs text-slate-400 truncate max-w-[220px]">{title}</p>
             </div>
           </div>
           <button
@@ -47,17 +47,17 @@ export function TaskSessionStats({ open, task, sessions, onClose }: Props) {
 
         {/* Overview Stat Cards Grid */}
         <div className="grid grid-cols-3 gap-2.5 mb-5">
-          <div className="bg-[#1D1930] border border-white/5 p-3 rounded-2xl text-center">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Sessions</p>
-            <p className="text-lg font-bold text-slate-100">{totalSessions}</p>
+          <div className="bg-slate-900/50 border border-white/5 p-3 rounded-2xl text-center shadow-inner">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">Sessions</p>
+            <p className="text-lg font-black text-slate-100">{totalSessions}</p>
           </div>
-          <div className="bg-[#1D1930] border border-white/5 p-3 rounded-2xl text-center">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Total Focus</p>
-            <p className="text-lg font-bold text-amber-400">{formatDuration(totalFocusMs)}</p>
+          <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-2xl text-center shadow-inner">
+            <p className="text-[10px] uppercase tracking-widest text-amber-500/80 font-bold mb-1">Focus</p>
+            <p className="text-lg font-black text-amber-400">{formatDuration(totalFocusMs)}</p>
           </div>
-          <div className="bg-[#1D1930] border border-white/5 p-3 rounded-2xl text-center">
-            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Avg Session</p>
-            <p className="text-lg font-bold text-violet-400">{formatDuration(avgFocusMs)}</p>
+          <div className="bg-violet-600/10 border border-violet-500/20 p-3 rounded-2xl text-center shadow-inner">
+            <p className="text-[10px] uppercase tracking-widest text-violet-400/80 font-bold mb-1">Average</p>
+            <p className="text-lg font-black text-violet-400">{formatDuration(avgFocusMs)}</p>
           </div>
         </div>
 
@@ -69,22 +69,34 @@ export function TaskSessionStats({ open, task, sessions, onClose }: Props) {
             <p className="text-xs text-slate-400">No focus sessions recorded yet for this task.</p>
           </div>
         ) : (
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-            {sessions.slice().reverse().map((s) => (
-              <div
-                key={s.id}
-                className="bg-[#1D1930] border border-white/5 p-3 rounded-2xl flex items-center justify-between text-xs"
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-semibold text-slate-200">{s.wallClockStart} – {s.wallClockEnd}</span>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1 no-scrollbar">
+            {sessions.slice().reverse().map((s) => {
+              const wallClockDuration = s.endTime - s.startTime;
+              return (
+                <div
+                  key={s.id}
+                  className="bg-slate-900/40 border border-white/5 p-3 rounded-2xl flex items-center justify-between text-xs hover:bg-slate-800/40 transition-colors"
+                >
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span className="font-bold text-slate-200">
+                        {s.wallClockStart} – {s.wallClockEnd}
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-500 tracking-wide">
+                        ({formatDuration(wallClockDuration)})
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 flex-wrap">
+                      <span className="flex items-center gap-1">Net focus: <span className="text-amber-400 font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20">{formatDuration(s.netFocusMs)}</span></span>
+                      {wallClockDuration > 0 && (
+                        <span className="flex items-center gap-1 ml-1 text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20 text-[10px] font-bold">
+                          {Math.round((s.netFocusMs / wallClockDuration) * 100)}% eff.
+                        </span>
+                      )}
+                      {s.pauses.length > 0 && <span className="text-slate-500"> • {s.pauses.length} pause{s.pauses.length > 1 ? 's' : ''}</span>}
+                    </div>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Net focus: <span className="text-amber-400 font-medium">{formatDuration(s.netFocusMs)}</span>
-                    {s.pauses.length > 0 && ` • ${s.pauses.length} pause${s.pauses.length > 1 ? 's' : ''}`}
-                  </p>
-                </div>
 
                 <div>
                   {s.completed === true && (
@@ -102,9 +114,10 @@ export function TaskSessionStats({ open, task, sessions, onClose }: Props) {
                       Stopped
                     </span>
                   )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

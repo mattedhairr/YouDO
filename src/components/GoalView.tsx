@@ -92,6 +92,7 @@ interface Props {
   /** Optional direct navigation handler for recording jump origin for 1-step back navigation */
   onNavigateToPath?: (pathIds: string[]) => void;
   onOpenDescription?: (title: string, description: string) => void;
+  onViewStats?: (id: string, title: string) => void;
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
@@ -103,8 +104,8 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf: { icon: CircleDot, tint: '#F43F5E', label: 'Leaf' },
 };
 
-export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription }: Props) {
-  const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
+export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
+  const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion, sessionHistory } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -340,6 +341,11 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
+              {onViewStats && Object.values(sessionHistory).flat().some(s => s.goalNodeId === current.id) && (
+                <button onClick={() => onViewStats(current.id, current.title)} className="p-2 rounded-lg text-amber-500 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors" title="Session Analytics">
+                  <Clock size={14} />
+                </button>
+              )}
               <div className="text-right mr-1">
                 <div className="text-lg font-bold tabular-nums" style={{ color: accent }}>{rollupPct(current)}%</div>
               </div>
@@ -448,6 +454,11 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                     )}
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
+                    {onViewStats && Object.values(sessionHistory).flat().some(s => s.goalNodeId === child.id) && (
+                      <button onClick={(e) => { e.stopPropagation(); onViewStats(child.id, child.title); }} className="flex items-center gap-1 text-amber-500/80 hover:text-amber-500" title="View Session Stats">
+                        <Clock size={11} /> Stats
+                      </button>
+                    )}
                     <span style={{ color: meta.tint }} className="font-semibold">{meta.label}</span>
                     {!isLeafLike && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
                     {isLeafLike && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}

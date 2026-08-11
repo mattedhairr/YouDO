@@ -10,6 +10,7 @@ import {
 } from 'react';
 import type { ActiveSession, GoalNode, Task, TaskSession } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 function uid(prefix = 'n') {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36)}`;
@@ -862,7 +863,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       wallClockStart: formatWallClock(now),
     };
     setActiveSession(session);
-  }, [setActiveSession]);
+
+    // Move backlog task to today while keeping the tag
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === taskId && isBacklogTask(t)) {
+          return { ...t, originalTargetDate: t.targetDate, targetDate: todayISO() };
+        }
+        return t;
+      }),
+    );
+  }, [setActiveSession, setTasks]);
 
   const pauseSession = useCallback(() => {
     setActiveSession((prev) => {
@@ -905,9 +916,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
       const netFocusMs = Math.max(0, (now - prev.startTime) - finalPausedDuration);
+      const task = tasksRef.current.find((t) => t.id === prev.taskId);
+
       const session: TaskSession = {
         id: uid('sess'),
         taskId: prev.taskId,
+        goalNodeId: task?.goalNodeId,
         startTime: prev.startTime,
         endTime: now,
         pausedDuration: finalPausedDuration,
@@ -923,8 +937,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         [prev.taskId]: [...(hist[prev.taskId] ?? []), session],
       }));
       setActiveSession(null);
+
+      // Handle backlog reverting if not completed
+      setTasks((prevTasks) =>
+        prevTasks.map((t) => {
+          if (t.id === prev.taskId && t.originalTargetDate) {
+            // "if marked not completed then move back to backlog"
+            if (outcome.completed === false || outcome.completed === 'partial') {
+              const newT = { ...t, targetDate: t.originalTargetDate };
+              delete newT.originalTargetDate;
+              return newT;
+            }
+            // If completed, it stays in today and retains `originalTargetDate` as the backlog tag
+          }
+          return t;
+        }),
+      );
     },
-    [setActiveSession, setSessionHistory],
+    [setActiveSession, setSessionHistory, setTasks],
   );
 
   const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
@@ -1006,27 +1036,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `youdo-backup-${dateStr}.json`;
 
-    // Try Web Share API first — works in Android Capacitor WebView
     try {
-      const file = new File([jsonStr], fileName, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'YouDO Backup', text: 'Your YouDO data backup' });
-        return;
-      }
-    } catch {
-      // Fall through to anchor download
+      // Use Capacitor Filesystem to write to public documents directory
+      await Filesystem.writeFile({
+        path: fileName,
+        data: jsonStr,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8,
+      });
+      alert(`Backup saved successfully to Documents/${fileName}`);
+    } catch (e) {
+      console.error('Filesystem write failed, falling back to download API', e);
+      // Fallback: standard anchor download (works in desktop browser)
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
-
-    // Fallback: standard anchor download (works in desktop browser)
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   }, []);
 
   const importBackup = useCallback(
