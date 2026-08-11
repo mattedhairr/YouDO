@@ -20,11 +20,8 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Clear Gradle Cache
-        run: |
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/wrapper
-          rm -rf ~/.gradle/notifications
+      - name: Wipe Gradle Home (nuclear cache clear)
+        run: rm -rf ~/.gradle
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -46,7 +43,7 @@ jobs:
           cd android
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
-          ./gradlew clean assembleDebug --no-daemon --stacktrace --refresh-dependencies
+          ./gradlew clean assembleDebug --no-daemon --no-build-cache --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
