@@ -9,8 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import type { ActiveSession, GoalNode, Task, TaskSession } from './types';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 function uid(prefix = 'n') {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36)}`;
@@ -1062,9 +1062,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `youdo-backup-${dateStr}.json`;
 
-    let savedPath = `Downloads/${fileName}`;
+    // 1. Attempt Capacitor native Share via native Cache File URI (Android file save prompt)
+    try {
+      await Filesystem.writeFile({
+        path: fileName,
+        data: jsonStr,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      });
+      const fileUri = await Filesystem.getUri({
+        path: fileName,
+        directory: Directory.Cache,
+      });
+      await Share.share({
+        title: 'YouDO Backup',
+        text: 'YouDO Study Blueprint Backup File',
+        url: fileUri.uri,
+        dialogTitle: 'Save YouDO Backup File',
+      });
+      return '✓ Saved via native Android Share dialog';
+    } catch {
+      /* Fallthrough to Web Share or anchor download */
+    }
 
-    // 1. Try native Web Share API (Android native save/share prompt)
+    // 2. Web Share API fallback
     try {
       const file = new File([jsonStr], fileName, { type: 'application/json' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1073,26 +1094,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           title: 'YouDO Backup',
           text: 'YouDO Study Blueprint Backup',
         });
-        return 'Saved via Share Prompt';
+        return '✓ Saved via Share prompt';
       }
     } catch {
-      /* fallback to filesystem / anchor download */
+      /* Fallthrough to anchor download */
     }
 
-    // 2. Attempt native Capacitor Filesystem write to Documents
-    try {
-      await Filesystem.writeFile({
-        path: fileName,
-        data: jsonStr,
-        directory: Directory.Documents,
-        encoding: Encoding.UTF8,
-      });
-      savedPath = `Documents/${fileName}`;
-    } catch {
-      /* Fallthrough to browser download */
-    }
-
-    // 3. Trigger Blob download link so Android Download manager saves to Downloads folder
+    // 3. Desktop/Browser anchor download fallback
     try {
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1104,10 +1112,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      /* ignore fallback error */
+      /* ignore */
     }
 
-    return savedPath;
+    return '✓ Backup exported to Downloads';
   }, [sessionHistory]);
 
   const importBackup = useCallback(

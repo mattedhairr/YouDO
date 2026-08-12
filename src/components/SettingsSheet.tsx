@@ -105,8 +105,8 @@ const USER_GUIDE_STEPS = [
     bg: 'bg-teal-600/12 border-teal-500/20',
     dotBg: 'bg-teal-500/20',
     title: '6. Focus Analytics & Efficiency %',
-    desc: 'Long-press any date in Calendar or tap 📊 Stats on any task/goal. View Net Focus Time (NFT), Total Duration, and calculated Daily Efficiency: (Net Focus ÷ Total Duration) × 100.',
-    example: 'Reveals true study efficiency by discounting breaks and pause durations.',
+    desc: 'Tap the single-tap [📊 Stats] chip next to any date header in Calendar, or tap 📊 Stats on any task/goal. View Net Focus Time (NFT), Total Duration, and calculated Daily Efficiency: (Net Focus ÷ Total Duration) × 100.',
+    example: 'Single-tap [📊 Stats] chip opens daily analytics instantly. Discounts pause durations to reveal true study efficiency!',
   },
 ];
 
@@ -115,6 +115,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const { user, signOut } = useAuth();
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
+  const [archOpen, setArchOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideSlide, setGuideSlide] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -123,7 +124,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
 
   const handleExport = async () => {
     const savedPath = await exportBackup();
-    setMsg({ text: `✓ Backup saved! Check ${savedPath} or Downloads folder.` });
+    setMsg({ text: savedPath });
   };
 
   const handleImport = (file?: File) => {
@@ -288,23 +289,46 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
             )}
           </section>
 
-          {/* ── 3. App Architecture & Core Features ── */}
+          {/* ── 3. App Architecture & Core Features (Expandable Accordion) ── */}
           <section className="space-y-3">
-            <SectionLabel>About YouDO Architecture</SectionLabel>
-            <div className="space-y-2">
-              {APP_FEATURES.map((feat, idx) => {
-                const Icon = feat.icon;
-                return (
-                  <div key={idx} className="bg-[#14111F] border border-white/8 rounded-2xl p-3.5 space-y-1">
-                    <div className="flex items-center gap-2 text-violet-400 font-extrabold text-xs">
-                      <Icon size={14} className="shrink-0" />
-                      <span>{feat.title}</span>
+            <button
+              type="button"
+              onClick={() => setArchOpen((p) => !p)}
+              className="w-full flex items-center justify-between p-4 rounded-2xl bg-[#14111F] hover:bg-[#1D1930] border border-white/8 transition-all text-left active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-[#EEE9FC]">About YouDO Architecture</h3>
+                  <p className="text-[10.5px] font-semibold text-[#5F5980] mt-0.5">
+                    Core design rationale &amp; key features
+                  </p>
+                </div>
+              </div>
+              <ChevronDown
+                size={18}
+                className={`text-[#5F5980] shrink-0 transition-transform duration-300 ${archOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {archOpen && (
+              <div className="fade-in space-y-2 pt-1">
+                {APP_FEATURES.map((feat, idx) => {
+                  const Icon = feat.icon;
+                  return (
+                    <div key={idx} className="bg-[#14111F] border border-white/8 rounded-2xl p-3.5 space-y-1">
+                      <div className="flex items-center gap-2 text-violet-400 font-extrabold text-xs">
+                        <Icon size={14} className="shrink-0" />
+                        <span>{feat.title}</span>
+                      </div>
+                      <p className="text-[11px] text-[#A09CB8] font-medium leading-relaxed">{feat.desc}</p>
                     </div>
-                    <p className="text-[11px] text-[#A09CB8] font-medium leading-relaxed">{feat.desc}</p>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* ── 4. Interactive User Guide ── */}
