@@ -57,9 +57,8 @@ Download the compiled `.apk` directly from [**GitHub Releases**](https://github.
 - **📋 Backlog & Bidirectional Sync**: Overdue tasks land in Backlog. Starting a Backlog session moves the task to Today while preserving its original tag, and progress syncs back to the Goal Blueprint automatically.
 - **⏱️ Focus Sessions & Pause Timestamp Logs**: Track net focus time vs total duration with full pause timestamp logs e.g. `(6:30 PM - 7:10 PM) 40m`.
 - **🌙 Ambient Focus Mode**: Screen-on distraction-free desk display with safe-area insets for camera notches and status bar compatibility.
-- **📅 Calendar View & xⁿ Superscript Notation**: Overview monthly study plans. Dates display in $x^n$ format ($x$ = date, $n$ = planned tasks, color-coded by completion).
-- **📊 Daily Efficiency Analytics**: Calculate Net Focus Time (NFT) vs Total Duration with Daily Focus Efficiency % $(NFT \div Total Duration) \times 100$.
-- **💾 Web Share & Local JSON Backup**: Export/Import your study blueprints with native Web Share API prompts or browser downloads.
+- **🛡️ Analytics Reliability Safeguards**: 30-second silent heartbeat logging, 5-minute interrupted session crash recovery, and 4-hour continuous focus auto-pause safeguard to protect efficiency stats from accidental overnight timers.
+- **💾 Web Share & Local JSON Backup**: Export/Import your study blueprints with native Web Share API prompts (`@capacitor/share`) or browser downloads.
 - **📖 In-App Aspirant Execution Guide**: Comprehensive 6-step user onboarding and workflow guide built right into Settings.
 
 ---

@@ -8,7 +8,8 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ### 🚀 Major Highlights
 - **Native Android APK Integration**: Compiled standalone Android `.apk` via Capacitor 8 with automated GitHub Actions CI/CD workflows.
-- **Targeted Aspirant Focus**: Tailored execution system specifically for competitive exam aspirants (UPSC, JEE, NEET, GATE, CAT) rather than generic todo lists.
+- **Account & Cloud Sign Up**: Supabase Authentication integration for account-backed session state.
+- **Targeted Aspirant Architecture**: Tailored execution companion specifically engineered for competitive exam aspirants (UPSC, JEE, NEET, GATE, CAT).
 
 ---
 
@@ -19,23 +20,30 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+### 🛡️ Analytics Reliability & Session Safeguards
+- **30-Second Silent Heartbeat**: Continuous background timer pulse recording session state every 30 seconds.
+- **Interrupted Session Recovery**: Auto-detects app crashes, phone shutdowns, or closures >5 minutes and prompts to **Resume** or **Discard** on launch.
+- **4-Hour Auto-Pause Safeguard**: Automatically pauses continuous focus timers running >4 hours without interaction, protecting Net Focus Efficiency stats from accidental overnight running timers.
+
+---
+
 ### ⏱️ Live Sessions & Ambient Mode
 - **Focus Timer & Pause Timestamp Logs**: Tracks Net Focus Time (NFT) vs Total Duration. Detailed log of every break taken e.g. `(6:30 PM - 7:10 PM) 40m`.
-- **Ambient Screen-On Mode**: Distraction-free focus timer display with dynamic safe-area insets to prevent status bar/camera notch overlap.
+- **Ambient Screen-On Mode**: Distraction-free desk clock with dynamic safe-area insets to prevent status bar/camera notch overlap.
 - **Clickable Origin Path**: Tap the ancestor path in Ambient mode or cards to jump straight to the exact syllabus location in the Goal Blueprint.
 
 ---
 
 ### 📅 Calendar & Efficiency Analytics
 - **$x^n$ Superscript Notation**: Month view calendar displays $x$ (date) and $n$ (planned task count, color-coded green when 100% completed).
-- **Daily Focus Stats**: Tap or long-press any date to view daily Net Focus Time, Total Duration, and Daily Focus Efficiency % `(NFT ÷ Total Duration) × 100`.
-- **Streamlined Analytics UI**: Single clean progress bar indicator, backdrop click-to-close modals, and clear "Total Duration" terminology.
+- **Single-Tap `[📊 Stats]` Chip**: Single-tap date header stats chip to view daily Net Focus Time, Total Duration, and Daily Focus Efficiency % `(NFT ÷ Total Duration) × 100`.
+- **Streamlined Analytics UI**: Single clean progress bar indicator, backdrop click-to-close on all modals, and clear "Total Duration" terminology.
 
 ---
 
 ### 💾 Data Safety & User Onboarding
-- **Web Share API Backup**: Export JSON files with native System Save / Share prompts on Android or direct browser downloads.
-- **In-App Aspirant Guide**: Comprehensive 6-step user onboarding and architecture breakdown built into Settings.
+- **Web Share API Backup**: Export JSON files with native System Save / Share prompts on Android (`@capacitor/share`) or direct browser downloads.
+- **In-App Aspirant Guide & Collapsible Architecture**: Comprehensive 6-step user onboarding and collapsible architecture tabs built into Settings.
 
 ---
 
