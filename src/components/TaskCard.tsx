@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Calendar, Clock, Copy, FileText, GripVertical, Link2, RotateCcw, X, Play, Pause, Square, BarChart2, Edit, Trash2, CheckCircle2 } from 'lucide-react';
 import type { Priority, Task, ActiveSession } from '../types';
 import { isTaskComplete } from '../store';
@@ -97,6 +97,15 @@ export default function TaskCard({
   const tickerText = hours > 0
     ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  useEffect(() => {
+    if (expanded) {
+      document.body.classList.add('task-card-expanded');
+    } else {
+      document.body.classList.remove('task-card-expanded');
+    }
+    return () => document.body.classList.remove('task-card-expanded');
+  }, [expanded]);
+
 
   const handleCardClick = () => {
     if (expanded) {
