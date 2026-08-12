@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, Clock, CheckCircle2, X } from 'lucide-react';
 import type { Task, TaskSession } from '../types';
 import { isTaskComplete, pathTitles, useStore } from '../store';
@@ -268,10 +269,10 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
       </div>
 
       {/* ── Daily Focus Stats & Efficiency Modal ── */}
-      {dayStatsModalDate && (
+      {dayStatsModalDate && createPortal(
         <div
           onClick={() => setDayStatsModalDate(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop animate-fade-in cursor-pointer"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 modal-backdrop animate-fade-in cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -354,7 +355,8 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
