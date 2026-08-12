@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { ActiveSession, GoalNode, Task, TaskSession } from './types';
+import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
