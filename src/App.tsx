@@ -766,7 +766,7 @@ function AppInner() {
                               dragOver={overId === t.id && dragId !== t.id}
                               origin={originFor(t.id)}
                               softRemove={!!t.goalNodeId}
-                              dark={dark}
+                              dark={darkMode}
                               onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                               onOpenDescription={openDescriptionModal}
                               onStartSession={startSession}
@@ -857,7 +857,7 @@ function AppInner() {
                               dragOver={false}
                               origin={originFor(t.id)}
                               softRemove={!!t.goalNodeId}
-                              dark={dark}
+                              dark={darkMode}
                               onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                               onOpenDescription={openDescriptionModal}
                               onStartSession={(id) => {

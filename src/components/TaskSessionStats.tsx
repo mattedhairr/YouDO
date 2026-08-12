@@ -58,11 +58,11 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-xs animate-fade-in cursor-pointer"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in cursor-pointer p-0 sm:p-4"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md bg-[#0E0C18] border border-white/10 rounded-t-[2rem] shadow-2xl sheet-up max-h-[90vh] overflow-hidden flex flex-col cursor-default"
+        className="relative w-full max-w-md bg-[#14111F] card border border-white/10 rounded-t-[2rem] sm:rounded-3xl shadow-2xl sheet-up max-h-[90vh] overflow-hidden flex flex-col cursor-default"
       >
         {/* ── Drag Handle ── */}
         <div className="flex justify-center pt-3 pb-1 shrink-0">
