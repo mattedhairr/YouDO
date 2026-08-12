@@ -99,15 +99,74 @@ html.light-dusky {
   --text-muted:     #8C86A8;
 }
 
-html.light-dusky body {
+html.light-dusky body,
+html.light-dusky #root {
   background-color: #F4F2F8 !important;
   color: #1E1B2E !important;
 }
 
+/* Light mode card overrides */
 html.light-dusky .card {
   background: #FFFFFF !important;
+  color: #1E1B2E !important;
   border: 1px solid rgba(124, 58, 237, 0.12) !important;
   box-shadow: 0 4px 16px 0 rgba(30, 27, 46, 0.08) !important;
+}
+
+/* Hardcoded dark background class overrides in Light Mode */
+html.light-dusky [class*="bg-[#0D0B14]"],
+html.light-dusky [class*="bg-[#0f0c18]"] {
+  background-color: #F4F2F8 !important;
+}
+
+html.light-dusky [class*="bg-[#14111F]"],
+html.light-dusky [class*="bg-[#1D1930]"] {
+  background-color: #FFFFFF !important;
+  border-color: rgba(124, 58, 237, 0.12) !important;
+}
+
+html.light-dusky [class*="bg-[#27233D]"] {
+  background-color: #ECE8F5 !important;
+  color: #1E1B2E !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
+}
+
+html.light-dusky [class*="bg-black/"],
+html.light-dusky [class*="bg-white/5"],
+html.light-dusky [class*="bg-white/8"],
+html.light-dusky [class*="bg-white/10"] {
+  background-color: rgba(124, 58, 237, 0.06) !important;
+}
+
+/* Text color overrides for Light Mode */
+html.light-dusky [class*="text-slate-100"],
+html.light-dusky [class*="text-[#EEE9FC]"],
+html.light-dusky [class*="text-white"]:not(button):not(.bg-violet-600):not(.bg-rose-600) {
+  color: #1E1B2E !important;
+}
+
+html.light-dusky [class*="text-slate-200"],
+html.light-dusky [class*="text-slate-300"],
+html.light-dusky [class*="text-[#A09CB8]"] {
+  color: #4A4568 !important;
+}
+
+html.light-dusky [class*="text-slate-400"],
+html.light-dusky [class*="text-slate-500"],
+html.light-dusky [class*="text-[#5F5980]"] {
+  color: #6E6890 !important;
+}
+
+/* Navigation bar and bottom command bar overrides */
+html.light-dusky .glass-nav,
+html.light-dusky .glass-header,
+html.light-dusky header,
+html.light-dusky footer,
+html.light-dusky nav {
+  background: #FFFFFF !important;
+  border-color: rgba(124, 58, 237, 0.15) !important;
+  color: #1E1B2E !important;
+  box-shadow: 0 -4px 20px rgba(30, 27, 46, 0.08) !important;
 }
 
 html,
