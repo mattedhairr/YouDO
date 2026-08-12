@@ -159,6 +159,14 @@ html.light-dusky [class*="text-[#5F5980]"] {
 
 /* Unified Frosted Modal Backdrop System */
 .modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
   background-color: rgba(0, 0, 0, 0.72) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;

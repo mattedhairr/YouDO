@@ -271,27 +271,27 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
       {dayStatsModalDate && (
         <div
           onClick={() => setDayStatsModalDate(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in cursor-pointer"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop animate-fade-in cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md bg-[#14111F] border border-white/10 rounded-3xl p-5 shadow-2xl space-y-4 cursor-default"
+            className="relative w-full max-w-md bg-[#14111F] card border border-white/10 rounded-3xl p-5 shadow-2xl space-y-4 cursor-default"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
                   <BarChart2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-100">Daily Focus Stats</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Daily Focus Stats</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {new Date(dayStatsModalDate + 'T00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setDayStatsModalDate(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -299,25 +299,25 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
 
             {/* Metrics Cards — 2 Columns (Net Focus & Total Duration) */}
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
-                <p className="text-[9.5px] font-extrabold uppercase text-amber-400/80">Net Focus</p>
-                <p className="text-sm font-black text-amber-400 mt-0.5">{formatDuration(dayTotalNFT)}</p>
+              <div className="bg-amber-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-amber-500/20 dark:border-white/5 text-center">
+                <p className="text-[9.5px] font-extrabold uppercase text-amber-600 dark:text-amber-400/80">Net Focus</p>
+                <p className="text-sm font-black text-amber-600 dark:text-amber-400 mt-0.5">{formatDuration(dayTotalNFT)}</p>
               </div>
-              <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
-                <p className="text-[9.5px] font-extrabold uppercase text-slate-400">Total Duration</p>
-                <p className="text-sm font-black text-slate-200 mt-0.5">{formatDuration(dayTotalWCD)}</p>
+              <div className="bg-slate-100 dark:bg-[#1D1930] p-3 rounded-2xl border border-slate-200 dark:border-white/5 text-center">
+                <p className="text-[9.5px] font-extrabold uppercase text-slate-500 dark:text-slate-400">Total Duration</p>
+                <p className="text-sm font-black text-slate-800 dark:text-slate-200 mt-0.5">{formatDuration(dayTotalWCD)}</p>
               </div>
             </div>
 
             {/* Single Clean Efficiency Progress Bar */}
-            <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 space-y-1.5">
+            <div className="bg-emerald-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-emerald-500/20 dark:border-white/5 space-y-1.5">
               <div className="flex justify-between text-xs font-bold">
-                <span className="text-slate-300">Daily Efficiency (Net Focus ÷ Total Duration)</span>
-                <span className="text-emerald-400">{dayEfficiency}%</span>
+                <span className="text-slate-700 dark:text-slate-300">Daily Efficiency (Net Focus ÷ Total Duration)</span>
+                <span className="text-emerald-600 dark:text-emerald-400">{dayEfficiency}%</span>
               </div>
-              <div className="h-2 w-full rounded-full bg-slate-800/80 overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800/80 overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500/70 rounded-full transition-all"
+                  className="h-full bg-emerald-500 rounded-full transition-all"
                   style={{ width: `${dayEfficiency}%` }}
                 />
               </div>
@@ -325,9 +325,9 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
 
             {/* Sessions List */}
             <div>
-              <h4 className="text-xs font-bold text-slate-400 mb-2">Sessions Run ({modalDateSessions.length})</h4>
+              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Sessions Run ({modalDateSessions.length})</h4>
               {modalDateSessions.length === 0 ? (
-                <p className="text-xs text-slate-500 italic py-3 text-center bg-[#1D1930]/40 rounded-xl border border-white/5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic py-3 text-center bg-slate-100 dark:bg-[#1D1930]/40 rounded-xl border border-slate-200 dark:border-white/5">
                   No focus sessions logged on this date.
                 </p>
               ) : (
@@ -337,14 +337,14 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     const title = taskObj?.title || 'Focus Session';
                     const dur = s.endTime - s.startTime;
                     return (
-                      <div key={s.id} className="bg-[#1D1930]/80 p-2.5 rounded-xl border border-white/5 flex items-center justify-between text-xs">
+                      <div key={s.id} className="bg-slate-100 dark:bg-[#1D1930]/80 p-2.5 rounded-xl border border-slate-200 dark:border-white/5 flex items-center justify-between text-xs">
                         <div className="min-w-0 pr-2">
-                          <p className="font-bold text-slate-200 truncate">{title}</p>
-                          <p className="text-[10.5px] text-slate-400 font-mono">
+                          <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{title}</p>
+                          <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
                             {s.wallClockStart} - {s.wallClockEnd} ({formatDuration(dur)})
                           </p>
                         </div>
-                        <span className="text-amber-400 font-extrabold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-[10.5px] shrink-0">
+                        <span className="text-amber-600 dark:text-amber-400 font-extrabold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-[10.5px] shrink-0">
                           {formatDuration(s.netFocusMs)}
                         </span>
                       </div>
