@@ -13,6 +13,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
+import { decompressBackup } from './lib/cloudCompressor';
 
 function uid(prefix = 'n') {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36)}`;
@@ -1209,11 +1210,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [user, updateCloudBackup]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
-    if (!user) return false;
-    const cloudBackup = user.user_metadata?.youdo_cloud_backup;
-    if (!cloudBackup) return false;
+    if (!user || !user.user_metadata) return false;
+    const jsonStr = decompressBackup(user.user_metadata);
+    if (!jsonStr) return false;
     try {
-      const jsonStr = typeof cloudBackup === 'string' ? cloudBackup : JSON.stringify(cloudBackup);
       return importBackup(jsonStr);
     } catch {
       return false;
@@ -1222,9 +1222,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Auto-restore / Auto-push on user auth change
   useEffect(() => {
-    if (!user) return;
-    const cloudBackup = user.user_metadata?.youdo_cloud_backup;
-    if (!cloudBackup) {
+    if (!user || !user.user_metadata) return;
+    const jsonStr = decompressBackup(user.user_metadata);
+    if (!jsonStr) {
       if (tasksRef.current.length > 0 || goalsRef.current.length > 0) {
         syncToCloud();
       }
@@ -1232,9 +1232,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     // If local state is empty (e.g. fresh install / cleared storage), auto restore!
     if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
-      restoreFromCloud();
+      importBackup(jsonStr);
     }
-  }, [user, syncToCloud, restoreFromCloud]);
+  }, [user, syncToCloud, importBackup]);
 
   // Automatic Background Push: whenever goals, tasks, or sessionHistory change and user is logged in
   useEffect(() => {

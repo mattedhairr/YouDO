@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { compressBackup } from '../lib/cloudCompressor';
 
 interface AuthContextType {
   user: User | null;
@@ -60,12 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateCloudBackup = async (backupData: any): Promise<boolean> => {
     try {
-      const { data: updated, error } = await supabase.auth.updateUser({
-        data: {
-          youdo_cloud_backup: backupData,
-          last_synced_at: new Date().toISOString(),
-        },
-      });
+      const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
+      const { chunks } = compressBackup(jsonStr);
+      const metadata = {
+        ...chunks,
+        last_synced_at: new Date().toISOString(),
+      };
+      const { data: updated, error } = await supabase.auth.updateUser({ data: metadata });
       if (error) throw error;
       if (updated.user) setUser(updated.user);
       return true;
