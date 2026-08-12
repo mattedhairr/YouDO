@@ -2,6 +2,7 @@ import { Component, StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { StoreProvider } from './store';
+import { AuthProvider } from './contexts/AuthContext';
 import './index.css';
 
 interface ErrorBoundaryState {
@@ -68,9 +69,11 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <GlobalErrorBoundary>
-      <StoreProvider>
-        <App />
-      </StoreProvider>
+      <AuthProvider>
+        <StoreProvider>
+          <App />
+        </StoreProvider>
+      </AuthProvider>
     </GlobalErrorBoundary>
   </StrictMode>
 );
