@@ -1194,8 +1194,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const sessionHistoryRef = useRef(sessionHistory);
   sessionHistoryRef.current = sessionHistory;
 
-  const syncToCloud = useCallback(async (): Promise<boolean> => {
-    if (!user) return false;
+  const syncToCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!user) return { ok: false, error: 'Not logged in to an active account' };
     const payload = {
       app: 'YouDO',
       version: '1.0.0',

@@ -276,11 +276,11 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <div className="pt-2 border-t border-white/5 grid grid-cols-2 gap-2">
                   <button
                     onClick={async () => {
-                      const ok = await syncToCloud();
+                      const res = await syncToCloud();
                       setMsg(
-                        ok
+                        res.ok
                           ? { text: '✓ Cloud Backup Synced successfully!' }
-                          : { text: '✗ Failed to sync to cloud.', error: true },
+                          : { text: `✗ ${res.error || 'Failed to sync to cloud.'}`, error: true },
                       );
                     }}
                     className="py-2 px-2.5 rounded-xl bg-violet-600/15 hover:bg-violet-600/25 border border-violet-500/30 text-violet-300 text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition active:scale-95"

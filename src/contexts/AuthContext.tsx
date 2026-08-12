@@ -7,7 +7,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
-  updateCloudBackup: (backupData: any) => Promise<boolean>;
+  updateCloudBackup: (backupData: any) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
 }
 
@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: false,
   signOut: async () => {},
   updateProfile: async () => false,
-  updateCloudBackup: async () => false,
+  updateCloudBackup: async () => ({ ok: false, error: 'Not initialized' }),
   fetchCloudBackup: async () => null,
 });
 
@@ -59,38 +59,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   /**
-   * Saves backup to Supabase Database table (no size limits, no auth metadata issues).
-   * Uses upsert so there's always exactly ONE row per user.
+   * Saves backup to Supabase Database table (user_backups).
+   * Uses robust select -> update OR insert logic (never relies on ON CONFLICT constraints).
    */
-  const updateCloudBackup = async (backupData: any): Promise<boolean> => {
+  const updateCloudBackup = async (backupData: any): Promise<{ ok: boolean; error?: string }> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        console.error('updateCloudBackup: No active session');
-        return false;
+        return { ok: false, error: 'No active user session found. Please sign in again.' };
       }
 
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
+      const userId = session.user.id;
+      const now = new Date().toISOString();
 
-      const { error } = await supabase
+      // Check if user backup row already exists
+      const { data: existing } = await supabase
         .from('user_backups')
-        .upsert(
-          {
-            user_id: session.user.id,
-            backup_data: jsonStr,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        );
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (error) {
-        console.error('updateCloudBackup error:', JSON.stringify(error));
-        throw error;
+      if (existing) {
+        // Update existing row
+        const { error: updateErr } = await supabase
+          .from('user_backups')
+          .update({ backup_data: jsonStr, updated_at: now })
+          .eq('user_id', userId);
+
+        if (updateErr) {
+          console.error('updateErr:', updateErr);
+          return { ok: false, error: updateErr.message || 'Database update failed' };
+        }
+      } else {
+        // Insert new row
+        const { error: insertErr } = await supabase
+          .from('user_backups')
+          .insert({ user_id: userId, backup_data: jsonStr, updated_at: now });
+
+        if (insertErr) {
+          console.error('insertErr:', insertErr);
+          // If duplicate key error, fallback to update
+          const { error: fallbackErr } = await supabase
+            .from('user_backups')
+            .update({ backup_data: jsonStr, updated_at: now })
+            .eq('user_id', userId);
+
+          if (fallbackErr) {
+            return { ok: false, error: insertErr.message || 'Database insert failed' };
+          }
+        }
       }
-      return true;
-    } catch (err) {
+
+      return { ok: true };
+    } catch (err: any) {
       console.error('updateCloudBackup failed:', err);
-      return false;
+      return { ok: false, error: err?.message || 'Unknown network error' };
     }
   };
 
@@ -106,10 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('user_backups')
         .select('backup_data')
         .eq('user_id', session.user.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') return null; // no rows = no backup yet
         console.error('fetchCloudBackup error:', JSON.stringify(error));
         return null;
       }
