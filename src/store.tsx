@@ -298,6 +298,14 @@ export function moveNodeInArray(nodes: GoalNode[], id: string, direction: 'up' |
   return result;
 }
 
+export interface DeletedGoalRecord {
+  id: string;
+  node: GoalNode;
+  deletedAt: number;
+  parentRootId: string | null;
+  tasks: Task[];
+}
+
 interface Store {
   tasks: Task[];
   goals: GoalNode[];
@@ -314,6 +322,12 @@ interface Store {
   deleteGoalNode: (rootId: string, nodeId: string) => void;
   /** Delete multiple goal nodes at once */
   deleteGoalNodes: (nodeIds: string[]) => void;
+  /** Recently deleted goals safety bin */
+  recentlyDeletedGoals: DeletedGoalRecord[];
+  lastDeletedNotification: { id: string; title: string } | null;
+  clearDeletedNotification: () => void;
+  restoreDeletedGoal: (recordId: string) => boolean;
+  clearTrash: () => void;
   /** Reorder goal nodes at any level */
   reorderGoalNodes: (parentId: string | null, fromId: string, toId: string) => void;
   /** Move a goal node up or down */
@@ -383,6 +397,8 @@ const SEED_GOALS: GoalNode[] = [];
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useLocalStorage<Task[]>('tudo-tasks-v3', SEED_TASKS);
   const [goals, setGoals] = useLocalStorage<GoalNode[]>('tudo-goals-v3', SEED_GOALS);
+  const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>('youdo-deleted-goals-v1', []);
+  const [lastDeletedNotification, setLastDeletedNotification] = useState<{ id: string; title: string } | null>(null);
   const [activeSession, setActiveSession] = useLocalStorage<ActiveSession | null>('youdo-active-session-v1', null);
   const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>('youdo-session-history-v1', {});
 
@@ -553,14 +569,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteGoalNode = useCallback(
     (rootId: string, nodeId: string) => {
-      // Recursively collect ALL todayTaskIds in the subtree being deleted
       const node = findGoal(goalsRef.current, nodeId);
-      if (node) {
-        const descendantTaskIds = collectDescendantTaskIds(node);
-        if (descendantTaskIds.length > 0) {
-          const removeSet = new Set(descendantTaskIds);
-          setTasks((prev) => prev.filter((t) => !removeSet.has(t.id)));
-        }
+      if (!node) return;
+
+      const descendantTaskIds = collectDescendantTaskIds(node);
+      const associatedTasks = tasksRef.current.filter((t) => descendantTaskIds.includes(t.id));
+
+      const record: DeletedGoalRecord = {
+        id: uid('del'),
+        node: cloneNode(node),
+        deletedAt: Date.now(),
+        parentRootId: rootId === nodeId ? null : rootId,
+        tasks: associatedTasks,
+      };
+
+      setRecentlyDeletedGoals((prev) => [record, ...prev].slice(0, 20));
+      setLastDeletedNotification({ id: record.id, title: node.title });
+
+      if (descendantTaskIds.length > 0) {
+        const removeSet = new Set(descendantTaskIds);
+        setTasks((prev) => prev.filter((t) => !removeSet.has(t.id)));
       }
       if (rootId === nodeId) {
         setGoals((prev) => prev.filter((root) => root.id !== rootId));
@@ -568,7 +596,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setGoals((prev) => prev.map((root) => (root.id === rootId ? removeNode(root, nodeId) : root)));
       }
     },
-    [setGoals, setTasks],
+    [setGoals, setTasks, setRecentlyDeletedGoals],
   );
 
   /* ---------- Plan task (push to a date) ---------- */
@@ -825,20 +853,81 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const deleteGoalNodes = useCallback(
     (nodeIds: string[]) => {
       const idSet = new Set(nodeIds);
-      // Recursively collect ALL todayTaskIds across all selected nodes and their descendants
       const taskIdsToRemove: string[] = [];
+      const recordsToStore: DeletedGoalRecord[] = [];
+
       for (const id of nodeIds) {
         const node = findGoal(goalsRef.current, id);
-        if (node) taskIdsToRemove.push(...collectDescendantTaskIds(node));
+        if (node) {
+          const subTaskIds = collectDescendantTaskIds(node);
+          taskIdsToRemove.push(...subTaskIds);
+          const associated = tasksRef.current.filter((t) => subTaskIds.includes(t.id));
+          recordsToStore.push({
+            id: uid('del'),
+            node: cloneNode(node),
+            deletedAt: Date.now(),
+            parentRootId: null,
+            tasks: associated,
+          });
+        }
       }
+
+      if (recordsToStore.length > 0) {
+        setRecentlyDeletedGoals((prev) => [...recordsToStore, ...prev].slice(0, 20));
+        setLastDeletedNotification({ id: recordsToStore[0].id, title: `${recordsToStore.length} Goal Items` });
+      }
+
       if (taskIdsToRemove.length) {
         const removeTaskSet = new Set(taskIdsToRemove);
         setTasks((prev) => prev.filter((t) => !removeTaskSet.has(t.id)));
       }
       setGoals((prev) => prev.map((root) => removeNodes(root, idSet)).filter((r) => !idSet.has(r.id)));
     },
-    [setGoals, setTasks],
+    [setGoals, setTasks, setRecentlyDeletedGoals],
   );
+
+  const clearDeletedNotification = useCallback(() => {
+    setLastDeletedNotification(null);
+  }, []);
+
+  const restoreDeletedGoal = useCallback(
+    (recordId: string): boolean => {
+      const record = recentlyDeletedGoals.find((r) => r.id === recordId);
+      if (!record) return false;
+
+      const restoredNode = cloneNode(record.node);
+
+      if (record.parentRootId === null) {
+        setGoals((prev) => [...prev, restoredNode]);
+      } else {
+        setGoals((prev) =>
+          prev.map((root) =>
+            root.id === record.parentRootId
+              ? { ...root, children: [...root.children, restoredNode] }
+              : updateNode(root, record.parentRootId!, (n) => ({ ...n, children: [...n.children, restoredNode] })),
+          ),
+        );
+      }
+
+      if (record.tasks && record.tasks.length > 0) {
+        setTasks((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const toAdd = record.tasks.filter((t) => !existingIds.has(t.id));
+          return [...prev, ...toAdd];
+        });
+      }
+
+      setRecentlyDeletedGoals((prev) => prev.filter((r) => r.id !== recordId));
+      setLastDeletedNotification(null);
+      clearRollupCache();
+      return true;
+    },
+    [recentlyDeletedGoals, setGoals, setTasks, setRecentlyDeletedGoals],
+  );
+
+  const clearTrash = useCallback(() => {
+    setRecentlyDeletedGoals([]);
+  }, [setRecentlyDeletedGoals]);
 
   /* ── Session Timer callbacks ──────────────────────────────────────────── */
 
@@ -1226,6 +1315,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setSessionHistory(parsed.sessionHistory);
         }
 
+        // Restore recently deleted goals trash bin if available
+        if (Array.isArray(parsed.recentlyDeletedGoals)) {
+          setRecentlyDeletedGoals(parsed.recentlyDeletedGoals);
+        }
+
         // Run sanitize & repair pass on imported data (duplicate IDs, stale pointers)
         const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(importedGoals, importedTasks);
 
@@ -1238,14 +1332,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [setTasks, setGoals, setSessionHistory],
+    [setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals],
   );
 
   const { user, updateCloudBackup, fetchCloudBackup } = useAuth();
   const sessionHistoryRef = useRef(sessionHistory);
   sessionHistoryRef.current = sessionHistory;
+  const recentlyDeletedRef = useRef(recentlyDeletedGoals);
+  recentlyDeletedRef.current = recentlyDeletedGoals;
 
   const syncToCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    // Safety guard: Never automatically sync if local state is completely empty to prevent wiping cloud backup
+    if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
+      return { ok: false, error: 'Local data is empty. Sync paused to protect your cloud backup.' };
+    }
     const payload = {
       app: 'YouDO',
       version: '1.0.0',
@@ -1254,6 +1354,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tasks: tasksRef.current,
       goals: goalsRef.current,
       sessionHistory: sessionHistoryRef.current,
+      recentlyDeletedGoals: recentlyDeletedRef.current,
     };
     return await updateCloudBackup(payload);
   }, [updateCloudBackup]);
@@ -1301,6 +1402,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode,
+      recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
@@ -1311,6 +1413,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
+      recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,

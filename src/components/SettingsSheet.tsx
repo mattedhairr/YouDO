@@ -119,7 +119,7 @@ const USER_GUIDE_STEPS = [
 ];
 
 export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
-  const { exportBackup, importBackup, syncToCloud, restoreFromCloud } = useStore();
+  const { exportBackup, importBackup, syncToCloud, restoreFromCloud, recentlyDeletedGoals, restoreDeletedGoal, clearTrash } = useStore();
   const { user, signOut, updateProfile } = useAuth();
   const [theme, setTheme] = useTheme();
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
@@ -486,6 +486,48 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               {msg.text}
             </p>
           )}
+
+          {/* Recently Deleted Trash Bin */}
+          <div className="bg-[#14111F] border border-white/10 rounded-2xl p-4 space-y-3 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-extrabold text-[#EEE9FC]">
+                <Trash2 size={14} className="text-violet-400" />
+                Recently Deleted Goals ({recentlyDeletedGoals.length})
+              </div>
+              {recentlyDeletedGoals.length > 0 && (
+                <button
+                  onClick={clearTrash}
+                  className="text-[10px] font-bold text-rose-400 hover:underline"
+                >
+                  Empty Trash
+                </button>
+              )}
+            </div>
+
+            {recentlyDeletedGoals.length === 0 ? (
+              <p className="text-[11px] text-[#A09CB8] font-medium">No deleted goals in trash. Deleting goals moves them here so you can restore them anytime!</p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto no-scrollbar pt-1">
+                {recentlyDeletedGoals.map((rec) => (
+                  <div key={rec.id} className="p-2.5 rounded-xl bg-[#0D0B14] border border-white/5 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-200 truncate">{rec.node.title}</div>
+                      <div className="text-[10px] text-slate-400">
+                        {rec.node.children?.length ? `${rec.node.children.length} sub-nodes • ` : ''}
+                        Deleted {new Date(rec.deletedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => restoreDeletedGoal(rec.id)}
+                      className="px-2.5 py-1 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 text-[11px] font-bold shrink-0 border border-violet-500/30 transition active:scale-95"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* ── 3. App Architecture & Core Features (Expandable Accordion) ── */}

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
-import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock } from 'lucide-react';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock, Cloud, Trash2 } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore } from './store';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
@@ -17,6 +17,7 @@ import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
 import { TaskSessionStats } from './components/TaskSessionStats';
 import { AuthModal } from './components/AuthModal';
+import { useTheme } from './hooks/useTheme';
 
 const ACCENT = '#7C3AED';
 
@@ -102,8 +103,15 @@ function AppInner() {
     clearClipboard,
     clipboard,
     deleteGoalNodes,
+    recentlyDeletedGoals,
+    lastDeletedNotification,
+    clearDeletedNotification,
+    restoreDeletedGoal,
     // Session state & actions
     activeSession,
+    exportBackup,
+    importBackup,
+    restoreFromCloud,
     sessionHistory,
     startSession,
     pauseSession,
@@ -114,8 +122,9 @@ function AppInner() {
     completeSessionSteps,
   } = useStore();
 
+  const { user } = useAuth();
+  const [{ darkMode }] = useTheme();
 
-  const dark = true; // Permanent dark mode
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
@@ -224,11 +233,6 @@ function AppInner() {
   const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab, navigateToGoalPath } =
     useNavigationSync(handleModalPopState);
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
-
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
-
 
   const pushModalState = useCallback(() => {
     try {
@@ -581,7 +585,7 @@ function AppInner() {
   const isGlass = false; // Solid mode permanently
 
   return (
-    <div className={`min-h-screen relative overflow-x-hidden transition-colors duration-300 dark bg-[#0D0B14] text-slate-100`}>
+    <div className="min-h-screen relative overflow-x-hidden transition-colors duration-300">
 
       <div
         className="relative z-10 min-h-screen w-full max-w-md mx-auto px-4 pb-28"
@@ -624,7 +628,7 @@ function AppInner() {
           {view === 'tasks' && (
             <div className="card p-2.5 space-y-1.5 border border-white/10">
               <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="text-slate-300">Today's Execution</span>
+                <span className="text-slate-300">Scheduled Progress</span>
                 <span className="text-violet-400 tabular-nums">
                   {todayDone}/{todayCount} tasks • {todayProgress}%
                 </span>
@@ -653,6 +657,28 @@ function AppInner() {
           >
             {view === 'tasks' ? (
               <div className="space-y-3">
+                {/* Cloud Backup Available Banner */}
+                {user && tasks.length === 0 && goals.length === 0 && (
+                  <div className="card p-3.5 bg-violet-950/50 border-violet-500/40 flex items-center justify-between gap-3 animate-fade-in shadow-lg">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Cloud className="w-5 h-5 text-violet-400 shrink-0 animate-bounce" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-extrabold text-slate-100">Cloud Backup Ready</div>
+                        <div className="text-[10.5px] text-slate-400 font-medium truncate">Restore your study goals &amp; tasks</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const ok = await restoreFromCloud();
+                        if (!ok) alert('No cloud backup found for this account.');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-extrabold shadow-md shadow-violet-600/30 shrink-0 transition active:scale-95"
+                    >
+                      Restore Cloud Data
+                    </button>
+                  </div>
+                )}
+
                 {/* Today vs Backlog Sub-tabs */}
                 <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#1D1930] border border-white/5 w-full">
                   <button
@@ -663,7 +689,7 @@ function AppInner() {
                         : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    <span>Today</span>
+                    <span>Scheduled</span>
                     <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${todaySubTab === 'today' ? 'bg-violet-600/30 text-violet-300' : 'bg-white/5 text-slate-400'}`}>
                       {todayTasks.length}
                     </span>
@@ -896,6 +922,32 @@ function AppInner() {
           </div>
         </main>
 
+        {/* Floating Undo Goal Delete Toast */}
+        {lastDeletedNotification && (
+          <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-rose-950/90 border border-rose-500/40 text-rose-100 p-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-sheet-up">
+            <div className="flex items-center gap-2 min-w-0">
+              <Trash2 size={16} className="text-rose-400 shrink-0" />
+              <span className="text-xs font-bold truncate">
+                Deleted "{lastDeletedNotification.title}"
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => restoreDeletedGoal(lastDeletedNotification.id)}
+                className="px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow-md transition active:scale-95"
+              >
+                Undo Delete
+              </button>
+              <button
+                onClick={clearDeletedNotification}
+                className="p-1 rounded-lg text-rose-300 hover:text-white hover:bg-rose-900/50"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* FAB */}
         {view === 'tasks' && (
           <button
@@ -1061,16 +1113,20 @@ function AppInner() {
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="card p-10 text-center fade-in bg-[#14111F] border-white/10">
-      <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-[#1D1930] animate-float">
-        <ListChecks size={26} className="text-slate-400" />
+    <div className="mt-20 flex flex-col items-center justify-center opacity-80 text-center px-6">
+      <div className="w-16 h-16 rounded-full bg-violet-500/10 flex items-center justify-center mb-4">
+        <ListChecks size={28} className="text-violet-400" />
       </div>
-      <h3 className="mt-4 text-base font-bold text-slate-100">No study tasks for today</h3>
-      <p className="mt-1 text-sm text-slate-400 max-w-xs mx-auto leading-relaxed">
-        Dispatch chapter topics from your Goal Blueprint or add quick study targets to keep your exam preparation on track.
+      <h3 className="mt-4 text-base font-bold text-slate-100">No tasks for today</h3>
+      <p className="mt-2 text-sm text-slate-400 max-w-[240px] leading-relaxed">
+        Dispatch tasks from your Goals or add quick targets to keep your day on track.
       </p>
-      <button onClick={onAdd} className="mt-4 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-violet-600 hover:bg-violet-500 transition-colors shadow-lg shadow-violet-600/25">
-        Add Study Task
+      <button
+        onClick={onAdd}
+        className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600/20 text-violet-300 text-sm font-semibold hover:bg-violet-600/30 transition-colors"
+      >
+        <Plus size={16} />
+        Add Task
       </button>
     </div>
   );
