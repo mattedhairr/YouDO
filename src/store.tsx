@@ -1195,7 +1195,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   sessionHistoryRef.current = sessionHistory;
 
   const syncToCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
-    if (!user) return { ok: false, error: 'Not logged in to an active account' };
     const payload = {
       app: 'YouDO',
       version: '1.0.0',
@@ -1206,10 +1205,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sessionHistory: sessionHistoryRef.current,
     };
     return await updateCloudBackup(payload);
-  }, [user, updateCloudBackup]);
+  }, [updateCloudBackup]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
-    if (!user) return false;
     const jsonStr = await fetchCloudBackup();
     if (!jsonStr) return false;
     try {
@@ -1217,7 +1215,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {
       return false;
     }
-  }, [user, fetchCloudBackup, importBackup]);
+  }, [fetchCloudBackup, importBackup]);
 
   // Auto-restore / Auto-push on user auth change
   useEffect(() => {
