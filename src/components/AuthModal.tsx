@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Mail, Lock, LogIn, UserPlus, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, X, AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Props {
   open: boolean;
+  initialMode?: 'signin' | 'signup';
   onClose: () => void;
 }
 
-export function AuthModal({ open, onClose }: Props) {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -30,14 +32,15 @@ export function AuthModal({ open, onClose }: Props) {
           password,
         });
         if (signUpErr) throw signUpErr;
-        setSuccess('Account created! Check your email to confirm registration.');
+        setSuccess('✓ Account created successfully! You are now signed in.');
+        setTimeout(onClose, 1200);
       } else {
         const { error: signInErr } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (signInErr) throw signInErr;
-        setSuccess('Signed in successfully!');
+        setSuccess('✓ Signed in successfully!');
         setTimeout(onClose, 800);
       }
     } catch (err: unknown) {
@@ -48,38 +51,78 @@ export function AuthModal({ open, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-sm card bg-[#14111F] border border-white/10 p-6 shadow-2xl rounded-3xl sheet-up">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-sm bg-[#14111F] border border-white/12 p-6 shadow-2xl rounded-3xl sheet-up cursor-default flex flex-col"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 font-bold text-lg">
-              Y
+            <div className="w-10 h-10 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 font-extrabold text-lg shadow-inner">
+              <ShieldCheck size={20} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">
-                {mode === 'signin' ? 'Sign In to YouDO' : 'Create YouDO Account'}
+              <h2 className="text-base font-extrabold text-slate-100 leading-tight">
+                {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
               </h2>
-              <p className="text-xs text-slate-400">Sync & cloud backup across devices</p>
+              <p className="text-[11px] font-medium text-slate-400">Sync goals &amp; progress safely</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/8 transition active:scale-95"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        {/* Tab Switcher */}
+        <div className="flex bg-[#0D0B14] p-1 rounded-2xl border border-white/8 mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('signin');
+              setError(null);
+              setSuccess(null);
+            }}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              mode === 'signin'
+                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/25'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <LogIn size={13} /> Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('signup');
+              setError(null);
+              setSuccess(null);
+            }}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              mode === 'signup'
+                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/25'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <UserPlus size={13} /> Create Account
+          </button>
+        </div>
+
         {/* Error / Success Banners */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2 animate-fade-in">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2">
+          <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-start gap-2 animate-fade-in">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{success}</span>
           </div>
@@ -88,81 +131,67 @@ export function AuthModal({ open, onClose }: Props) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Email Address</label>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-300 mb-1">
+              Email Address
+            </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+              <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="aspirant@example.com"
-                className="w-full bg-[#1D1930] border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition"
+                className="w-full bg-[#1D1930] border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition font-medium"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Password</label>
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-300 mb-1">
+              Password
+            </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+              <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-[#1D1930] border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition"
+                className="w-full bg-[#1D1930] border border-white/10 rounded-2xl pl-9 pr-10 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition font-medium"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((p) => !p)}
+                className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition"
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 active:scale-[0.98] text-white text-xs font-semibold shadow-lg shadow-violet-600/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-[0.98] text-white text-xs font-extrabold shadow-lg shadow-violet-600/25 flex items-center justify-center gap-2 transition disabled:opacity-50 mt-2"
           >
             {loading ? (
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : mode === 'signin' ? (
               <>
                 <LogIn className="w-4 h-4" />
-                Sign In
+                Sign In to Account
               </>
             ) : (
               <>
                 <UserPlus className="w-4 h-4" />
-                Create Account
+                Create Free Account
               </>
             )}
           </button>
         </form>
-
-        {/* Toggle mode */}
-        <div className="mt-4 pt-3 border-t border-white/5 text-center">
-          {mode === 'signin' ? (
-            <p className="text-xs text-slate-400">
-              Don't have an account?{' '}
-              <button
-                onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
-                className="text-violet-400 font-semibold hover:underline"
-              >
-                Sign Up
-              </button>
-            </p>
-          ) : (
-            <p className="text-xs text-slate-400">
-              Already have an account?{' '}
-              <button
-                onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
-                className="text-violet-400 font-semibold hover:underline"
-              >
-                Sign In
-              </button>
-            </p>
-          )}
-        </div>
       </div>
     </div>
   );

@@ -134,6 +134,7 @@ function AppInner() {
   const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null);
   const [statsTarget, setStatsTarget] = useState<{ id: string; title: string; isGoal?: boolean } | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
 
   // Heartbeat timer (30s)
@@ -868,7 +869,11 @@ function AppInner() {
       <SettingsSheet
         open={settingsOpen}
         onClose={closeSettings}
-        onOpenAuth={() => setAuthOpen(true)}
+        onOpenAuth={(mode) => {
+          pushModalState();
+          setAuthMode(mode || 'signin');
+          setAuthOpen(true);
+        }}
       />
 
       {/* Description Viewer Modal */}
@@ -938,7 +943,7 @@ function AppInner() {
       )}
 
       {/* ── Auth Modal ── */}
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} />
 
       {/* ── Session Crash Recovery Dialog ── */}
       {recoverySessionPrompt && activeSession && activeTask && (
