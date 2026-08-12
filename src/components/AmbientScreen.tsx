@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Square, Minimize2, Link2, ExternalLink } from 'lucide-react';
+import { Pause, Play, Square, Minimize2, Link2, ExternalLink, Clock } from 'lucide-react';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 import type { ActiveSession, Task } from '../types';
 
@@ -12,6 +12,19 @@ interface Props {
   onStop: () => void;
   onMinimize: () => void;
   onJumpToGoal?: () => void;
+}
+
+function formatPauseDuration(ms: number) {
+  const mins = Math.floor(ms / 60000);
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  if (hrs > 0) return `${hrs}h ${remMins}m`;
+  return `${mins}m`;
+}
+
+function formatWallClockTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 export function AmbientScreen({
@@ -27,11 +40,10 @@ export function AmbientScreen({
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    // Keep screen awake — wrapped defensively so plugin errors can't crash the app
     try {
       KeepAwake.keepAwake().catch(() => {});
     } catch {
-      /* native plugin unavailable in browser */
+      /* ignore */
     }
 
     return () => {
@@ -72,15 +84,18 @@ export function AmbientScreen({
 
   const handleGoToGoal = () => {
     if (onJumpToGoal) {
-      onMinimize();           // exit ambient first
-      onJumpToGoal();         // then navigate to goal
+      onMinimize();
+      onJumpToGoal();
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black text-slate-100 flex flex-col justify-between p-6 select-none animate-fade-in">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between">
+      {/* Top Bar with Dynamic Safe Area Padding */}
+      <div
+        className="flex items-center justify-between"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+      >
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-session-pulse" />
           <span className="text-xs font-mono text-amber-400 tracking-wider uppercase font-semibold">
@@ -103,7 +118,7 @@ export function AmbientScreen({
         {origin && (
           <button
             onClick={handleGoToGoal}
-            className={`mb-8 w-full max-w-sm mx-auto flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-300 bg-white/5 border border-white/10 px-3 py-2 rounded-xl backdrop-blur-md transition-all active:scale-95 hover:bg-white/10 hover:border-violet-500/40 group ${!onJumpToGoal ? 'pointer-events-none' : ''}`}
+            className={`mb-6 w-full max-w-sm mx-auto flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-300 bg-white/5 border border-white/10 px-3 py-2 rounded-xl backdrop-blur-md transition-all active:scale-95 hover:bg-white/10 hover:border-violet-500/40 group ${!onJumpToGoal ? 'pointer-events-none' : ''}`}
           >
             <Link2 size={11} className="shrink-0 text-violet-400" />
             <span className="break-words text-center">{origin}</span>
@@ -114,12 +129,12 @@ export function AmbientScreen({
         )}
 
         {/* Task Title */}
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mb-8 max-w-md leading-snug">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mb-6 max-w-md leading-snug">
           {task.title}
         </h1>
 
         {/* Large Mono Timer */}
-        <div className="relative mb-8">
+        <div className="relative mb-6">
           <div className="text-6xl sm:text-7xl font-mono font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-400 animate-ambient-clock drop-shadow-2xl">
             {formattedTime}
           </div>
@@ -140,6 +155,26 @@ export function AmbientScreen({
             </>
           )}
         </div>
+
+        {/* ── Detailed Pause Timestamps Log (Point 6) ── */}
+        {activeSession.pauses.length > 0 && (
+          <div className="mt-4 w-full max-w-xs space-y-1.5 max-h-32 overflow-y-auto no-scrollbar bg-white/5 border border-white/8 p-3 rounded-2xl">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400/80 text-left flex items-center gap-1">
+              <Clock size={10} /> Pause Timestamps Log
+            </p>
+            {activeSession.pauses.map((p, idx) => {
+              const startStr = p.wallClockStart || formatWallClockTime(p.start);
+              const endStr = p.end ? (p.wallClockEnd || formatWallClockTime(p.end)) : 'Ongoing';
+              const durMs = p.end ? (p.durationMs || (p.end - p.start)) : (activeSession.pauseStart ? Date.now() - activeSession.pauseStart : 0);
+              return (
+                <div key={idx} className="flex items-center justify-between text-[10.5px] font-mono text-slate-300 bg-white/5 px-2.5 py-1 rounded-lg">
+                  <span>({startStr} - {endStr})</span>
+                  <span className="font-bold text-amber-400">{formatPauseDuration(durMs)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Bottom Actions */}

@@ -1,4 +1,4 @@
-import { X, Clock, CheckCircle2, Zap, BarChart2, Timer } from 'lucide-react';
+import { X, Clock, Zap, BarChart2, Timer } from 'lucide-react';
 import type { TaskSession } from '../types';
 
 interface Props {
@@ -17,9 +17,17 @@ function formatDuration(ms: number): string {
   return `${mins} min`;
 }
 
-function formatTime12(timeStr: string): string {
-  // timeStr is "HH:MM AM/PM" or similar — pass through
-  return timeStr;
+function formatPauseDuration(ms: number) {
+  const mins = Math.floor(ms / 60000);
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  if (hrs > 0) return `${hrs}h ${remMins}m`;
+  return `${mins}m`;
+}
+
+function formatWallClockTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 function efficiencyColor(pct: number): string {
@@ -44,13 +52,18 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
 
   // Aggregate stats
   const totalNFT = sessions.reduce((acc, s) => acc + s.netFocusMs, 0);
-  const totalWCD = sessions.reduce((acc, s) => acc + (s.endTime - s.startTime), 0);
-  const overallEff = totalWCD > 0 ? Math.min(100, Math.round((totalNFT / totalWCD) * 100)) : 0;
+  const totalDurationMs = sessions.reduce((acc, s) => acc + (s.endTime - s.startTime), 0);
+  const overallEff = totalDurationMs > 0 ? Math.min(100, Math.round((totalNFT / totalDurationMs) * 100)) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-xs animate-fade-in">
-      <div className="relative w-full max-w-md bg-[#0E0C18] border border-white/10 rounded-t-[2rem] shadow-2xl sheet-up max-h-[90vh] overflow-hidden flex flex-col">
-
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-xs animate-fade-in cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-md bg-[#0E0C18] border border-white/10 rounded-t-[2rem] shadow-2xl sheet-up max-h-[90vh] overflow-hidden flex flex-col cursor-default"
+      >
         {/* ── Drag Handle ── */}
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-9 h-1 rounded-full bg-white/20" />
@@ -77,14 +90,15 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
 
         {/* ── Scrollable Body ── */}
         <div className="overflow-y-auto no-scrollbar px-5 py-4 space-y-4">
-
           {totalSessions === 0 ? (
             <div className="py-12 flex flex-col items-center gap-3">
               <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/8 flex items-center justify-center">
                 <Clock className="w-7 h-7 text-slate-600 opacity-50" />
               </div>
               <p className="text-sm text-slate-500 font-medium">No sessions recorded yet</p>
-              <p className="text-xs text-slate-600 text-center max-w-[220px]">Start a focus session on this task to see your analytics here.</p>
+              <p className="text-xs text-slate-600 text-center max-w-[220px]">
+                Start a focus session on this task to see your analytics here.
+              </p>
             </div>
           ) : (
             <>
@@ -92,32 +106,44 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
               <div className="bg-[#16132a] rounded-2xl border border-white/8 p-4 space-y-3">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Zap size={12} className="text-violet-400" />
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Overall Summary</span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                    Overall Summary
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   {/* Sessions */}
                   <div className="bg-[#0D0B1A] rounded-xl border border-white/5 p-3 text-center">
-                    <p className="text-[9.5px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">Sessions</p>
+                    <p className="text-[9.5px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">
+                      Sessions
+                    </p>
                     <p className="text-xl font-black text-slate-100">{totalSessions}</p>
                   </div>
                   {/* Net Focus */}
                   <div className="bg-amber-500/8 rounded-xl border border-amber-500/15 p-3 text-center">
-                    <p className="text-[9.5px] font-extrabold uppercase tracking-widest text-amber-500/70 mb-1">Net Focus</p>
+                    <p className="text-[9.5px] font-extrabold uppercase tracking-widest text-amber-500/70 mb-1">
+                      Net Focus
+                    </p>
                     <p className="text-xl font-black text-amber-400">{formatDuration(totalNFT)}</p>
                   </div>
-                  {/* Wall Clock */}
+                  {/* Total Duration */}
                   <div className="bg-slate-800/40 rounded-xl border border-white/5 p-3 text-center">
-                    <p className="text-[9.5px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">Wall Clock</p>
-                    <p className="text-xl font-black text-slate-300">{formatDuration(totalWCD)}</p>
+                    <p className="text-[9.5px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">
+                      Total Duration
+                    </p>
+                    <p className="text-xl font-black text-slate-300">{formatDuration(totalDurationMs)}</p>
                   </div>
                 </div>
 
                 {/* Efficiency Bar */}
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400">Overall Efficiency <span className="text-slate-600 font-normal">(Net Focus ÷ Wall Clock)</span></span>
-                    <span className={`text-sm font-black tabular-nums ${efficiencyColor(overallEff)}`}>{overallEff}%</span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      Overall Efficiency <span className="text-slate-600 font-normal">(Net Focus ÷ Total Duration)</span>
+                    </span>
+                    <span className={`text-sm font-black tabular-nums ${efficiencyColor(overallEff)}`}>
+                      {overallEff}%
+                    </span>
                   </div>
                   <EfficiencyBar pct={overallEff} />
                 </div>
@@ -135,11 +161,14 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                 <div className="space-y-2.5">
                   {sessions.slice().reverse().map((s, revIdx) => {
                     const sessionNum = totalSessions - revIdx;
-                    const wcd = s.endTime - s.startTime;
-                    const eff = wcd > 0 ? Math.min(100, Math.round((s.netFocusMs / wcd) * 100)) : 0;
-                    const outcomeLabel = s.completed === true ? { label: 'Completed', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' }
-                      : s.completed === 'partial' ? { label: 'Partial', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/25' }
-                      : { label: 'Stopped', cls: 'text-slate-400 bg-slate-800 border-white/8' };
+                    const durationMs = s.endTime - s.startTime;
+                    const eff = durationMs > 0 ? Math.min(100, Math.round((s.netFocusMs / durationMs) * 100)) : 0;
+                    const outcomeLabel =
+                      s.completed === true
+                        ? { label: 'Completed', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' }
+                        : s.completed === 'partial'
+                          ? { label: 'Partial', cls: 'text-amber-400 bg-amber-500/10 border-amber-500/25' }
+                          : { label: 'Stopped', cls: 'text-slate-400 bg-slate-800 border-white/8' };
 
                     return (
                       <div key={s.id} className="bg-[#13102A] rounded-2xl border border-white/8 overflow-hidden">
@@ -152,7 +181,7 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                             <span className="text-[11px] font-bold text-slate-200">
                               {s.wallClockStart} → {s.wallClockEnd}
                             </span>
-                            <span className="text-[10px] text-slate-500 font-medium">({formatDuration(wcd)})</span>
+                            <span className="text-[10px] text-slate-500 font-medium">({formatDuration(durationMs)})</span>
                           </div>
                           <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-lg border ${outcomeLabel.cls}`}>
                             {outcomeLabel.label}
@@ -167,8 +196,8 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                               <p className="text-[12px] font-black text-amber-400">{formatDuration(s.netFocusMs)}</p>
                             </div>
                             <div>
-                              <p className="text-[9px] font-bold uppercase text-slate-600 mb-0.5">Wall Clock</p>
-                              <p className="text-[12px] font-black text-slate-300">{formatDuration(wcd)}</p>
+                              <p className="text-[9px] font-bold uppercase text-slate-600 mb-0.5">Total Duration</p>
+                              <p className="text-[12px] font-black text-slate-300">{formatDuration(durationMs)}</p>
                             </div>
                             <div>
                               <p className="text-[9px] font-bold uppercase text-slate-600 mb-0.5">Efficiency</p>
@@ -178,16 +207,31 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
 
                           <EfficiencyBar pct={eff} />
 
-                          {/* Pauses */}
-                          {s.pauses.length > 0 && (
-                            <p className="text-[10px] text-slate-600 font-medium">
-                              {s.pauses.length} pause{s.pauses.length > 1 ? 's' : ''} • {formatDuration(s.pausedDuration ?? 0)} paused
-                            </p>
+                          {/* ── Detailed Pause Timestamps Log (Point 6) ── */}
+                          {s.pauses && s.pauses.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                              <p className="text-[9.5px] font-extrabold uppercase text-amber-400/80 flex items-center gap-1">
+                                <Clock size={9} /> Pause Timestamps ({s.pauses.length}):
+                              </p>
+                              <div className="space-y-1">
+                                {s.pauses.map((p, pIdx) => {
+                                  const startStr = p.wallClockStart || formatWallClockTime(p.start);
+                                  const endStr = p.end ? (p.wallClockEnd || formatWallClockTime(p.end)) : 'Ended';
+                                  const durMs = p.durationMs || (p.end ? p.end - p.start : 0);
+                                  return (
+                                    <div key={pIdx} className="flex items-center justify-between text-[10px] font-mono text-slate-300 bg-white/5 px-2 py-0.5 rounded">
+                                      <span>({startStr} - {endStr})</span>
+                                      <span className="font-bold text-amber-400">{formatPauseDuration(durMs)}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           )}
 
                           {/* Completed Steps */}
                           {s.completedStepIndices && s.completedStepIndices.length > 0 && (
-                            <div className="flex flex-wrap gap-1 pt-0.5">
+                            <div className="flex flex-wrap gap-1 pt-1">
                               {s.completedStepIndices.map((idx) => (
                                 <span
                                   key={idx}

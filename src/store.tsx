@@ -849,8 +849,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (activeSessionRef.current && !activeSessionRef.current.isPaused) {
       setActiveSession((prev) => {
         if (!prev) return null;
-        return { ...prev, isPaused: true, pauseStart: now, lastHeartbeat: now,
-          pauses: [...prev.pauses, { start: now }] };
+        return {
+          ...prev,
+          isPaused: true,
+          pauseStart: now,
+          lastHeartbeat: now,
+          pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
+        };
       });
     }
     const session: ActiveSession = {
@@ -879,8 +884,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setActiveSession((prev) => {
       if (!prev || prev.isPaused) return prev;
       const now = Date.now();
-      return { ...prev, isPaused: true, pauseStart: now, lastHeartbeat: now,
-        pauses: [...prev.pauses, { start: now }] };
+      return {
+        ...prev,
+        isPaused: true,
+        pauseStart: now,
+        lastHeartbeat: now,
+        pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
+      };
     });
   }, [setActiveSession]);
 
@@ -896,7 +906,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pausedDuration: prev.pausedDuration + pauseDuration,
         lastHeartbeat: now,
         pauses: prev.pauses.map((p, i) =>
-          i === prev.pauses.length - 1 ? { ...p, end: now } : p
+          i === prev.pauses.length - 1
+            ? {
+                ...p,
+                end: now,
+                wallClockEnd: formatWallClock(now),
+                durationMs: p.start ? now - p.start : pauseDuration,
+              }
+            : p,
         ),
       };
     });
@@ -910,9 +927,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       let finalPausedDuration = prev.pausedDuration;
       let finalPauses = prev.pauses;
       if (prev.isPaused && prev.pauseStart) {
-        finalPausedDuration += now - prev.pauseStart;
+        const pauseDur = now - prev.pauseStart;
+        finalPausedDuration += pauseDur;
         finalPauses = prev.pauses.map((p, i) =>
-          i === prev.pauses.length - 1 ? { ...p, end: now } : p
+          i === prev.pauses.length - 1
+            ? {
+                ...p,
+                end: now,
+                wallClockEnd: formatWallClock(now),
+                durationMs: p.start ? now - p.start : pauseDur,
+              }
+            : p,
         );
       }
       const netFocusMs = Math.max(0, (now - prev.startTime) - finalPausedDuration);
@@ -1037,10 +1062,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `youdo-backup-${dateStr}.json`;
 
-    let savedPath = fileName;
+    let savedPath = `Downloads/${fileName}`;
 
+    // 1. Try native Web Share API (Android native save/share prompt)
     try {
-      // 1. Attempt native Capacitor Filesystem write to Documents
+      const file = new File([jsonStr], fileName, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'YouDO Backup',
+          text: 'YouDO Study Blueprint Backup',
+        });
+        return 'Saved via Share Prompt';
+      }
+    } catch {
+      /* fallback to filesystem / anchor download */
+    }
+
+    // 2. Attempt native Capacitor Filesystem write to Documents
+    try {
       await Filesystem.writeFile({
         path: fileName,
         data: jsonStr,
@@ -1052,7 +1092,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       /* Fallthrough to browser download */
     }
 
-    // 2. Always trigger Blob download link so browser Download manager catches it as well
+    // 3. Trigger Blob download link so Android Download manager saves to Downloads folder
     try {
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);

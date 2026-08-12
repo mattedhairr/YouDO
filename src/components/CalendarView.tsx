@@ -293,8 +293,14 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
 
       {/* ── Daily Focus Stats & Efficiency Modal ── */}
       {dayStatsModalDate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="relative w-full max-w-md bg-[#14111F] border border-white/10 rounded-3xl p-5 shadow-2xl space-y-4">
+        <div
+          onClick={() => setDayStatsModalDate(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-md bg-[#14111F] border border-white/10 rounded-3xl p-5 shadow-2xl space-y-4 cursor-default"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
@@ -318,28 +324,28 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
             {/* Metrics Cards */}
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400">Net Focus</p>
+                <p className="text-[9.5px] font-extrabold uppercase text-amber-400/80">Net Focus</p>
                 <p className="text-sm font-black text-amber-400 mt-0.5">{formatDuration(dayTotalNFT)}</p>
               </div>
               <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400">Wall Clock</p>
+                <p className="text-[9.5px] font-extrabold uppercase text-slate-400">Total Duration</p>
                 <p className="text-sm font-black text-slate-200 mt-0.5">{formatDuration(dayTotalWCD)}</p>
               </div>
               <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
-                <p className="text-[10px] font-extrabold uppercase text-emerald-400">Efficiency</p>
+                <p className="text-[9.5px] font-extrabold uppercase text-emerald-400">Efficiency</p>
                 <p className="text-sm font-black text-emerald-400 mt-0.5">{dayEfficiency}%</p>
               </div>
             </div>
 
-            {/* Efficiency Progress Bar */}
+            {/* Single Clean Efficiency Progress Bar */}
             <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 space-y-1.5">
               <div className="flex justify-between text-xs font-bold">
-                <span className="text-slate-300">Daily Focus Efficiency (NFT / WCD)</span>
+                <span className="text-slate-300">Daily Efficiency (Net Focus ÷ Total Duration)</span>
                 <span className="text-emerald-400">{dayEfficiency}%</span>
               </div>
               <div className="h-2 w-full rounded-full bg-slate-800/80 overflow-hidden">
                 <div
-                  className="h-full bg-violet-500/60 rounded-full transition-all"
+                  className="h-full bg-emerald-500/70 rounded-full transition-all"
                   style={{ width: `${dayEfficiency}%` }}
                 />
               </div>
@@ -349,7 +355,9 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
             <div>
               <h4 className="text-xs font-bold text-slate-400 mb-2">Sessions Run ({modalDateSessions.length})</h4>
               {modalDateSessions.length === 0 ? (
-                <p className="text-xs text-slate-500 italic py-2 text-center">No focus sessions logged on this date.</p>
+                <p className="text-xs text-slate-500 italic py-3 text-center bg-[#1D1930]/40 rounded-xl border border-white/5">
+                  No focus sessions logged on this date.
+                </p>
               ) : (
                 <div className="space-y-1.5 max-h-40 overflow-y-auto no-scrollbar">
                   {modalDateSessions.map((s) => {

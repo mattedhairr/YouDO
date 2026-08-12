@@ -48,8 +48,11 @@ export type View = 'tasks' | 'goals' | 'calendar';
 /* ─── Session Timer Types ─────────────────────────────────────────────────── */
 
 export interface SessionPause {
-  start: number;  // Date.now() when paused
-  end?: number;   // Date.now() when resumed; undefined if still paused
+  start: number;            // Date.now() when paused
+  end?: number;             // Date.now() when resumed; undefined if still paused
+  wallClockStart?: string;  // e.g. "6:30 PM"
+  wallClockEnd?: string;    // e.g. "7:10 PM"
+  durationMs?: number;      // pause duration in ms
 }
 
 /** A completed session record saved to history */
