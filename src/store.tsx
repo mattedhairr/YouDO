@@ -1350,7 +1350,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     const payload = {
       app: 'YouDO',
-      version: '1.0.0',
+      version: '2.0.0',
       exportedAt: new Date().toISOString(),
       updatedAt: Date.now(),
       tasks: tasksRef.current,
