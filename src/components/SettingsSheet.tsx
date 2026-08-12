@@ -23,6 +23,8 @@ import {
   UserPlus,
   ShieldCheck,
   Trash2,
+  Edit2,
+  Cloud,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
@@ -114,11 +116,14 @@ const USER_GUIDE_STEPS = [
 ];
 
 export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
-  const { exportBackup, importBackup } = useStore();
-  const { user, signOut } = useAuth();
+  const { exportBackup, importBackup, syncToCloud, restoreFromCloud } = useStore();
+  const { user, signOut, updateProfile } = useAuth();
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
+  const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
   const [archOpen, setArchOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideSlide, setGuideSlide] = useState(0);
@@ -137,9 +142,10 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
     const reader = new FileReader();
     reader.onload = () => {
       const ok = importBackup(reader.result as string);
+      if (ok && user) syncToCloud();
       setMsg(
         ok
-          ? { text: '✓ Backup restored! Goals and tasks are back.' }
+          ? { text: '✓ Backup restored & synced to cloud!' }
           : { text: '✗ Invalid or corrupted backup file.', error: true },
       );
     };
@@ -182,22 +188,117 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
-                      <ShieldCheck size={22} />
+                    <div className="w-12 h-12 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-xl shrink-0 shadow-inner">
+                      {user.user_metadata?.avatar_url || '🎓'}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-extrabold text-[#EEE9FC] truncate max-w-[170px]">{user.email}</p>
-                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 inline-block mt-0.5">
-                        ● Account Active &amp; Synced
+                      <h3 className="text-xs font-extrabold text-[#EEE9FC] truncate max-w-[170px]">
+                        {user.user_metadata?.full_name || 'Aspirant'}
+                      </h3>
+                      <p className="text-[10.5px] text-[#A09CB8] font-medium truncate max-w-[170px]">{user.email}</p>
+                      <span className="text-[9.5px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 inline-block mt-0.5">
+                        ● Cloud Synced &amp; Active
                       </span>
                     </div>
                   </div>
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    <button
+                      onClick={() => {
+                        setEditName(user.user_metadata?.full_name || '');
+                        setEditAvatar(user.user_metadata?.avatar_url || '🎓');
+                        setEditProfileOpen((p) => !p);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/8 hover:bg-white/12 text-[#EEE9FC] border border-white/10 text-[11px] font-bold transition flex items-center gap-1"
+                    >
+                      <Edit2 size={12} className="text-violet-400" /> Edit Profile
+                    </button>
+                    <button
+                      onClick={() => signOut()}
+                      className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition text-[11px] font-bold flex items-center gap-1 justify-center"
+                    >
+                      <LogOut size={12} /> Sign Out
+                    </button>
+                  </div>
+                </div>
+
+                {/* Edit Profile Form Accordion */}
+                {editProfileOpen && (
+                  <div className="p-3.5 rounded-2xl bg-[#0D0B14] border border-white/10 space-y-3 fade-in">
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#5F5980] mb-1">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Jatin Parmar"
+                        className="w-full bg-[#14111F] border border-white/10 rounded-xl px-3 py-2 text-xs text-[#EEE9FC] focus:outline-none focus:border-violet-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#5F5980] mb-1">
+                        Avatar Icon Preset
+                      </label>
+                      <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
+                        {['🎓', '⚡', '🏆', '🚀', '🦉', '🧠', '🎯', '📚'].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setEditAvatar(emoji)}
+                            className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition border ${
+                              editAvatar === emoji
+                                ? 'bg-violet-600/30 border-violet-500 text-white scale-105'
+                                : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10'
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const ok = await updateProfile({ fullName: editName, avatarUrl: editAvatar });
+                        if (ok) {
+                          setEditProfileOpen(false);
+                          setMsg({ text: '✓ Profile updated successfully!' });
+                        }
+                      }}
+                      className="w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold shadow-md shadow-violet-600/25 transition"
+                    >
+                      Save Profile Changes
+                    </button>
+                  </div>
+                )}
+
+                {/* Cloud Sync Manual Controls */}
+                <div className="pt-2 border-t border-white/5 grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => signOut()}
-                    className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition shrink-0 active:scale-95 flex items-center gap-1 text-xs font-bold"
-                    title="Sign Out"
+                    onClick={async () => {
+                      const ok = await syncToCloud();
+                      setMsg(
+                        ok
+                          ? { text: '✓ Cloud Backup Synced successfully!' }
+                          : { text: '✗ Failed to sync to cloud.', error: true },
+                      );
+                    }}
+                    className="py-2 px-2.5 rounded-xl bg-violet-600/15 hover:bg-violet-600/25 border border-violet-500/30 text-violet-300 text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition active:scale-95"
                   >
-                    <LogOut size={14} /> Sign Out
+                    <Upload size={13} /> Sync to Cloud Now
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const ok = await restoreFromCloud();
+                      setMsg(
+                        ok
+                          ? { text: '✓ Goals & tasks restored from Cloud Backup!' }
+                          : { text: '✗ No Cloud Backup found.', error: true },
+                      );
+                    }}
+                    className="py-2 px-2.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-300 text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition active:scale-95"
+                  >
+                    <Download size={13} /> Restore from Cloud
                   </button>
                 </div>
 

@@ -12,6 +12,7 @@ import type { ActiveSession, GoalNode, Task, TaskSession } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { useAuth } from './contexts/AuthContext';
 
 function uid(prefix = 'n') {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36)}`;
@@ -342,8 +343,10 @@ interface Store {
   clipboard: GoalNode[];
   /** Export full state as dated JSON backup (Android-compatible via Web Share API) */
   exportBackup: () => Promise<string>;
-  /** Import full state from JSON file with validation */
-  importBackup: (jsonData: string) => boolean;
+  /** Sync current state to Supabase cloud metadata */
+  syncToCloud: () => Promise<boolean>;
+  /** Restore state from Supabase cloud metadata */
+  restoreFromCloud: () => Promise<boolean>;
 
   /* ── Session Timer ─────────────────────────────────────────────────────── */
   /** The currently live session (null if none active) */
@@ -1187,6 +1190,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setTasks, setGoals],
   );
 
+  const { user, updateCloudBackup } = useAuth();
+  const sessionHistoryRef = useRef(sessionHistory);
+  sessionHistoryRef.current = sessionHistory;
+
+  const syncToCloud = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+    const payload = {
+      app: 'YouDO',
+      version: '1.0.0',
+      exportedAt: new Date().toISOString(),
+      updatedAt: Date.now(),
+      tasks: tasksRef.current,
+      goals: goalsRef.current,
+      sessionHistory: sessionHistoryRef.current,
+    };
+    return await updateCloudBackup(payload);
+  }, [user, updateCloudBackup]);
+
+  const restoreFromCloud = useCallback(async (): Promise<boolean> => {
+    if (!user) return false;
+    const cloudBackup = user.user_metadata?.youdo_cloud_backup;
+    if (!cloudBackup) return false;
+    try {
+      const jsonStr = typeof cloudBackup === 'string' ? cloudBackup : JSON.stringify(cloudBackup);
+      return importBackup(jsonStr);
+    } catch {
+      return false;
+    }
+  }, [user, importBackup]);
+
+  // Auto-restore / Auto-push on user auth change
+  useEffect(() => {
+    if (!user) return;
+    const cloudBackup = user.user_metadata?.youdo_cloud_backup;
+    if (!cloudBackup) {
+      if (tasksRef.current.length > 0 || goalsRef.current.length > 0) {
+        syncToCloud();
+      }
+      return;
+    }
+    // If local state is empty (e.g. fresh install / cleared storage), auto restore!
+    if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
+      restoreFromCloud();
+    }
+  }, [user, syncToCloud, restoreFromCloud]);
+
+  // Automatic Background Push: whenever goals, tasks, or sessionHistory change and user is logged in
+  useEffect(() => {
+    if (!user) return;
+    const timer = setTimeout(() => {
+      syncToCloud();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [user, tasks, goals, sessionHistory, syncToCloud]);
+
   const value = useMemo<Store>(
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
@@ -1194,7 +1252,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
-      exportBackup, importBackup,
+      exportBackup, importBackup, syncToCloud, restoreFromCloud,
       activeSession, sessionHistory,
       startSession, pauseSession, resumeSession, stopSession,
       discardSession, heartbeatSession, completeSessionSteps,
@@ -1204,7 +1262,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
-      exportBackup, importBackup,
+      exportBackup, importBackup, syncToCloud, restoreFromCloud,
       activeSession, sessionHistory,
       startSession, pauseSession, resumeSession, stopSession,
       discardSession, heartbeatSession, completeSessionSteps],

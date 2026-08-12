@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Lock, LogIn, UserPlus, X, AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, X, AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Props {
@@ -17,6 +17,8 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const [fullName, setFullName] = useState('');
+
   if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,9 +32,14 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
         const { error: signUpErr } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              full_name: fullName.trim() || undefined,
+            },
+          },
         });
         if (signUpErr) throw signUpErr;
-        setSuccess('✓ Account created successfully! You are now signed in.');
+        setSuccess('✓ Account created successfully! Cloud backup is enabled.');
         setTimeout(onClose, 1200);
       } else {
         const { error: signInErr } = await supabase.auth.signInWithPassword({
@@ -130,6 +137,25 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5">
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-300 mb-1">
+                Full Name
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  required={mode === 'signup'}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Jatin Parmar"
+                  className="w-full bg-[#1D1930] border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition font-medium"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-300 mb-1">
               Email Address
