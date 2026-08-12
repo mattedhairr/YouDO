@@ -405,7 +405,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                     : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                 }`}
               >
-                <Moon size={14} /> 🌙 OLED Dark
+                <Moon size={14} /> Dark
               </button>
 
               <button
@@ -417,7 +417,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                     : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                 }`}
               >
-                <Sun size={14} /> ☀️ Dusky Light
+                <Sun size={14} /> Light
               </button>
             </div>
           </div>
