@@ -22,6 +22,7 @@ import {
   Sparkles,
   UserPlus,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
@@ -117,6 +118,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const { user, signOut } = useAuth();
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [archOpen, setArchOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideSlide, setGuideSlide] = useState(0);
@@ -177,25 +179,67 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
           <SectionLabel>Account &amp; Cloud Sync</SectionLabel>
           <div className="bg-[#14111F] border border-white/10 rounded-2xl p-4 space-y-3 shadow-lg">
             {user ? (
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-11 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
-                    <ShieldCheck size={22} />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
+                      <ShieldCheck size={22} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-extrabold text-[#EEE9FC] truncate max-w-[170px]">{user.email}</p>
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 inline-block mt-0.5">
+                        ● Account Active &amp; Synced
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-extrabold text-[#EEE9FC] truncate max-w-[170px]">{user.email}</p>
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 inline-block mt-0.5">
-                      ● Account Active &amp; Synced
-                    </span>
-                  </div>
+                  <button
+                    onClick={() => signOut()}
+                    className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition shrink-0 active:scale-95 flex items-center gap-1 text-xs font-bold"
+                    title="Sign Out"
+                  >
+                    <LogOut size={14} /> Sign Out
+                  </button>
                 </div>
-                <button
-                  onClick={() => signOut()}
-                  className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition shrink-0 active:scale-95 flex items-center gap-1 text-xs font-bold"
-                  title="Sign Out"
-                >
-                  <LogOut size={14} /> Sign Out
-                </button>
+
+                {/* Delete Account button */}
+                {!confirmDeleteAccount ? (
+                  <div className="pt-2 border-t border-white/5 flex justify-end">
+                    <button
+                      onClick={() => setConfirmDeleteAccount(true)}
+                      className="text-[11px] font-bold text-rose-400/80 hover:text-rose-300 flex items-center gap-1.5 transition py-1 px-2 rounded-lg hover:bg-rose-500/10"
+                    >
+                      <Trash2 size={13} /> Delete Account &amp; Data
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-rose-500/10 border border-rose-500/28 p-3.5 space-y-2.5 fade-in">
+                    <div className="flex items-center gap-2 text-rose-300 font-extrabold text-[12px]">
+                      <AlertTriangle size={14} className="shrink-0" />
+                      Delete Account &amp; Reset Data?
+                    </div>
+                    <p className="text-[11px] text-rose-300/75 font-medium leading-relaxed">
+                      This will sign you out and delete all local account session state. This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setConfirmDeleteAccount(false);
+                          await signOut();
+                          setMsg({ text: '✓ Account signed out and data reset.' });
+                        }}
+                        className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-500 transition-colors"
+                      >
+                        Yes, Delete &amp; Reset
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteAccount(false)}
+                        className="flex-1 py-2 rounded-xl text-[11px] font-bold text-[#A09CB8] bg-white/5 hover:bg-white/10 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
