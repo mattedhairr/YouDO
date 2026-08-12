@@ -340,7 +340,7 @@ interface Store {
   /** Clipboard nodes available to paste */
   clipboard: GoalNode[];
   /** Export full state as dated JSON backup (Android-compatible via Web Share API) */
-  exportBackup: () => void;
+  exportBackup: () => Promise<string>;
   /** Import full state from JSON file with validation */
   importBackup: (jsonData: string) => boolean;
 
@@ -1031,7 +1031,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       exportedAt: new Date().toISOString(),
       tasks: tasksRef.current,
       goals: goalsRef.current,
-      sessionHistory: sessionHistoryRef.current,
+      sessionHistory: sessionHistory,
     };
     const jsonStr = JSON.stringify(data, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -1068,7 +1068,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     return savedPath;
-  }, []);
+  }, [sessionHistory]);
 
   const importBackup = useCallback(
     (jsonData: string): boolean => {

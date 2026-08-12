@@ -910,6 +910,7 @@ function AppInner() {
           onResume={resumeSession}
           onStop={() => { setShowAmbient(false); setStopDialogTask(activeTask); }}
           onMinimize={() => setShowAmbient(false)}
+          onJumpToGoal={activeTask.goalNodeId ? () => jumpToGoalTask(activeTask.goalNodeId) : undefined}
         />
       )}
 

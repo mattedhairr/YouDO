@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Square, Minimize2, CheckCircle2, AlertCircle, Link2 } from 'lucide-react';
+import { Pause, Play, Square, Minimize2, Link2, ExternalLink } from 'lucide-react';
 import { KeepAwake } from '@capacitor-community/keep-awake';
-import { StatusBar } from '@capacitor/status-bar';
 import type { ActiveSession, Task } from '../types';
 
 interface Props {
@@ -12,6 +11,7 @@ interface Props {
   onResume: () => void;
   onStop: () => void;
   onMinimize: () => void;
+  onJumpToGoal?: () => void;
 }
 
 export function AmbientScreen({
@@ -22,30 +22,19 @@ export function AmbientScreen({
   onResume,
   onStop,
   onMinimize,
+  onJumpToGoal,
 }: Props) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    // Hide status bar & keep screen awake in ambient mode
-    try {
-      StatusBar.hide().catch(() => {});
-    } catch {
-      /* ignore */
-    }
-
+    // Keep screen awake — wrapped defensively so plugin errors can't crash the app
     try {
       KeepAwake.keepAwake().catch(() => {});
     } catch {
-      /* ignore */
+      /* native plugin unavailable in browser */
     }
 
     return () => {
-      // Restore when leaving ambient mode
-      try {
-        StatusBar.show().catch(() => {});
-      } catch {
-        /* ignore */
-      }
       try {
         KeepAwake.allowSleep().catch(() => {});
       } catch {
@@ -81,6 +70,13 @@ export function AmbientScreen({
     ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
+  const handleGoToGoal = () => {
+    if (onJumpToGoal) {
+      onMinimize();           // exit ambient first
+      onJumpToGoal();         // then navigate to goal
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black text-slate-100 flex flex-col justify-between p-6 select-none animate-fade-in">
       {/* Top Bar */}
@@ -103,13 +99,21 @@ export function AmbientScreen({
 
       {/* Center Ticker & Task Info */}
       <div className="flex flex-col items-center justify-center text-center my-auto px-4">
-        {/* Origin / Path */}
+        {/* Clickable Origin / Path */}
         {origin && (
-          <div className="mb-8 flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-md w-full max-w-sm mx-auto">
-            <Link2 size={12} className="shrink-0" />
+          <button
+            onClick={handleGoToGoal}
+            className={`mb-8 w-full max-w-sm mx-auto flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-300 bg-white/5 border border-white/10 px-3 py-2 rounded-xl backdrop-blur-md transition-all active:scale-95 hover:bg-white/10 hover:border-violet-500/40 group ${!onJumpToGoal ? 'pointer-events-none' : ''}`}
+          >
+            <Link2 size={11} className="shrink-0 text-violet-400" />
             <span className="break-words text-center">{origin}</span>
-          </div>
-        )}{/* Task Title */}
+            {onJumpToGoal && (
+              <ExternalLink size={10} className="shrink-0 text-violet-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+            )}
+          </button>
+        )}
+
+        {/* Task Title */}
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mb-8 max-w-md leading-snug">
           {task.title}
         </h1>

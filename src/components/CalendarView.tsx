@@ -337,9 +337,9 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                 <span className="text-slate-300">Daily Focus Efficiency (NFT / WCD)</span>
                 <span className="text-emerald-400">{dayEfficiency}%</span>
               </div>
-              <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-slate-800/80 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-violet-600 via-amber-500 to-emerald-400 rounded-full transition-all"
+                  className="h-full bg-violet-500/60 rounded-full transition-all"
                   style={{ width: `${dayEfficiency}%` }}
                 />
               </div>
