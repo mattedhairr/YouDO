@@ -893,9 +893,6 @@ function AppInner() {
             <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-slate-200 whitespace-pre-wrap font-medium bg-[#1D1930] p-4 rounded-2xl border border-white/5">
               {descModalData.description}
             </div>
-            <button onClick={closeDescriptionModal} className="w-full py-3 rounded-2xl text-xs font-extrabold text-white bg-violet-600 hover:bg-violet-500 shadow-md shadow-violet-600/25 transition">
-              Close Description
-            </button>
           </div>
         </div>
       )}

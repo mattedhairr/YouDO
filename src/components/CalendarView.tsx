@@ -321,8 +321,8 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               </button>
             </div>
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Metrics Cards — 2 Columns (Net Focus & Total Duration) */}
+            <div className="grid grid-cols-2 gap-2.5">
               <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
                 <p className="text-[9.5px] font-extrabold uppercase text-amber-400/80">Net Focus</p>
                 <p className="text-sm font-black text-amber-400 mt-0.5">{formatDuration(dayTotalNFT)}</p>
@@ -330,10 +330,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
                 <p className="text-[9.5px] font-extrabold uppercase text-slate-400">Total Duration</p>
                 <p className="text-sm font-black text-slate-200 mt-0.5">{formatDuration(dayTotalWCD)}</p>
-              </div>
-              <div className="bg-[#1D1930] p-3 rounded-2xl border border-white/5 text-center">
-                <p className="text-[9.5px] font-extrabold uppercase text-emerald-400">Efficiency</p>
-                <p className="text-sm font-black text-emerald-400 mt-0.5">{dayEfficiency}%</p>
               </div>
             </div>
 
@@ -381,13 +377,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                 </div>
               )}
             </div>
-
-            <button
-              onClick={() => setDayStatsModalDate(null)}
-              className="w-full py-3 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-extrabold text-xs shadow-md shadow-violet-600/25 transition"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}
