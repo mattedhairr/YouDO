@@ -157,7 +157,7 @@ html.light-dusky [class*="text-[#5F5980]"] {
   color: #6E6890 !important;
 }
 
-/* Unified Frosted Modal Backdrop System */
+/* Unified Light Frosted Modal Backdrop System */
 .modal-backdrop {
   position: fixed !important;
   top: 0 !important;
@@ -166,16 +166,16 @@ html.light-dusky [class*="text-[#5F5980]"] {
   bottom: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  z-index: 9999 !important;
-  background-color: rgba(0, 0, 0, 0.72) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  z-index: 50 !important;
+  background-color: rgba(15, 12, 24, 0.50) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
 }
 
 html.light-dusky .modal-backdrop {
-  background-color: rgba(30, 27, 46, 0.38) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  background-color: rgba(30, 27, 46, 0.22) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
 }
 
 /* Navigation bar and bottom command bar overrides */

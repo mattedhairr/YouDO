@@ -116,7 +116,7 @@ export default function TaskCard({
       {/* Expanded Blur Backdrop */}
       {expanded && (
         <div
-          className="fixed inset-0 z-30 modal-backdrop animate-fade-in"
+          className="fixed inset-0 z-30 bg-black/20 dark:bg-black/40 backdrop-blur-[3px] transition-all animate-fade-in"
           onClick={() => setExpanded(false)}
         />
       )}
