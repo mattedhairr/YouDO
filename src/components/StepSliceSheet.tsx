@@ -152,6 +152,7 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            style={{ colorScheme: 'dark' }}
             className="w-full bg-[#14111F] border border-white/10 rounded-xl px-3 py-2 text-[13px] font-medium text-slate-100 outline-none focus:border-violet-500 transition-colors"
           />
         </div>

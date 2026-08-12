@@ -1024,30 +1024,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /* ── Backup ───────────────────────────────────────────────────────────── */
 
-  const exportBackup = useCallback(async () => {
+  const exportBackup = useCallback(async (): Promise<string> => {
     const data = {
       app: 'YouDO',
       version: '1.0.0',
       exportedAt: new Date().toISOString(),
       tasks: tasksRef.current,
       goals: goalsRef.current,
+      sessionHistory: sessionHistoryRef.current,
     };
     const jsonStr = JSON.stringify(data, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `youdo-backup-${dateStr}.json`;
 
+    let savedPath = fileName;
+
     try {
-      // Use Capacitor Filesystem to write to public documents directory
+      // 1. Attempt native Capacitor Filesystem write to Documents
       await Filesystem.writeFile({
         path: fileName,
         data: jsonStr,
         directory: Directory.Documents,
         encoding: Encoding.UTF8,
       });
-      alert(`Backup saved successfully to Documents/${fileName}`);
-    } catch (e) {
-      console.error('Filesystem write failed, falling back to download API', e);
-      // Fallback: standard anchor download (works in desktop browser)
+      savedPath = `Documents/${fileName}`;
+    } catch {
+      /* Fallthrough to browser download */
+    }
+
+    // 2. Always trigger Blob download link so browser Download manager catches it as well
+    try {
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1057,7 +1063,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } catch {
+      /* ignore fallback error */
     }
+
+    return savedPath;
   }, []);
 
   const importBackup = useCallback(

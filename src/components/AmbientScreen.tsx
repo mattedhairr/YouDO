@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pause, Play, Square, Minimize2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Pause, Play, Square, Minimize2, CheckCircle2, AlertCircle, Link2 } from 'lucide-react';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 import { StatusBar } from '@capacitor/status-bar';
 import type { ActiveSession, Task } from '../types';

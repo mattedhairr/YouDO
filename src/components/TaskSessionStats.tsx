@@ -90,30 +90,39 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                     <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 flex-wrap">
                       <span className="flex items-center gap-1">Net focus: <span className="text-amber-400 font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20">{formatDuration(s.netFocusMs)}</span></span>
                       {wallClockDuration > 0 && (
-                        <span className="flex items-center gap-1 ml-1 text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20 text-[10px] font-bold">
-                          {Math.round((s.netFocusMs / wallClockDuration) * 100)}% eff.
+                        <span className="flex items-center gap-1 text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20 text-[10px] font-bold">
+                          {Math.min(100, Math.round((s.netFocusMs / wallClockDuration) * 100))}% eff.
                         </span>
                       )}
                       {s.pauses.length > 0 && <span className="text-slate-500"> • {s.pauses.length} pause{s.pauses.length > 1 ? 's' : ''}</span>}
                     </div>
+                    {s.completedStepIndices && s.completedStepIndices.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {s.completedStepIndices.map((idx) => (
+                          <span key={idx} className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-violet-600/20 text-violet-300 border border-violet-500/30">
+                            ✓ Step {idx + 1}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                <div>
-                  {s.completed === true && (
-                    <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Done
-                    </span>
-                  )}
-                  {s.completed === 'partial' && (
-                    <span className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold">
-                      Partial
-                    </span>
-                  )}
-                  {s.completed === false && (
-                    <span className="px-2 py-1 rounded-lg bg-slate-800 border border-white/10 text-slate-400 text-[10px] font-medium">
-                      Stopped
-                    </span>
-                  )}
+                  <div className="shrink-0 ml-2">
+                    {s.completed === true && (
+                      <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Done
+                      </span>
+                    )}
+                    {s.completed === 'partial' && (
+                      <span className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold">
+                        Partial
+                      </span>
+                    )}
+                    {s.completed === false && (
+                      <span className="px-2 py-1 rounded-lg bg-slate-800 border border-white/10 text-slate-400 text-[10px] font-medium">
+                        Stopped
+                      </span>
+                    )}
                   </div>
                 </div>
               );

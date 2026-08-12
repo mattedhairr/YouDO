@@ -86,9 +86,9 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
 
   if (!open) return null;
 
-  const handleExport = () => {
-    exportBackup();
-    setMsg({ text: '✓ Backup exported successfully!' });
+  const handleExport = async () => {
+    const savedPath = await exportBackup();
+    setMsg({ text: `✓ Backup saved! Check ${savedPath} or Downloads folder.` });
   };
 
   const handleImport = (file?: File) => {

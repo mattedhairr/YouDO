@@ -230,6 +230,11 @@ export default function TaskCard({
 
               {/* Date / Deadline / Description Row */}
               <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
+                {task.originalTargetDate && (
+                  <span className="inline-flex items-center gap-1 font-bold text-[10px] text-rose-400 bg-rose-500/15 border border-rose-500/25 px-2 py-0.5 rounded-md">
+                    📋 Backlog
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1">
                   <Calendar size={11} /> {fmtDate(task.targetDate)}
                 </span>
