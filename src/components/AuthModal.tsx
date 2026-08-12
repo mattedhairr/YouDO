@@ -60,7 +60,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop animate-fade-in cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}

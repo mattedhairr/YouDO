@@ -48,7 +48,7 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop animate-fade-in">
       <div className="relative w-full max-w-md bg-[#14111F] card border border-white/10 rounded-t-3xl sm:rounded-3xl p-5 pb-8 shadow-2xl sheet-up max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">

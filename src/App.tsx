@@ -1017,8 +1017,8 @@ function AppInner() {
       {/* Description Viewer Modal */}
       {descModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={closeDescriptionModal} />
-          <div className="sheet-up relative w-full max-w-lg bg-[#14111F] border border-white/10 rounded-3xl p-5 pb-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+          <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={closeDescriptionModal} />
+          <div className="sheet-up relative w-full max-w-lg bg-[#14111F] card border border-white/10 rounded-3xl p-5 pb-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-start justify-between pb-3 border-b border-white/5 gap-2">
               <div className="flex items-start gap-2.5 min-w-0">
                 <div className="p-2 rounded-xl bg-violet-600/20 text-violet-400 border border-violet-500/30 shrink-0 mt-0.5">

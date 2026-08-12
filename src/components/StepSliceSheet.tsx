@@ -94,7 +94,7 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={onClose} />
+      <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={onClose} />
       <div className="sheet-up relative w-full max-w-md bg-[#14111F] card rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto no-scrollbar shadow-2xl border-t border-white/10">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">

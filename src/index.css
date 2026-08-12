@@ -157,16 +157,34 @@ html.light-dusky [class*="text-[#5F5980]"] {
   color: #6E6890 !important;
 }
 
+/* Unified Frosted Modal Backdrop System */
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.72) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+html.light-dusky .modal-backdrop {
+  background-color: rgba(30, 27, 46, 0.38) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
 /* Navigation bar and bottom command bar overrides */
 html.light-dusky .glass-nav,
 html.light-dusky .glass-header,
-html.light-dusky header,
 html.light-dusky footer,
 html.light-dusky nav {
   background: #FFFFFF !important;
   border-color: rgba(124, 58, 237, 0.15) !important;
   color: #1E1B2E !important;
   box-shadow: 0 -4px 20px rgba(30, 27, 46, 0.08) !important;
+}
+
+html.light-dusky header {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 html,
