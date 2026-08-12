@@ -13,7 +13,6 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
-import { decompressBackup } from './lib/cloudCompressor';
 
 function uid(prefix = 'n') {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36)}`;
@@ -1191,7 +1190,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setTasks, setGoals],
   );
 
-  const { user, updateCloudBackup } = useAuth();
+  const { user, updateCloudBackup, fetchCloudBackup } = useAuth();
   const sessionHistoryRef = useRef(sessionHistory);
   sessionHistoryRef.current = sessionHistory;
 
@@ -1210,31 +1209,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [user, updateCloudBackup]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
-    if (!user || !user.user_metadata) return false;
-    const jsonStr = decompressBackup(user.user_metadata);
+    if (!user) return false;
+    const jsonStr = await fetchCloudBackup();
     if (!jsonStr) return false;
     try {
       return importBackup(jsonStr);
     } catch {
       return false;
     }
-  }, [user, importBackup]);
+  }, [user, fetchCloudBackup, importBackup]);
 
   // Auto-restore / Auto-push on user auth change
   useEffect(() => {
-    if (!user || !user.user_metadata) return;
-    const jsonStr = decompressBackup(user.user_metadata);
-    if (!jsonStr) {
-      if (tasksRef.current.length > 0 || goalsRef.current.length > 0) {
+    if (!user) return;
+    // When user logs in: check if local state is empty, if so auto-restore from cloud
+    const autoRestoreOrPush = async () => {
+      if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
+        // Local is empty — try to restore from cloud
+        const jsonStr = await fetchCloudBackup();
+        if (jsonStr) {
+          importBackup(jsonStr);
+        }
+      } else {
+        // Local has data — push it to cloud
         syncToCloud();
       }
-      return;
-    }
-    // If local state is empty (e.g. fresh install / cleared storage), auto restore!
-    if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
-      importBackup(jsonStr);
-    }
-  }, [user, syncToCloud, importBackup]);
+    };
+    autoRestoreOrPush();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Automatic Background Push: whenever goals, tasks, or sessionHistory change and user is logged in
   useEffect(() => {

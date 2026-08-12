@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { compressBackup } from '../lib/cloudCompressor';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +8,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
   updateCloudBackup: (backupData: any) => Promise<boolean>;
+  fetchCloudBackup: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   updateProfile: async () => false,
   updateCloudBackup: async () => false,
+  fetchCloudBackup: async () => null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -24,13 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check initial active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     }).catch(() => setLoading(false));
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -59,26 +58,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Saves backup to Supabase Database table (no size limits, no auth metadata issues).
+   * Uses upsert so there's always exactly ONE row per user.
+   */
   const updateCloudBackup = async (backupData: any): Promise<boolean> => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        console.error('updateCloudBackup: No active session');
+        return false;
+      }
+
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
-      const { chunks } = compressBackup(jsonStr);
-      const metadata = {
-        ...chunks,
-        last_synced_at: new Date().toISOString(),
-      };
-      const { data: updated, error } = await supabase.auth.updateUser({ data: metadata });
-      if (error) throw error;
-      if (updated.user) setUser(updated.user);
+
+      const { error } = await supabase
+        .from('user_backups')
+        .upsert(
+          {
+            user_id: session.user.id,
+            backup_data: jsonStr,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) {
+        console.error('updateCloudBackup error:', JSON.stringify(error));
+        throw error;
+      }
       return true;
     } catch (err) {
-      console.error('Failed to update cloud backup:', err);
+      console.error('updateCloudBackup failed:', err);
       return false;
     }
   };
 
+  /**
+   * Fetches the stored backup JSON from Supabase Database for the current user.
+   */
+  const fetchCloudBackup = async (): Promise<string | null> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+
+      const { data, error } = await supabase
+        .from('user_backups')
+        .select('backup_data')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') return null; // no rows = no backup yet
+        console.error('fetchCloudBackup error:', JSON.stringify(error));
+        return null;
+      }
+      return data?.backup_data ?? null;
+    } catch (err) {
+      console.error('fetchCloudBackup failed:', err);
+      return null;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signOut, updateProfile, updateCloudBackup }}>
+    <AuthContext.Provider value={{ user, loading, signOut, updateProfile, updateCloudBackup, fetchCloudBackup }}>
       {children}
     </AuthContext.Provider>
   );
