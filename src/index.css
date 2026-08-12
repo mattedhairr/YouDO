@@ -55,6 +55,60 @@ body,
   padding: 0;
 }
 
+/* Disable accidental web text selection highlights on touch taps */
+body,
+.card,
+button,
+header,
+nav,
+div {
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Allow text selection in editable fields */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+}
+
+/* ── Dusky Off-White Light Theme Overrides ── */
+html.light-dusky {
+  color-scheme: light;
+  --surface-0: #F4F2F8;
+  --surface-1: #FFFFFF;
+  --surface-2: #ECE8F5;
+  --surface-3: #E1DBF0;
+
+  --border-subtle:   rgba(0, 0, 0, 0.06);
+  --border-default:  rgba(0, 0, 0, 0.12);
+  --border-emphasis: rgba(0, 0, 0, 0.22);
+
+  --text-primary:   #1E1B2E;
+  --text-secondary: #585375;
+  --text-muted:     #8C86A8;
+}
+
+html.light-dusky body {
+  background-color: #F4F2F8 !important;
+  color: #1E1B2E !important;
+}
+
+html.light-dusky .card {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(124, 58, 237, 0.12) !important;
+  box-shadow: 0 4px 16px 0 rgba(30, 27, 46, 0.08) !important;
+}
+
 html,
 body {
   background-color: var(--surface-0) !important;

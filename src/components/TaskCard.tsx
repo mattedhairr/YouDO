@@ -201,8 +201,8 @@ export default function TaskCard({
                 </h3>
               </div>
 
-              {/* Origin Breadcrumb */}
-              {origin && (
+              {/* Origin Breadcrumb OR Standalone Quick Task Badge */}
+              {origin ? (
                 <div
                   onClick={(e) => {
                     if (onJumpToGoal) {
@@ -226,7 +226,11 @@ export default function TaskCard({
                     </span>
                   ))}
                 </div>
-              )}
+              ) : !task.goalNodeId ? (
+                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-300 bg-violet-600/15 border border-violet-500/30 px-2 py-0.5 rounded-md">
+                  ⚡ Quick Task
+                </div>
+              ) : null}
 
               {/* Date / Deadline / Description Row */}
               <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
@@ -345,11 +349,18 @@ export default function TaskCard({
               </button>
 
               <button
-                onClick={() => { setExpanded(false); if (onJumpToGoal) onJumpToGoal(); }}
+                onClick={() => {
+                  setExpanded(false);
+                  if (task.goalNodeId && onJumpToGoal) {
+                    onJumpToGoal();
+                  } else {
+                    onAdvance(task.id);
+                  }
+                }}
                 className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/5 transition"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Mark Progress
+                {task.goalNodeId ? 'Jump to Goal' : 'Advance Step'}
               </button>
 
               <button

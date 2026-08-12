@@ -25,9 +25,12 @@ import {
   Trash2,
   Edit2,
   Cloud,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../hooks/useTheme';
 
 interface Props {
   open: boolean;
@@ -118,6 +121,7 @@ const USER_GUIDE_STEPS = [
 export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const { exportBackup, importBackup, syncToCloud, restoreFromCloud } = useStore();
   const { user, signOut, updateProfile } = useAuth();
+  const [theme, setTheme] = useTheme();
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
@@ -372,6 +376,50 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 </div>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* ── Appearance & Theme ── */}
+        <section className="space-y-3">
+          <SectionLabel>Appearance &amp; Theme</SectionLabel>
+          <div className="card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-violet-600/15 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                  {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-[#EEE9FC]">Interface Theme</div>
+                  <div className="text-[11px] text-[#A09CB8]">Choose your preferred theme</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setTheme({ darkMode: true })}
+                className={`py-2.5 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border transition ${
+                  theme.darkMode
+                    ? 'bg-violet-600/20 border-violet-500/50 text-violet-300 shadow-md shadow-violet-600/15'
+                    : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                }`}
+              >
+                <Moon size={14} /> 🌙 OLED Dark
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTheme({ darkMode: false })}
+                className={`py-2.5 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border transition ${
+                  !theme.darkMode
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-md shadow-amber-500/15'
+                    : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                }`}
+              >
+                <Sun size={14} /> ☀️ Dusky Light
+              </button>
+            </div>
           </div>
         </section>
 

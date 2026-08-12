@@ -436,7 +436,57 @@ function AppInner() {
     setOverId(null);
   };
 
-  const sortedTasks = useMemo(() => [...todayTasks].sort((a, b) => a.order - b.order), [todayTasks]);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
+
+  const categoryChips = useMemo(() => {
+    const activeTasksList = todaySubTab === 'today' ? todayTasks : backlogTasks;
+    const map = new Map<string, { id: string; label: string; count: number }>();
+
+    let quickCount = 0;
+    for (const t of activeTasksList) {
+      if (!t.goalNodeId) {
+        quickCount++;
+      } else {
+        for (const root of goals) {
+          const path = pathTitles(root, t.goalNodeId);
+          if (path.length > 0) {
+            const rootId = root.id;
+            const rootTitle = root.title;
+            const existing = map.get(rootId);
+            if (existing) {
+              existing.count++;
+            } else {
+              map.set(rootId, { id: rootId, label: rootTitle, count: 1 });
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    const list = Array.from(map.values());
+    if (quickCount > 0) {
+      list.push({ id: 'quick', label: '⚡ Quick Tasks', count: quickCount });
+    }
+    return list;
+  }, [todaySubTab, todayTasks, backlogTasks, goals]);
+
+  const filteredTodayTasks = useMemo(() => {
+    if (activeCategoryFilter === 'all') return todayTasks;
+    if (activeCategoryFilter === 'quick') return todayTasks.filter((t) => !t.goalNodeId);
+    return todayTasks.filter((t) => {
+      if (!t.goalNodeId) return false;
+      for (const root of goals) {
+        if (root.id === activeCategoryFilter) {
+          const path = pathTitles(root, t.goalNodeId);
+          if (path.length > 0) return true;
+        }
+      }
+      return false;
+    });
+  }, [todayTasks, activeCategoryFilter, goals]);
+
+  const sortedTasks = useMemo(() => [...filteredTodayTasks].sort((a, b) => a.order - b.order), [filteredTodayTasks]);
 
   const touchState = useRef<{
     startX: number;
@@ -633,6 +683,38 @@ function AppInner() {
                     </span>
                   </button>
                 </div>
+
+                {/* Smart Goal & Category Filter Chips */}
+                {categoryChips.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-[11px] fade-in">
+                    <button
+                      onClick={() => setActiveCategoryFilter('all')}
+                      className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap border transition ${
+                        activeCategoryFilter === 'all'
+                          ? 'bg-violet-600/25 border-violet-500/50 text-violet-300 shadow-sm'
+                          : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      All ({todaySubTab === 'today' ? todayTasks.length : backlogTasks.length})
+                    </button>
+                    {categoryChips.map((chip) => (
+                      <button
+                        key={chip.id}
+                        onClick={() => setActiveCategoryFilter(chip.id)}
+                        className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap border transition flex items-center gap-1 ${
+                          activeCategoryFilter === chip.id
+                            ? 'bg-violet-600/25 border-violet-500/50 text-violet-300 shadow-sm'
+                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="truncate max-w-[130px]">{chip.label}</span>
+                        <span className="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-white/10 text-slate-300">
+                          {chip.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Task List */}
                 {todaySubTab === 'today' ? (

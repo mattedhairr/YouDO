@@ -1,7 +1,8 @@
+import { useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 
 export interface Theme {
-  darkMode: boolean; // Always true — dark mode only, no toggle
+  darkMode: boolean;
 }
 
 export const DEFAULT_THEME: Theme = {
@@ -9,8 +10,17 @@ export const DEFAULT_THEME: Theme = {
 };
 
 export function useTheme() {
-  const [, setTheme] = useLocalStorage<Theme>('tudo-theme-v3', DEFAULT_THEME);
-  // Permanently locked to dark, solid mode. glassUI removed.
-  const normalizedTheme: Theme = { darkMode: true };
-  return [normalizedTheme, setTheme] as const;
+  const [theme, setTheme] = useLocalStorage<Theme>('tudo-theme-v4', DEFAULT_THEME);
+
+  useEffect(() => {
+    if (theme.darkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light-dusky');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light-dusky');
+    }
+  }, [theme.darkMode]);
+
+  return [theme, setTheme] as const;
 }
