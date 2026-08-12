@@ -16,7 +16,7 @@ export interface Task {
   /** indices into the master goal node's steps array that this card targets */
   stepSlice?: number[];
   /** date before it was moved to today from the backlog */
-  originalTargetDate?: string;
+  originalTargetDate?: string | null;
 }
 
 export type GoalKind = 'goal' | 'phase' | 'section' | 'task' | 'sub' | 'leaf';

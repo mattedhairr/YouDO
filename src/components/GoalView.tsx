@@ -19,6 +19,7 @@ import {
   Unlink,
   X,
   Zap,
+  Clock,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
 import { countDirectChildren, countCompletedDirectChildren, findNode, formatDDMMYYYY, isBacklogTask, rollupPct, useStore } from '../store';

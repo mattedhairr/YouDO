@@ -357,8 +357,10 @@ interface Store {
   clipboard: GoalNode[];
   /** Export full state as dated JSON backup (Android-compatible via Web Share API) */
   exportBackup: () => Promise<string>;
+  /** Import full state from JSON string backup */
+  importBackup: (jsonStr: string) => boolean;
   /** Sync current state to Supabase cloud metadata */
-  syncToCloud: () => Promise<boolean>;
+  syncToCloud: () => Promise<{ ok: boolean; error?: string }>;
   /** Restore state from Supabase cloud metadata */
   restoreFromCloud: () => Promise<boolean>;
 

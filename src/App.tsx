@@ -103,14 +103,11 @@ function AppInner() {
     clearClipboard,
     clipboard,
     deleteGoalNodes,
-    recentlyDeletedGoals,
     lastDeletedNotification,
     clearDeletedNotification,
     restoreDeletedGoal,
     // Session state & actions
     activeSession,
-    exportBackup,
-    importBackup,
     restoreFromCloud,
     sessionHistory,
     startSession,
@@ -581,8 +578,6 @@ function AppInner() {
     },
     [view, goalPathIds, tabs, handleNavigateTab, setGoalPathIds],
   );
-
-  const isGlass = false; // Solid mode permanently
 
   return (
     <div className="min-h-screen relative overflow-x-hidden transition-colors duration-300">

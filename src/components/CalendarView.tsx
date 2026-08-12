@@ -1,7 +1,7 @@
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, Clock, CheckCircle2, X } from 'lucide-react';
-import type { Task, TaskSession } from '../types';
+import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X } from 'lucide-react';
+import type { Task } from '../types';
 import { isTaskComplete, pathTitles, useStore } from '../store';
 
 interface Props {

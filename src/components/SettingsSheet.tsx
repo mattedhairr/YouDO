@@ -21,10 +21,8 @@ import {
   Clock,
   Sparkles,
   UserPlus,
-  ShieldCheck,
   Trash2,
   Edit2,
-  Cloud,
   Moon,
   Sun,
 } from 'lucide-react';

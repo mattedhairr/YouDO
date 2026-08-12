@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Calendar, Clock, Copy, FileText, GripVertical, Link2, RotateCcw, X, Play, Pause, Square, BarChart2, Edit, Trash2, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2 } from 'lucide-react';
 import type { Priority, Task, ActiveSession } from '../types';
 import { isTaskComplete } from '../store';
 
@@ -53,9 +53,9 @@ function fmtCountdown(deadline: string | null): string {
 }
 
 export default function TaskCard({
-  task, activeSession, onAdvance, onUndo, onDelete, onDuplicate,
-  onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, origin, softRemove, dark = true,
-  onCardClick, backlogAction, onJumpToGoal, onOpenDescription,
+  task, activeSession, onAdvance, onUndo: _onUndo, onDelete, onDuplicate,
+  onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, origin, softRemove, dark: _dark = true,
+  onCardClick, backlogAction: _backlogAction, onJumpToGoal, onOpenDescription,
   onStartSession, onPauseSession, onResumeSession, onStopSession, onViewStats, onOpenAmbient,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
