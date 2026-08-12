@@ -116,8 +116,8 @@ export default function AddGoalSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="sheet-up relative w-full max-w-md bg-white dark:bg-slate-800 rounded-t-3xl p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar shadow-2xl">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={onClose} />
+      <div className="sheet-up relative w-full max-w-md bg-[#14111F] card rounded-t-3xl p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar shadow-2xl border-t border-white/10">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
             {getHeaderTitle()}

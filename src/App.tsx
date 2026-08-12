@@ -831,7 +831,7 @@ function AppInner() {
                         <div className="flex items-center gap-2 px-0.5">
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/12 border border-rose-500/18">
                             <Calendar size={11} className="text-rose-400" />
-                            <span className="text-[10.5px] font-extrabold text-rose-400">{group.formattedDate}</span>
+                  <span className="text-[10.5px] font-extrabold text-rose-400">{group.formattedDate}</span>
                           </div>
                           <span className="text-[10px] font-semibold text-[#5F5980]">
                             {group.tasks.length} task{group.tasks.length > 1 ? 's' : ''}
@@ -841,48 +841,52 @@ function AppInner() {
 
                         {/* Task cards */}
                         <div className="space-y-2">
-                          {group.tasks.map((t) => (
-                            <TaskCard
-                              key={t.id}
-                              task={t}
-                              activeSession={activeSession}
-                              onAdvance={advance}
-                              onUndo={undo}
-                              onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                              onDuplicate={duplicateTask}
-                              onDragStart={() => {}}
-                              onDragEnter={() => {}}
-                              onDragEnd={() => {}}
-                              isDragging={false}
-                              dragOver={false}
-                              origin={originFor(t.id)}
-                              softRemove={!!t.goalNodeId}
-                              dark={darkMode}
-                              onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
-                              onOpenDescription={openDescriptionModal}
-                              onStartSession={(id) => {
-                                startSession(id);
-                                startTransition(() => setTodaySubTab('today'));
-                              }}
-                              onPauseSession={pauseSession}
-                              onResumeSession={resumeSession}
-                              onStopSession={() => setStopDialogTask(t)}
-                              onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
-                              onOpenAmbient={() => setShowAmbient(true)}
-                              backlogAction={
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handlePushBacklogTask(t);
+                          {group.tasks.map((t) => {
+                            const isOtherTaskDimmed = activeSession !== null && activeSession.taskId !== t.id;
+                            return (
+                              <div key={t.id} className={isOtherTaskDimmed ? 'card-dimmed transition-all' : 'transition-all'}>
+                                <TaskCard
+                                  task={t}
+                                  activeSession={activeSession}
+                                  onAdvance={advance}
+                                  onUndo={undo}
+                                  onDelete={t.goalNodeId ? unlinkTask : removeTask}
+                                  onDuplicate={duplicateTask}
+                                  onDragStart={() => {}}
+                                  onDragEnter={() => {}}
+                                  onDragEnd={() => {}}
+                                  isDragging={false}
+                                  dragOver={false}
+                                  origin={originFor(t.id)}
+                                  softRemove={!!t.goalNodeId}
+                                  dark={darkMode}
+                                  onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                                  onOpenDescription={openDescriptionModal}
+                                  onStartSession={(id) => {
+                                    startSession(id);
+                                    startTransition(() => setTodaySubTab('today'));
                                   }}
-                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl text-white bg-rose-600 hover:bg-rose-500 shadow-sm shadow-rose-500/30 transition-all active:scale-95 shrink-0"
-                                  title="Reschedule task"
-                                >
-                                  <Zap size={12} className="fill-white" /> Reschedule
-                                </button>
-                              }
-                            />
-                          ))}
+                                  onPauseSession={pauseSession}
+                                  onResumeSession={resumeSession}
+                                  onStopSession={() => setStopDialogTask(t)}
+                                  onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
+                                  onOpenAmbient={() => setShowAmbient(true)}
+                                  backlogAction={
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePushBacklogTask(t);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl text-white bg-rose-600 hover:bg-rose-500 shadow-sm shadow-rose-500/30 transition-all active:scale-95 shrink-0"
+                                      title="Reschedule task"
+                                    >
+                                      <Zap size={12} className="fill-white" /> Reschedule
+                                    </button>
+                                  }
+                                />
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
