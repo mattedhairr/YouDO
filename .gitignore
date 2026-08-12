@@ -42,3 +42,5 @@ Thumbs.db
 android/.gradle
 android/build
 android/app/build
+# Keep the Cordova plugins module tracked (needed for the Gradle build)
+!android/capacitor-cordova-android-plugins/
