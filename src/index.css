@@ -197,6 +197,11 @@ body {
   overscroll-behavior: none;
 }
 
+/* Universally prevent scroll-chaining on all internal scrollable containers */
+.overflow-y-auto, .overflow-auto {
+  overscroll-behavior: contain;
+}
+
 /* ---------- Surface & Glass Theme Definitions ---------- */
 @layer components {
   /* SOLID CARD (Default Dark) */
