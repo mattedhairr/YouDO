@@ -614,11 +614,11 @@ function AppInner() {
             </div>
 
             {/* Right: Marquee Quote Ticker */}
-            <div className="flex-1 min-w-0 card h-9 px-2.5 flex items-center gap-1.5 border border-white/10 overflow-hidden">
-              <Quote size={11} className="text-violet-400 shrink-0" />
+            <div className="flex-1 min-w-0 card h-10 px-3 flex items-center gap-2 border border-violet-500/15 dark:border-white/10 overflow-hidden rounded-2xl shadow-2xs">
+              <Quote size={12} className="text-violet-600 dark:text-violet-400 shrink-0" />
               <div className="marquee-container flex-1">
-                <div className="marquee-content text-[11px] italic font-medium text-slate-200">
-                  "{randomQuote.text}" <span className="not-italic font-bold text-violet-400 text-[9.5px] ml-1.5">— {randomQuote.author}</span>
+                <div className="marquee-content text-[11px] italic font-medium text-slate-800 dark:text-slate-200">
+                  "{randomQuote.text}" <span className="not-italic font-extrabold text-violet-600 dark:text-violet-400 text-[10px] ml-1.5">— {randomQuote.author}</span>
                 </div>
               </div>
             </div>
@@ -786,29 +786,29 @@ function AppInner() {
                   <div className="space-y-4 fade-in">
                     {/* Summary header */}
                     {backlogTasks.length > 0 ? (
-                      <div className="rounded-2xl border border-rose-500/22 p-4 space-y-3" style={{ background: 'rgba(20,8,14,0.85)' }}>
+                      <div className="card p-4 space-y-3 bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/25 rounded-2xl shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
                               <AlertTriangle size={18} />
                             </div>
                             <div>
-                              <p className="text-sm font-extrabold text-[#EEE9FC]">
+                              <p className="text-sm font-extrabold text-slate-900 dark:text-[#EEE9FC]">
                                 {backlogTasks.length} Task{backlogTasks.length > 1 ? 's' : ''} in Backlog
                               </p>
-                              <p className="text-[10.5px] font-semibold text-rose-400/80">
+                              <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400/90">
                                 Across {backlogByDate.length} missed date{backlogByDate.length > 1 ? 's' : ''}
                               </p>
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-[10px] font-bold text-[#5F5980] uppercase tracking-wider">Oldest Due</p>
-                            <p className="text-xs font-extrabold text-rose-300">
+                            <p className="text-[10px] font-extrabold text-slate-500 dark:text-[#5F5980] uppercase tracking-wider">Oldest Due</p>
+                            <p className="text-xs font-black text-rose-600 dark:text-rose-300">
                               {backlogByDate.length > 0 ? backlogByDate[backlogByDate.length - 1].formattedDate : '—'}
                             </p>
                           </div>
                         </div>
-                        <p className="text-[11px] text-rose-200/65 font-medium leading-relaxed border-t border-rose-500/12 pt-3">
+                        <p className="text-[11px] text-rose-700 dark:text-rose-200/70 font-semibold leading-relaxed border-t border-rose-500/15 pt-2.5">
                           ⚡ Reschedule or complete these tasks to restore your momentum. Don't let backlog compound!
                         </p>
                       </div>
@@ -830,13 +830,13 @@ function AppInner() {
                         {/* Group header row */}
                         <div className="flex items-center gap-2 px-0.5">
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/12 border border-rose-500/18">
-                            <Calendar size={11} className="text-rose-400" />
-                  <span className="text-[10.5px] font-extrabold text-rose-400">{group.formattedDate}</span>
+                            <Calendar size={11} className="text-rose-600 dark:text-rose-400" />
+                            <span className="text-[10.5px] font-extrabold text-rose-600 dark:text-rose-400">{group.formattedDate}</span>
                           </div>
-                          <span className="text-[10px] font-semibold text-[#5F5980]">
+                          <span className="text-[10px] font-semibold text-slate-500 dark:text-[#5F5980]">
                             {group.tasks.length} task{group.tasks.length > 1 ? 's' : ''}
                           </span>
-                          <div className="flex-1 h-px bg-white/5" />
+                          <div className="flex-1 h-px bg-slate-200 dark:bg-white/5" />
                         </div>
 
                         {/* Task cards */}

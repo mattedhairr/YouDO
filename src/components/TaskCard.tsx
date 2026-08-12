@@ -210,24 +210,24 @@ export default function TaskCard({
                       onJumpToGoal();
                     }
                   }}
-                  className={`mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold bg-violet-950/40 border border-violet-800/40 rounded-lg px-2 py-1 w-full leading-normal ${
-                    onJumpToGoal ? 'cursor-pointer hover:bg-violet-900/60 hover:border-violet-600 transition-all group/path' : ''
+                  className={`mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold bg-violet-500/10 dark:bg-violet-950/40 border border-violet-500/20 dark:border-violet-800/40 rounded-lg px-2 py-1 w-full leading-normal ${
+                    onJumpToGoal ? 'cursor-pointer hover:bg-violet-500/18 dark:hover:bg-violet-900/60 hover:border-violet-500/40 dark:hover:border-violet-600 transition-all group/path' : ''
                   }`}
                   title={onJumpToGoal ? 'Jump to this task in Goal Blueprint' : undefined}
                 >
-                  <Link2 size={10} className="shrink-0 text-violet-400 mr-0.5 group-hover/path:scale-110 transition-transform" />
+                  <Link2 size={10} className="shrink-0 text-violet-600 dark:text-violet-400 mr-0.5 group-hover/path:scale-110 transition-transform" />
                   {origin.split(' > ').map((seg, i, arr) => (
                     <span key={i} className="inline-flex items-center gap-1">
                       <span className={i === arr.length - 1
-                        ? 'font-bold text-violet-300 group-hover/path:underline'
-                        : 'font-medium text-slate-400 group-hover/path:text-slate-200'
+                        ? 'font-extrabold text-violet-700 dark:text-violet-300 group-hover/path:underline'
+                        : 'font-semibold text-slate-600 dark:text-slate-400 group-hover/path:text-slate-900 dark:group-hover/path:text-slate-200'
                       }>{seg}</span>
-                      {i < arr.length - 1 && <span className="text-slate-600">/</span>}
+                      {i < arr.length - 1 && <span className="text-violet-400/60 dark:text-slate-600">/</span>}
                     </span>
                   ))}
                 </div>
               ) : !task.goalNodeId ? (
-                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-300 bg-violet-600/15 border border-violet-500/30 px-2 py-0.5 rounded-md">
+                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-700 dark:text-violet-300 bg-violet-500/15 border border-violet-500/30 px-2 py-0.5 rounded-md">
                   ⚡ Quick Task
                 </div>
               ) : null}
