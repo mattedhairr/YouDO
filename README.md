@@ -5,87 +5,72 @@
 </p>
 
 <p align="center">
-  <strong>The ultimate execution companion for students & competitive exam aspirants.</strong><br />
+  <strong>The ultimate goal-driven execution system for students & competitive exam aspirants.</strong><br />
   Transform massive exam syllabi into daily micro-targets and execute relentlessly.
 </p>
 
 <p align="center">
   <a href="https://github.com/mattedhairr/YouDO/releases"><img src="https://img.shields.io/github/v/release/mattedhairr/YouDO?color=emerald&label=Release" alt="Latest Release" /></a>
   <a href="https://github.com/mattedhairr/YouDO/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
+  <a href="https://github.com/mattedhairr/YouDO/actions"><img src="https://img.shields.io/badge/Build-Android%20APK-7C3AED.svg" alt="Android Build" /></a>
   <a href="https://react.dev/"><img src="https://img.shields.io/badge/Framework-React%2018-61dafb.svg" alt="React 18" /></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/Language-TypeScript-3178c6.svg" alt="TypeScript" /></a>
-  <a href="https://web.dev/progressive-web-apps/"><img src="https://img.shields.io/badge/PWA-Offline%20Ready-emerald.svg" alt="PWA Ready" /></a>
 </p>
 
 ---
 
-## 🎯 Purpose & Vision
+## 🎯 Purpose & Architecture
 
 Preparing for competitive exams like **UPSC, JEE, NEET, GATE, CAT, USMLE, or Bar Exam** requires conquering intimidating, multi-subject syllabi. 
 
-Traditional to-do apps fail because flat lists become overwhelming, while complex project boards are disconnected from daily study routines. **YouDO** bridges this gap by offering a **structured 6-tier Goal Blueprint** (`Goal` ➔ `Phase` ➔ `Section` ➔ `Task` ➔ `Sub-task` ➔ `Leaf Task`) synced with a **real-time Daily Execution Engine**.
+Conventional to-do apps fail because flat lists become overwhelming and vague tasks like *"study physics"* create study paralysis. **YouDO** solves this with a **structured 6-tier Goal Blueprint** (`Goal` &rarr; `Phase` &rarr; `Section` &rarr; `Task` &rarr; `Sub-task` &rarr; `Leaf Task`) synced with a **real-time Daily Execution Engine**.
 
-```
-🎯 Goal: "UPSC / JEE / NEET Exam 2026"
- └── 💙 Phase: "Phase 1: Core Physics & Chemistry"
-      └── 💜 Section: "Mechanics Module"
-           └── 🟣 Task: "Rotational Motion"
-                └── 🟡 Sub-task: "Video Lectures"
-                     └── 🔴 Leaf Task: "Watch Lecture 1 & Take Notes"
+```text
+Goal: "UPSC / JEE / NEET Exam 2026"
+ └── Phase: "Phase 1: Core Physics & Chemistry"
+      └── Section: "Mechanics Module"
+           └── Task: "Rotational Motion"
+                └── Sub-task: "Video Lectures"
+                     └── Leaf Task: "Watch Lecture 1 & Take Notes"
 ```
 
 ---
 
 ## 📱 Download & Installation
 
-### 🤖 Android App (Standalone APK)
-Download the official pre-compiled `.apk` directly from [**GitHub Releases**](https://github.com/mattedhairr/YouDO/releases):
+### 🤖 Native Android App (APK)
+Download the compiled `.apk` directly from [**GitHub Releases**](https://github.com/mattedhairr/YouDO/releases):
 1. Go to [**Releases**](https://github.com/mattedhairr/YouDO/releases).
 2. Download `YouDO.apk` from the latest release.
-3. Tap the downloaded file on your Android device to install!
+3. Tap the file on your Android device to install!
 
-### 🌐 Web / Progressive Web App (PWA)
-1. Open YouDO in Chrome or Safari on any desktop or mobile browser.
-2. Select **"Add to Home Screen"** or click the **Install App** button in your browser address bar.
+### 🌐 Web Application (PWA)
+1. Open YouDO on any desktop or mobile browser.
+2. Select **"Add to Home Screen"** to install as a standalone PWA.
 
 ---
 
 ## 🔥 Key Features
 
-- **🎯 6-Tier Syllabus Blueprint Tree**: Structure your entire exam syllabus into granular, non-intimidating tiers (`Goal` &rarr; `Phase` &rarr; `Section` &rarr; `Task` &rarr; `Sub-task` &rarr; `Leaf Task`).
-- **⚡ Step-Slice Multi-Tap Progress**: Track step-by-step topic mastery with progressive multi-tap completion (`1. Lecture Watched` &rarr; `2. PYQs Practiced` &rarr; `3. Formula Revision`).
-- **🔄 Synced Daily Dispatch**: Drill into any subject module, select pending topics, and dispatch them straight to **Today's Execution**. Daily progress updates your master syllabus tree in real-time.
-- **⚠️ Loss-Aversion Backlog Tab**: Overdue tasks automatically shift into a dedicated **Backlog** section with date-wise grouping and 1-tap re-scheduling.
-- **📅 Interactive Calendar & Timeline**: View target date assignments and jump directly to exact syllabus topics with glowing pulse navigation.
-- **🛡️ 100% Offline & Private**: Operates 100% locally on your device. Zero servers, zero tracking, and full JSON data Export/Import backup.
-- **📱 Native Android & PWA**: Installable as a native PWA on any device, or compiled as a standalone Android APK via Capacitor.
+- **🎯 6-Tier Syllabus Blueprint Tree**: Break massive exam syllabi into granular, non-intimidating tiers (`Goal` &rarr; `Phase` &rarr; `Section` &rarr; `Task` &rarr; `Sub-task` &rarr; `Leaf Task`).
+- **⚡ Step-Slice Scheduling**: Select specific micro-tasks or chapter step slices from any goal node and dispatch them directly to Today's execution list.
+- **📋 Backlog & Bidirectional Sync**: Overdue tasks land in Backlog. Starting a Backlog session moves the task to Today while preserving its original tag, and progress syncs back to the Goal Blueprint automatically.
+- **⏱️ Focus Sessions & Pause Timestamp Logs**: Track net focus time vs total duration with full pause timestamp logs e.g. `(6:30 PM - 7:10 PM) 40m`.
+- **🌙 Ambient Focus Mode**: Screen-on distraction-free desk display with safe-area insets for camera notches and status bar compatibility.
+- **📅 Calendar View & xⁿ Superscript Notation**: Overview monthly study plans. Dates display in $x^n$ format ($x$ = date, $n$ = planned tasks, color-coded by completion).
+- **📊 Daily Efficiency Analytics**: Calculate Net Focus Time (NFT) vs Total Duration with Daily Focus Efficiency % $(NFT \div Total Duration) \times 100$.
+- **💾 Web Share & Local JSON Backup**: Export/Import your study blueprints with native Web Share API prompts or browser downloads.
+- **📖 In-App Aspirant Execution Guide**: Comprehensive 6-step user onboarding and workflow guide built right into Settings.
 
 ---
 
 ## 💻 Tech Stack
 
-- **Core**: React 18, TypeScript, Vite
-- **Mobile Framework**: Capacitor 6
-- **Styling**: Vanilla CSS, Tailwind CSS, Executive Frosted Glassmorphism
+- **Core Framework**: React 18, TypeScript, Vite
+- **Mobile Platform**: Capacitor 8 (Android Platform Integration)
+- **Styling**: Executive Dark Glassmorphism, Vanilla CSS, Tailwind CSS
 - **Icons**: Lucide React
-- **PWA & Offline**: Vite PWA & Workbox Service Worker Caching
-
----
-
-## 🛠️ Developer Setup
-
-For developers wanting to clone and build locally:
-
-```bash
-# 1. Clone repository
-git clone https://github.com/mattedhairr/YouDO.git
-
-# 2. Install dependencies
-npm install
-
-# 3. Run development server
-npm run dev
-```
+- **CI/CD**: GitHub Actions Automated Android APK Build Workflow
 
 ---
 
