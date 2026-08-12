@@ -986,7 +986,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
 
   const heartbeatSession = useCallback(() => {
-    setActiveSession((prev) => prev ? { ...prev, lastHeartbeat: Date.now() } : null);
+    setActiveSession((prev) => {
+      if (!prev) return null;
+      const now = Date.now();
+
+      // Auto-pause safeguard if continuous focus exceeds 4 hours (14,400,000 ms)
+      if (!prev.isPaused) {
+        const currentRunMs = now - prev.startTime - prev.pausedDuration;
+        if (currentRunMs >= 14_400_000) {
+          return {
+            ...prev,
+            isPaused: true,
+            pauseStart: now,
+            lastHeartbeat: now,
+            pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
+          };
+        }
+      }
+
+      return { ...prev, lastHeartbeat: now };
+    });
   }, [setActiveSession]);
 
   const completeSessionSteps = useCallback(
