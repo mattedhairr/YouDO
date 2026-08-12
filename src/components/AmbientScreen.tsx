@@ -118,7 +118,7 @@ export function AmbientScreen({
         {origin && (
           <button
             onClick={handleGoToGoal}
-            className={`mb-6 w-full max-w-sm mx-auto flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-300 bg-white/5 border border-white/10 px-3 py-2 rounded-xl backdrop-blur-md transition-all active:scale-95 hover:bg-white/10 hover:border-violet-500/40 group ${!onJumpToGoal ? 'pointer-events-none' : ''}`}
+            className={`mb-6 w-full max-w-sm mx-auto flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-300 bg-white/5 border border-white/10 px-3 py-2 rounded-xl transition-all active:scale-95 hover:bg-white/10 hover:border-violet-500/40 group ${!onJumpToGoal ? 'pointer-events-none' : ''}`}
           >
             <Link2 size={11} className="shrink-0 text-violet-400" />
             <span className="break-words text-center">{origin}</span>

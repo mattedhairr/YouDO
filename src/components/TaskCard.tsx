@@ -113,10 +113,10 @@ export default function TaskCard({
 
   return (
     <>
-      {/* Expanded Blur Backdrop */}
+      {/* Expanded Dimmed Overlay Backdrop */}
       {expanded && (
         <div
-          className="fixed inset-0 z-30 bg-black/20 dark:bg-black/40 backdrop-blur-[3px] transition-all animate-fade-in"
+          className="fixed inset-0 z-30 bg-black/35 dark:bg-black/60 transition-opacity animate-fade-in"
           onClick={() => setExpanded(false)}
         />
       )}
