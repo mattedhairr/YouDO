@@ -144,7 +144,8 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                   e.preventDefault();
                   setDayStatsModalDate(dateStr);
                 }}
-                className={`relative aspect-square rounded-xl flex items-center justify-center transition-all text-[13px] font-medium ${
+                style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+                className={`relative aspect-square rounded-xl flex items-center justify-center transition-all text-[13px] font-medium select-none touch-manipulation ${
                   isSelected
                     ? 'bg-violet-600 text-white font-bold shadow-lg shadow-violet-600/30 scale-105 z-10'
                     : isToday

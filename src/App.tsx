@@ -664,7 +664,7 @@ function AppInner() {
                               onPauseSession={pauseSession}
                               onResumeSession={resumeSession}
                               onStopSession={() => setStopDialogTask(t)}
-                              onViewStats={(taskToView) => setStatsTask(taskToView)}
+                              onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
                               onOpenAmbient={() => setShowAmbient(true)}
                             />
                           </div>
@@ -751,6 +751,15 @@ function AppInner() {
                               dark={dark}
                               onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                               onOpenDescription={openDescriptionModal}
+                              onStartSession={(id) => {
+                                startSession(id);
+                                startTransition(() => setTodaySubTab('today'));
+                              }}
+                              onPauseSession={pauseSession}
+                              onResumeSession={resumeSession}
+                              onStopSession={() => setStopDialogTask(t)}
+                              onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
+                              onOpenAmbient={() => setShowAmbient(true)}
                               backlogAction={
                                 <button
                                   onClick={(e) => {

@@ -27,13 +27,30 @@ export function AmbientScreen({
 
   useEffect(() => {
     // Hide status bar & keep screen awake in ambient mode
-    StatusBar.hide().catch(() => {});
-    KeepAwake.keepOn().catch(() => {});
+    try {
+      StatusBar.hide().catch(() => {});
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      KeepAwake.keepAwake().catch(() => {});
+    } catch {
+      /* ignore */
+    }
 
     return () => {
       // Restore when leaving ambient mode
-      StatusBar.show().catch(() => {});
-      KeepAwake.allowSleep().catch(() => {});
+      try {
+        StatusBar.show().catch(() => {});
+      } catch {
+        /* ignore */
+      }
+      try {
+        KeepAwake.allowSleep().catch(() => {});
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 
