@@ -1147,34 +1147,84 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(jsonData);
         if (!parsed || typeof parsed !== 'object') return false;
 
-        // Validate tasks: require id (string), title (string), steps (array)
-        const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-        const importedTasks: Task[] = rawTasks.filter(
-          (t: unknown): t is Task =>
-            typeof t === 'object' && t !== null &&
-            typeof (t as Task).id === 'string' && (t as Task).id.length > 0 &&
-            typeof (t as Task).title === 'string' && (t as Task).title.length > 0 &&
-            Array.isArray((t as Task).steps) &&
-            typeof (t as Task).progress === 'number' &&
-            typeof (t as Task).createdAt === 'number',
-        );
+        // Parse & normalize raw tasks
+        const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : (Array.isArray(parsed.t) ? parsed.t : []);
+        const importedTasks: Task[] = [];
+        for (const t of rawTasks) {
+          if (!t || typeof t !== 'object') continue;
+          const id = String(t.id || t.i || uid('task'));
+          const title = String(t.title || t.t || '').trim();
+          if (!title) continue;
 
-        // Validate goal nodes: require id (string), title (string), kind (string), children (array)
-        const rawGoals = Array.isArray(parsed.goals) ? parsed.goals : [];
+          let createdAt = Date.now();
+          if (typeof t.createdAt === 'number') createdAt = t.createdAt;
+          else if (typeof t.createdAt === 'string') createdAt = new Date(t.createdAt).getTime() || Date.now();
+
+          importedTasks.push({
+            id,
+            title,
+            description: String(t.description || ''),
+            priority: (t.priority === 'high' || t.priority === 'low') ? t.priority : 'medium',
+            targetDate: t.targetDate ? String(t.targetDate) : (t.d ? String(t.d) : null),
+            deadline: t.deadline ? String(t.deadline) : null,
+            steps: Array.isArray(t.steps) ? t.steps.map(String) : (Array.isArray(t.s) ? t.s.map(String) : []),
+            progress: typeof t.progress === 'number' ? t.progress : (typeof t.p === 'number' ? t.p : 0),
+            createdAt,
+            order: typeof t.order === 'number' ? t.order : Date.now(),
+            goalNodeId: t.goalNodeId ? String(t.goalNodeId) : (t.g ? String(t.g) : undefined),
+            stepSlice: Array.isArray(t.stepSlice) ? t.stepSlice : undefined,
+            originalTargetDate: t.originalTargetDate ? String(t.originalTargetDate) : undefined,
+          });
+        }
+
+        // Parse & normalize raw goals
+        const rawGoals = Array.isArray(parsed.goals) ? parsed.goals : (Array.isArray(parsed.g) ? parsed.g : []);
         const validKinds = new Set(['goal', 'phase', 'section', 'task', 'sub', 'leaf']);
-        const importedGoals: GoalNode[] = rawGoals.filter(
-          (g: unknown): g is GoalNode =>
-            typeof g === 'object' && g !== null &&
-            typeof (g as GoalNode).id === 'string' && (g as GoalNode).id.length > 0 &&
-            typeof (g as GoalNode).title === 'string' && (g as GoalNode).title.length > 0 &&
-            validKinds.has((g as GoalNode).kind) &&
-            Array.isArray((g as GoalNode).children) &&
-            typeof (g as GoalNode).createdAt === 'number',
-        );
+        
+        function normalizeGoal(g: any): GoalNode | null {
+          if (!g || typeof g !== 'object') return null;
+          const id = String(g.id || g.i || uid('n'));
+          const title = String(g.title || g.t || '').trim();
+          if (!title) return null;
+          const kind = validKinds.has(g.kind || g.k) ? (g.kind || g.k) : 'goal';
+          const children: GoalNode[] = [];
+          const rawChildren = Array.isArray(g.children) ? g.children : (Array.isArray(g.c) ? g.c : []);
+          for (const c of rawChildren) {
+            const norm = normalizeGoal(c);
+            if (norm) children.push(norm);
+          }
 
-        // Require at least one valid tasks or goals entry to treat as a real backup
-        if (rawTasks.length > 0 && importedTasks.length === 0) return false;
-        if (rawGoals.length > 0 && importedGoals.length === 0) return false;
+          let createdAt = Date.now();
+          if (typeof g.createdAt === 'number') createdAt = g.createdAt;
+          else if (typeof g.createdAt === 'string') createdAt = new Date(g.createdAt).getTime() || Date.now();
+
+          return {
+            id,
+            title,
+            kind,
+            description: g.description ? String(g.description) : undefined,
+            startDate: g.startDate ? String(g.startDate) : undefined,
+            endDate: g.endDate ? String(g.endDate) : undefined,
+            children,
+            steps: Array.isArray(g.steps) ? g.steps.map(String) : (Array.isArray(g.s) ? g.s.map(String) : undefined),
+            stepDone: Array.isArray(g.stepDone) ? g.stepDone.map(Boolean) : undefined,
+            completed: Boolean(g.completed),
+            todayTaskId: g.todayTaskId ? String(g.todayTaskId) : undefined,
+            pinned: Boolean(g.pinned),
+            createdAt,
+          };
+        }
+
+        const importedGoals: GoalNode[] = [];
+        for (const g of rawGoals) {
+          const norm = normalizeGoal(g);
+          if (norm) importedGoals.push(norm);
+        }
+
+        // Restore session history if available
+        if (parsed.sessionHistory && typeof parsed.sessionHistory === 'object') {
+          setSessionHistory(parsed.sessionHistory);
+        }
 
         // Run sanitize & repair pass on imported data (duplicate IDs, stale pointers)
         const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(importedGoals, importedTasks);
@@ -1183,11 +1233,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setGoals(cleanedGoals);
         clearRollupCache();
         return true;
-      } catch {
+      } catch (err) {
+        console.error('Import failed:', err);
         return false;
       }
     },
-    [setTasks, setGoals],
+    [setTasks, setGoals, setSessionHistory],
   );
 
   const { user, updateCloudBackup, fetchCloudBackup } = useAuth();

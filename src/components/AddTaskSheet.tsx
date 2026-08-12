@@ -34,12 +34,12 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
       setTitle('');
       setDescription('');
       setPriority('medium');
-      setTargetDate(initialDate ?? '');
+      setTargetDate(initialDate ?? todayISO());
       setDeadline('');
       setSteps(['']);
       setTimeout(() => titleRef.current?.focus(), 150);
     }
-  }, [open]);
+  }, [open, initialDate]);
 
   if (!open) return null;
 
