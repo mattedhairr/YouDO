@@ -144,25 +144,18 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
 
   const children = current ? current.children : goals;
 
-  // Auto-scroll & center target node:
-  // 1. If explicit highlightNodeId is active (jumping from Today or Calendar), scroll to it.
-  // 2. Otherwise, auto-scroll to the FIRST UNSCHEDULED child task (!child.todayTaskId && !child.completed) so the user never has to scroll past scheduled tasks.
+  // Auto-scroll & center target node ONCE when explicitly jumped to via highlightNodeId
+  const scrolledHighlightRef = useState<{ id: string | null }>({ id: null })[0];
+
   useEffect(() => {
-    let targetId = highlightNodeId;
+    // Only scroll if explicit highlightNodeId is passed AND we haven't already scrolled to it
+    if (!highlightNodeId || scrolledHighlightRef.id === highlightNodeId) return;
 
-    if (!targetId && children.length > 0) {
-      const unscheduledChild = children.find((c) => !c.todayTaskId && !c.completed);
-      if (unscheduledChild) {
-        targetId = unscheduledChild.id;
-      }
-    }
-
-    if (!targetId) return;
-
+    scrolledHighlightRef.id = highlightNodeId;
     let attempts = 0;
     const interval = setInterval(() => {
       attempts++;
-      const el = document.getElementById(`goal-node-${targetId}`);
+      const el = document.getElementById(`goal-node-${highlightNodeId}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         clearInterval(interval);
@@ -172,7 +165,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
     }, 40);
 
     return () => clearInterval(interval);
-  }, [highlightNodeId, pathIds, children]);
+  }, [highlightNodeId, scrolledHighlightRef]);
 
 
   const toggleSelect = (id: string) =>

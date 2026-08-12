@@ -149,7 +149,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
                   required={mode === 'signup'}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Jatin Parmar"
+                  placeholder="Aspirant's Name"
                   className="w-full bg-[#1D1930] border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition font-medium"
                 />
               </div>
