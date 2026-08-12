@@ -36,21 +36,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
   const [selectedDate, setSelectedDate] = useState<string | null>(localISODate(new Date()));
   const [dayStatsModalDate, setDayStatsModalDate] = useState<string | null>(null);
 
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-
-  const handleTouchStart = (dateStr: string) => {
-    longPressTimer.current = setTimeout(() => {
-      setDayStatsModalDate(dateStr);
-    }, 600);
-  };
-
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
   const getOriginPath = (goalNodeId: string | undefined): string | null => {
     if (!goalNodeId) return null;
     for (const root of goals) {
@@ -136,16 +121,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               <button
                 key={i}
                 onClick={() => setSelectedDate(dateStr)}
-                onMouseDown={() => handleTouchStart(dateStr)}
-                onMouseUp={handleTouchEnd}
-                onTouchStart={() => handleTouchStart(dateStr)}
-                onTouchEnd={handleTouchEnd}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setDayStatsModalDate(dateStr);
-                }}
-                style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
-                className={`relative aspect-square rounded-xl flex items-center justify-center transition-all text-[13px] font-medium select-none touch-manipulation ${
+                className={`relative aspect-square rounded-xl flex items-center justify-center transition-all text-[13px] font-medium ${
                   isSelected
                     ? 'bg-violet-600 text-white font-bold shadow-lg shadow-violet-600/30 scale-105 z-10'
                     : isToday
