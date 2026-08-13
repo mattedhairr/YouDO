@@ -164,7 +164,7 @@ export default function TaskCard({
             {/* Session Timestamp */}
             {activeSession && (
               <div className="text-[10.5px] font-mono text-amber-500/80 font-bold tracking-tight">
-                ({new Date(activeSession.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ......)
+                ({new Date(activeSession.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ∞)
               </div>
             )}
           </div>

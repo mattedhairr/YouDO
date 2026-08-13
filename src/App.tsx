@@ -430,7 +430,7 @@ function AppInner() {
     const history = sessionHistory[taskId];
     if (!history || history.length === 0) return undefined;
     const last = history[history.length - 1];
-    return `${last.wallClockStart} - ${last.wallClockEnd || 'Ongoing'}`;
+    return `${last.wallClockStart} - ${last.wallClockEnd || '∞'}`;
   };
 
   const doReorder = () => {
