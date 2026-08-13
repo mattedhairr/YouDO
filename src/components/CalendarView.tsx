@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X } from 'lucide-react';
 import type { Task } from '../types';
-import { isTaskComplete, pathTitles, useStore } from '../store';
+import { isTaskComplete, pathTitles, useStore, isBacklogTask } from '../store';
 
 interface Props {
   tasks: Task[];
@@ -48,9 +48,13 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
 
   const tasksByDate = useMemo(() => {
     const map: Record<string, Task[]> = {};
+    const add = (d: string, t: Task) => {
+      if (!map[d]) map[d] = [];
+      if (!map[d].some(x => x.id === t.id)) map[d].push(t);
+    };
     for (const t of tasks) {
-      if (!t.targetDate) continue;
-      (map[t.targetDate] ??= []).push(t);
+      if (t.targetDate) add(t.targetDate, t);
+      t.pastFailedNativeDates?.forEach(d => add(d, t));
     }
     return map;
   }, [tasks]);
@@ -88,12 +92,45 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
     return dayStatsModalDate ? (tasksByDate[dayStatsModalDate] ?? []) : [];
   }, [dayStatsModalDate, tasksByDate]);
 
-  const modalScheduled = modalDateTasks.filter(t => !t.originalTargetDate).length;
-  const modalBacklog = modalDateTasks.filter(t => !!t.originalTargetDate).length;
+  const hasSessionProcess = (tId: string, date: string) => {
+    return sessionHistory[tId]?.some(s => localISODate(new Date(s.startTime)) === date) ?? false;
+  };
 
+  // Group 1: Task Execution (Native)
+  const nativeTasks = modalDateTasks.filter(t => 
+    (!t.originalTargetDate && t.targetDate === dayStatsModalDate!) || 
+    t.pastFailedNativeDates?.includes(dayStatsModalDate!)
+  );
+  
+  // Filter out manual completions from stats calculation
+  const processNativeTasks = nativeTasks.filter(t => !isTaskComplete(t) || hasSessionProcess(t.id, dayStatsModalDate!));
+  
+  const nativeScheduledCount = processNativeTasks.length;
+  const nativeCompletedCount = processNativeTasks.filter(t => isTaskComplete(t) && t.targetDate === dayStatsModalDate!).length;
+  const nativeFailedCount = processNativeTasks.filter(t => t.pastFailedNativeDates?.includes(dayStatsModalDate!) || (t.targetDate === dayStatsModalDate! && !isTaskComplete(t) && dayStatsModalDate! < todayStr)).length;
+  
+  const taskEfficiency = nativeScheduledCount > 0 ? Math.round((nativeCompletedCount / nativeScheduledCount) * 100) : 0;
+
+  // Group 2: Focus Quality
   const dayTotalNFT = useMemo(() => modalDateSessions.reduce((acc, s) => acc + s.netFocusMs, 0), [modalDateSessions]);
   const dayTotalWCD = useMemo(() => modalDateSessions.reduce((acc, s) => acc + (s.endTime - s.startTime), 0), [modalDateSessions]);
-  const dayEfficiency = dayTotalWCD > 0 ? Math.min(100, Math.round((dayTotalNFT / dayTotalWCD) * 100)) : 0;
+  const focusEfficiency = dayTotalWCD > 0 ? Math.min(100, Math.round((dayTotalNFT / dayTotalWCD) * 100)) : 0;
+
+  // Group 3: Momentum
+  const globalBacklogsCount = tasks.filter(isBacklogTask).length;
+  const backlogsCleared = modalDateTasks.filter(t => !!t.originalTargetDate && t.targetDate === dayStatsModalDate! && isTaskComplete(t) && hasSessionProcess(t.id, dayStatsModalDate!)).length;
+  const totalRelevantBacklogs = globalBacklogsCount + backlogsCleared;
+
+  let momentumStr = "";
+  if (globalBacklogsCount === 0 && backlogsCleared === 0) {
+    momentumStr = "Keeping the slate clean.";
+  } else if (globalBacklogsCount === 0 && backlogsCleared > 0) {
+    momentumStr = "Incredible. All backlogs crushed.";
+  } else if (backlogsCleared > 0) {
+    momentumStr = "Solid work catching up.";
+  } else {
+    momentumStr = "Backlogs are piling up. Time to focus.";
+  }
 
   return (
     <div className="fade-in space-y-4">
@@ -204,6 +241,13 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               const complete = isTaskComplete(t);
               const hasSteps = t.steps.length > 0;
               const originPath = getOriginPath(t.goalNodeId);
+              
+              const isNativeToSelected = !t.originalTargetDate && t.targetDate === selectedDate!;
+              const hasFailedNativelyHere = t.pastFailedNativeDates?.includes(selectedDate!) || (isNativeToSelected && !complete && selectedDate! < todayStr);
+              const isBacklogCompletedHere = !!t.originalTargetDate && t.targetDate === selectedDate! && complete;
+              
+              const isManualCompletion = complete && t.targetDate === selectedDate! && (!sessionHistory[t.id] || sessionHistory[t.id].length === 0);
+
               return (
                 <div
                   key={t.id}
@@ -220,9 +264,19 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                       <span className={`text-[13px] font-bold ${complete ? 'line-through text-slate-400' : 'text-slate-100'}`}>
                         {t.title}
                       </span>
-                      {complete && t.originalTargetDate && (
+                      {hasFailedNativelyHere && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                          FAILED
+                        </span>
+                      )}
+                      {isBacklogCompletedHere && (
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                          Backlog
+                          BACKLOG
+                        </span>
+                      )}
+                      {isManualCompletion && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                          MANUAL
                         </span>
                       )}
                     </div>
@@ -312,45 +366,70 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               </button>
             </div>
 
-            {/* Metrics Cards — 2 Columns (Net Focus & Total Duration) */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-amber-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-amber-500/20 dark:border-white/5 text-center">
-                <p className="text-[9.5px] font-extrabold uppercase text-amber-600 dark:text-amber-400/80">Net Focus</p>
-                <p className="text-sm font-black text-amber-600 dark:text-amber-400 mt-0.5">{formatDuration(dayTotalNFT)}</p>
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto no-scrollbar pb-2">
+              {/* Group 1: Task Execution */}
+              <div className="bg-[#1D1930]/40 p-3 rounded-2xl border border-white/5 space-y-2.5">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Task Execution</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-slate-100 dark:bg-[#14111F] p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-slate-500">Scheduled</p>
+                    <p className="text-sm font-black text-slate-200">{nativeScheduledCount}</p>
+                  </div>
+                  <div className="bg-emerald-500/10 dark:bg-[#14111F] p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-emerald-500">Completed</p>
+                    <p className="text-sm font-black text-emerald-400">{nativeCompletedCount}</p>
+                  </div>
+                  <div className="bg-red-500/10 dark:bg-[#14111F] p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-red-500">Failed</p>
+                    <p className="text-sm font-black text-red-400">{nativeFailedCount}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-300 w-24">Task Efficiency</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${taskEfficiency}%` }} />
+                  </div>
+                  <span className="text-[10px] font-bold text-indigo-400 w-8 text-right">{taskEfficiency}%</span>
+                </div>
               </div>
-              <div className="bg-slate-100 dark:bg-[#1D1930] p-3 rounded-2xl border border-slate-200 dark:border-white/5 text-center">
-                <p className="text-[9.5px] font-extrabold uppercase text-slate-500 dark:text-slate-400">Total Duration</p>
-                <p className="text-sm font-black text-slate-800 dark:text-slate-200 mt-0.5">{formatDuration(dayTotalWCD)}</p>
-              </div>
-            </div>
 
-            {/* Single Clean Efficiency Progress Bar */}
-            <div className="bg-emerald-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-emerald-500/20 dark:border-white/5 space-y-1.5">
-              <div className="flex justify-between text-xs font-bold">
-                <span className="text-slate-700 dark:text-slate-300">Daily Efficiency (Net Focus ÷ Total Duration)</span>
-                <span className="text-emerald-600 dark:text-emerald-400">{dayEfficiency}%</span>
+              {/* Group 2: Focus Quality */}
+              <div className="bg-[#1D1930]/40 p-3 rounded-2xl border border-white/5 space-y-2.5">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Focus Quality</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-amber-500/10 dark:bg-[#14111F] p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-amber-600">Net Focus</p>
+                    <p className="text-sm font-black text-amber-500">{formatDuration(dayTotalNFT)}</p>
+                  </div>
+                  <div className="bg-slate-100 dark:bg-[#14111F] p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-slate-500">Total Duration</p>
+                    <p className="text-sm font-black text-slate-300">{formatDuration(dayTotalWCD)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-300 w-24">Focus Efficiency</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full" style={{ width: `${focusEfficiency}%` }} />
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-400 w-8 text-right">{focusEfficiency}%</span>
+                </div>
               </div>
-              <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800/80 overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
-                  style={{ width: `${dayEfficiency}%` }}
-                />
-              </div>
-            </div>
 
-            {/* Task Type Stats */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-violet-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-violet-500/20 dark:border-white/5 text-center">
-                <p className="text-[9.5px] font-extrabold uppercase text-violet-600 dark:text-violet-400/80">Scheduled Tasks</p>
-                <p className="text-sm font-black text-violet-600 dark:text-violet-400 mt-0.5">{modalScheduled}</p>
+              {/* Group 3: Momentum */}
+              <div className="bg-[#1D1930]/40 p-3 rounded-2xl border border-white/5 space-y-2">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Momentum</h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300">Backlogs Cleared</span>
+                  <span className="text-xs font-black text-rose-400">
+                    {totalRelevantBacklogs === 0 ? 'No Backlogs Remaining' : `${backlogsCleared} out of ${totalRelevantBacklogs}`}
+                  </span>
+                </div>
+                <p className="text-[10.5px] font-semibold text-slate-400 italic">
+                  {momentumStr}
+                </p>
               </div>
-              <div className="bg-rose-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-rose-500/20 dark:border-white/5 text-center">
-                <p className="text-[9.5px] font-extrabold uppercase text-rose-500 dark:text-rose-400/80">Backlog Tasks</p>
-                <p className="text-sm font-black text-rose-500 dark:text-rose-400 mt-0.5">{modalBacklog}</p>
-              </div>
-            </div>
 
-            {/* Sessions List */}
+              {/* Sessions List */}
             <div>
               <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Sessions Run ({modalDateSessions.length})</h4>
               {modalDateSessions.length === 0 ? (
@@ -381,7 +460,8 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               )}
             </div>
           </div>
-        </div>,
+        </div>
+      </div>,
         document.body
       )}
     </div>

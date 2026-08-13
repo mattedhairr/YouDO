@@ -17,6 +17,10 @@ export interface Task {
   stepSlice?: number[];
   /** date before it was moved to today from the backlog */
   originalTargetDate?: string | null;
+  /** dates this task was natively scheduled for but failed on */
+  pastFailedNativeDates?: string[];
+  /** dates this task was a backlog task but failed on */
+  pastFailedBacklogDates?: string[];
 }
 
 export type GoalKind = 'goal' | 'phase' | 'section' | 'task' | 'sub' | 'leaf';

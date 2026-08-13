@@ -968,7 +968,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === taskId && isBacklogTask(t)) {
-          return { ...t, originalTargetDate: t.targetDate, targetDate: todayISO() };
+          const isNative = !t.originalTargetDate;
+          return { 
+            ...t, 
+            originalTargetDate: t.targetDate, 
+            targetDate: todayISO(),
+            pastFailedNativeDates: isNative && t.targetDate ? [...(t.pastFailedNativeDates || []), t.targetDate] : t.pastFailedNativeDates,
+            pastFailedBacklogDates: !isNative && t.targetDate ? [...(t.pastFailedBacklogDates || []), t.targetDate] : t.pastFailedBacklogDates
+          };
         }
         return t;
       }),
