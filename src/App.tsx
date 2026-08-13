@@ -426,6 +426,13 @@ function AppInner() {
     return undefined;
   };
 
+  const getLastSessionStamp = (taskId: string): string | undefined => {
+    const history = sessionHistory[taskId];
+    if (!history || history.length === 0) return undefined;
+    const last = history[history.length - 1];
+    return `${last.wallClockStart} - ${last.wallClockEnd || 'Ongoing'}`;
+  };
+
   const doReorder = () => {
     if (!dragId || !overId || dragId === overId) {
       setDragId(null);
@@ -770,6 +777,7 @@ function AppInner() {
                               onStopSession={() => setStopDialogTask(t)}
                               onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
                               onOpenAmbient={() => setShowAmbient(true)}
+                              lastSessionTimestamp={getLastSessionStamp(t.id)}
                             />
                           </div>
                         );
@@ -866,6 +874,7 @@ function AppInner() {
                                   onStopSession={() => setStopDialogTask(t)}
                                   onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
                                   onOpenAmbient={() => setShowAmbient(true)}
+                                  lastSessionTimestamp={getLastSessionStamp(t.id)}
                                   backlogAction={
                                     <button
                                       onClick={(e) => {
@@ -1040,7 +1049,7 @@ function AppInner() {
         <AmbientScreen
           activeSession={activeSession}
           task={activeTask}
-          origin={originFor(activeTask.id)}
+          origin={originNodesFor(activeTask.id)?.map(n => n.title).join(' / ')}
           onPause={pauseSession}
           onResume={resumeSession}
           onStop={() => { setShowAmbient(false); setStopDialogTask(activeTask); }}
