@@ -362,8 +362,8 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
       )}
 
       {/* Children list */}
-      <div className="space-y-2.5">
-        {children.map((child) => {
+      <div className="bg-white/60 dark:bg-slate-800/40 rounded-3xl shadow-sm border border-slate-200/80 dark:border-white/5 overflow-hidden backdrop-blur-xl">
+        {children.map((child, index) => {
           const meta = kindMeta[child.kind];
           const Icon = meta.icon;
           // Any container node (goal, phase, section, task, sub) can be drilled into
@@ -382,6 +382,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
           const isScheduled = linkedTask && !isBacklogged;
 
           const isHighlighted = child.id === highlightNodeId;
+          const isLast = index === children.length - 1;
 
           return (
             <div
@@ -401,13 +402,15 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                 setDragId(null);
                 setOverId(null);
               }}
-              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing flex flex-col ${
+              className={`p-4 transition-all flex flex-col bg-white dark:bg-[#14111F] ${
+                !isLast ? 'border-b border-slate-100 dark:border-white/5' : ''
+              } ${
                 isHighlighted
-                  ? 'ring-4 ring-blue-500 dark:ring-blue-400 bg-blue-500/20 dark:bg-blue-900/40 scale-[1.03] shadow-xl shadow-blue-500/40 animate-pulse z-20'
+                  ? 'bg-blue-50 dark:bg-blue-900/30'
                   : isSelected
-                    ? 'ring-2 ring-blue-400 dark:ring-blue-500'
-                    : ''
-              } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01]' : ''} ${isDone && !isHighlighted ? 'opacity-70 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30' : ''}`}
+                    ? 'bg-blue-50/50 dark:bg-blue-900/20'
+                    : 'hover:bg-slate-50 dark:hover:bg-[#1A1625]'
+              } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01] z-10 rounded-xl' : ''} ${isDone && !isHighlighted ? 'opacity-70' : ''}`}
             >
               {/* Top Row: Checkbox, Title, Drill */}
               <div className="flex items-start gap-3">
@@ -449,7 +452,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               </div>
 
               {/* Meta Row */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 pl-[28px]">
+              <div className={`mt-1.5 flex flex-wrap items-center gap-2 ${isTaskKind ? 'pl-[28px]' : 'pl-[24px]'}`}>
                 {child.pinned && <Star size={11} className="fill-amber-400 text-amber-400 shrink-0" />}
                 {isScheduled && (
                   <span
@@ -493,13 +496,13 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               </div>
 
               {/* Progress Bar */}
-              <div className="mt-2.5 ml-[28px] h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+              <div className={`mt-2.5 h-1.5 rounded-full bg-slate-100 dark:bg-[#1A1625] overflow-hidden ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: isDone ? '#10b981' : meta.tint }} />
               </div>
 
               {/* Micro-step chips */}
               {isLeafLike && hasSteps && (
-                <div className="mt-2.5 ml-[28px] flex items-center gap-1.5 flex-wrap">
+                <div className={`mt-2.5 flex items-center gap-1.5 flex-wrap ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
                   {child.steps!.map((s, i) => (
                     <button
                       key={i}
@@ -517,7 +520,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               )}
 
               {/* Toolbar */}
-              <div className="mt-3 ml-[28px] pt-2.5 border-t border-slate-100/50 dark:border-slate-700/40 flex items-center justify-between gap-2">
+              <div className={`mt-3 pt-2.5 border-t border-slate-100/80 dark:border-white/5 flex items-center justify-between gap-2 ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
 
                 {/* Left: icon buttons */}
                 <div className="flex items-center gap-0.5">
