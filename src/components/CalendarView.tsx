@@ -264,19 +264,21 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     {originPath && (
                       <div
                         onClick={() => onJumpToGoal(t.goalNodeId)}
-                        className="inline-flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-white/5 rounded-lg px-2 py-0.5 leading-normal shadow-xs hover:bg-[#1F1B2C] hover:border-violet-500/20 transition-all cursor-pointer w-fit group/path"
+                        className="flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-white/5 rounded-lg px-2 py-0.5 leading-normal shadow-xs hover:bg-[#1F1B2C] hover:border-violet-500/20 transition-all cursor-pointer w-fit group/path max-w-full"
                       >
                         <Link2 size={10} className="shrink-0 text-violet-500 mr-0.5 group-hover/path:text-violet-400 transition-colors" />
-                        {originPath.split('/').map((part, i, arr) => (
-                          <span key={i} className="inline-flex items-center gap-1.5">
-                            <span className="text-violet-300 group-hover/path:text-violet-200 transition-colors">
-                              {part.trim()}
+                        <div className="flex items-center gap-1.5 truncate">
+                          {originPath.split('/').slice(0, 2).map((part, i, arr) => (
+                            <span key={i} className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-violet-300 group-hover/path:text-violet-200 transition-colors truncate">
+                                {part.trim()}
+                              </span>
+                              {i < arr.length - 1 && (
+                                <span className="text-white/20 shrink-0">•</span>
+                              )}
                             </span>
-                            {i < arr.length - 1 && (
-                              <span className="text-white/20">•</span>
-                            )}
-                          </span>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
 
