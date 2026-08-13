@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2 } from 'lucide-react';
-import type { Priority, Task, ActiveSession } from '../types';
+import type { Priority, Task, ActiveSession, TaskSession } from '../types';
 import { isTaskComplete } from '../store';
 
 interface Props {
@@ -29,7 +29,7 @@ interface Props {
   onStopSession?: () => void;
   onViewStats?: (task: Task) => void;
   onOpenAmbient?: () => void;
-  lastSessionTimestamp?: string;
+  taskSessions?: TaskSession[];
 }
 
 const priorityStyles: Record<Priority, { dot: string; bar: string; glow: string }> = {
@@ -57,7 +57,7 @@ export default function TaskCard({
   task, activeSession, onAdvance, onUndo: _onUndo, onDelete, onDuplicate,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove, dark: _dark = true,
   onCardClick, backlogAction: _backlogAction, onJumpToGoal, onOpenDescription,
-  onStartSession, onPauseSession, onResumeSession, onStopSession, onViewStats, onOpenAmbient, lastSessionTimestamp
+  onStartSession, onPauseSession, onResumeSession, onStopSession, onViewStats, onOpenAmbient, taskSessions
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -284,12 +284,7 @@ export default function TaskCard({
                 </span>
               )}
               
-              {/* Completed Session Timestamp */}
-              {!isSessionTask && lastSessionTimestamp && (
-                <span className="inline-flex items-center gap-1 font-mono font-bold text-amber-500/60 tracking-tight bg-amber-500/5 px-1.5 py-0.5 rounded-md">
-                  ({lastSessionTimestamp})
-                </span>
-              )}
+              {/* Completed Session Timestamp removed from here as per user request */}
 
               <span className="inline-flex items-center gap-1">
                 <Calendar size={11} className="text-slate-600" /> {fmtDate(task.targetDate)}
@@ -338,6 +333,13 @@ export default function TaskCard({
                 <div className="flex flex-col gap-2">
                   {task.steps.map((s, i) => {
                     const done = i < task.progress;
+                    let stamp = null;
+                    if (done && taskSessions) {
+                      const sess = taskSessions.find(sess => sess.completedStepIndices?.includes(i));
+                      if (sess) {
+                        stamp = `(${sess.wallClockStart} - ${sess.wallClockEnd || '∞'})`;
+                      }
+                    }
                     return (
                       <div key={i} className="flex items-start gap-2.5 group/step">
                         <span className={`
@@ -348,11 +350,18 @@ export default function TaskCard({
                         `}>
                            {done && <CheckCircle2 className="w-3 h-3 text-white" strokeWidth={3} />}
                         </span>
-                        <span className={`text-[12px] leading-[1.4] break-words ${
-                          done ? 'line-through text-[#5F5980]' : 'text-[#EEE9FC]'
-                        }`}>
-                          {s}
-                        </span>
+                        <div className="flex-1 flex items-start justify-between gap-3 min-w-0">
+                          <span className={`text-[12px] leading-[1.4] break-words ${
+                            done ? 'line-through text-[#5F5980]' : 'text-[#EEE9FC]'
+                          }`}>
+                            {s}
+                          </span>
+                          {stamp && (
+                            <span className="shrink-0 text-[10px] font-mono text-amber-500/50 font-bold whitespace-nowrap bg-amber-500/5 px-1.5 py-0.5 rounded-md self-start mt-0.5">
+                              {stamp}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

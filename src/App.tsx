@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock, Cloud, Trash2 } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
-import type { GoalKind, GoalNode, Task, View } from './types';
+import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore } from './store';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -426,11 +426,8 @@ function AppInner() {
     return undefined;
   };
 
-  const getLastSessionStamp = (taskId: string): string | undefined => {
-    const history = sessionHistory[taskId];
-    if (!history || history.length === 0) return undefined;
-    const last = history[history.length - 1];
-    return `${last.wallClockStart} - ${last.wallClockEnd || '∞'}`;
+  const getTaskSessions = (taskId: string): TaskSession[] => {
+    return sessionHistory[taskId] || [];
   };
 
   const doReorder = () => {
@@ -777,7 +774,7 @@ function AppInner() {
                               onStopSession={() => setStopDialogTask(t)}
                               onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
                               onOpenAmbient={() => setShowAmbient(true)}
-                              lastSessionTimestamp={getLastSessionStamp(t.id)}
+                              taskSessions={getTaskSessions(t.id)}
                             />
                           </div>
                         );
@@ -874,7 +871,7 @@ function AppInner() {
                                   onStopSession={() => setStopDialogTask(t)}
                                   onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
                                   onOpenAmbient={() => setShowAmbient(true)}
-                                  lastSessionTimestamp={getLastSessionStamp(t.id)}
+                                  taskSessions={getTaskSessions(t.id)}
                                   backlogAction={
                                     <button
                                       onClick={(e) => {
