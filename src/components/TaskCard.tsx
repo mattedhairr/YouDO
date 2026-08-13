@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2 } from 'lucide-react';
 import type { Priority, Task, ActiveSession, TaskSession } from '../types';
 import { isTaskComplete } from '../store';
@@ -61,6 +61,7 @@ export default function TaskCard({
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const isSessionTask = activeSession?.taskId === task.id;
   const isPaused = isSessionTask && activeSession?.isPaused;
@@ -102,6 +103,9 @@ export default function TaskCard({
   useEffect(() => {
     if (expanded) {
       document.body.classList.add('task-card-expanded');
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
     } else {
       document.body.classList.remove('task-card-expanded');
     }
@@ -132,6 +136,7 @@ export default function TaskCard({
       )}
 
       <div
+        ref={cardRef}
         className={`
           overflow-hidden transition-all p-0 relative rounded-2xl bg-[#14111F] border border-white/5
           ${expanded ? 'z-40 ring-1 ring-violet-500/50 shadow-2xl' : 'shadow-sm'}
