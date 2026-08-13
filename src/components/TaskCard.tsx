@@ -15,7 +15,7 @@ interface Props {
   onDragEnd: () => void;
   isDragging: boolean;
   dragOver: boolean;
-  origin?: string;
+  originNodes?: { title: string; kind: string }[];
   softRemove?: boolean;
   dark?: boolean;
   onCardClick?: () => void;
@@ -54,7 +54,7 @@ function fmtCountdown(deadline: string | null): string {
 
 export default function TaskCard({
   task, activeSession, onAdvance, onUndo: _onUndo, onDelete, onDuplicate,
-  onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, origin, softRemove, dark: _dark = true,
+  onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove, dark: _dark = true,
   onCardClick, backlogAction: _backlogAction, onJumpToGoal, onOpenDescription,
   onStartSession, onPauseSession, onResumeSession, onStopSession, onViewStats, onOpenAmbient,
 }: Props) {
@@ -97,6 +97,7 @@ export default function TaskCard({
   const tickerText = hours > 0
     ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  
   useEffect(() => {
     if (expanded) {
       document.body.classList.add('task-card-expanded');
@@ -115,7 +116,6 @@ export default function TaskCard({
     if (onCardClick) {
       onCardClick();
     } else {
-      // Expand action menu on tap
       setExpanded(true);
     }
   };
@@ -125,19 +125,19 @@ export default function TaskCard({
       {/* Expanded Dimmed Overlay Backdrop */}
       {expanded && (
         <div
-          className="fixed inset-0 z-30 bg-black/35 dark:bg-black/60 transition-opacity animate-fade-in"
+          className="fixed inset-0 z-30 bg-black/50 dark:bg-black/60 backdrop-blur-[2px] transition-opacity animate-fade-in"
           onClick={() => setExpanded(false)}
         />
       )}
 
       <div
         className={`
-          card overflow-hidden transition-all p-0 relative
-          ${expanded ? 'z-40 ring-2 ring-violet-500/80 shadow-2xl scale-[1.01]' : ''}
+          overflow-hidden transition-all p-0 relative rounded-2xl bg-[#14111F] border border-white/5
+          ${expanded ? 'z-40 ring-1 ring-violet-500/50 shadow-2xl scale-[1.01]' : 'shadow-sm'}
           ${isDragging ? 'dragging-card' : ''}
-          ${dragOver  ? 'drag-over-card' : ''}
+          ${dragOver  ? 'drag-over-card ring-2 ring-emerald-500' : ''}
           ${isSessionTask ? 'card-session-active' : ''}
-          ${complete  ? 'opacity-75 ring-1 ring-emerald-500/30 animate-glow-pulse' : ''}
+          ${complete  ? 'opacity-60 ring-1 ring-emerald-500/20' : ''}
         `}
         onClick={handleCardClick}
         draggable
@@ -187,152 +187,168 @@ export default function TaskCard({
         )}
 
         {/* ── Main Card Body ── */}
-        <div className="flex items-stretch">
-          {/* LEFT: Grip + Main content */}
-          <div className="flex items-start gap-2.5 px-3.5 pt-3.5 pb-3 flex-1 min-w-0">
-            {/* Drag Handle */}
-            <div
-              className="mt-0.5 cursor-grab active:cursor-grabbing shrink-0 text-slate-500 hover:text-slate-300 transition"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical size={16} />
-            </div>
-
-            {/* Content Column */}
-            <div className="flex-1 min-w-0">
-              {/* Title Row */}
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${ps.dot}`} />
-                <h3 className={`flex-1 text-[14px] font-bold leading-snug ${
-                  complete ? 'line-through text-slate-500' : 'text-slate-100'
-                }`}>
-                  {task.title}
-                </h3>
-              </div>
-
-              {/* Origin Breadcrumb OR Standalone Quick Task Badge */}
-              {origin ? (
-                <div
-                  onClick={(e) => {
-                    if (onJumpToGoal) {
-                      e.stopPropagation();
-                      onJumpToGoal();
-                    }
-                  }}
-                  className={`mt-1.5 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold bg-violet-500/10 dark:bg-violet-950/40 border border-violet-500/20 dark:border-violet-800/40 rounded-lg px-2 py-1 w-full leading-normal ${
-                    onJumpToGoal ? 'cursor-pointer hover:bg-violet-500/18 dark:hover:bg-violet-900/60 hover:border-violet-500/40 dark:hover:border-violet-600 transition-all group/path' : ''
-                  }`}
-                  title={onJumpToGoal ? 'Jump to this task in Goal Blueprint' : undefined}
-                >
-                  <Link2 size={10} className="shrink-0 text-violet-600 dark:text-violet-400 mr-0.5 group-hover/path:scale-110 transition-transform" />
-                  {origin.split(' > ').map((seg, i, arr) => (
-                    <span key={i} className="inline-flex items-center gap-1">
-                      <span className={i === arr.length - 1
-                        ? 'font-extrabold text-violet-700 dark:text-violet-300 group-hover/path:underline'
-                        : 'font-semibold text-slate-600 dark:text-slate-400 group-hover/path:text-slate-900 dark:group-hover/path:text-slate-200'
-                      }>{seg}</span>
-                      {i < arr.length - 1 && <span className="text-violet-400/60 dark:text-slate-600">/</span>}
-                    </span>
-                  ))}
-                </div>
-              ) : !task.goalNodeId ? (
-                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-700 dark:text-violet-300 bg-violet-500/15 border border-violet-500/30 px-2 py-0.5 rounded-md">
-                  ⚡ Quick Task
-                </div>
-              ) : null}
-
-              {/* Date / Deadline / Description Row */}
-              <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
-                {task.originalTargetDate && (
-                  <span className="inline-flex items-center gap-1 font-bold text-[10px] text-rose-400 bg-rose-500/15 border border-rose-500/25 px-2 py-0.5 rounded-md">
-                    📋 Backlog
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1">
-                  <Calendar size={11} /> {fmtDate(task.targetDate)}
-                </span>
-                {task.deadline && (
-                  <span className={`inline-flex items-center gap-1 font-semibold ${
-                    new Date(task.deadline).getTime() < Date.now() ? 'text-rose-500' : ''
-                  }`}>
-                    <Clock size={11} /> {fmtCountdown(task.deadline)}
-                  </span>
-                )}
-                {task.description && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onOpenDescription) {
-                        onOpenDescription(task.title, task.description);
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 font-medium text-slate-400 hover:text-violet-400 transition-colors"
-                    title="View full description"
-                  >
-                    <FileText size={11} className="text-violet-400 shrink-0" />
-                    <span className="max-w-[140px] sm:max-w-[200px] truncate">{task.description}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT: Micro-steps panel */}
-          {hasSteps && (
-            <div className="w-[120px] shrink-0 flex flex-col border-l border-white/10 bg-[#1D1930]/40">
-              <div className="px-3 pt-2.5 pb-2 border-b border-white/5 bg-[#1D1930]/80">
-                <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">
-                  Micro-steps
-                </div>
-                <div className="text-[12px] font-bold tabular-nums text-slate-200 mt-0.5">
-                  <span className={task.progress === task.steps.length ? 'text-emerald-400' : 'text-slate-200'}>
-                    {task.progress}
-                  </span>
-                  <span className="text-slate-500 font-normal">/{task.steps.length}</span>
-                  <span className="text-[9px] text-slate-500 font-normal ml-1">done</span>
-                </div>
-              </div>
-
-              <div className="flex-1 flex flex-col gap-1.5 px-2.5 py-2.5 overflow-y-auto no-scrollbar">
-                {task.steps.map((s, i) => {
-                  const done = i < task.progress;
-                  return (
-                    <div key={i} className="flex items-start gap-1.5">
-                      <span className={`
-                        mt-[1px] w-4 h-4 rounded-full shrink-0 flex items-center justify-center
-                        text-[8px] font-extrabold leading-none
-                        ${done
-                          ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
-                          : 'bg-white/10 text-slate-400'}
-                      `}>
-                        {done ? '✓' : i + 1}
-                      </span>
-                      <span className={`text-[10.5px] leading-snug break-words flex-1 min-w-0 ${
-                        done
-                          ? 'line-through text-slate-500'
-                          : 'text-slate-200 font-medium'
-                      }`}>
-                        {s}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ── EXPANDED ACTION GRID OVERLAY (Pure actions, no repeated info) ── */}
-        {expanded && (
+        <div className="flex items-start gap-2.5 px-3.5 pt-3.5 pb-3">
+          {/* Drag Handle */}
           <div
-            className="p-3.5 bg-[#1D1930] border-t border-white/10 space-y-2.5 animate-fade-in"
+            className="mt-1 cursor-grab active:cursor-grabbing shrink-0 text-slate-600 hover:text-slate-400 transition"
             onClick={(e) => e.stopPropagation()}
           >
+            <GripVertical size={16} />
+          </div>
+
+          {/* Content Column */}
+          <div className="flex-1 min-w-0">
+            {/* Title Row */}
+            <div className="flex items-center gap-2">
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot}`} />
+              <h3 className={`flex-1 text-[14px] font-bold leading-snug tracking-tight ${
+                complete ? 'line-through text-slate-500' : 'text-slate-100'
+              }`}>
+                {task.title}
+              </h3>
+            </div>
+
+            {/* Path / Origin Tags */}
+            {originNodes && originNodes.length > 0 ? (
+              <div className="mt-1.5 space-y-1">
+                {/* Badge Row (Goals and Phases) */}
+                {(() => {
+                  const badgeNodes = originNodes.filter(n => n.kind === 'goal' || n.kind === 'phase');
+                  if (badgeNodes.length === 0) return null;
+                  return (
+                    <div
+                      onClick={(e) => {
+                        if (onJumpToGoal) {
+                          e.stopPropagation();
+                          onJumpToGoal();
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-white/5 rounded-lg px-2 py-0.5 leading-normal ${
+                        onJumpToGoal ? 'cursor-pointer hover:bg-[#1F1B2C] hover:border-violet-500/20 transition-all group/path' : ''
+                      }`}
+                      title={onJumpToGoal ? 'Jump to this task in Goal Blueprint' : undefined}
+                    >
+                      <Link2 size={10} className="shrink-0 text-violet-500 mr-0.5 group-hover/path:text-violet-400 transition-colors" />
+                      {badgeNodes.map((n, i) => (
+                        <span key={i} className="inline-flex items-center gap-1.5">
+                          <span className="text-violet-300 group-hover/path:text-violet-200 transition-colors">
+                            {n.title}
+                          </span>
+                          {i < badgeNodes.length - 1 && (
+                            <span className="text-white/20">•</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
+                
+                {/* Subtitle Row (Sections and subtasks context) */}
+                {(() => {
+                  const ctxNodes = originNodes.filter(n => n.kind !== 'goal' && n.kind !== 'phase');
+                  if (ctxNodes.length === 0) return null;
+                  return (
+                    <div className="flex items-center flex-wrap gap-1 text-[10px] text-slate-500 font-semibold tracking-wide">
+                      {ctxNodes.map((n, i) => (
+                        <span key={i} className="inline-flex items-center gap-1">
+                          <span>{n.title}</span>
+                          {i < ctxNodes.length - 1 && <span className="text-white/10">/</span>}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : !task.goalNodeId ? (
+              <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-400 bg-[#1A1625] border border-white/5 px-2 py-0.5 rounded-lg">
+                ⚡ Quick Task
+              </div>
+            ) : null}
+
+            {/* Date / Deadline / Description Row */}
+            <div className="mt-2.5 flex items-center gap-3 text-[11px] text-slate-500 font-medium flex-wrap">
+              {task.originalTargetDate && (
+                <span className="inline-flex items-center gap-1 font-bold text-[10px] text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-lg">
+                  📋 Backlog
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1">
+                <Calendar size={11} className="text-slate-600" /> {fmtDate(task.targetDate)}
+              </span>
+              {task.deadline && (
+                <span className={`inline-flex items-center gap-1 font-semibold ${
+                  new Date(task.deadline).getTime() < Date.now() ? 'text-rose-500' : ''
+                }`}>
+                  <Clock size={11} className={new Date(task.deadline).getTime() < Date.now() ? "text-rose-500" : "text-slate-600"} /> {fmtCountdown(task.deadline)}
+                </span>
+              )}
+              {task.description && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenDescription) {
+                      onOpenDescription(task.title, task.description);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 font-medium hover:text-violet-300 transition-colors"
+                  title="View full description"
+                >
+                  <FileText size={11} className="text-violet-500/70 shrink-0" />
+                  <span className="max-w-[140px] sm:max-w-[200px] truncate">Description</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── EXPANDED ACTION GRID OVERLAY ── */}
+        {expanded && (
+          <div
+            className="p-3.5 bg-[#181525] border-t border-white/5 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Micro-steps List if available */}
+            {hasSteps && (
+              <div className="mb-4 bg-[#110E1A] rounded-xl border border-white/5 p-3">
+                <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-2.5">
+                  <span>Micro-steps</span>
+                  <span className={task.progress === task.steps.length ? 'text-emerald-400' : 'text-slate-400'}>
+                    {task.progress}/{task.steps.length} done
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {task.steps.map((s, i) => {
+                    const done = i < task.progress;
+                    return (
+                      <div key={i} className="flex items-start gap-2.5">
+                        <span className={`
+                          mt-[1px] w-4 h-4 rounded-full shrink-0 flex items-center justify-center
+                          text-[9px] font-extrabold leading-none
+                          ${done
+                            ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
+                            : 'bg-white/5 text-slate-500 border border-white/10'}
+                        `}>
+                          {done ? '✓' : i + 1}
+                        </span>
+                        <span className={`text-[12px] leading-tight break-words flex-1 min-w-0 ${
+                          done
+                            ? 'line-through text-slate-500'
+                            : 'text-slate-300 font-medium'
+                        }`}>
+                          {s}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Primary Action Button (Start / Stop Session) */}
             {isSessionTask ? (
               <button
                 onClick={() => { setExpanded(false); if (onStopSession) onStopSession(); }}
-                className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-600/25 transition"
+                className="w-full mb-2.5 py-2.5 px-4 rounded-xl bg-rose-600/90 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 border border-rose-500/50 transition-all"
               >
                 <Square className="w-4 h-4 fill-current" />
                 Stop Active Session
@@ -340,7 +356,7 @@ export default function TaskCard({
             ) : (
               <button
                 onClick={() => { setExpanded(false); if (onStartSession) onStartSession(task.id); }}
-                className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition"
+                className="w-full mb-2.5 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-extrabold text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 border border-amber-400 transition-all"
               >
                 <Play className="w-4 h-4 fill-current" />
                 Start Focus Session
@@ -351,10 +367,10 @@ export default function TaskCard({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => { setExpanded(false); if (onViewStats) onViewStats(task); }}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/5 transition"
+                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
               >
                 <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
-                Session Stats
+                Stats
               </button>
 
               <button
@@ -366,15 +382,15 @@ export default function TaskCard({
                     onAdvance(task.id);
                   }
                 }}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/5 transition"
+                className="py-2.5 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 border border-emerald-500/20 transition-colors"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                {task.goalNodeId ? 'Jump to Goal' : 'Advance Step'}
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {task.goalNodeId ? 'Jump to Goal' : 'Advance'}
               </button>
 
               <button
                 onClick={() => { setExpanded(false); onDuplicate(task.id); }}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/5 transition"
+                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Copy className="w-3.5 h-3.5 text-violet-400" />
                 Duplicate
@@ -382,7 +398,7 @@ export default function TaskCard({
 
               <button
                 onClick={() => { setExpanded(false); onDelete(task.id); }}
-                className="py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold flex items-center justify-center gap-1.5 border border-rose-500/20 transition"
+                className="py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 {softRemove ? 'Remove' : 'Delete'}
@@ -391,13 +407,15 @@ export default function TaskCard({
           </div>
         )}
 
-        {/* Full-width progress bar at bottom */}
-        <div className="h-1.5 bg-slate-800">
-          <div
-            className={`h-full progress-bar-fill ${ps.bar}`}
-            style={{ width: `${fillPct}%` }}
-          />
-        </div>
+        {/* Thin progress bar at bottom */}
+        {hasSteps && (
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-transparent">
+            <div
+              className={`h-full ${ps.bar} opacity-80`}
+              style={{ width: `${fillPct}%` }}
+            />
+          </div>
+        )}
       </div>
     </>
   );

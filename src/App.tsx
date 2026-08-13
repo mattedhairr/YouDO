@@ -416,12 +416,12 @@ function AppInner() {
     [goals, pushModalState],
   );
 
-  const originFor = (taskId: string): string | undefined => {
+  const originNodesFor = (taskId: string): { title: string; kind: GoalKind }[] | undefined => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task?.goalNodeId) return undefined;
     for (const root of goals) {
-      const path = pathTitles(root, task.goalNodeId);
-      if (path.length) return path.slice(0, -1).join(' > ') || undefined;
+      const nodes = pathNodes(root, task.goalNodeId);
+      if (nodes.length) return nodes.slice(0, -1).map(n => ({ title: n.title, kind: n.kind }));
     }
     return undefined;
   };
@@ -759,7 +759,7 @@ function AppInner() {
                               onDragEnd={doReorder}
                               isDragging={dragId === t.id}
                               dragOver={overId === t.id && dragId !== t.id}
-                              origin={originFor(t.id)}
+                              originNodes={originNodesFor(t.id)}
                               softRemove={!!t.goalNodeId}
                               dark={darkMode}
                               onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
