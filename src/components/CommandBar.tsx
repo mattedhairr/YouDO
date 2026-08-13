@@ -10,6 +10,13 @@ interface BatchMode {
   onCancel: () => void;
 }
 
+interface PasteMode {
+  title: string;
+  targetName: string;
+  onPaste: () => void;
+  onCancel: () => void;
+}
+
 interface Props {
   view: View;
   onNavigate: (v: View) => void;
@@ -19,9 +26,10 @@ interface Props {
   todayDone?: number;
   goalsCount?: number;
   batch?: BatchMode;
+  paste?: PasteMode;
 }
 
-export default function CommandBar({ view, onNavigate, onSettings, accent, todayCount = 0, todayDone = 0, goalsCount = 0, batch }: Props) {
+export default function CommandBar({ view, onNavigate, onSettings, accent, todayCount = 0, todayDone = 0, goalsCount = 0, batch, paste }: Props) {
   const remainingToday = Math.max(0, todayCount - todayDone);
 
   const tabs: { id: View; label: string; icon: typeof Check; badge?: number | string }[] = [
@@ -83,6 +91,35 @@ export default function CommandBar({ view, onNavigate, onSettings, accent, today
               title="Clear selection"
             >
               <X size={18} />
+            </button>
+          </>
+        ) : paste ? (
+          /* ── Paste mode ── */
+          <>
+            <div className="p-2 rounded-xl bg-blue-50/10 text-blue-400 shrink-0">
+              <Copy size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12.5px] font-bold text-[#EEE9FC] truncate">
+                {paste.title}
+              </div>
+              <div className="text-[10px] font-medium text-[#A09CB8] truncate">
+                Paste into {paste.targetName}
+              </div>
+            </div>
+            <button
+              onClick={paste.onCancel}
+              className="p-2 rounded-xl text-[#5F5980] hover:text-[#EEE9FC] hover:bg-white/8 transition-colors shrink-0"
+              title="Cancel paste"
+            >
+              <X size={18} />
+            </button>
+            <button
+              onClick={paste.onPaste}
+              className="px-3.5 py-2 rounded-xl text-[12px] font-bold text-white shadow-md shadow-blue-500/25 transition-all active:scale-95 shrink-0"
+              style={{ background: accent }}
+            >
+              Paste here
             </button>
           </>
         ) : (

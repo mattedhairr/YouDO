@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleDot,
-  Clipboard,
   Copy,
   FileText,
   Flag,
@@ -17,7 +16,6 @@ import {
   Star,
   Target,
   Unlink,
-  X,
   Zap,
   Clock,
 } from 'lucide-react';
@@ -83,9 +81,6 @@ interface Props {
   onCopy: (nodeId: string) => void;
   onCopyMany: (nodeIds: string[]) => void;
   onDeleteMany: (nodeIds: string[]) => void;
-  onPaste: (parentId: string | null) => void;
-  onCancelPaste: () => void;
-  clipboard: GoalNode[];
   /** Called whenever selection changes — passes selected IDs and schedulable leaf IDs */
   onSelectionChange: (selectedIds: string[], leafIds: string[]) => void;
   /** Ref App provides — GoalView stores its clearSelection fn here so App can call it */
@@ -105,7 +100,7 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf: { icon: CircleDot, tint: '#F43F5E', label: 'Leaf' },
 };
 
-export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onPaste, onCancelPaste, clipboard, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
+export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion, sessionHistory } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
@@ -523,27 +518,31 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               <div className={`mt-3 pt-2.5 border-t border-slate-100/80 dark:border-white/5 flex items-center justify-between gap-2 ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
 
                 {/* Left: icon buttons */}
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => togglePin(child.id)}
-                    className={`p-1.5 rounded-lg transition-colors ${child.pinned ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                    title={child.pinned ? 'Unpin' : 'Pin'}
+                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
+                      child.pinned
+                        ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'
+                        : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
                   >
-                    {child.pinned ? <Star size={14} className="fill-amber-400" /> : <Pin size={14} />}
+                    {child.pinned ? <Star size={15} className="fill-amber-400" /> : <Pin size={15} />}
+                    <span className="text-[11px] font-semibold">{child.pinned ? 'Unpin' : 'Pin'}</span>
                   </button>
                   <button
                     onClick={() => onEditNode(child)}
-                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    title="Edit"
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
-                    <Pencil size={14} />
+                    <Pencil size={15} />
+                    <span className="text-[11px] font-semibold">Edit</span>
                   </button>
                   <button
                     onClick={() => onCopy(child.id)}
-                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    title="Copy"
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
-                    <Copy size={14} />
+                    <Copy size={15} />
+                    <span className="text-[11px] font-semibold">Copy</span>
                   </button>
                 </div>
 
@@ -619,39 +618,6 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
       </button>
 
       {/* Floating Batch Selection Bar */}
-      {/* Floating Paste Bar */}
-      {clipboard.length > 0 && (
-        <div className="fixed bottom-20 inset-x-4 z-40 max-w-md mx-auto">
-          <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl glass-nav shadow-2xl border border-slate-200/80 dark:border-white/15">
-            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-500 shrink-0">
-              <Clipboard size={16} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate">
-                {clipboard.length === 1 ? clipboard[0].title : `${clipboard.length} copied items`}
-              </div>
-              <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">
-                Paste into {current ? current.title : 'root level'}
-              </div>
-            </div>
-            <button
-              onClick={onCancelPaste}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors shrink-0"
-              title="Cancel paste"
-            >
-              <X size={16} />
-            </button>
-            <button
-              onClick={() => onPaste(current?.id ?? null)}
-              className="px-3.5 py-2 rounded-xl text-[12px] font-bold text-white shadow-md shadow-blue-500/25 transition-all active:scale-95 shrink-0"
-              style={{ background: accent }}
-            >
-              Paste here
-            </button>
-          </div>
-        </div>
-      )}
-
       {goals.length === 0 && (
         <div className="card p-10 text-center fade-in mt-4">
           <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700/50 animate-float">

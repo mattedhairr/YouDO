@@ -931,9 +931,6 @@ function AppInner() {
                 onCopy={copyGoalNode}
                 onCopyMany={copyGoalNodes}
                 onDeleteMany={deleteGoalNodes}
-                onPaste={pasteGoalNode}
-                onCancelPaste={clearClipboard}
-                clipboard={clipboard}
                 onSelectionChange={handleSelectionChange}
                 clearSelectionRef={clearSelectionRef}
                 onNavigateToPath={navigateToGoalPath}
@@ -998,6 +995,24 @@ function AppInner() {
             onDelete: handleBatchDelete,
             onSchedule: handleBatchSchedule,
             onCancel: handleBatchCancel,
+          } : undefined}
+          paste={clipboard.length > 0 && view === 'goals' ? {
+            title: clipboard.length === 1 ? clipboard[0].title : `${clipboard.length} copied items`,
+            targetName: (() => {
+              if (goalPathIds.length === 0) return 'root level';
+              const findNode = (nodes: GoalNode[], id: string): GoalNode | null => {
+                for (const n of nodes) {
+                  if (n.id === id) return n;
+                  const found = findNode(n.children, id);
+                  if (found) return found;
+                }
+                return null;
+              };
+              const current = findNode(goals, goalPathIds[goalPathIds.length - 1]);
+              return current ? current.title : 'root level';
+            })(),
+            onPaste: () => pasteGoalNode(goalPathIds.length > 0 ? goalPathIds[goalPathIds.length - 1] : null),
+            onCancel: clearClipboard,
           } : undefined}
         />
       </div>
