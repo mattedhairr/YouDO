@@ -852,7 +852,7 @@ function AppInner() {
                                   onDragEnd={() => {}}
                                   isDragging={false}
                                   dragOver={false}
-                                  origin={originFor(t.id)}
+                                  originNodes={originNodesFor(t.id)}
                                   softRemove={!!t.goalNodeId}
                                   dark={darkMode}
                                   onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
