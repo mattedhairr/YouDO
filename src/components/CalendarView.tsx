@@ -283,38 +283,50 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     )}
 
                     {/* Title Row */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className={`text-[14.5px] font-bold leading-snug tracking-tight ${complete ? 'line-through text-slate-400' : 'text-slate-100'}`}>
-                          {t.title}
-                        </h3>
-                        {hasFailedNativelyHere && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
-                            FAILED
-                          </span>
-                        )}
-                        {isBacklogCompletedHere && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                            BACKLOG
-                          </span>
-                        )}
-                        {isManualCompletion && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-500/20 text-slate-300 border border-slate-500/30">
-                            MANUAL
-                          </span>
-                        )}
+                    <div className="flex items-start justify-between gap-3 pr-1">
+                      <div className="flex items-start gap-2 flex-1">
+                        <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${complete ? 'bg-emerald-500/30' : 'bg-amber-400'} shadow-sm`} />
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className={`text-[14.5px] font-bold leading-snug tracking-tight ${complete ? 'line-through text-slate-500' : 'text-slate-100'}`}>
+                              {t.title}
+                            </h3>
+                            {hasFailedNativelyHere && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                                FAILED
+                              </span>
+                            )}
+                            {isBacklogCompletedHere && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                BACKLOG
+                              </span>
+                            )}
+                            {isManualCompletion && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                                MANUAL
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Subtitle context (remaining path) */}
+                          {originPath && originPath.split('/').length > 2 && (
+                            <div className="text-[11.5px] font-semibold text-slate-500/80 line-clamp-1">
+                              {originPath.split('/').slice(2).map(p => p.trim()).join(' / ')}
+                            </div>
+                          )}
+
+                          {t.description && (
+                            <p className="text-[11.5px] text-slate-400/80 line-clamp-2 mt-1">
+                              {t.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <span className="text-[12px] font-bold tabular-nums text-slate-400 shrink-0 mt-0.5">
                         {t.progress}/{hasSteps ? t.steps.length : 1}
                       </span>
                     </div>
                   </div>
-
-                  {t.description && (
-                    <p className="text-[11.5px] text-slate-400/80 line-clamp-2 mb-3">
-                      {t.description}
-                    </p>
-                  )}
 
                   {/* Progress bar */}
                   <div className="mt-1 h-1.5 rounded-full bg-slate-800/80 overflow-hidden mb-2.5">
