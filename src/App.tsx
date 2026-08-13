@@ -369,12 +369,21 @@ function AppInner() {
       groups[d].push(t);
     }
     const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-    return sortedDates.map((date) => ({
-      date,
-      formattedDate: formatDDMMYYYY(date),
-      tasks: groups[date],
-    }));
-  }, [backlogTasks]);
+    return sortedDates.map((date) => {
+      const sortedGroupTasks = groups[date].sort((a, b) => {
+        if (activeSession) {
+          if (a.id === activeSession.taskId) return -1;
+          if (b.id === activeSession.taskId) return 1;
+        }
+        return a.order - b.order;
+      });
+      return {
+        date,
+        formattedDate: formatDDMMYYYY(date),
+        tasks: sortedGroupTasks,
+      };
+    });
+  }, [backlogTasks, activeSession]);
 
   const [highlightNodeId, setHighlightNodeId] = useState<string | null>(null);
 
@@ -491,7 +500,15 @@ function AppInner() {
     });
   }, [todayTasks, activeCategoryFilter, goals]);
 
-  const sortedTasks = useMemo(() => [...filteredTodayTasks].sort((a, b) => a.order - b.order), [filteredTodayTasks]);
+  const sortedTasks = useMemo(() => {
+    return [...filteredTodayTasks].sort((a, b) => {
+      if (activeSession) {
+        if (a.id === activeSession.taskId) return -1;
+        if (b.id === activeSession.taskId) return 1;
+      }
+      return a.order - b.order;
+    });
+  }, [filteredTodayTasks, activeSession]);
 
   const touchState = useRef<{
     startX: number;
