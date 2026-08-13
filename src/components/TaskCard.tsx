@@ -143,7 +143,8 @@ export default function TaskCard({
           ${isDragging ? 'dragging-card' : ''}
           ${dragOver  ? 'drag-over-card ring-2 ring-emerald-500' : ''}
           ${isSessionTask ? 'card-session-active' : ''}
-          ${complete  ? 'opacity-60 ring-1 ring-emerald-500/20' : ''}
+          ${complete && !expanded ? 'opacity-60 ring-1 ring-emerald-500/20' : ''}
+          ${complete && expanded ? 'ring-1 ring-emerald-500/20' : ''}
         `}
         onClick={handleCardClick}
         draggable
