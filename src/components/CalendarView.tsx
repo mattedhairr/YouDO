@@ -84,6 +84,13 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
     });
   }, [dayStatsModalDate, sessionHistory]);
 
+  const modalDateTasks = useMemo(() => {
+    return dayStatsModalDate ? (tasksByDate[dayStatsModalDate] ?? []) : [];
+  }, [dayStatsModalDate, tasksByDate]);
+
+  const modalScheduled = modalDateTasks.filter(t => !t.originalTargetDate).length;
+  const modalBacklog = modalDateTasks.filter(t => !!t.originalTargetDate).length;
+
   const dayTotalNFT = useMemo(() => modalDateSessions.reduce((acc, s) => acc + s.netFocusMs, 0), [modalDateSessions]);
   const dayTotalWCD = useMemo(() => modalDateSessions.reduce((acc, s) => acc + (s.endTime - s.startTime), 0), [modalDateSessions]);
   const dayEfficiency = dayTotalWCD > 0 ? Math.min(100, Math.round((dayTotalNFT / dayTotalWCD) * 100)) : 0;
@@ -209,9 +216,16 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <span className={`text-[13px] font-bold ${complete ? 'line-through text-slate-400' : 'text-slate-100'}`}>
-                      {t.title}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[13px] font-bold ${complete ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                        {t.title}
+                      </span>
+                      {complete && t.originalTargetDate && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                          Backlog
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[11px] font-semibold text-slate-400 shrink-0">
                       {t.progress}/{hasSteps ? t.steps.length : 1}
                     </span>
@@ -321,6 +335,18 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                   className="h-full bg-emerald-500 rounded-full transition-all"
                   style={{ width: `${dayEfficiency}%` }}
                 />
+              </div>
+            </div>
+
+            {/* Task Type Stats */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-violet-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-violet-500/20 dark:border-white/5 text-center">
+                <p className="text-[9.5px] font-extrabold uppercase text-violet-600 dark:text-violet-400/80">Scheduled Tasks</p>
+                <p className="text-sm font-black text-violet-600 dark:text-violet-400 mt-0.5">{modalScheduled}</p>
+              </div>
+              <div className="bg-rose-500/10 dark:bg-[#1D1930] p-3 rounded-2xl border border-rose-500/20 dark:border-white/5 text-center">
+                <p className="text-[9.5px] font-extrabold uppercase text-rose-500 dark:text-rose-400/80">Backlog Tasks</p>
+                <p className="text-sm font-black text-rose-500 dark:text-rose-400 mt-0.5">{modalBacklog}</p>
               </div>
             </div>
 
