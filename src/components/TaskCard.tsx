@@ -149,37 +149,42 @@ export default function TaskCard({
       >
         {/* ── Active Session Pulsing Header Banner (if active) ── */}
         {isSessionTask && (
-          <div className="bg-amber-500/15 border-b border-amber-500/30 px-3.5 py-1.5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-session-pulse" />
-              <span className="text-[11px] font-mono font-bold text-amber-400">
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-3.5 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2.5 w-2.5">
+                {!isPaused && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>}
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPaused ? 'bg-amber-500/50' : 'bg-amber-500'}`}></span>
+              </span>
+              <span className={`text-[11px] font-mono font-bold ${isPaused ? 'text-amber-500/70' : 'text-amber-400'}`}>
                 {isPaused ? 'PAUSED' : 'SESSION RUNNING'} • {tickerText}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              {isPaused ? (
-                <button
-                  onClick={onResumeSession}
-                  className="px-2 py-0.5 rounded-lg bg-amber-500 text-black text-[10px] font-bold flex items-center gap-1 hover:bg-amber-400 transition"
-                >
-                  <Play className="w-3 h-3 fill-current" /> Resume
-                </button>
-              ) : (
-                <button
-                  onClick={onPauseSession}
-                  className="px-2 py-0.5 rounded-lg bg-white/10 text-amber-300 text-[10px] font-semibold flex items-center gap-1 hover:bg-white/20 transition"
-                >
-                  <Pause className="w-3 h-3" /> Pause
-                </button>
-              )}
+            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+              {/* Circular Play/Pause "Music Player" Chip */}
+              <button
+                onClick={isPaused ? onResumeSession : onPauseSession}
+                className="relative flex items-center justify-center w-8 h-8 rounded-full group transition-transform active:scale-95"
+              >
+                {/* Spinning ring when playing */}
+                {!isPaused && (
+                  <div className="absolute inset-0 rounded-full border border-amber-500/20 border-t-amber-500 border-r-amber-500 animate-spin" style={{ animationDuration: '3s' }}></div>
+                )}
+                <div className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
+                  isPaused 
+                    ? 'bg-amber-500 text-[#14111F] shadow-[0_0_12px_rgba(245,158,11,0.5)] group-hover:bg-amber-400' 
+                    : 'bg-amber-500/20 text-amber-400 group-hover:bg-amber-500/30'
+                }`}>
+                  {isPaused ? <Play className="w-3 h-3 fill-current ml-0.5" /> : <Pause className="w-3 h-3 fill-current" />}
+                </div>
+              </button>
 
               {onOpenAmbient && (
                 <button
                   onClick={onOpenAmbient}
-                  className="px-2 py-0.5 rounded-lg bg-violet-600/30 text-violet-300 border border-violet-500/30 text-[10px] font-semibold hover:bg-violet-600/40 transition"
+                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5 text-[9.5px] font-bold uppercase tracking-wider transition-colors"
                 >
-                  Ambient Mode
+                  Ambient
                 </button>
               )}
             </div>
@@ -198,24 +203,13 @@ export default function TaskCard({
 
           {/* Content Column */}
           <div className="flex-1 min-w-0">
-            {/* Title Row */}
-            <div className="flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot}`} />
-              <h3 className={`flex-1 text-[14px] font-bold leading-snug tracking-tight ${
-                complete ? 'line-through text-slate-500' : 'text-slate-100'
-              }`}>
-                {task.title}
-              </h3>
-            </div>
-
-            {/* Path / Origin Tags */}
+            {/* EYEBROW: Path / Origin Tags (Goal & Phase) */}
             {originNodes && originNodes.length > 0 ? (
-              <div className="mt-1.5 space-y-1">
-                {/* Badge Row (Goals and Phases) */}
-                {(() => {
-                  const badgeNodes = originNodes.filter(n => n.kind === 'goal' || n.kind === 'phase');
-                  if (badgeNodes.length === 0) return null;
-                  return (
+              (() => {
+                const badgeNodes = originNodes.filter(n => n.kind === 'goal' || n.kind === 'phase');
+                if (badgeNodes.length === 0) return null;
+                return (
+                  <div className="mb-1.5">
                     <div
                       onClick={(e) => {
                         if (onJumpToGoal) {
@@ -223,7 +217,7 @@ export default function TaskCard({
                           onJumpToGoal();
                         }
                       }}
-                      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-white/5 rounded-lg px-2 py-0.5 leading-normal ${
+                      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-white/5 rounded-lg px-2 py-0.5 leading-normal shadow-xs ${
                         onJumpToGoal ? 'cursor-pointer hover:bg-[#1F1B2C] hover:border-violet-500/20 transition-all group/path' : ''
                       }`}
                       title={onJumpToGoal ? 'Jump to this task in Goal Blueprint' : undefined}
@@ -240,33 +234,43 @@ export default function TaskCard({
                         </span>
                       ))}
                     </div>
-                  );
-                })()}
-                
-                {/* Subtitle Row (Sections and subtasks context) */}
-                {(() => {
-                  const ctxNodes = originNodes.filter(n => n.kind !== 'goal' && n.kind !== 'phase');
-                  if (ctxNodes.length === 0) return null;
-                  return (
-                    <div className="flex items-center flex-wrap gap-1 text-[10px] text-slate-500 font-semibold tracking-wide">
-                      {ctxNodes.map((n, i) => (
-                        <span key={i} className="inline-flex items-center gap-1">
-                          <span>{n.title}</span>
-                          {i < ctxNodes.length - 1 && <span className="text-white/10">/</span>}
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
+                  </div>
+                );
+              })()
             ) : !task.goalNodeId ? (
-              <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-400 bg-[#1A1625] border border-white/5 px-2 py-0.5 rounded-lg">
+              <div className="mb-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-400 bg-[#1A1625] border border-white/5 px-2 py-0.5 rounded-lg shadow-xs">
                 ⚡ Quick Task
               </div>
             ) : null}
 
+            {/* Title Row */}
+            <div className="flex items-start gap-2">
+              <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot} shadow-sm ${ps.glow}`} />
+              <h3 className={`flex-1 text-[15px] font-bold leading-snug tracking-tight ${
+                complete ? 'line-through text-slate-500' : 'text-slate-100'
+              }`}>
+                {task.title}
+              </h3>
+            </div>
+
+            {/* SUBTITLE: Sections and Subtasks Context */}
+            {originNodes && originNodes.length > 0 && (() => {
+              const ctxNodes = originNodes.filter(n => n.kind !== 'goal' && n.kind !== 'phase');
+              if (ctxNodes.length === 0) return null;
+              return (
+                <div className="mt-1 flex items-center flex-wrap gap-1 text-[10.5px] text-slate-500 font-semibold tracking-wide ml-3.5">
+                  {ctxNodes.map((n, i) => (
+                    <span key={i} className="inline-flex items-center gap-1">
+                      <span>{n.title}</span>
+                      {i < ctxNodes.length - 1 && <span className="text-white/10">/</span>}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* Date / Deadline / Description Row */}
-            <div className="mt-2.5 flex items-center gap-3 text-[11px] text-slate-500 font-medium flex-wrap">
+            <div className="mt-2.5 flex items-center gap-3 text-[11px] text-slate-500 font-medium flex-wrap ml-3.5">
               {task.originalTargetDate && (
                 <span className="inline-flex items-center gap-1 font-bold text-[10px] text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-lg">
                   📋 Backlog
@@ -304,105 +308,103 @@ export default function TaskCard({
         {/* ── EXPANDED ACTION GRID OVERLAY ── */}
         {expanded && (
           <div
-            className="p-3.5 bg-[#181525] border-t border-white/5 animate-fade-in"
+            className="px-3.5 pb-3.5 pt-1 animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Micro-steps List if available */}
-            {hasSteps && (
-              <div className="mb-4 bg-[#110E1A] rounded-xl border border-white/5 p-3">
-                <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-2.5">
-                  <span>Micro-steps</span>
-                  <span className={task.progress === task.steps.length ? 'text-emerald-400' : 'text-slate-400'}>
-                    {task.progress}/{task.steps.length} done
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {task.steps.map((s, i) => {
-                    const done = i < task.progress;
-                    return (
-                      <div key={i} className="flex items-start gap-2.5">
-                        <span className={`
-                          mt-[1px] w-4 h-4 rounded-full shrink-0 flex items-center justify-center
-                          text-[9px] font-extrabold leading-none
-                          ${done
-                            ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30'
-                            : 'bg-white/5 text-slate-500 border border-white/10'}
-                        `}>
-                          {done ? '✓' : i + 1}
-                        </span>
-                        <span className={`text-[12px] leading-tight break-words flex-1 min-w-0 ${
-                          done
-                            ? 'line-through text-slate-500'
-                            : 'text-slate-300 font-medium'
-                        }`}>
-                          {s}
-                        </span>
-                      </div>
-                    );
-                  })}
+            <div className="flex items-stretch gap-3">
+              {/* Left Column: Actions */}
+              <div className="flex-1 flex flex-col gap-2">
+                {/* Primary Action Button (Start / Stop Session) */}
+                {isSessionTask ? (
+                  <button
+                    onClick={() => { setExpanded(false); if (onStopSession) onStopSession(); }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-rose-600/90 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-[12px] flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 border border-rose-500/50 transition-all"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    Stop Active Session
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setExpanded(false); if (onStartSession) onStartSession(task.id); }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-extrabold text-[12px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 border border-amber-400 transition-all"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    Start Focus Session
+                  </button>
+                )}
+
+                {/* Secondary Actions 2-Column Grid */}
+                <div className="grid grid-cols-2 gap-2 flex-1">
+                  <button
+                    onClick={() => { setExpanded(false); if (onViewStats) onViewStats(task); }}
+                    className="py-2 px-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <BarChart2 className="w-3 h-3 text-amber-400" />
+                    Stats
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setExpanded(false);
+                      if (task.goalNodeId && onJumpToGoal) {
+                        onJumpToGoal();
+                      } else {
+                        onAdvance(task.id);
+                      }
+                    }}
+                    className="py-2 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-bold flex items-center justify-center gap-1.5 border border-emerald-500/20 transition-colors"
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    {task.goalNodeId ? 'Jump' : 'Advance'}
+                  </button>
+
+                  <button
+                    onClick={() => { setExpanded(false); onDuplicate(task.id); }}
+                    className="py-2 px-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Copy className="w-3 h-3 text-violet-400" />
+                    Duplicate
+                  </button>
+
+                  <button
+                    onClick={() => { setExpanded(false); onDelete(task.id); }}
+                    className="py-2 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    {softRemove ? 'Remove' : 'Delete'}
+                  </button>
                 </div>
               </div>
-            )}
 
-            {/* Primary Action Button (Start / Stop Session) */}
-            {isSessionTask ? (
-              <button
-                onClick={() => { setExpanded(false); if (onStopSession) onStopSession(); }}
-                className="w-full mb-2.5 py-2.5 px-4 rounded-xl bg-rose-600/90 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 border border-rose-500/50 transition-all"
-              >
-                <Square className="w-4 h-4 fill-current" />
-                Stop Active Session
-              </button>
-            ) : (
-              <button
-                onClick={() => { setExpanded(false); if (onStartSession) onStartSession(task.id); }}
-                className="w-full mb-2.5 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-extrabold text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 border border-amber-400 transition-all"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                Start Focus Session
-              </button>
-            )}
-
-            {/* Secondary Actions 2-Column Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => { setExpanded(false); if (onViewStats) onViewStats(task); }}
-                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
-                Stats
-              </button>
-
-              <button
-                onClick={() => {
-                  setExpanded(false);
-                  if (task.goalNodeId && onJumpToGoal) {
-                    onJumpToGoal();
-                  } else {
-                    onAdvance(task.id);
-                  }
-                }}
-                className="py-2.5 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 border border-emerald-500/20 transition-colors"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {task.goalNodeId ? 'Jump to Goal' : 'Advance'}
-              </button>
-
-              <button
-                onClick={() => { setExpanded(false); onDuplicate(task.id); }}
-                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5 text-violet-400" />
-                Duplicate
-              </button>
-
-              <button
-                onClick={() => { setExpanded(false); onDelete(task.id); }}
-                className="py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                {softRemove ? 'Remove' : 'Delete'}
-              </button>
+              {/* Right Column: Compact Micro-steps (only if steps exist) */}
+              {hasSteps && (
+                <div className="w-[38%] shrink-0 border-l border-white/5 pl-3 py-0.5 flex flex-col">
+                  <div className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>Steps</span>
+                    <span className={task.progress === task.steps.length ? 'text-emerald-400' : 'text-slate-400'}>
+                      {task.progress}/{task.steps.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto no-scrollbar space-y-1.5 pr-1 max-h-[85px]">
+                    {task.steps.map((s, i) => {
+                      const done = i < task.progress;
+                      return (
+                        <div key={i} className="flex items-start gap-1.5 group/step">
+                          <span className={`
+                            mt-[3.5px] w-1.5 h-1.5 rounded-full shrink-0 transition-colors
+                            ${done ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700 group-hover/step:bg-slate-500'}
+                          `} />
+                          <span className={`text-[10.5px] leading-[1.3] break-words ${
+                            done ? 'line-through text-slate-500' : 'text-slate-300'
+                          }`}>
+                            {s}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
