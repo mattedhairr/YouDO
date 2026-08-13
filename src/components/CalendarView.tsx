@@ -255,55 +255,67 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     e.preventDefault();
                     if (onViewStats) onViewStats(t.id, t.title);
                   }}
-                  className={`card p-3 transition-all select-none ${
-                    complete ? 'opacity-60 bg-[#1D1930]/40' : ''
+                  className={`card p-4 transition-all select-none ${
+                    complete ? 'opacity-70 bg-[#1D1930]/20' : ''
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[13px] font-bold ${complete ? 'line-through text-slate-400' : 'text-slate-100'}`}>
-                        {t.title}
+                  <div className="flex flex-col gap-1.5 mb-2">
+                    {/* Eyebrow: Path */}
+                    {originPath && (
+                      <div
+                        onClick={() => onJumpToGoal(t.goalNodeId)}
+                        className="inline-flex items-center gap-1.5 flex-wrap text-[10px] font-extrabold text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-lg w-fit hover:bg-violet-500/20 transition cursor-pointer"
+                      >
+                        <Link2 size={10} className="shrink-0" />
+                        <span className="break-words">{originPath}</span>
+                      </div>
+                    )}
+
+                    {/* Title Row */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className={`text-[14.5px] font-bold leading-snug tracking-tight ${complete ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                          {t.title}
+                        </h3>
+                        {hasFailedNativelyHere && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                            FAILED
+                          </span>
+                        )}
+                        {isBacklogCompletedHere && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                            BACKLOG
+                          </span>
+                        )}
+                        {isManualCompletion && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                            MANUAL
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[12px] font-bold tabular-nums text-slate-400 shrink-0 mt-0.5">
+                        {t.progress}/{hasSteps ? t.steps.length : 1}
                       </span>
-                      {hasFailedNativelyHere && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
-                          FAILED
-                        </span>
-                      )}
-                      {isBacklogCompletedHere && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                          BACKLOG
-                        </span>
-                      )}
-                      {isManualCompletion && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-500/20 text-slate-300 border border-slate-500/30">
-                          MANUAL
-                        </span>
-                      )}
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400 shrink-0">
-                      {t.progress}/{hasSteps ? t.steps.length : 1}
-                    </span>
                   </div>
 
-                  {originPath && (
-                    <div
-                      onClick={() => onJumpToGoal(t.goalNodeId)}
-                      className="mt-1 mb-2 flex items-center gap-1 flex-wrap text-[10.5px] font-semibold text-violet-300 bg-violet-950/40 border border-violet-800/40 rounded-md px-2 py-1 w-full hover:bg-violet-900/60 transition cursor-pointer leading-relaxed"
-                    >
-                      <Link2 size={10} className="shrink-0" />
-                      <span className="break-words">{originPath}</span>
-                    </div>
-                  )}
-
                   {t.description && (
-                    <p className="text-[11px] text-slate-400 line-clamp-1 mb-2">
+                    <p className="text-[11.5px] text-slate-400/80 line-clamp-2 mb-3">
                       {t.description}
                     </p>
                   )}
 
+                  {/* Progress bar */}
+                  <div className="mt-1 h-1.5 rounded-full bg-slate-800/80 overflow-hidden mb-2.5">
+                    <div
+                      className="h-full bg-emerald-500 progress-bar-fill rounded-full"
+                      style={{ width: `${(t.progress / (hasSteps ? t.steps.length : 1)) * 100}%` }}
+                    />
+                  </div>
+
                   {/* Step chips */}
                   {hasSteps && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
+                    <div className="flex flex-wrap gap-1.5 mt-1">
                       {t.steps.map((s, idx) => {
                         const stepDone = idx < t.progress;
                         return (
@@ -311,7 +323,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                             key={idx}
                             className={`text-[10px] px-2 py-0.5 rounded-md font-medium transition-all ${
                               stepDone
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-stamp line-through'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 line-through'
                                 : 'bg-white/5 text-slate-400 border border-white/5'
                             }`}
                           >
@@ -321,14 +333,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                       })}
                     </div>
                   )}
-
-                  {/* Progress bar */}
-                  <div className="mt-2.5 h-1 rounded-full bg-slate-800 overflow-hidden">
-                    <div
-                      className="h-full bg-violet-500 progress-bar-fill rounded-full"
-                      style={{ width: `${(t.progress / (hasSteps ? t.steps.length : 1)) * 100}%` }}
-                    />
-                  </div>
                 </div>
               );
             })}

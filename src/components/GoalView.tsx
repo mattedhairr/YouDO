@@ -221,26 +221,26 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
   return (
     <div className="fade-in pb-20">
       {/* Sticky Top Glass Breadcrumb Header */}
-      <div className="sticky top-0 z-30 no-swipe rounded-2xl px-3 py-2 glass-header mb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap shadow-xs">
+      <div className="sticky top-0 z-30 no-swipe rounded-b-2xl -mt-4 mb-5 mx-0 px-4 py-3.5 glass-header flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap shadow-sm border-b border-slate-200/50 dark:border-white/5">
         <button
           onClick={goRoot}
-          className={`px-2.5 py-1 rounded-xl text-[12px] font-semibold transition-all shrink-0 ${
+          className={`text-[13px] font-bold transition-all shrink-0 ${
             path.length === 0
-              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'text-slate-800 dark:text-slate-100'
+              : 'text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400'
           }`}
         >
           All Goals
         </button>
         {path.map((n, i) => (
-          <div key={n.id} className="flex items-center gap-1 shrink-0">
-            <ChevronRight size={13} className="text-slate-300 dark:text-slate-600" />
+          <div key={n.id} className="flex items-center gap-2 shrink-0">
+            <span className="text-slate-300 dark:text-slate-600 font-light text-[13px]">/</span>
             <button
               onClick={() => goTo(i)}
-              className={`px-2.5 py-1 rounded-xl text-[12px] font-semibold transition-all max-w-[150px] truncate ${
+              className={`text-[13px] font-bold transition-all max-w-[160px] truncate ${
                 i === path.length - 1
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-slate-400 hover:text-blue-500 dark:text-slate-500 dark:hover:text-blue-400'
               }`}
             >
               {n.title}
@@ -401,7 +401,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                 setDragId(null);
                 setOverId(null);
               }}
-              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing ${
+              className={`card p-3.5 transition-all fade-in cursor-grab active:cursor-grabbing flex flex-col ${
                 isHighlighted
                   ? 'ring-4 ring-blue-500 dark:ring-blue-400 bg-blue-500/20 dark:bg-blue-900/40 scale-[1.03] shadow-xl shadow-blue-500/40 animate-pulse z-20'
                   : isSelected
@@ -409,76 +409,32 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                     : ''
               } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 scale-[1.01]' : ''} ${isDone && !isHighlighted ? 'opacity-70 ring-1 ring-emerald-500/30 dark:ring-emerald-400/30' : ''}`}
             >
-              {/* Header Row */}
-              <div className="flex items-start gap-2.5">
-                {/* Batch select checkbox — Tasks, Sub-tasks & Leaves only */}
+              {/* Top Row: Checkbox, Title, Drill */}
+              <div className="flex items-start gap-3">
+                {/* Batch select checkbox */}
                 {isTaskKind && (
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleSelect(child.id)}
-                    className="mt-1 w-4 h-4 rounded accent-blue-500 cursor-pointer shrink-0"
+                    className="mt-[3px] w-4 h-4 rounded accent-blue-500 cursor-pointer shrink-0"
                     title="Select for batch operations"
                   />
                 )}
 
-                {/* Title + meta */}
+                {/* Title + Icon */}
                 <div
-                  className={`flex-1 min-w-0 ${canDrill ? 'cursor-pointer' : ''}`}
+                  className={`flex-1 min-w-0 flex items-start gap-2 ${canDrill ? 'cursor-pointer' : ''}`}
                   onClick={() => canDrill && drillInto(child)}
                 >
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Icon size={14} style={{ color: meta.tint }} className="shrink-0" />
-                    <h3 className={`text-[14px] font-semibold leading-snug break-words ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
-                      {child.title}
-                    </h3>
-                    {child.pinned && <Star size={12} className="fill-amber-400 text-amber-400 shrink-0" />}
-                    {isScheduled && (
-                      <span
-                        className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 px-2 py-0.5 rounded-full shadow-2xs"
-                        title={`Scheduled for ${linkedTask?.targetDate ? formatDDMMYYYY(linkedTask.targetDate) : ''}`}
-                      >
-                        <Zap size={9} className="fill-emerald-500 text-emerald-500" /> Scheduled ({getScheduledDateLabel(linkedTask?.targetDate)})
-                      </span>
-                    )}
-                    {isBacklogged && (
-                      <span className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
-                        <AlertTriangle size={9} /> Backlog
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
-                    {onViewStats && Object.values(sessionHistory).flat().some(s => s.goalNodeId === child.id) && (
-                      <button onClick={(e) => { e.stopPropagation(); onViewStats(child.id, child.title); }} className="flex items-center gap-1 text-amber-500/80 hover:text-amber-500" title="View Session Stats">
-                        <Clock size={11} /> Stats
-                      </button>
-                    )}
-                    <span style={{ color: meta.tint }} className="font-semibold">{meta.label}</span>
-                    {!isLeafLike && <span>· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
-                    {isLeafLike && hasSteps && <span>· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
-                    {child.description && (
-                      <>
-                        <span>·</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onOpenDescription) {
-                              onOpenDescription(child.title, child.description!);
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
-                          title="View full description"
-                        >
-                          <FileText size={11} className="text-blue-500 shrink-0" />
-                          <span className="max-w-[130px] sm:max-w-[200px] truncate">{child.description}</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <Icon size={16} style={{ color: meta.tint }} className="shrink-0 mt-[3px]" />
+                  <h3 className={`text-[15px] font-bold leading-snug break-words ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                    {child.title}
+                  </h3>
                 </div>
 
                 {/* Progress % + drill */}
-                <div className="shrink-0 flex items-center gap-0.5">
+                <div className="shrink-0 flex items-center gap-1">
                   <span className={`text-[13px] font-bold tabular-nums ${isDone ? 'text-emerald-500' : 'text-slate-600 dark:text-slate-300'}`}>{pct}%</span>
                   {canDrill && (
                     <button
@@ -492,14 +448,58 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                 </div>
               </div>
 
+              {/* Meta Row */}
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 pl-[28px]">
+                {child.pinned && <Star size={11} className="fill-amber-400 text-amber-400 shrink-0" />}
+                {isScheduled && (
+                  <span
+                    className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 px-2 py-0.5 rounded-full shadow-2xs"
+                    title={`Scheduled for ${linkedTask?.targetDate ? formatDDMMYYYY(linkedTask.targetDate) : ''}`}
+                  >
+                    <Zap size={9} className="fill-emerald-500 text-emerald-500" /> Scheduled ({getScheduledDateLabel(linkedTask?.targetDate)})
+                  </span>
+                )}
+                {isBacklogged && (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full">
+                    <AlertTriangle size={9} /> Backlog
+                  </span>
+                )}
+                {onViewStats && Object.values(sessionHistory).flat().some(s => s.goalNodeId === child.id) && (
+                  <button onClick={(e) => { e.stopPropagation(); onViewStats(child.id, child.title); }} className="flex items-center gap-1 text-[11px] text-amber-500/80 hover:text-amber-500 font-medium" title="View Session Stats">
+                    <Clock size={11} /> Stats
+                  </button>
+                )}
+                <span style={{ color: meta.tint }} className="text-[11px] font-semibold">{meta.label}</span>
+                {!isLeafLike && <span className="text-[11px] text-slate-400">· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
+                {isLeafLike && hasSteps && <span className="text-[11px] text-slate-400">· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
+                {child.description && (
+                  <>
+                    <span className="text-[11px] text-slate-400">·</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenDescription) {
+                          onOpenDescription(child.title, child.description!);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                      title="View full description"
+                    >
+                      <FileText size={11} className="text-blue-500 shrink-0" />
+                      <span className="max-w-[130px] sm:max-w-[200px] truncate">{child.description}</span>
+                    </button>
+                  </>
+                )}
+              </div>
+
               {/* Progress Bar */}
-              <div className="mt-2.5 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+              <div className="mt-2.5 ml-[28px] h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: isDone ? '#10b981' : meta.tint }} />
               </div>
 
               {/* Micro-step chips */}
               {isLeafLike && hasSteps && (
-                <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                <div className="mt-2.5 ml-[28px] flex items-center gap-1.5 flex-wrap">
                   {child.steps!.map((s, i) => (
                     <button
                       key={i}
@@ -517,7 +517,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               )}
 
               {/* Toolbar */}
-              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
+              <div className="mt-3 ml-[28px] pt-2.5 border-t border-slate-100/50 dark:border-slate-700/40 flex items-center justify-between gap-2">
 
                 {/* Left: icon buttons */}
                 <div className="flex items-center gap-0.5">
