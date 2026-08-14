@@ -96,10 +96,10 @@ export default function CommandBar({
                   key={tab.id}
                   onClick={() => onNavigate(tab.id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[12px] text-[12px] transition-colors duration-200 ${
+                  className={`relative flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[12px] text-[12px] ${
                     active
                       ? 'bg-primary text-on-primary font-semibold'
-                      : 'text-content-muted font-medium hover:text-content-primary hover:bg-elevated'
+                      : 'text-content-muted font-medium [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated'
                   }`}
                 >
                   <Icon size={15} strokeWidth={active ? 2.4 : 2} />
@@ -120,7 +120,7 @@ export default function CommandBar({
             })}
             <button
               onClick={onSettings}
-              className="shrink-0 grid place-items-center size-10 rounded-[12px] text-content-muted hover:text-content-primary hover:bg-elevated"
+              className="shrink-0 grid place-items-center size-10 rounded-[12px] text-content-muted [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated"
               title="Settings"
             >
               <Settings size={17} />

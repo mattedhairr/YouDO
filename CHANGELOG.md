@@ -4,6 +4,16 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+## [v3.1.1] — 2026-08-14 ("Auth blur & tab hover")
+
+- **Auth over Settings**: Sign in / Create account now blurs Settings behind the sheet (nested overlays stack correctly).
+- **Command bar**: only the current tab stays brass. Idle tabs no longer keep a leftover hover fill after you switch on a phone.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.1.1**, versionCode **8**. Same package id — install over 3.1.0.
+
+---
+
 ## [v3.1.0] — 2026-08-14 ("The 3.x public drop")
 
 First **public 3.x APK**. v3.0.0 and v3.0.1 were never published as GitHub Releases — this build includes that work plus execution, backlog, and onboarding. Install over **2.3.0** (same package id).

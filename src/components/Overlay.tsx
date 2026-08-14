@@ -38,6 +38,10 @@ export default function Overlay({
 
   if (!open) return null;
 
+  const stack = overlayHost().querySelectorAll('.overlay-layer').length;
+  const zScrim = 1000 + stack * 2;
+  const zLayer = 1001 + stack * 2;
+
   const rootClass =
     align === 'bottom'
       ? 'overlay-layer overlay-layer-bottom'
@@ -47,8 +51,15 @@ export default function Overlay({
 
   return createPortal(
     <>
-      {scrim && <div className="overlay-scrim" onClick={onClose} aria-hidden="true" />}
-      <div className={rootClass} role="dialog" aria-modal="true">
+      {scrim && (
+        <div
+          className="overlay-scrim"
+          style={{ zIndex: zScrim }}
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <div className={rootClass} role="dialog" aria-modal="true" style={{ zIndex: zLayer }}>
         <div className="overlay-content">{children}</div>
       </div>
     </>,
