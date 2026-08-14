@@ -314,7 +314,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
 
       {/* Current node header card */}
       {current && (
-        <div className="card p-4 mb-3.5 fade-in">
+        <div className="bg-surface border border-subtle rounded-2xl shadow-card p-4 mb-3.5 fade-in">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -619,7 +619,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
 
       {/* Floating Batch Selection Bar */}
       {goals.length === 0 && (
-        <div className="card p-10 text-center fade-in mt-4">
+        <div className="bg-surface border border-subtle rounded-2xl shadow-card p-10 text-center fade-in mt-4">
           <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-elevated animate-float">
             <Target size={26} className="text-content-secondary" />
           </div>

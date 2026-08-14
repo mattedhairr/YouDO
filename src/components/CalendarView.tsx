@@ -146,7 +146,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
       </div>
 
       {/* Calendar grid */}
-      <div className="card p-3.5">
+      <div className="bg-surface border border-subtle rounded-2xl shadow-card p-3.5">
         <div className="grid grid-cols-7 mb-2">
           {WEEKDAYS.map((d) => (
             <div key={d} className="text-center text-[10px] font-bold uppercase tracking-wider text-content-secondary py-1">{d}</div>
@@ -232,7 +232,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
         </div>
 
         {selectedTasks.length === 0 ? (
-          <div className="card p-6 text-center text-content-secondary text-xs">
+          <div className="bg-surface border border-subtle rounded-2xl shadow-card p-6 text-center text-content-secondary text-xs">
             No tasks planned for this date.
           </div>
         ) : (
@@ -255,8 +255,8 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     e.preventDefault();
                     if (onViewStats) onViewStats(t.id, t.title);
                   }}
-                  className={`card p-4 transition-all select-none ${
-                    complete ? 'bg-surface/20' : ''
+                  className={`bg-surface border border-subtle rounded-2xl shadow-card p-4 transition-all select-none ${
+                    complete ? 'opacity-60 bg-surface/50' : ''
                   }`}
                 >
                   <div className="flex flex-col gap-1.5 mb-2">
