@@ -4,6 +4,13 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+## [v3.0.1] — 2026-08-14 ("Login clock check")
+
+### 🚀 Major Highlights
+- **Sign-in no longer blocked by a false clock error**: browsers hide the HTTP `Date` header, so the old check treated “could not read server time” as a failed clock. Login now proceeds unless the device is **proven** skewed.
+
+---
+
 ## [v3.0.0] — 2026-08-14 ("The Identity & Reliability Release")
 
 ### 🚀 Major Highlights

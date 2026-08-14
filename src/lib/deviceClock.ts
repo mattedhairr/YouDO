@@ -75,21 +75,39 @@ export function guardWallClock(): boolean {
 }
 
 export async function fetchServerNowMs(): Promise<number | null> {
-  const ctrl = new AbortController();
-  const timer = window.setTimeout(() => ctrl.abort(), 8000);
+  const fromHealth = await readDateHeader(`${supabaseUrl}/auth/v1/health`);
+  if (fromHealth != null) return fromHealth;
+
   try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/health`, {
-      method: 'GET',
-      signal: ctrl.signal,
-    });
-    const header = res.headers.get('date');
-    if (!header) return null;
-    const ms = Date.parse(header);
-    return Number.isFinite(ms) ? ms : null;
+    const res = await fetchWithTimeout('https://worldtimeapi.org/api/timezone/Etc/UTC');
+    if (!res.ok) return null;
+    const body = (await res.json()) as { unixtime?: number };
+    if (typeof body.unixtime === 'number') return body.unixtime * 1000;
   } catch {
-    return null;
+    /* ignore */
+  }
+  return null;
+}
+
+async function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { method: 'GET', signal: ctrl.signal });
   } finally {
     window.clearTimeout(timer);
+  }
+}
+
+async function readDateHeader(url: string): Promise<number | null> {
+  try {
+    const res = await fetchWithTimeout(url);
+    const header = res.headers.get('date');
+    if (!header) return null;
+    const parsed = Date.parse(header);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
   }
 }
 
@@ -107,15 +125,9 @@ export async function checkDeviceClock(): Promise<ClockCheck> {
   return 'ok';
 }
 
-/** Sign-in / sign-up: fail closed until device time matches the server. */
+/** Sign-in / sign-up: block only when the device is proven skewed. CORS often hides Date. */
 export async function assertDeviceClock(): Promise<{ ok: boolean; reason?: string }> {
   const status = await checkDeviceClock();
-  if (status === 'unknown') {
-    return {
-      ok: false,
-      reason: 'Could not verify time with the server. Turn on internet and set Date & Time to automatic, then try again.',
-    };
-  }
   if (status === 'skewed') {
     return {
       ok: false,
