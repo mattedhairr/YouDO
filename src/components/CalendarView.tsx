@@ -310,7 +310,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
 
                           {/* Subtitle context (remaining path) */}
                           {originPath && originPath.split('/').length > 3 && (
-                            <div className="text-[11.5px] font-semibold text-content-secondary/80 line-clamp-1">
+                            <div className="text-[11px] font-normal text-content-muted line-clamp-1">
                               {originPath.split('/').slice(2, -1).map(p => p.trim()).join(' / ')}
                             </div>
                           )}

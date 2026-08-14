@@ -270,11 +270,11 @@ export default function TaskCard({
               const ctxNodes = originNodes.filter(n => n.kind !== 'goal' && n.kind !== 'phase');
               if (ctxNodes.length === 0) return null;
               return (
-                <div className="mt-1 flex items-center flex-wrap gap-1 text-[10.5px] text-content-secondary font-semibold tracking-wide ml-3.5">
+                <div className="mt-1 flex items-center flex-wrap gap-1 text-[11px] text-content-muted font-normal ml-3.5">
                   {ctxNodes.map((n, i) => (
                     <span key={i} className="inline-flex items-center gap-1">
                       <span>{n.title}</span>
-                      {i < ctxNodes.length - 1 && <span className="text-content-muted">/</span>}
+                      {i < ctxNodes.length - 1 && <span className="text-content-muted/60">/</span>}
                     </span>
                   ))}
                 </div>
