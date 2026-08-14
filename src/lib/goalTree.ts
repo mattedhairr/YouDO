@@ -171,15 +171,85 @@ export function countSlicedDone(node: GoalNode, slice: number[] | undefined): nu
   return s.filter((idx) => stepDone[idx]).length;
 }
 
+/** One-way: goal node is source of truth for title, description, and micro-steps. */
+export function mirrorGoalContentToTask(task: Task, node: GoalNode): Task {
+  if (task.goalNodeId !== node.id) return task;
+  const master = node.steps ?? [];
+  if (master.length === 0) {
+    return applyBacklogSchedule({
+      ...task,
+      title: node.title,
+      description: node.description ?? '',
+      steps: [],
+      progress: node.completed ? 1 : 0,
+      stepSlice: undefined,
+    });
+  }
+  const requested = task.stepSlice;
+  const slice =
+    requested && requested.length > 0
+      ? requested.filter((i) => i >= 0 && i < master.length)
+      : master.map((_, i) => i);
+  const isFull = slice.length === master.length && slice.every((v, i) => v === i);
+  return applyBacklogSchedule({
+    ...task,
+    title: node.title,
+    description: node.description ?? '',
+    steps: slice.map((idx) => master[idx] ?? `Step ${idx + 1}`),
+    progress: countSlicedDone(node, isFull ? undefined : slice),
+    stepSlice: isFull ? undefined : slice,
+  });
+}
+
+export function syncLinkedTasksFromGoal(tasks: Task[], node: GoalNode): Task[] {
+  return tasks.map((t) => (t.goalNodeId === node.id ? mirrorGoalContentToTask(t, node) : t));
+}
+
 export function isTaskComplete(task: { steps: string[]; progress: number }): boolean {
   const total = task.steps.length > 0 ? task.steps.length : 1;
   return task.progress >= total;
 }
 
-export function isBacklogTask(task: Task): boolean {
+/**
+ * Incomplete overdue work stays on its original date (Backlog tab).
+ * Completed catch-up stays in Backlog until local midnight, then drops off.
+ */
+export function isBacklogTask(task: Task, today = todayISO()): boolean {
   if (!task.targetDate) return false;
-  if (isTaskComplete(task)) return false;
-  return task.targetDate < todayISO();
+  if (isTaskComplete(task)) {
+    return !!task.originalTargetDate && task.targetDate === today;
+  }
+  if (task.targetDate < today) return true;
+  return !!task.originalTargetDate && task.targetDate === today;
+}
+
+/** When overdue work is finished today, stamp today as the clear date and keep the miss for calendar/stats. */
+export function clearBacklogIfComplete(task: Task, today = todayISO()): Task {
+  if (!isTaskComplete(task)) return task;
+  const missed =
+    task.originalTargetDate ||
+    (task.targetDate && task.targetDate < today ? task.targetDate : null);
+  if (!missed) return task;
+  const failed = task.pastFailedNativeDates ?? [];
+  return {
+    ...task,
+    originalTargetDate: missed,
+    targetDate: today,
+    pastFailedNativeDates: failed.includes(missed) ? failed : [...failed, missed],
+  };
+}
+
+export function restoreBacklogIfIncomplete(task: Task): Task {
+  if (isTaskComplete(task) || !task.originalTargetDate) return task;
+  return {
+    ...task,
+    targetDate: task.originalTargetDate,
+    originalTargetDate: undefined,
+  };
+}
+
+function applyBacklogSchedule(task: Task): Task {
+  return isTaskComplete(task) ? clearBacklogIfComplete(task) : restoreBacklogIfIncomplete(task);
 }
 
 export function reorderNodesArray(nodes: GoalNode[], fromId: string, toId: string): GoalNode[] {

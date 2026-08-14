@@ -372,8 +372,11 @@ function AppInner() {
 
   const [todaySubTab, setTodaySubTab] = useState<'today' | 'backlog'>('today');
 
-  const todayTasks = useMemo(() => tasks.filter((t) => isToday(t.targetDate)), [tasks]);
-  const backlogTasks = useMemo(() => tasks.filter(isBacklogTask), [tasks]);
+  const todayTasks = useMemo(
+    () => tasks.filter((t) => isToday(t.targetDate) && !isBacklogTask(t)),
+    [tasks],
+  );
+  const backlogTasks = useMemo(() => tasks.filter((t) => isBacklogTask(t)), [tasks]);
   const todayCount = todayTasks.length;
   const todayDone = todayTasks.filter(isTaskComplete).length;
   const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
@@ -386,25 +389,17 @@ function AppInner() {
   const backlogByDate = useMemo(() => {
     const groups: Record<string, Task[]> = {};
     for (const t of backlogTasks) {
+      if (activeSession?.taskId === t.id) continue;
       const d = t.targetDate || 'No Date';
       if (!groups[d]) groups[d] = [];
       groups[d].push(t);
     }
     const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-    return sortedDates.map((date) => {
-      const sortedGroupTasks = groups[date].sort((a, b) => {
-        if (activeSession) {
-          if (a.id === activeSession.taskId) return -1;
-          if (b.id === activeSession.taskId) return 1;
-        }
-        return a.order - b.order;
-      });
-      return {
-        date,
-        formattedDate: formatDDMMYYYY(date),
-        tasks: sortedGroupTasks,
-      };
-    });
+    return sortedDates.map((date) => ({
+      date,
+      formattedDate: formatDDMMYYYY(date),
+      tasks: groups[date].sort((a, b) => a.order - b.order),
+    })).filter((g) => g.tasks.length > 0);
   }, [backlogTasks, activeSession]);
 
   const [highlightNodeId, setHighlightNodeId] = useState<string | null>(null);
@@ -848,6 +843,41 @@ function AppInner() {
                     )}
 
                     {/* Date-grouped task lists */}
+                    {(() => {
+                      const activeBacklogTask = activeSession
+                        ? backlogTasks.find((t) => t.id === activeSession.taskId)
+                        : undefined;
+                      return (
+                        <>
+                          {activeBacklogTask && (
+                            <div className="space-y-2">
+                              <TaskCard
+                                task={activeBacklogTask}
+                                activeSession={activeSession}
+                                onAdvance={advance}
+                                onUndo={undo}
+                                onDelete={activeBacklogTask.goalNodeId ? unlinkTask : removeTask}
+                                onDuplicate={duplicateTask}
+                                onDragStart={() => {}}
+                                onDragEnter={() => {}}
+                                onDragEnd={() => {}}
+                                isDragging={false}
+                                dragOver={false}
+                                originNodes={originNodesFor(activeBacklogTask.id)}
+                                softRemove={!!activeBacklogTask.goalNodeId}
+                                dark={darkMode}
+                                onJumpToGoal={() => activeBacklogTask.goalNodeId && jumpToGoalTask(activeBacklogTask.goalNodeId)}
+                                onOpenDescription={openDescriptionModal}
+                                onStartSession={startSession}
+                                onPauseSession={pauseSession}
+                                onResumeSession={resumeSession}
+                                onStopSession={() => setStopDialogTask(activeBacklogTask)}
+                                onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
+                                onOpenAmbient={() => setShowAmbient(true)}
+                                taskSessions={getTaskSessions(activeBacklogTask.id)}
+                              />
+                            </div>
+                          )}
                     {backlogByDate.map((group) => (
                       <div key={group.date} className="space-y-2">
                         {/* Group header row */}
@@ -885,10 +915,7 @@ function AppInner() {
                                   dark={darkMode}
                                   onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
                                   onOpenDescription={openDescriptionModal}
-                                  onStartSession={(id) => {
-                                    startSession(id);
-                                    startTransition(() => setTodaySubTab('today'));
-                                  }}
+                                  onStartSession={startSession}
                                   onPauseSession={pauseSession}
                                   onResumeSession={resumeSession}
                                   onStopSession={() => setStopDialogTask(t)}
@@ -914,6 +941,9 @@ function AppInner() {
                         </div>
                       </div>
                     ))}
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -1103,6 +1133,7 @@ function AppInner() {
           open={!!statsTarget}
           title={statsTarget.title}
           sessions={targetSessions}
+          stepTotal={!statsTarget.isGoal ? (tasks.find((t) => t.id === statsTarget.id)?.steps.length ?? 0) : 0}
           onClose={() => setStatsTarget(null)}
         />
       )}

@@ -50,6 +50,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
     for (const t of tasks) {
       if (t.targetDate) add(t.targetDate, t);
       t.pastFailedNativeDates?.forEach(d => add(d, t));
+      if (t.originalTargetDate) add(t.originalTargetDate, t);
     }
     return map;
   }, [tasks]);
@@ -99,15 +100,21 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
   // Group 1: Task Execution (Native)
   const nativeTasks = modalDateTasks.filter(t => 
     (!t.originalTargetDate && t.targetDate === dayStatsModalDate!) || 
-    t.pastFailedNativeDates?.includes(dayStatsModalDate!)
+    t.pastFailedNativeDates?.includes(dayStatsModalDate!) ||
+    t.originalTargetDate === dayStatsModalDate!
   );
   
   // Filter out manual completions from stats calculation
-  const processNativeTasks = nativeTasks.filter(t => !isTaskComplete(t) || hasSessionProcess(t.id, dayStatsModalDate!));
+  const processNativeTasks = nativeTasks.filter(t =>
+    !isTaskComplete(t) ||
+    hasSessionProcess(t.id, dayStatsModalDate!) ||
+    t.pastFailedNativeDates?.includes(dayStatsModalDate!) ||
+    t.originalTargetDate === dayStatsModalDate!
+  );
   
   const nativeScheduledCount = processNativeTasks.length;
   const nativeCompletedCount = processNativeTasks.filter(t => isTaskComplete(t) && t.targetDate === dayStatsModalDate!).length;
-  const nativeFailedCount = processNativeTasks.filter(t => t.pastFailedNativeDates?.includes(dayStatsModalDate!) || (t.targetDate === dayStatsModalDate! && !isTaskComplete(t) && dayStatsModalDate! < todayStr)).length;
+  const nativeFailedCount = processNativeTasks.filter(t => t.pastFailedNativeDates?.includes(dayStatsModalDate!) || t.originalTargetDate === dayStatsModalDate! || (t.targetDate === dayStatsModalDate! && !isTaskComplete(t) && dayStatsModalDate! < todayStr)).length;
   
   const taskEfficiency = nativeScheduledCount > 0 ? Math.round((nativeCompletedCount / nativeScheduledCount) * 100) : 0;
 
@@ -123,7 +130,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
   const focusEfficiency = dayTotalWCD > 0 ? Math.min(100, Math.round((dayTotalNFT / dayTotalWCD) * 100)) : 0;
 
   // Group 3: Momentum
-  const globalBacklogsCount = tasks.filter(isBacklogTask).length;
+  const globalBacklogsCount = tasks.filter((t) => isBacklogTask(t)).length;
   const backlogsCleared = modalDateTasks.filter(t => !!t.originalTargetDate && t.targetDate === dayStatsModalDate! && isTaskComplete(t) && hasSessionProcess(t.id, dayStatsModalDate!)).length;
   const totalRelevantBacklogs = globalBacklogsCount + backlogsCleared;
 
@@ -249,7 +256,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               const originPath = getOriginPath(t.goalNodeId);
               
               const isNativeToSelected = !t.originalTargetDate && t.targetDate === selectedDate!;
-              const hasFailedNativelyHere = t.pastFailedNativeDates?.includes(selectedDate!) || (isNativeToSelected && !complete && selectedDate! < todayStr);
+              const hasFailedNativelyHere = t.pastFailedNativeDates?.includes(selectedDate!) || t.originalTargetDate === selectedDate! || (isNativeToSelected && !complete && selectedDate! < todayStr);
               const isBacklogCompletedHere = !!t.originalTargetDate && t.targetDate === selectedDate! && complete;
               
               const isManualCompletion = complete && t.targetDate === selectedDate! && !sessionHistory[t.id]?.some(isCountableSession);
