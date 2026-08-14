@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 type Align = 'center' | 'bottom' | 'full';
@@ -22,6 +22,8 @@ export default function Overlay({
   align = 'center',
   scrim = true,
 }: OverlayProps) {
+  const layerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
     const prevOverflow = document.body.style.overflow;
@@ -36,33 +38,47 @@ export default function Overlay({
     };
   }, [open, onClose]);
 
+  // Chromium often skips backdrop-filter on the first portal paint until a later
+  // compositor update (e.g. a button re-render). Re-apply the filter on the next frame.
+  useLayoutEffect(() => {
+    if (!open || !scrim) return;
+    const el = layerRef.current;
+    if (!el) return;
+    el.style.setProperty('backdrop-filter', 'none');
+    el.style.setProperty('-webkit-backdrop-filter', 'none');
+    const id = requestAnimationFrame(() => {
+      el.style.removeProperty('backdrop-filter');
+      el.style.removeProperty('-webkit-backdrop-filter');
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open, scrim]);
+
   if (!open) return null;
 
   const stack = overlayHost().querySelectorAll('.overlay-layer').length;
-  const zScrim = 1000 + stack * 2;
-  const zLayer = 1001 + stack * 2;
+  const zLayer = 1000 + stack;
 
-  const rootClass =
-    align === 'bottom'
-      ? 'overlay-layer overlay-layer-bottom'
-      : align === 'full'
-        ? 'overlay-layer overlay-layer-full'
-        : 'overlay-layer overlay-layer-center';
+  const rootClass = [
+    'overlay-layer',
+    align === 'bottom' ? 'overlay-layer-bottom' : align === 'full' ? 'overlay-layer-full' : 'overlay-layer-center',
+    scrim ? 'overlay-layer-scrim' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return createPortal(
-    <>
-      {scrim && (
-        <div
-          className="overlay-scrim"
-          style={{ zIndex: zScrim }}
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
-      <div className={rootClass} role="dialog" aria-modal="true" style={{ zIndex: zLayer }}>
-        <div className="overlay-content">{children}</div>
+    <div
+      ref={layerRef}
+      className={rootClass}
+      role="dialog"
+      aria-modal="true"
+      style={{ zIndex: zLayer }}
+      onClick={scrim ? onClose : undefined}
+    >
+      <div className="overlay-content" onClick={(e) => e.stopPropagation()}>
+        {children}
       </div>
-    </>,
+    </div>,
     overlayHost(),
   );
 }

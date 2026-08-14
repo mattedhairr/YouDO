@@ -24,6 +24,7 @@ import {
   User,
   UserPlus,
   Zap,
+  ShieldCheck,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
@@ -318,6 +319,8 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
     recentlyDeletedGoals,
     restoreDeletedGoal,
     clearTrash,
+    tasks,
+    goals,
   } = useStore();
   const { user, signOut, updateProfile } = useAuth();
   const [theme, setTheme] = useTheme();
@@ -406,7 +409,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   return (
     <Overlay open={open} onClose={onClose} align="full">
     <div
-      className="h-full w-full max-w-md mx-auto bg-base page-slide-in flex flex-col overflow-hidden border-x border-subtle"
+      className="app-frame h-full w-full max-w-md mx-auto bg-base page-slide-in flex flex-col overflow-hidden border-x border-subtle"
     >
       {/* ── 1. Clean Top Bar ── */}
       <div
@@ -700,63 +703,128 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
           <SectionLabel>ACCOUNT &amp; SYNC</SectionLabel>
           <div className="bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
             {user ? (
-              <div className="divide-y divide-white/5">
-                {/* User Header */}
-                <div className="p-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-primary-soft border border-primary/20 flex items-center justify-center text-xl shrink-0">
-                      {user.user_metadata?.avatar_url || '🎓'}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-xs font-semibold text-content-primary truncate">
-                        {user.user_metadata?.full_name || 'Aspirant'}
-                      </h3>
-                      <p className="text-[11px] text-content-secondary font-medium truncate">{user.email}</p>
-                      <span className="text-[9.5px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-md border border-secondary/20 inline-block mt-0.5">
-                        ● Cloud Synced
+              <div className="relative overflow-hidden">
+                <div className="pointer-events-none absolute -top-16 right-[-36px] w-52 h-52 rounded-full bg-secondary/20 blur-3xl ambient-orb" />
+                <div className="pointer-events-none absolute -bottom-20 left-[-40px] w-44 h-44 rounded-full bg-primary/18 blur-3xl ambient-orb ambient-orb-delay" />
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      'radial-gradient(110% 70% at 12% -10%, rgba(134, 165, 136, 0.22), transparent 52%), radial-gradient(120% 80% at 92% 8%, rgba(196, 165, 116, 0.18), transparent 56%)',
+                  }}
+                />
+                <div className="relative p-5">
+                  <div className="flex items-start gap-3.5">
+                    <div className="relative shrink-0">
+                      <div className="size-[3.35rem] rounded-[16px] bg-primary-soft border border-primary/35 grid place-items-center text-[26px] shadow-elevated">
+                        {user.user_metadata?.avatar_url && /^https?:/.test(String(user.user_metadata.avatar_url)) ? (
+                          <img
+                            src={user.user_metadata.avatar_url}
+                            alt=""
+                            className="size-full rounded-[16px] object-cover"
+                          />
+                        ) : (
+                          user.user_metadata?.avatar_url || '🎓'
+                        )}
+                      </div>
+                      <span className="absolute -bottom-1 -right-1 size-5 rounded-full bg-secondary-soft border border-secondary/40 grid place-items-center">
+                        <ShieldCheck size={11} className="text-secondary" strokeWidth={2.4} />
                       </span>
                     </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary">Live on every device</p>
+                      <h3 className="text-[17px] font-semibold text-content-primary leading-tight mt-0.5 truncate">
+                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}
+                      </h3>
+                      <p className="text-[12px] text-content-secondary truncate mt-0.5">{user.email}</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+
+                  <p className="mt-4 text-[13px] text-content-secondary leading-relaxed">
+                    This plan is yours — goals, Today, and focus time stay in sync when you open YouDO on another phone.
+                  </p>
+                  <div className="mt-3.5 flex flex-wrap gap-1.5">
+                    <span className="text-[10px] font-semibold tracking-wide text-secondary bg-secondary-soft border border-secondary/25 px-2.5 py-1 rounded-full">
+                      Cloud live
+                    </span>
+                    <span className="text-[10px] font-semibold tracking-wide text-primary bg-primary-soft border border-primary/20 px-2.5 py-1 rounded-full">
+                      {goals.length} {goals.length === 1 ? 'goal' : 'goals'}
+                    </span>
+                    <span className="text-[10px] font-semibold tracking-wide text-primary bg-primary-soft border border-primary/20 px-2.5 py-1 rounded-full">
+                      {tasks.length} {tasks.length === 1 ? 'card' : 'cards'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const res = await syncToCloud();
+                      setMsg(
+                        res.ok
+                          ? { text: '✓ Cloud backup synced.' }
+                          : { text: `✗ ${res.error || 'Failed to sync.'}`, error: true },
+                      );
+                    }}
+                    className="mt-5 w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
+                  >
+                    <Upload size={15} strokeWidth={2.25} />
+                    Sync now
+                  </button>
+
+                  <div className="mt-2 grid grid-cols-3 gap-1">
                     <button
+                      type="button"
                       onClick={() => {
                         setEditName(user.user_metadata?.full_name || '');
                         setEditAvatar(user.user_metadata?.avatar_url || '🎓');
                         setEditProfileOpen((p) => !p);
+                        setRestoreOpen(false);
                       }}
-                      className="p-2 rounded-xl bg-surface hover:bg-elevated text-content-primary transition text-xs font-bold"
-                      title="Edit Profile"
+                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-content-primary hover:bg-surface/80 flex items-center justify-center gap-1.5"
                     >
-                      <Edit2 size={14} className="text-primary" />
+                      <Edit2 size={13} className="text-primary" />
+                      Edit
                     </button>
                     <button
-                      onClick={() => signOut()}
-                      className="p-2 rounded-xl bg-error-soft hover:bg-error/20 text-error transition text-xs font-bold"
-                      title="Sign Out"
+                      type="button"
+                      onClick={() => {
+                        setConfirmRestore(null);
+                        setRestoreOpen((v) => !v);
+                        setEditProfileOpen(false);
+                      }}
+                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-content-primary hover:bg-surface/80 flex items-center justify-center gap-1.5"
                     >
-                      <LogOut size={14} />
+                      <History size={13} className="text-secondary" />
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => signOut()}
+                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
+                    >
+                      <LogOut size={13} />
+                      Sign out
                     </button>
                   </div>
                 </div>
 
-                {/* Edit Profile Form */}
                 {editProfileOpen && (
-                  <div className="p-4 bg-base space-y-3 animate-fade-in">
+                  <div className="relative px-5 pb-4 space-y-3">
                     <div>
                       <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
-                        Full Name
+                        Full name
                       </label>
                       <input
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Aspirant's Name"
-                        className="w-full bg-elevated border border-subtle rounded-xl px-3 py-2 text-xs text-content-primary focus:outline-none focus:border-primary"
+                        placeholder="Aspirant's name"
+                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
-                        Avatar Icon Preset
+                        Mark
                       </label>
                       <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
                         {['🎓', '⚡', '🏆', '🚀', '🦉', '🧠', '🎯', '📚'].map((emoji) => (
@@ -764,9 +832,9 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                             key={emoji}
                             type="button"
                             onClick={() => setEditAvatar(emoji)}
-                            className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition border ${
+                            className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition border shrink-0 ${
                               editAvatar === emoji
-                                ? 'bg-primary-soft border-primary text-white scale-105'
+                                ? 'bg-primary-soft border-primary scale-105'
                                 : 'bg-surface border-subtle text-content-muted hover:bg-elevated'
                             }`}
                           >
@@ -776,65 +844,40 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={async () => {
                         const ok = await updateProfile({ fullName: editName, avatarUrl: editAvatar });
                         if (ok) {
                           setEditProfileOpen(false);
-                          setMsg({ text: '✓ Profile updated successfully!' });
+                          setMsg({ text: '✓ Profile updated.' });
                         }
                       }}
-                      className="w-full py-2 rounded-xl bg-primary hover:bg-primary-glow text-white text-xs font-bold transition"
+                      className="w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
                     >
-                      Save Changes
+                      Save profile
                     </button>
                   </div>
                 )}
 
-                {/* Cloud Sync Actions */}
-                <div className="p-3 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={async () => {
-                      const res = await syncToCloud();
-                      setMsg(
-                        res.ok
-                          ? { text: '✓ Cloud Backup Synced!' }
-                          : { text: `✗ ${res.error || 'Failed to sync.'}`, error: true },
-                      );
-                    }}
-                    className="py-2 px-3 rounded-xl bg-primary-soft hover:bg-primary-soft text-primary-glow text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
-                  >
-                    <Upload size={13} /> Sync Cloud Now
-                  </button>
-                  <button
-                    onClick={() => {
-                      setConfirmRestore(null);
-                      setRestoreOpen((v) => !v);
-                    }}
-                    className="py-2 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
-                  >
-                    <History size={13} /> Restore Cloud
-                  </button>
-                </div>
-
                 {restoreOpen && (
-                  <div className="px-3 pb-3 space-y-2 animate-fade-in">
-                    <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed px-0.5">
+                  <div className="relative px-5 pb-4 space-y-2">
+                    <p className="text-[12px] text-content-secondary leading-relaxed">
                       Latest is what is in the cloud now. The other copies were frozen each time you opened the app (last 3 visits). Restoring replaces goals, tasks, and session stats on this device.
                     </p>
                     {restoreLoading && (
-                      <p className="text-[11px] text-content-muted font-medium px-1">Loading copies…</p>
+                      <p className="text-[12px] text-content-muted">Loading copies…</p>
                     )}
                     {!restoreLoading && restorePoints && !restorePoints.live && restorePoints.visits.length === 0 && (
-                      <p className="text-[11px] text-content-secondary font-medium px-1">No cloud backup found yet.</p>
+                      <p className="text-[12px] text-content-secondary">No cloud backup found yet.</p>
                     )}
                     {!restoreLoading && restorePoints?.live && (
                       <button
                         type="button"
                         onClick={() => setConfirmRestore({ kind: 'live' })}
-                        className="w-full text-left p-3 rounded-xl bg-base border border-subtle hover:border-primary/40 transition"
+                        className="w-full text-left p-3 rounded-xl bg-surface border border-subtle hover:border-primary/40 transition"
                       >
-                        <div className="text-[11px] font-semibold text-content-primary">Latest cloud</div>
-                        <div className="text-[10px] text-content-secondary mt-0.5">
+                        <div className="text-[12px] font-semibold text-content-primary">Latest cloud</div>
+                        <div className="text-[11px] text-content-secondary mt-0.5">
                           Includes this visit · {formatBackupStamp(restorePoints.live.updatedAt)}
                         </div>
                       </button>
@@ -852,10 +895,10 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                               when: formatBackupStamp(visit.createdAt),
                             })
                           }
-                          className="w-full text-left p-3 rounded-xl bg-base border border-subtle hover:border-primary/40 transition"
+                          className="w-full text-left p-3 rounded-xl bg-surface border border-subtle hover:border-primary/40 transition"
                         >
-                          <div className="text-[11px] font-semibold text-content-primary">{visitSnapshotLabel(index)}</div>
-                          <div className="text-[10px] text-content-secondary mt-0.5">{formatBackupStamp(visit.createdAt)}</div>
+                          <div className="text-[12px] font-semibold text-content-primary">{visitSnapshotLabel(index)}</div>
+                          <div className="text-[11px] text-content-secondary mt-0.5">{formatBackupStamp(visit.createdAt)}</div>
                         </button>
                       ))}
                     {confirmRestore && (
@@ -871,6 +914,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                         </p>
                         <div className="flex gap-2">
                           <button
+                            type="button"
                             onClick={async () => {
                               const ok =
                                 confirmRestore.kind === 'live'
@@ -884,13 +928,14 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                                   : { text: '✗ Could not restore that copy.', error: true },
                               );
                             }}
-                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-error hover:bg-error-soft transition"
+                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-error"
                           >
                             Restore this copy
                           </button>
                           <button
+                            type="button"
                             onClick={() => setConfirmRestore(null)}
-                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
+                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface"
                           >
                             Cancel
                           </button>
@@ -900,34 +945,36 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                   </div>
                 )}
 
-                {/* Account Danger Action */}
-                <div className="p-3 flex justify-end">
+                <div className="relative px-5 pb-4 flex justify-end">
                   {!confirmDeleteAccount ? (
                     <button
+                      type="button"
                       onClick={() => setConfirmDeleteAccount(true)}
-                      className="text-[11px] font-bold text-error/80 hover:text-error flex items-center gap-1.5 transition py-1 px-2 rounded-lg hover:bg-error-soft"
+                      className="text-[11px] font-medium text-content-muted hover:text-error flex items-center gap-1.5 py-1"
                     >
-                      <Trash2 size={13} /> Delete Account &amp; Data
+                      <Trash2 size={12} /> Delete account
                     </button>
                   ) : (
-                    <div className="w-full rounded-xl bg-error-soft p-3 space-y-2 fade-in">
+                    <div className="w-full rounded-xl bg-error-soft p-3 space-y-2">
                       <div className="flex items-center gap-2 text-error font-semibold text-[11px]">
-                        <AlertTriangle size={13} /> Delete Account &amp; Reset Data?
+                        <AlertTriangle size={13} /> Delete account and reset data?
                       </div>
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={async () => {
                             setConfirmDeleteAccount(false);
                             await signOut();
                             setMsg({ text: '✓ Signed out & data reset.' });
                           }}
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-error hover:bg-error-soft transition"
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-error"
                         >
-                          Yes, Delete
+                          Yes, delete
                         </button>
                         <button
+                          type="button"
                           onClick={() => setConfirmDeleteAccount(false)}
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-content-secondary bg-surface"
                         >
                           Cancel
                         </button>

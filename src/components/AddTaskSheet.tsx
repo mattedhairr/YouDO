@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { Priority, Task } from '../types';
 import { todayISO, tomorrowISO } from '../store';
 import Overlay from './Overlay';
+import StepListEditor, { MAX_STEPS } from './StepListEditor';
 
 interface Props {
   open: boolean;
@@ -46,7 +47,7 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
 
   const submit = () => {
     if (!title.trim()) return;
-    const cleanSteps = steps.map((s) => s.trim()).filter(Boolean);
+    const cleanSteps = steps.map((s) => s.trim()).filter(Boolean).slice(0, MAX_STEPS);
     onAdd({
       id: uid(),
       title: title.trim(),
@@ -116,93 +117,52 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Target date</label>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setTargetDate(todayISO())}
-                    className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md border transition-all ${
-                      targetDate === todayISO()
-                        ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-surface text-content-secondary border-subtle hover:border-primary'
-                    }`}
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetDate(tomorrowISO())}
-                    className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md border transition-all ${
-                      targetDate === tomorrowISO()
-                        ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-surface text-content-secondary border-subtle hover:border-primary'
-                    }`}
-                  >
-                    Tom.
-                  </button>
-                </div>
+          <div className="space-y-4">
+            <div className="min-w-0">
+              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Target date</label>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTargetDate(todayISO())}
+                  className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                    targetDate === todayISO()
+                      ? 'bg-primary text-on-primary border-primary'
+                      : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetDate(tomorrowISO())}
+                  className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                    targetDate === tomorrowISO()
+                      ? 'bg-primary text-on-primary border-primary'
+                      : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
+                  }`}
+                >
+                  Tomorrow
+                </button>
               </div>
               <input
                 type="date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
-                className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
+                className="mt-2 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Hard deadline</label>
               <input
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
+                className="mt-1 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
               />
             </div>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Sub-steps</label>
-              <span className="text-[10px] text-content-muted">{steps.length}/8</span>
-            </div>
-            <div className="mt-1.5 space-y-2">
-              {steps.map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    value={s}
-                    onChange={(e) => {
-                      const next = [...steps];
-                      next[i] = e.target.value;
-                      setSteps(next);
-                    }}
-                    placeholder={`Step ${i + 1}`}
-                    className="flex-1 bg-surface border border-subtle rounded-xl px-3.5 py-2 text-sm text-content-primary placeholder-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors"
-                  />
-                  {steps.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
-                      className="p-2 rounded-lg text-content-muted hover:text-error hover:bg-error-soft transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {steps.length < 8 && (
-              <button
-                type="button"
-                onClick={() => setSteps([...steps, ''])}
-                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-primary bg-primary-soft hover:bg-primary-soft border border-primary-soft hover:border-primary transition-colors"
-              >
-                <Plus size={13} /> Add step
-              </button>
-            )}
-          </div>
+          <StepListEditor label="Sub-steps" steps={steps} onChange={setSteps} />
 
           <button
             onClick={submit}
