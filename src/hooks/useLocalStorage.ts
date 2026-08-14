@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { readStorageRaw } from '../lib/storageKeys';
 
 export function useLocalStorage<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(() => {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = readStorageRaw(key);
       return raw ? (JSON.parse(raw) as T) : initial;
     } catch {
       return initial;

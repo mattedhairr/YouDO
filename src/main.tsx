@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { StoreProvider } from './store';
 import { AuthProvider } from './contexts/AuthContext';
+import { clearYouDoStorage } from './lib/storageKeys';
 import './index.css';
 
 interface ErrorBoundaryState {
@@ -25,11 +26,7 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
   }
 
   handleReset = () => {
-    try {
-      localStorage.clear();
-    } catch {
-      /* ignore */
-    }
+    clearYouDoStorage();
     window.location.reload();
   };
 
@@ -40,7 +37,7 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
           <div className="w-14 h-14 rounded-2xl bg-error-soft border border-error/20 flex items-center justify-center text-error mb-4">
             ⚠️
           </div>
-          <h2 className="text-lg font-black text-content-primary mb-2">Something went wrong</h2>
+          <h2 className="text-lg font-semibold text-content-primary mb-2">Something went wrong</h2>
           <p className="text-xs text-content-secondary max-w-xs mb-6 leading-relaxed">
             An unhandled runtime error occurred on startup: {this.state.error?.message || 'Unknown error'}
           </p>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Calendar, CheckSquare, Square, X, Zap } from 'lucide-react';
 import type { GoalNode } from '../types';
 import { formatDDMMYYYY, todayISO, tomorrowISO } from '../store';
+import Overlay from './Overlay';
 
 export interface NodePlan {
   nodeId: string;
@@ -34,9 +35,13 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
           initialMap[n.id] = new Set();
         }
       }
+      const targetKey = targetNodes.map((n) => n.id).join('|');
+      if (!targetKey) return;
       setSelectedMap(initialMap);
       setDate(todayISO());
     }
+    // Open + node identity is enough; targetNodes is derived from nodes/node.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, nodes, node]);
 
   if (!open || targetNodes.length === 0) return null;
@@ -93,9 +98,8 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={onClose} />
-      <div className="sheet-up relative w-full max-w-md bg-elevated card rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto no-scrollbar shadow-elevated border-t border-subtle">
+    <Overlay open={open} onClose={onClose} align="bottom">
+      <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[85vh] overflow-y-auto no-scrollbar">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-xl bg-primary-soft text-primary border border-primary">
@@ -129,22 +133,22 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
               onClick={() => setDate(todayISO())}
               className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
                 date === todayISO()
-                  ? 'bg-primary text-white border-primary shadow-sm'
+                  ? 'bg-primary text-on-primary border-primary'
                   : 'bg-elevated text-content-secondary border-subtle hover:border-primary'
               }`}
             >
-              📅 Today
+              Today
             </button>
             <button
               type="button"
               onClick={() => setDate(tomorrowISO())}
               className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
                 date === tomorrowISO()
-                  ? 'bg-primary text-white border-primary shadow-sm'
+                  ? 'bg-primary text-on-primary border-primary'
                   : 'bg-elevated text-content-secondary border-subtle hover:border-primary'
               }`}
             >
-              🌅 Tomorrow
+              Tomorrow
             </button>
           </div>
 
@@ -230,7 +234,7 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
 
         <button
           onClick={confirm}
-          className="mt-5 w-full py-3 rounded-2xl text-sm font-semibold text-white bg-primary hover:bg-primary-glow disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm active:scale-[0.99] flex items-center justify-center gap-2"
+          className="mt-5 w-full py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap size={15} className="fill-white" />
           {isMulti
@@ -240,6 +244,6 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
             : `Schedule ${totalAssignedSteps} Step${totalAssignedSteps !== 1 ? 's' : ''}`}
         </button>
       </div>
-    </div>
+    </Overlay>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Trash2, X } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
 import { uid } from '../store';
+import Overlay from './Overlay';
 
 interface Props {
   open: boolean;
@@ -115,9 +116,8 @@ export default function AddGoalSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={onClose} />
-      <div className="sheet-up relative w-full max-w-md bg-elevated card rounded-t-3xl p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar shadow-2xl border-t border-subtle">
+    <Overlay open={open} onClose={onClose} align="bottom">
+      <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-content-primary">
             {getHeaderTitle()}
@@ -165,7 +165,7 @@ export default function AddGoalSheet({
                     onClick={() => setKind(k.value)}
                     className={`py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
                       kind === k.value
-                        ? 'bg-primary text-white border-primary'
+                        ? 'bg-primary text-on-primary border-primary'
                         : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
                     }`}
                   >
@@ -242,13 +242,13 @@ export default function AddGoalSheet({
             <button
               onClick={submit}
               disabled={!title.trim()}
-              className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white bg-primary hover:bg-primary-glow disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isEditing ? 'Save' : parentId ? 'Add Node' : 'Create Goal'}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }

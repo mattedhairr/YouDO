@@ -4,6 +4,50 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+## [v3.0.0] — 2026-08-14 ("The Identity & Reliability Release")
+
+### 🚀 Major Highlights
+- **Full Visual Identity**: Brass-and-sage theme (dark charcoal + dusky light), 12px corners, Figtree + IBM Plex Mono, and a new launcher/PWA icon that matches the in-app mark.
+- **Overlay Architecture Rewrite**: Expanded cards and every sheet now blur the **full viewport** — header and nav included — instead of only the center column.
+- **Honest Session Analytics**: Time you see is work you did: no silent overwrite of an unfinished session, no sub-15s accidents in totals, overnight sessions split at local midnight, goal stats roll up descendants.
+
+---
+
+### 🎨 Look, Icon & Quotes
+- **App Icon**: Dark `#11100E` field, brass Y-stem, sage check — used for PWA, Apple touch, and Android adaptive launcher.
+- **Task Cards & Goal Tree**: Backlog on the metadata row; Description beside the title; compact expanded step list (check, name, time); cleaned pinned goals and node cards.
+- **Header Quotes**: Nimsdai’s line restored — *Giving up is not in the blood sir..... not in the blood* — plus additional hard-hitting student quotes.
+
+---
+
+### 🛡️ Analytics Reliability & Session Safeguards
+- **Session Persistence**: Starting another session saves the previous one first instead of overwriting it.
+- **Countable Focus**: Sessions under 15 seconds of net focus are dropped from save and summaries.
+- **Midnight Split**: Overnight timers are split at local midnight so calendar daily totals stay honest.
+- **Goal Roll-up**: Goal analytics include descendant nodes, not only the node you opened.
+- **Live Timers**: Net focus (not raw wall-clock); durations show seconds when needed; running sessions display `start – ∞`.
+- **Resume vs Reconstruct**: Resume still counts the gap if you kept working after a crash; Reconstruct is for “I forgot to stop.”
+
+---
+
+### ⏱️ Live Sessions & Ambient Mode
+- **Long-press Ambient**: Hold the play control ~450ms to enter full-screen desk mode (screen stays awake).
+- **Step Timestamps**: Completed steps show wall-clock ranges on the expanded card.
+
+---
+
+### 📅 Calendar & Efficiency Analytics
+- **Daily Stats Info**: Same analytics affordance as task/goal stats on the calendar day sheet.
+- **Overnight Attribution**: Focus spanning two dates is attributed to each local day correctly.
+
+---
+
+### 💾 Data Safety & Onboarding
+- **Android APK**: versionName **3.0.0**, versionCode **5**. Same package id — no uninstall required to update from 2.x.
+- **Cloud + Local Backup**: Optional account sync plus JSON export/import (backup payload version **3.0.0**).
+
+---
+
 ## [v2.0.0] — 2026-08-12 ("The Aspirant Execution Release")
 
 ### 🚀 Major Highlights

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, AlertCircle, X, Check, Clock } from 'lucide-react';
+import Overlay from './Overlay';
 import type { Task } from '../types';
 
 interface Props {
@@ -10,14 +11,7 @@ interface Props {
 }
 
 export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
-  const [selectedSteps, setSelectedSteps] = useState<number[]>(() => {
-    // Pre-select steps up to task.progress
-    const initial: number[] = [];
-    for (let i = 0; i < task.progress; i++) {
-      initial.push(i);
-    }
-    return initial;
-  });
+  const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
 
   if (!open) return null;
 
@@ -41,15 +35,20 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
   };
 
   const handleSaveStepsProgress = () => {
-    const isAll = selectedSteps.length === task.steps.length;
+    const already = task.progress;
+    const resulting = new Set<number>([
+      ...Array.from({ length: already }, (_, i) => i),
+      ...selectedSteps,
+    ]);
+    const isAll = resulting.size === task.steps.length;
     const isNone = selectedSteps.length === 0;
     const outcome = isAll ? true : isNone ? false : 'partial';
     onConfirm({ completed: outcome, completedStepIndices: selectedSteps });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop animate-fade-in">
-      <div className="relative w-full max-w-md bg-elevated card border border-subtle rounded-t-3xl sm:rounded-3xl p-5 pb-8 shadow-elevated sheet-up max-h-[85vh] overflow-y-auto">
+    <Overlay open={open} onClose={onCancel} align="bottom">
+      <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-subtle">
           <div className="flex items-center gap-2">
@@ -82,22 +81,26 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
             </label>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {task.steps.map((step, idx) => {
-                const checked = selectedSteps.includes(idx);
+                const alreadyDone = idx < task.progress;
+                const checked = alreadyDone || selectedSteps.includes(idx);
                 return (
                   <button
                     key={idx}
                     type="button"
+                    disabled={alreadyDone}
                     onClick={() => toggleStep(idx)}
                     className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs text-left transition border ${
-                      checked
-                        ? 'bg-primary-soft border-primary text-content-primary'
-                        : 'bg-surface border-subtle text-content-secondary hover:text-content-primary'
+                      alreadyDone
+                        ? 'bg-elevated border-subtle text-content-muted'
+                        : checked
+                          ? 'bg-primary-soft border-primary text-content-primary'
+                          : 'bg-surface border-subtle text-content-secondary hover:text-content-primary'
                     }`}
                   >
-                    <span className="truncate pr-2">{step}</span>
+                    <span className="truncate pr-2">{alreadyDone ? `${step} · already done` : step}</span>
                     <div
                       className={`w-5 h-5 rounded-lg flex items-center justify-center border transition ${
-                        checked ? 'bg-primary border-primary text-white' : 'border-subtle'
+                        checked ? 'bg-primary border-primary text-on-primary' : 'border-2 border-[color:var(--text-muted)]'
                       }`}
                     >
                       {checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -113,7 +116,7 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
         {hasSteps ? (
           <button
             onClick={handleSaveStepsProgress}
-            className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-glow text-white text-sm font-bold flex items-center justify-center gap-2 transition shadow-sm active:scale-[0.98]"
+            className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
           >
             <CheckCircle2 className="w-5 h-5" />
             Save Progress
@@ -138,6 +141,6 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </Overlay>
   );
 }

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2, Check } from 'lucide-react';
 import type { Priority, Task, ActiveSession, TaskSession } from '../types';
 import { isTaskComplete } from '../store';
+import Overlay from './Overlay';
+import { computeNetFocusMs } from '../lib/sessionStats';
 
 interface Props {
   task: Task;
@@ -32,10 +34,10 @@ interface Props {
   taskSessions?: TaskSession[];
 }
 
-const priorityStyles: Record<Priority, { dot: string; bar: string; glow: string }> = {
-  high:   { dot: 'bg-error',   bar: 'bg-error',   glow: 'shadow-sm' },
-  medium: { dot: 'bg-accent',  bar: 'bg-accent',  glow: 'shadow-sm' },
-  low:    { dot: 'bg-secondary', bar: 'bg-secondary', glow: 'shadow-sm' },
+const priorityStyles: Record<Priority, { dot: string; bar: string }> = {
+  high:   { dot: 'bg-error', bar: 'bg-error' },
+  medium: { dot: 'bg-primary', bar: 'bg-primary' },
+  low:    { dot: 'bg-secondary', bar: 'bg-secondary' },
 };
 
 function fmtDate(date: string | null): string {
@@ -62,6 +64,8 @@ export default function TaskCard({
   const [expanded, setExpanded] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const skipClickAfterAmbient = useRef(false);
 
   const isSessionTask = activeSession?.taskId === task.id;
   const isPaused = isSessionTask && activeSession?.isPaused;
@@ -71,10 +75,7 @@ export default function TaskCard({
     if (!isSessionTask || !activeSession) return;
 
     const calc = () => {
-      const now = Date.now();
-      const currentPause = activeSession.isPaused && activeSession.pauseStart ? now - activeSession.pauseStart : 0;
-      const totalPaused = activeSession.pausedDuration + currentPause;
-      return Math.max(0, Math.floor((now - activeSession.startTime - totalPaused) / 1000));
+      return Math.floor(computeNetFocusMs(activeSession, Date.now()) / 1000);
     };
 
     setElapsed(calc());
@@ -84,7 +85,10 @@ export default function TaskCard({
       setElapsed(calc());
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearLongPress();
+    };
   }, [activeSession, isSessionTask]);
 
   const ps = priorityStyles[task.priority];
@@ -99,20 +103,20 @@ export default function TaskCard({
   const tickerText = hours > 0
     ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
     : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  
-  useEffect(() => {
-    if (expanded) {
-      document.body.classList.add('task-card-expanded');
-      setTimeout(() => {
-        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 50);
-    } else {
-      document.body.classList.remove('task-card-expanded');
+
+  const clearLongPress = () => {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
     }
-    return () => document.body.classList.remove('task-card-expanded');
-  }, [expanded]);
+  };
 
-
+  const openAmbient = () => {
+    skipClickAfterAmbient.current = true;
+    clearLongPress();
+    onOpenAmbient?.();
+  };
+  
   const handleCardClick = () => {
     if (expanded) {
       setExpanded(false);
@@ -127,19 +131,11 @@ export default function TaskCard({
 
   return (
     <>
-      {/* Expanded Dimmed Overlay Backdrop */}
-      {expanded && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 dark:bg-black/60 backdrop-blur-[2px] transition-opacity animate-fade-in"
-          onClick={() => setExpanded(false)}
-        />
-      )}
-
       <div
         ref={cardRef}
         className={`
-          overflow-hidden transition-all p-0 relative rounded-2xl border border-subtle
-          ${expanded ? 'z-40 shadow-elevated bg-elevated' : 'bg-surface shadow-card'}
+          overflow-hidden relative rounded-[12px] border
+          bg-surface shadow-card border-subtle
           ${isDragging ? 'dragging-card' : ''}
           ${dragOver  ? 'drag-over-card ring-2 ring-primary' : ''}
           ${isSessionTask ? 'card-session-active' : ''}
@@ -155,21 +151,18 @@ export default function TaskCard({
       >
         {/* ── Active Session Pulsing Header Banner (if active) ── */}
         {isSessionTask && (
-          <div className="bg-accent/10 border-b border-warning/20 px-3.5 py-2 flex items-center justify-between">
+          <div className="bg-primary-soft border-b border-subtle px-3.5 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="relative flex h-2.5 w-2.5">
-                {!isPaused && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPaused ? 'bg-accent/50' : 'bg-accent'}`}></span>
-              </span>
-              <span className={`text-[11px] font-mono font-bold ${isPaused ? 'text-warning/70' : 'text-warning'}`}>
-                {isPaused ? 'PAUSED' : 'SESSION RUNNING'} • {tickerText}
+              <span className={`h-2 w-2 rounded-full ${isPaused ? 'bg-content-muted' : 'bg-primary animate-session-pulse'}`} />
+              <span className="text-[11px] font-mono font-semibold text-primary">
+                {isPaused ? 'Paused' : 'Focus'} · {tickerText}
               </span>
             </div>
-
-            {/* Session Timestamp */}
             {activeSession && (
-              <div className="text-[10.5px] font-mono text-warning/80 font-bold tracking-tight">
-                ({new Date(activeSession.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ∞)
+              <div className="text-[11px] font-mono text-content-muted tabular-nums" title="Session in progress">
+                {activeSession.wallClockStart || new Date(activeSession.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                {' – '}
+                <span className="text-primary">∞</span>
               </div>
             )}
           </div>
@@ -201,8 +194,8 @@ export default function TaskCard({
                           onJumpToGoal();
                         }
                       }}
-                      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold bg-elevated border border-subtle rounded-lg px-2 py-0.5 leading-normal shadow-xs ${
-                        onJumpToGoal ? 'cursor-pointer hover:bg-primary-soft hover:border-primary/20 transition-all group/path' : ''
+                      className={`inline-flex items-center gap-1.5 text-[10px] font-semibold bg-base border border-subtle rounded-lg px-2 py-0.5 ${
+                        onJumpToGoal ? 'cursor-pointer hover:border-primary' : ''
                       }`}
                       title={onJumpToGoal ? 'Jump to this task in Goal Blueprint' : undefined}
                     >
@@ -222,42 +215,81 @@ export default function TaskCard({
                 );
               })()
             ) : !task.goalNodeId ? (
-              <div className="mb-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-primary bg-elevated border border-subtle px-2 py-0.5 rounded-lg shadow-xs">
-                ⚡ Quick Task
+              <div className="mb-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary-soft px-2 py-0.5 rounded-lg">
+                Quick task
               </div>
             ) : null}
 
             {/* Title Row */}
             <div className="flex items-start justify-between gap-3 pr-1">
-              <div className="flex items-start gap-2 flex-1">
-                <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot} shadow-sm ${ps.glow}`} />
-                <h3 className={`text-[15px] font-bold leading-snug tracking-tight ${
-                  complete ? 'line-through text-content-muted' : 'text-content-primary'
-                }`}>
-                  {task.title}
-                </h3>
+              <div className="flex items-start gap-2 flex-1 min-w-0">
+                <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot}`} />
+                <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                  <h3 className={`text-[15px] font-semibold leading-snug ${
+                    complete ? 'line-through text-content-muted' : 'text-content-primary'
+                  }`}>
+                    {task.title}
+                  </h3>
+                  {task.description && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenDescription) {
+                          onOpenDescription(task.title, task.description);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 font-medium text-[11px] text-content-secondary hover:text-primary-glow transition-colors shrink-0"
+                      title="View full description"
+                    >
+                      <FileText size={11} className="text-primary shrink-0" />
+                      <span>Description</span>
+                    </button>
+                  )}
+                </div>
               </div>
               
               {/* Circular Play/Pause "Music Player" Chip (Right Aligned) */}
               {isSessionTask && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); if (isPaused) { onResumeSession?.(); } else { onPauseSession?.(); } }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    skipClickAfterAmbient.current = false;
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    clearLongPress();
+                    longPressTimer.current = window.setTimeout(openAmbient, 450);
+                  }}
+                  onPointerUp={(e) => {
+                    e.stopPropagation();
+                    clearLongPress();
+                    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+                  }}
+                  onPointerCancel={clearLongPress}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (skipClickAfterAmbient.current) {
+                      skipClickAfterAmbient.current = false;
+                      return;
+                    }
+                    if (isPaused) onResumeSession?.();
+                    else onPauseSession?.();
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (onOpenAmbient) onOpenAmbient();
+                    openAmbient();
                   }}
-                  title="Long press for Ambient Mode"
+                  title="Hold for Ambient Mode"
                   className="relative shrink-0 flex items-center justify-center w-[38px] h-[38px] rounded-full group transition-transform active:scale-95"
                 >
                   {/* Spinning ring when playing */}
                   {!isPaused && (
-                    <div className="absolute inset-0 rounded-full border-[1.5px] border-warning/20 border-t-accent border-r-accent animate-spin" style={{ animationDuration: '3s' }}></div>
+                    <div className="absolute inset-0 rounded-full border-[1.5px] border-primary/20 border-t-primary animate-spin" style={{ animationDuration: '3s' }}></div>
                   )}
-                  <div className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-full transition-colors ${
-                    isPaused 
-                      ? 'bg-accent text-on-accent shadow-[0_0_12px_var(--warning)] group-hover:bg-accent-hover' 
-                      : 'bg-accent/20 text-warning group-hover:bg-accent/30'
+                  <div className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-full ${
+                    isPaused
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-primary-soft text-primary'
                   }`}>
                     {isPaused ? <Play className="w-3.5 h-3.5 fill-current ml-[1.5px]" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
                   </div>
@@ -284,13 +316,10 @@ export default function TaskCard({
             {/* Date / Deadline / Description Row */}
             <div className="mt-2.5 flex items-center gap-3 text-[11px] text-content-secondary font-medium flex-wrap ml-3.5">
               {task.originalTargetDate && (
-                <span className="inline-flex items-center gap-1 font-bold text-[10px] text-error bg-error-soft border border-error px-2 py-0.5 rounded-lg">
-                  📋 Backlog
+                <span className="inline-flex items-center font-semibold text-[10px] text-error bg-error-soft px-2 py-0.5 rounded-lg">
+                  Backlog
                 </span>
               )}
-              
-              {/* Completed Session Timestamp removed from here as per user request */}
-
               <span className="inline-flex items-center gap-1">
                 <Calendar size={11} className="text-content-muted" /> {fmtDate(task.targetDate)}
               </span>
@@ -301,150 +330,10 @@ export default function TaskCard({
                   <Clock size={11} className={new Date(task.deadline).getTime() < Date.now() ? "text-error" : "text-content-muted"} /> {fmtCountdown(task.deadline)}
                 </span>
               )}
-              {task.description && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onOpenDescription) {
-                      onOpenDescription(task.title, task.description);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1 font-medium hover:text-primary-glow transition-colors"
-                  title="View full description"
-                >
-                  <FileText size={11} className="text-primary shrink-0" />
-                  <span className="max-w-[140px] sm:max-w-[200px] truncate">Description</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
 
-        {/* ── EXPANDED ACTION GRID OVERLAY ── */}
-        {expanded && (
-          <div
-            className="px-4 pb-4 pt-2 animate-fade-in flex flex-col gap-3.5 border-t border-subtle mt-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* ── ZONE 1: MICRO TASKS ── */}
-            {hasSteps && (
-              <div className="bg-surface/80 border border-subtle rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-2xs">
-                <div className="text-[9.5px] font-bold text-content-secondary uppercase tracking-wider flex items-center justify-between">
-                  <span>Micro Tasks</span>
-                  <span className={task.progress === task.steps.length ? 'text-secondary font-bold' : 'text-content-secondary'}>
-                    {task.progress}/{task.steps.length}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2.5">
-                  {task.steps.map((s, i) => {
-                    const done = i < task.progress;
-                    let stamp = null;
-                    if (done && taskSessions) {
-                      const sess = taskSessions.find(sess => sess.completedStepIndices?.includes(i));
-                      if (sess) {
-                        stamp = `(${sess.wallClockStart} - ${sess.wallClockEnd || '∞'})`;
-                      }
-                    }
-                    return (
-                      <div key={i} className="flex items-start gap-2.5 group/step">
-                        <span className={`
-                          mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all
-                          ${done 
-                            ? 'bg-secondary border border-secondary text-on-accent' 
-                            : 'bg-surface border-[1.5px] border-content-muted/60 group-hover/step:border-primary'}
-                        `}>
-                           {done && <CheckCircle2 className="w-3 h-3 text-on-accent" strokeWidth={3} />}
-                        </span>
-                        <div className="flex-1 flex items-start justify-between gap-3 min-w-0">
-                          <span className={`text-[12.5px] leading-snug break-words ${
-                            done ? 'line-through text-content-muted' : 'text-content-primary'
-                          }`}>
-                            {s}
-                          </span>
-                          {stamp && (
-                            <span className="shrink-0 text-[10px] font-mono text-warning/80 font-bold whitespace-nowrap bg-accent/10 px-1.5 py-0.5 rounded-md self-start mt-0.5">
-                              {stamp}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* ── ZONE 2: ACTIONS ── */}
-            <div className="flex flex-col gap-2 pt-1">
-              <div className="text-[9.5px] font-bold text-content-secondary uppercase tracking-wider text-center mb-0.5">
-                Actions
-              </div>
-              
-              {/* Primary Action Button (Start / Stop Session) */}
-              {isSessionTask ? (
-                <button
-                  onClick={() => { setExpanded(false); if (onStopSession) onStopSession(); }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-error hover:bg-error-soft active:scale-[0.98] text-white font-black text-[13px] flex items-center justify-center gap-2 border border-error shadow-sm transition-all"
-                >
-                  <Square className="w-4 h-4 fill-current" />
-                  Stop Active Session
-                </button>
-              ) : (
-                <button
-                  onClick={() => { setExpanded(false); if (onStartSession) onStartSession(task.id); }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-accent hover:bg-accent-hover active:scale-[0.98] text-on-accent font-black text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
-                >
-                  <Play className="w-4 h-4 fill-current" />
-                  Start Focus Session
-                </button>
-              )}
-
-              {/* Secondary Actions 2x2 Grid */}
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <button
-                  onClick={() => { setExpanded(false); if (onViewStats) onViewStats(task); }}
-                  className="py-2.5 px-2 rounded-xl bg-surface hover:bg-elevated text-content-primary border border-subtle text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <BarChart2 className="w-3.5 h-3.5 text-warning" />
-                  Stats
-                </button>
-
-                <button
-                  onClick={() => {
-                    setExpanded(false);
-                    if (task.goalNodeId && onJumpToGoal) {
-                      onJumpToGoal();
-                    } else {
-                      onAdvance(task.id);
-                    }
-                  }}
-                  className="py-2.5 px-2 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-[11px] font-bold flex items-center justify-center gap-1.5 border border-secondary/30 transition-colors"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  {task.goalNodeId ? 'Jump' : 'Advance'}
-                </button>
-
-                <button
-                  onClick={() => { setExpanded(false); onDuplicate(task.id); }}
-                  className="py-2.5 px-2 rounded-xl bg-surface hover:bg-elevated text-content-primary border border-subtle text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5 text-primary" />
-                  Duplicate
-                </button>
-
-                <button
-                  onClick={() => { setExpanded(false); onDelete(task.id); }}
-                  className="py-2.5 px-2 rounded-xl bg-error-soft hover:bg-error text-error border border-error-soft text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {softRemove ? 'Remove' : 'Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Thin progress bar at bottom */}
         {hasSteps && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-transparent">
             <div
@@ -454,6 +343,122 @@ export default function TaskCard({
           </div>
         )}
       </div>
+
+      <Overlay open={expanded} onClose={() => setExpanded(false)} align="center">
+        <div className="panel sheet-up max-h-[85vh] overflow-y-auto no-scrollbar p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="space-y-1.5">
+            {originNodes && originNodes.filter((n) => n.kind === 'goal' || n.kind === 'phase').length > 0 && (
+              <p className="text-[11px] font-semibold text-primary">
+                {originNodes.filter((n) => n.kind === 'goal' || n.kind === 'phase').map((n) => n.title).join(' · ')}
+              </p>
+            )}
+            <h3 className={`text-[16px] font-semibold leading-snug ${complete ? 'line-through text-content-muted' : 'text-content-primary'}`}>
+              {task.title}
+            </h3>
+            {originNodes && originNodes.filter((n) => n.kind !== 'goal' && n.kind !== 'phase').length > 0 && (
+              <p className="text-[12px] text-content-muted leading-snug">
+                {originNodes.filter((n) => n.kind !== 'goal' && n.kind !== 'phase').map((n) => n.title).join(' / ')}
+              </p>
+            )}
+          </div>
+
+          {hasSteps && (
+            <div className="bg-surface border border-subtle rounded-[12px] overflow-hidden">
+              <div className="flex items-center justify-between px-3.5 h-10">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Steps</span>
+                <span className={`text-[11px] font-medium tabular-nums ${task.progress === task.steps.length ? 'text-secondary' : 'text-content-secondary'}`}>
+                  {task.progress}/{task.steps.length}
+                </span>
+              </div>
+              <ul>
+                {task.steps.map((s, i) => {
+                  const done = i < task.progress;
+                  let stamp: string | null = null;
+                  if (done && taskSessions) {
+                    const sess = taskSessions.find((item) => item.completedStepIndices?.includes(i));
+                    if (sess) stamp = `${sess.wallClockStart} – ${sess.wallClockEnd || 'now'}`;
+                  }
+                  return (
+                    <li key={i} className="flex items-center gap-3 px-3.5 h-11 border-t border-subtle">
+                      <span className="w-5 h-5 grid place-items-center shrink-0">
+                        {done ? (
+                          <Check size={15} strokeWidth={2.25} className="text-secondary" />
+                        ) : (
+                          <span className="w-[7px] h-[7px] rounded-full bg-[color:var(--text-muted)] opacity-50" />
+                        )}
+                      </span>
+                      <span className={`flex-1 min-w-0 text-[13px] truncate ${done ? 'line-through text-content-muted' : 'text-content-primary'}`}>
+                        {s}
+                      </span>
+                      {stamp && (
+                        <span className="text-[11px] tabular-nums text-content-muted shrink-0">
+                          {stamp}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Actions</p>
+            {isSessionTask ? (
+              <button
+                onClick={() => { setExpanded(false); onStopSession?.(); }}
+                className="w-full py-3 px-4 rounded-[12px] bg-error text-white font-semibold text-[13px] flex items-center justify-center gap-2"
+              >
+                <Square className="w-4 h-4 fill-current" />
+                Stop session
+              </button>
+            ) : (
+              <button
+                onClick={() => { setExpanded(false); onStartSession?.(task.id); }}
+                className="w-full py-3 px-4 rounded-[12px] btn-primary text-[13px] flex items-center justify-center gap-2"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                Start focus session
+              </button>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => { setExpanded(false); onViewStats?.(task); }}
+                className="py-2.5 rounded-[12px] bg-surface text-content-primary border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
+              >
+                <BarChart2 className="w-3.5 h-3.5 text-primary" />
+                Stats
+              </button>
+              <button
+                onClick={() => {
+                  setExpanded(false);
+                  if (task.goalNodeId && onJumpToGoal) onJumpToGoal();
+                  else onAdvance(task.id);
+                }}
+                className="py-2.5 rounded-[12px] bg-surface text-content-primary border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-secondary" />
+                {task.goalNodeId ? 'Jump' : 'Advance'}
+              </button>
+              <button
+                onClick={() => { setExpanded(false); onDuplicate(task.id); }}
+                className="py-2.5 rounded-[12px] bg-surface text-content-primary border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5 text-primary" />
+                Duplicate
+              </button>
+              <button
+                onClick={() => { setExpanded(false); onDelete(task.id); }}
+                className="py-2.5 rounded-[12px] bg-error-soft text-error border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {softRemove ? 'Remove' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Overlay>
     </>
   );
 }

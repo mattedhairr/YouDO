@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
+import type { PluginListenerHandle } from '@capacitor/core';
 import type { View } from '../types';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 const TABS: View[] = ['tasks', 'goals', 'calendar'];
 
@@ -14,7 +16,7 @@ function parseNavigationState(): { initialView: View; initialPathIds: string[] }
     if (viewParam === 'tasks' || viewParam === 'goals' || viewParam === 'calendar') {
       initialView = viewParam as View;
     } else {
-      const savedView = localStorage.getItem('todo.view');
+      const savedView = localStorage.getItem(STORAGE_KEYS.view);
       if (savedView) {
         try {
           const parsed = JSON.parse(savedView);
@@ -33,7 +35,7 @@ function parseNavigationState(): { initialView: View; initialPathIds: string[] }
     if (pathParam) {
       initialPathIds = pathParam.split('/').filter(Boolean);
     } else {
-      const savedPath = localStorage.getItem('todo.goalPathIds');
+      const savedPath = localStorage.getItem(STORAGE_KEYS.goalPathIds);
       if (savedPath) {
         try {
           initialPathIds = JSON.parse(savedPath);
@@ -51,8 +53,8 @@ function parseNavigationState(): { initialView: View; initialPathIds: string[] }
 
 function syncUrlAndStorage(targetView: View, targetPathIds: string[], pushHistory: boolean) {
   try {
-    localStorage.setItem('todo.view', JSON.stringify(targetView));
-    localStorage.setItem('todo.goalPathIds', JSON.stringify(targetPathIds));
+    localStorage.setItem(STORAGE_KEYS.view, JSON.stringify(targetView));
+    localStorage.setItem(STORAGE_KEYS.goalPathIds, JSON.stringify(targetPathIds));
 
     const params = new URLSearchParams();
     params.set('view', targetView);
@@ -96,6 +98,8 @@ export function useNavigationSync(onPopState?: () => boolean) {
   // Sync initial URL and local storage on mount
   useEffect(() => {
     syncUrlAndStorage(view, goalPathIds, false);
+    // Initial hydrate only — view/path already captured from storage/URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync back-button (popstate) with views and deep goal tree navigation
@@ -158,7 +162,7 @@ export function useNavigationSync(onPopState?: () => boolean) {
 
   // Native Capacitor Android hardware & gesture back button listener
   useEffect(() => {
-    let backListenerHandle: any = null;
+    let backListenerHandle: PluginListenerHandle | null = null;
     const registerCapacitorBack = async () => {
       try {
         backListenerHandle = await CapApp.addListener('backButton', () => {

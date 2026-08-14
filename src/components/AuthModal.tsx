@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Mail, Lock, LogIn, UserPlus, X, AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
+import { assertDeviceClock } from '../lib/deviceClock';
 import { supabase } from '../lib/supabase';
+import Overlay from './Overlay';
 
 interface Props {
   open: boolean;
@@ -19,6 +21,10 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
 
   const [fullName, setFullName] = useState('');
 
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode, open]);
+
   if (!open) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,6 +34,12 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
     setLoading(true);
 
     try {
+      const clock = await assertDeviceClock();
+      if (!clock.ok) {
+        setError(clock.reason ?? 'Device date & time must be set to automatic before signing in.');
+        return;
+      }
+
       if (mode === 'signup') {
         const { error: signUpErr } = await supabase.auth.signUp({
           email,
@@ -58,22 +70,16 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
   };
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop animate-fade-in cursor-pointer"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm bg-elevated border border-subtle p-6 shadow-2xl rounded-3xl sheet-up cursor-default flex flex-col"
-      >
+    <Overlay open={open} onClose={onClose} align="center">
+      <div className="panel sheet-up p-5 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-primary-soft border border-primary/30 flex items-center justify-center text-primary font-extrabold text-lg shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-primary-soft border border-primary/30 flex items-center justify-center text-primary font-semibold text-lg shadow-inner">
               <ShieldCheck size={20} />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-content-primary leading-tight">
+              <h2 className="text-base font-semibold text-content-primary leading-tight">
                 {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
               </h2>
               <p className="text-[11px] font-medium text-content-secondary">Sync goals &amp; progress safely</p>
@@ -88,7 +94,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-base p-1 rounded-2xl border border-subtle mb-4">
+        <div className="flex bg-base p-1 rounded-[12px] border border-subtle mb-4">
           <button
             type="button"
             onClick={() => {
@@ -98,7 +104,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               mode === 'signin'
-                ? 'bg-primary text-white shadow-md shadow-sm'
+                ? 'bg-primary text-on-primary'
                 : 'text-content-secondary hover:text-content-primary'
             }`}
           >
@@ -113,7 +119,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               mode === 'signup'
-                ? 'bg-primary text-white shadow-md shadow-sm'
+                ? 'bg-primary text-on-primary'
                 : 'text-content-secondary hover:text-content-primary'
             }`}
           >
@@ -139,7 +145,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
         <form onSubmit={handleSubmit} className="space-y-3.5">
           {mode === 'signup' && (
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-content-primary mb-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-content-primary mb-1">
                 Full Name
               </label>
               <div className="relative">
@@ -157,7 +163,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
           )}
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-content-primary mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-content-primary mb-1">
               Email Address
             </label>
             <div className="relative">
@@ -174,7 +180,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-content-primary mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-content-primary mb-1">
               Password
             </label>
             <div className="relative">
@@ -201,7 +207,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary active:scale-[0.98] text-white text-xs font-extrabold shadow-lg shadow-sm flex items-center justify-center gap-2 transition disabled:opacity-50 mt-2"
+            className="w-full py-3 px-4 rounded-xl bg-primary text-on-primary text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
           >
             {loading ? (
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -219,6 +225,6 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
           </button>
         </form>
       </div>
-    </div>
+    </Overlay>
   );
 }

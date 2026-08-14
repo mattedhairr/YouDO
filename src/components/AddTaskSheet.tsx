@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import type { Priority, Task } from '../types';
 import { todayISO, tomorrowISO } from '../store';
+import Overlay from './Overlay';
 
 interface Props {
   open: boolean;
@@ -62,9 +63,8 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={onClose} />
-      <div className="sheet-up relative w-full max-w-md bg-elevated card rounded-t-3xl p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar shadow-elevated border-t border-subtle">
+    <Overlay open={open} onClose={onClose} align="bottom">
+      <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-content-primary">New Task</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface">
@@ -126,7 +126,7 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
                     onClick={() => setTargetDate(todayISO())}
                     className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md border transition-all ${
                       targetDate === todayISO()
-                        ? 'bg-primary text-white border-primary shadow-2xs'
+                        ? 'bg-primary text-on-primary border-primary'
                         : 'bg-surface text-content-secondary border-subtle hover:border-primary'
                     }`}
                   >
@@ -137,7 +137,7 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
                     onClick={() => setTargetDate(tomorrowISO())}
                     className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md border transition-all ${
                       targetDate === tomorrowISO()
-                        ? 'bg-primary text-white border-primary shadow-2xs'
+                        ? 'bg-primary text-on-primary border-primary'
                         : 'bg-surface text-content-secondary border-subtle hover:border-primary'
                     }`}
                   >
@@ -207,12 +207,12 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
           <button
             onClick={submit}
             disabled={!title.trim()}
-            className="w-full py-3 rounded-2xl text-sm font-semibold text-white bg-primary hover:bg-primary-glow disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Add Task
           </button>
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }

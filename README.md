@@ -1,29 +1,29 @@
 # YouDO — Aspirant Execution Companion
 
 <p align="center">
-  <img src="public/icon.svg" width="96" height="96" alt="YouDO Icon" />
+  <img src="public/icon-512.png" width="112" height="112" alt="YouDO" />
 </p>
 
 <p align="center">
-  <strong>The ultimate goal-driven execution system for students & competitive exam aspirants.</strong><br />
-  Transform massive exam syllabi into daily micro-targets and execute relentlessly.
+  <strong>Break a huge syllabus into today's work. Then actually do it.</strong><br />
+  Built for students and competitive exam aspirants who need structure, focus time, and honest stats.
 </p>
 
 <p align="center">
-  <a href="https://github.com/mattedhairr/YouDO/releases"><img src="https://img.shields.io/github/v/release/mattedhairr/YouDO?color=emerald&label=Release" alt="Latest Release" /></a>
-  <a href="https://github.com/mattedhairr/YouDO/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/mattedhairr/YouDO/actions"><img src="https://img.shields.io/badge/Build-Android%20APK-7C3AED.svg" alt="Android Build" /></a>
-  <a href="https://react.dev/"><img src="https://img.shields.io/badge/Framework-React%2018-61dafb.svg" alt="React 18" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/Language-TypeScript-3178c6.svg" alt="TypeScript" /></a>
+  <a href="https://github.com/mattedhairr/YouDO/releases"><img src="https://img.shields.io/github/v/release/mattedhairr/YouDO?color=C4A574&label=Release" alt="Latest Release" /></a>
+  <a href="https://github.com/mattedhairr/YouDO/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-86A588.svg" alt="MIT License" /></a>
+  <a href="https://github.com/mattedhairr/YouDO/actions"><img src="https://img.shields.io/badge/Build-Android%20APK-11100E.svg" alt="Android Build" /></a>
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-18-61dafb.svg" alt="React 18" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178c6.svg" alt="TypeScript" /></a>
 </p>
 
 ---
 
-## 🎯 Purpose & Architecture
+## Purpose
 
-Preparing for competitive exams like **UPSC, JEE, NEET, GATE, CAT, USMLE, or Bar Exam** requires conquering intimidating, multi-subject syllabi. 
+Competitive exams (UPSC, JEE, NEET, GATE, CAT, and similar) fail people on volume, not intelligence. A flat to-do list of "study physics" is how days disappear.
 
-Conventional to-do apps fail because flat lists become overwhelming and vague tasks like *"study physics"* create study paralysis. **YouDO** solves this with a **structured 6-tier Goal Blueprint** (`Goal` &rarr; `Phase` &rarr; `Section` &rarr; `Task` &rarr; `Sub-task` &rarr; `Leaf Task`) synced with a **real-time Daily Execution Engine**.
+YouDO is a **6-tier Goal Blueprint** (`Goal` → `Phase` → `Section` → `Task` → `Sub-task` → `Leaf Task`) tied to a **daily execution list**, timed focus sessions, and calendar stats that count only real work.
 
 ```text
 Goal: "UPSC / JEE / NEET Exam 2026"
@@ -36,49 +36,52 @@ Goal: "UPSC / JEE / NEET Exam 2026"
 
 ---
 
-## 📱 Download & Installation
+## Download
 
-### 🤖 Native Android App (APK)
-Download the compiled `.apk` directly from [**GitHub Releases**](https://github.com/mattedhairr/YouDO/releases):
-1. Go to [**Releases**](https://github.com/mattedhairr/YouDO/releases).
+### Android APK
+
+1. Open [Releases](https://github.com/mattedhairr/YouDO/releases).
 2. Download `YouDO.apk` from the latest release.
-3. Tap the file on your Android device to install!
+3. Install on the device (allow unknown sources if Android asks).
 
-### 🌐 Web Application (PWA)
-1. Open YouDO on any desktop or mobile browser.
-2. Select **"Add to Home Screen"** to install as a standalone PWA.
+Current release: **v3.0.0**.
 
----
+### Web (PWA)
 
-## 🔥 Key Features
-
-- **🎯 6-Tier Syllabus Blueprint Tree**: Break massive exam syllabi into granular, non-intimidating tiers (`Goal` &rarr; `Phase` &rarr; `Section` &rarr; `Task` &rarr; `Sub-task` &rarr; `Leaf Task`).
-- **⚡ Step-Slice Scheduling**: Select specific micro-tasks or chapter step slices from any goal node and dispatch them directly to Today's execution list.
-- **📋 Backlog & Bidirectional Sync**: Overdue tasks land in Backlog. Starting a Backlog session moves the task to Today while preserving its original tag, and progress syncs back to the Goal Blueprint automatically.
-- **⏱️ Focus Sessions & Pause Timestamp Logs**: Track net focus time vs total duration with full pause timestamp logs e.g. `(6:30 PM - 7:10 PM) 40m`.
-- **🌙 Ambient Focus Mode**: Screen-on distraction-free desk display with safe-area insets for camera notches and status bar compatibility.
-- **🛡️ Analytics Reliability Safeguards**: 30-second silent heartbeat logging, 5-minute interrupted session crash recovery, and 4-hour continuous focus auto-pause safeguard to protect efficiency stats from accidental overnight timers.
-- **💾 Web Share & Local JSON Backup**: Export/Import your study blueprints with native Web Share API prompts (`@capacitor/share`) or browser downloads.
-- **📖 In-App Aspirant Execution Guide**: Comprehensive 6-step user onboarding and workflow guide built right into Settings.
+Open YouDO in a browser and use **Add to Home Screen** for a standalone install.
 
 ---
 
-## 💻 Tech Stack
+## Features
 
-- **Core Framework**: React 18, TypeScript, Vite
-- **Mobile Platform**: Capacitor 8 (Android Platform Integration)
-- **Styling**: Executive Dark Glassmorphism, Vanilla CSS, Tailwind CSS
-- **Icons**: Lucide React
-- **CI/CD**: GitHub Actions Automated Android APK Build Workflow
+- **6-tier syllabus tree** — split an exam into goals, phases, sections, and micro-tasks.
+- **Step-slice scheduling** — send specific steps from any goal node onto Today.
+- **Backlog** — overdue work is tagged, not lost. Starting it moves it to Today; progress still writes back to the blueprint.
+- **Focus sessions** — net focus vs elapsed time, pause logs, live `start – ∞` while running.
+- **Ambient mode** — full-screen desk timer (long-press the play control). Screen stays awake.
+- **Honest analytics** — overnight sessions split at midnight, short accidental sessions dropped, goal stats roll up descendants.
+- **Crash recovery** — resume after a close, or reconstruct a session you forgot to stop.
+- **Cloud + local backup** — optional account sync, plus JSON export/import.
+- **In-app guide** — six-step workflow inside Settings.
 
 ---
 
-## 👨‍💻 Creator & Maintainer
+## Stack
 
-Crafted with care by **Jatin Parmar** ([@mattedhairr](https://github.com/mattedhairr)).
+- React 18, TypeScript, Vite
+- Capacitor 8 (Android)
+- Tailwind CSS with a brass / sage theme (dark + dusky light)
+- Figtree + IBM Plex Mono
+- GitHub Actions → debug APK artifact
 
-- **GitHub**: [@mattedhairr](https://github.com/mattedhairr)
-- **LinkedIn**: [Jatin Parmar](https://www.linkedin.com/in/jatin-parmar-9b1b962ba)
-- **Instagram**: [@mattedhairr](https://instagram.com/mattedhairr)
+---
 
-License: [MIT License](LICENSE)
+## Maintainer
+
+**Jatin Parmar** ([@mattedhairr](https://github.com/mattedhairr))
+
+- GitHub: [@mattedhairr](https://github.com/mattedhairr)
+- LinkedIn: [Jatin Parmar](https://www.linkedin.com/in/jatin-parmar-9b1b962ba)
+- Instagram: [@mattedhairr](https://instagram.com/mattedhairr)
+
+License: [MIT](LICENSE)

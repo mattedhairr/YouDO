@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle,
-  CheckCircle2,
   ChevronRight,
   CircleDot,
   Copy,
@@ -15,12 +13,10 @@ import {
   Plus,
   Star,
   Target,
-  Unlink,
-  Zap,
   Clock,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
-import { countDirectChildren, countCompletedDirectChildren, findNode, formatDDMMYYYY, isBacklogTask, rollupPct, useStore } from '../store';
+import { countDirectChildren, countCompletedDirectChildren, collectDescendantIds, findNode, formatDDMMYYYY, isBacklogTask, rollupPct, useStore } from '../store';
 
 function localISODate(d: Date): string {
   const y = d.getFullYear();
@@ -102,6 +98,15 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
 
 export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion, sessionHistory } = useStore();
+  const sessionNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const list of Object.values(sessionHistory)) {
+      for (const s of list) if (s.goalNodeId) ids.add(s.goalNodeId);
+    }
+    return ids;
+  }, [sessionHistory]);
+
+  const nodeHasStats = (node: GoalNode) => collectDescendantIds(node).some((id) => sessionNodeIds.has(id));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -216,7 +221,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   return (
     <div className="fade-in pb-20">
       {/* Sticky Top Glass Breadcrumb Header */}
-      <div className="sticky top-0 z-30 no-swipe rounded-b-2xl -mt-4 mb-5 mx-0 px-4 py-3.5 glass-header flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap shadow-sm border-b border-subtle">
+      <div className="sticky top-0 z-30 no-swipe rounded-b-[16px] -mt-4 mb-5 mx-0 px-4 py-3 bg-base/95 flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap border-b border-subtle">
         <button
           onClick={goRoot}
           className={`text-[13px] font-bold transition-all shrink-0 ${
@@ -247,75 +252,52 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       {/* Pinned/Favorites section */}
       {pinned.length > 0 && pathIds.length === 0 && (
         <>
-          <div className="mb-4 p-3 rounded-2xl bg-warning/10 border border-warning/20 shadow-2xs">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-warning">
-                <Star size={13} className="fill-warning text-warning" />
-                Pinned & Favorites
+          <section className="mb-4">
+            <div className="flex items-center justify-between mb-2 px-0.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                <Star size={12} className="fill-primary text-primary" />
+                Pinned
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning/15 text-warning">
-                {pinned.length}
-              </span>
+              <span className="text-[11px] font-medium tabular-nums text-content-muted">{pinned.length}</span>
             </div>
-            <div className="space-y-1.5">
-              {pinned.map((p) => {
+            <div className="bg-surface rounded-[12px] border border-subtle overflow-hidden">
+              {pinned.map((p, i) => {
                 const meta = kindMeta[p.node.kind];
                 const Icon = meta.icon;
+                const pathLabel = p.path.slice(0, -1).map((n) => n.title).join(' / ') || 'Root goal';
+                const pPct = rollupPct(p.node);
                 return (
                   <button
                     key={p.node.id}
                     onClick={() => jumpToPinned(p)}
-                    className="w-full card p-3 flex items-start gap-2.5 hover:ring-1 hover:ring-warning/50 transition-all fade-in bg-surface"
+                    title={pathLabel}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-elevated ${
+                      i < pinned.length - 1 ? 'border-b border-subtle' : ''
+                    }`}
                   >
-                    <Icon size={16} style={{ color: meta.tint }} className="shrink-0 mt-0.5" />
-                    <div className="flex-1 text-left min-w-0">
-                      <div className="text-[13.5px] font-semibold text-content-primary leading-tight">{p.node.title}</div>
-                      {(() => {
-                        const ancestorTitles = p.path.slice(0, -1).map((n) => n.title);
-                        if (ancestorTitles.length === 0) {
-                          return <div className="text-[10px] text-content-secondary font-medium mt-0.5">Root Goal</div>;
-                        }
-                        return (
-                          <div className="mt-1 flex items-center gap-1 flex-wrap text-[10px] font-medium leading-normal">
-                            {ancestorTitles.map((title, idx) => (
-                              <span key={idx} className="inline-flex items-center gap-1">
-                                <span className={idx === ancestorTitles.length - 1 ? 'font-semibold text-content-muted' : 'text-content-secondary'}>
-                                  {title}
-                                </span>
-                                {idx < ancestorTitles.length - 1 && (
-                                  <span className="text-content-muted">/</span>
-                                )}
-                              </span>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                    <Icon size={15} style={{ color: meta.tint }} className="shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13.5px] font-semibold text-content-primary truncate">{p.node.title}</div>
+                      <div className="mt-0.5 text-[11px] text-content-muted truncate">{pathLabel}</div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                      {(() => {
-                        const pPct = rollupPct(p.node);
-                        return (
-                          <span
-                            className={`text-[11px] font-semibold tabular-nums ${
-                              pPct >= 100 ? 'text-secondary' : pPct > 0 ? 'text-primary' : 'text-content-muted'
-                            }`}
-                          >
-                            {pPct}%
-                          </span>
-                        );
-                      })()}
-                      <ChevronRight size={16} className="text-content-muted" />
-                    </div>
+                    <span
+                      className={`text-[12px] font-semibold tabular-nums shrink-0 ${
+                        pPct >= 100 ? 'text-secondary' : pPct > 0 ? 'text-primary' : 'text-content-muted'
+                      }`}
+                    >
+                      {pPct}%
+                    </span>
+                    <ChevronRight size={15} className="text-content-muted shrink-0" />
                   </button>
                 );
               })}
             </div>
-          </div>
+          </section>
 
           {/* Partition Divider */}
           <div className="flex items-center gap-3 my-4">
             <div className="h-px flex-1 bg-border/60" />
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-content-secondary">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-content-muted">
               All Goals
             </span>
             <div className="h-px flex-1 bg-border/60" />
@@ -325,7 +307,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
       {/* Current node header card */}
       {current && (
-        <div className="bg-surface border border-subtle rounded-2xl shadow-card p-4 mb-3.5 fade-in">
+        <div className="bg-surface border border-subtle rounded-[16px] shadow-card p-4 mb-3.5 fade-in">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -341,7 +323,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              {onViewStats && Object.values(sessionHistory).flat().some(s => s.goalNodeId === current.id) && (
+              {onViewStats && nodeHasStats(current) && (
                 <button onClick={() => onViewStats(current.id, current.title)} className="p-2 rounded-lg text-warning bg-warning/10 hover:bg-warning/20 transition-colors" title="Session Analytics">
                   <Clock size={14} />
                 </button>
@@ -363,7 +345,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               </div>
               <button
                 onClick={() => togglePin(current.id)}
-                className={`p-2 rounded-lg transition-colors ${current.pinned ? 'text-warning bg-warning/10' : 'text-content-secondary hover:text-warning hover:bg-warning-soft dark:hover:bg-warning/20'}`}
+                className={`p-2 rounded-lg ${current.pinned ? 'text-primary bg-primary-soft' : 'text-content-secondary hover:text-primary'}`}
                 title={current.pinned ? 'Unpin' : 'Pin to favorites'}
               >
                 {current.pinned ? <PinOff size={14} /> : <Pin size={14} />}
@@ -392,7 +374,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       )}
 
       {/* Children list */}
-      <div className="bg-surface/60 rounded-3xl shadow-sm border border-subtle overflow-hidden backdrop-blur-xl">
+      <div className="bg-surface rounded-[12px] border border-subtle overflow-hidden">
         {children.map((child, index) => {
           const meta = kindMeta[child.kind];
           const Icon = meta.icon;
@@ -432,7 +414,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 setDragId(null);
                 setOverId(null);
               }}
-              className={`p-4 transition-all flex flex-col bg-surface ${
+              className={`px-3.5 py-3.5 flex flex-col gap-3 bg-surface ${
                 !isLast ? 'border-b border-subtle' : ''
               } ${
                 isHighlighted
@@ -440,204 +422,174 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   : isSelected
                     ? 'bg-primary/10'
                     : 'hover:bg-elevated'
-              } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-primary scale-[1.01] z-10 rounded-xl' : ''} ${isDone && !isHighlighted ? '' : ''}`}
+              } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-primary z-10' : ''}`}
             >
-              {/* Top Row: Checkbox, Title, Drill */}
-              <div className="flex items-start gap-3">
-                {/* Batch select checkbox */}
+              <div className="flex items-center gap-2.5">
                 {isTaskKind && (
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleSelect(child.id)}
-                    className="mt-[3px] w-4 h-4 rounded accent-primary cursor-pointer shrink-0"
+                    className="w-4 h-4 rounded accent-primary cursor-pointer shrink-0"
                     title="Select for batch operations"
                   />
                 )}
-
-                {/* Title + Icon */}
                 <div
-                  className={`flex-1 min-w-0 flex items-start gap-2 ${canDrill ? 'cursor-pointer' : ''}`}
+                  className={`flex-1 min-w-0 flex items-center gap-2 ${canDrill ? 'cursor-pointer' : ''}`}
                   onClick={() => canDrill && drillInto(child)}
                 >
-                  <Icon size={16} style={{ color: meta.tint }} className="shrink-0 mt-[3px]" />
-                  <h3 className={`text-[15px] font-bold leading-snug break-words ${isDone ? 'line-through text-content-muted' : 'text-content-primary'}`}>
+                  <Icon size={15} style={{ color: meta.tint }} className="shrink-0" />
+                  <h3 className={`text-[14.5px] font-semibold leading-snug truncate ${isDone ? 'line-through text-content-muted' : 'text-content-primary'}`}>
                     {child.title}
                   </h3>
+                  {child.pinned && <Star size={12} className="fill-primary text-primary shrink-0" />}
                 </div>
-
-                {/* Progress % + drill */}
-                <div className="shrink-0 flex items-center gap-1">
-                  <span className={`text-[13px] font-bold tabular-nums ${isDone ? 'text-secondary' : pct > 0 ? 'text-primary' : 'text-content-muted'}`}>{pct}%</span>
-                  {canDrill && (
-                    <button
-                      onClick={() => drillInto(child)}
-                      className="p-1 rounded-lg text-content-secondary hover:text-content-primary hover:bg-elevated transition-colors"
-                      title={`Open ${meta.label}`}
-                    >
-                      <ChevronRight size={18} />
-                    </button>
-                  )}
-                </div>
+                <span className={`text-[13px] font-semibold tabular-nums shrink-0 ${isDone ? 'text-secondary' : pct > 0 ? 'text-primary' : 'text-content-muted'}`}>
+                  {pct}%
+                </span>
+                {canDrill && (
+                  <button
+                    onClick={() => drillInto(child)}
+                    className="p-1 -mr-1 rounded-lg text-content-muted hover:text-content-primary"
+                    title={`Open ${meta.label}`}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                )}
               </div>
 
-              {/* Meta Row */}
-              <div className={`mt-1.5 flex flex-wrap items-center gap-2 ${isTaskKind ? 'pl-[28px]' : 'pl-[24px]'}`}>
-                {child.pinned && <Star size={11} className="fill-warning text-warning shrink-0" />}
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="flex-1 min-w-0 text-[11px] text-content-muted truncate">
+                  {meta.label}
+                  {!isLeafLike && ` · ${countCompletedDirectChildren(child)}/${countDirectChildren(child)} done`}
+                  {isLeafLike && hasSteps && ` · ${stepDone.filter(Boolean).length}/${child.steps!.length} steps`}
+                </p>
                 {isScheduled && (
                   <span
-                    className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-secondary bg-secondary/10 border border-secondary/20 px-2 py-0.5 rounded-full shadow-2xs"
+                    className="shrink-0 text-[10px] font-semibold text-secondary bg-secondary-soft px-2 py-0.5 rounded-md"
                     title={`Scheduled for ${linkedTask?.targetDate ? formatDDMMYYYY(linkedTask.targetDate) : ''}`}
                   >
-                    <Zap size={9} className="fill-secondary text-secondary" /> Scheduled ({getScheduledDateLabel(linkedTask?.targetDate)})
+                    {getScheduledDateLabel(linkedTask?.targetDate)}
                   </span>
                 )}
                 {isBacklogged && (
-                  <span className="shrink-0 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-error bg-error-soft border border-error/20 px-2 py-0.5 rounded-full">
-                    <AlertTriangle size={9} /> Backlog
+                  <span className="shrink-0 text-[10px] font-semibold text-error bg-error-soft px-2 py-0.5 rounded-md">
+                    Backlog
                   </span>
                 )}
-                {onViewStats && Object.values(sessionHistory).flat().some(s => s.goalNodeId === child.id) && (
-                  <button onClick={(e) => { e.stopPropagation(); onViewStats(child.id, child.title); }} className="flex items-center gap-1 text-[11px] text-warning/80 hover:text-warning font-medium" title="View Session Stats">
-                    <Clock size={11} /> Stats
-                  </button>
-                )}
-                <span style={{ color: meta.tint }} className="text-[11px] font-semibold">{meta.label}</span>
-                {!isLeafLike && <span className="text-[11px] text-content-secondary">· {countCompletedDirectChildren(child)}/{countDirectChildren(child)} done</span>}
-                {isLeafLike && hasSteps && <span className="text-[11px] text-content-secondary">· {stepDone.filter(Boolean).length}/{child.steps!.length} steps</span>}
-                {child.description && (
-                  <>
-                    <span className="text-[11px] text-content-secondary">·</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onOpenDescription) {
-                          onOpenDescription(child.title, child.description!);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-content-secondary hover:text-primary  transition-colors"
-                      title="View full description"
-                    >
-                      <FileText size={11} className="text-primary shrink-0" />
-                      <span className="max-w-[130px] sm:max-w-[200px] truncate">{child.description}</span>
-                    </button>
-                  </>
-                )}
               </div>
 
-              {/* Progress Bar */}
-              <div className={`mt-2.5 h-1.5 rounded-full bg-border-subtle overflow-hidden ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: isDone ? 'var(--secondary)' : 'var(--primary)' }} />
+              <div className="h-1 rounded-full bg-border-subtle overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isDone ? 'var(--secondary)' : 'var(--primary)' }} />
               </div>
 
-              {/* Micro-step chips */}
               {isLeafLike && hasSteps && (
-                <div className={`mt-2.5 flex items-center gap-1.5 flex-wrap ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
+                <div className="flex flex-wrap gap-1">
                   {child.steps!.map((s, i) => (
                     <button
                       key={i}
                       onClick={(e) => { e.stopPropagation(); toggleGoalStep(child.id, i); }}
-                      className={`text-[10.5px] font-medium px-2 py-1 rounded-lg border transition-all active:scale-95 ${
+                      className={`max-w-full text-[10px] font-medium leading-none px-1.5 py-1 rounded-md border truncate ${
                         stepDone[i]
                           ? 'bg-elevated border-subtle text-content-muted line-through'
-                          : 'bg-surface border-subtle text-content-secondary hover:border-primary/30'
+                          : 'border-subtle text-content-secondary'
                       }`}
+                      title={s}
                     >
-                      {stepDone[i] ? '✓' : `${i + 1}.`} {s}
+                      {i + 1}. {s}
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* Toolbar */}
-              <div className={`mt-3 pt-2.5 border-t border-subtle flex items-center justify-between gap-2 ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
-
-                {/* Left: icon buttons */}
-                <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  onClick={() => togglePin(child.id)}
+                  className={`p-2 rounded-[10px] ${child.pinned ? 'text-primary bg-primary-soft' : 'text-content-muted hover:text-content-primary hover:bg-elevated'}`}
+                  title={child.pinned ? 'Unpin' : 'Pin'}
+                >
+                  {child.pinned ? <Star size={14} className="fill-primary" /> : <Pin size={14} />}
+                </button>
+                <button
+                  onClick={() => onEditNode(child)}
+                  className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
+                  title="Edit"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => onCopy(child.id)}
+                  className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
+                  title="Copy"
+                >
+                  <Copy size={14} />
+                </button>
+                {child.description && onOpenDescription && (
                   <button
-                    onClick={() => togglePin(child.id)}
-                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors ${
-                      child.pinned
-                        ? 'text-warning hover:bg-warning/20'
-                        : 'text-content-secondary hover:text-content-primary hover:bg-elevated'
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenDescription(child.title, child.description!);
+                    }}
+                    className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
+                    title="Description"
+                  >
+                    <FileText size={14} />
+                  </button>
+                )}
+                {onViewStats && nodeHasStats(child) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onViewStats(child.id, child.title); }}
+                    className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
+                    title="Stats"
+                  >
+                    <Clock size={14} />
+                  </button>
+                )}
+
+                <div className="flex-1" />
+
+                {isTaskKind && (
+                  <button
+                    onClick={() => toggleNodeCompletion(child.id)}
+                    className={`h-8 px-2.5 rounded-[10px] text-[11px] font-medium border ${
+                      isDone
+                        ? 'bg-secondary-soft text-secondary border-subtle'
+                        : 'text-content-secondary border-subtle hover:text-content-primary'
                     }`}
+                    title={isDone ? 'Mark as incomplete' : 'Mark as done'}
                   >
-                    {child.pinned ? <Star size={15} className="fill-warning" /> : <Pin size={15} />}
-                    <span className="text-[11px] font-semibold">{child.pinned ? 'Unpin' : 'Pin'}</span>
+                    Done
                   </button>
-                  <button
-                    onClick={() => onEditNode(child)}
-                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-content-secondary hover:text-content-primary hover:bg-elevated transition-colors"
-                  >
-                    <Pencil size={15} />
-                    <span className="text-[11px] font-semibold">Edit</span>
-                  </button>
-                  <button
-                    onClick={() => onCopy(child.id)}
-                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-content-secondary hover:text-content-primary hover:bg-elevated transition-colors"
-                  >
-                    <Copy size={15} />
-                    <span className="text-[11px] font-semibold">Copy</span>
-                  </button>
-                </div>
+                )}
 
-                {/* Right: action pills */}
-                <div className="flex items-center gap-1.5">
-                  {/* Done pill — Task / Sub-task / Leaf only */}
-                  {isTaskKind && (
-                    <button
-                      onClick={() => toggleNodeCompletion(child.id)}
-                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl border transition-all active:scale-95 ${
-                        isDone
-                          ? 'bg-secondary/10 text-secondary border-secondary/20'
-                          : 'bg-transparent text-content-secondary border-subtle hover:border-secondary hover:text-secondary'
-                      }`}
-                      title={isDone ? 'Mark as incomplete' : 'Mark as done'}
-                    >
-                      <CheckCircle2 size={12} className={isDone ? 'text-secondary' : 'text-content-secondary'} />
-                      Done
-                    </button>
-                  )}
-
-                  {/* Schedule / Replan / Unplan — leaf-like & not completed */}
-                  {isLeafLike && !child.completed && (
+                {isLeafLike && !child.completed && (
+                  isScheduled ? (
                     <>
-                      {isScheduled ? (
-                        <>
-                          <button
-                            onClick={() => onPushNode(child)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-primary bg-primary-soft hover:bg-primary/30 border border-primary/20 transition-all"
-                            title="Replan"
-                          >
-                            <Zap size={12} /> Replan
-                          </button>
-                          <button
-                            onClick={() => child.todayTaskId && onUnplan(child.todayTaskId)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-error bg-error-soft hover:bg-error/30 border border-error/20 transition-all"
-                            title="Unschedule"
-                          >
-                            <Unlink size={12} /> Unplan
-                          </button>
-                        </>
-                      ) : isBacklogged ? (
-                        <button
-                          onClick={() => onPushNode(child)}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl text-white bg-error hover:bg-error-soft shadow-sm shadow-sm transition-all active:scale-95"
-                          title="Schedule Backlogged Task"
-                        >
-                          <Zap size={12} className="fill-white" /> Schedule
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => onPushNode(child)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-xl text-white bg-primary hover:bg-primary-glow shadow-sm transition-all active:scale-95"
-                        >
-                          <Zap size={12} /> Schedule
-                        </button>
-                      )}
+                      <button
+                        onClick={() => onPushNode(child)}
+                        className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium border border-subtle text-primary"
+                        title="Replan"
+                      >
+                        Replan
+                      </button>
+                      <button
+                        onClick={() => child.todayTaskId && onUnplan(child.todayTaskId)}
+                        className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium bg-error-soft text-error border border-subtle"
+                        title="Unschedule"
+                      >
+                        Unplan
+                      </button>
                     </>
-                  )}
-                </div>
+                  ) : (
+                    <button
+                      onClick={() => onPushNode(child)}
+                      className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium btn-primary"
+                      title={isBacklogged ? 'Schedule backlogged task' : 'Schedule'}
+                    >
+                      Schedule
+                    </button>
+                  )
+                )}
               </div>
             </div>
           );
