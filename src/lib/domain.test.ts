@@ -186,6 +186,19 @@ describe('device clock integrity', () => {
     expect(isDeviceSkewedFromServer(server, server + CLOCK_SKEW_MS + 1)).toBe(true);
     expect(isDeviceSkewedFromServer(server, server - CLOCK_SKEW_MS - 1)).toBe(true);
   });
+
+  it('does not block sign-in when server time cannot be read', async () => {
+    const { assertDeviceClock } = await import('./deviceClock');
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error('offline');
+    }) as typeof fetch;
+    try {
+      await expect(assertDeviceClock()).resolves.toEqual({ ok: true });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 describe('visit snapshot labels', () => {
