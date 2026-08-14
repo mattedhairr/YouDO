@@ -33,9 +33,9 @@ interface Props {
 }
 
 const priorityStyles: Record<Priority, { dot: string; bar: string; glow: string }> = {
-  high:   { dot: 'bg-rose-500',   bar: 'bg-rose-500',   glow: 'shadow-rose-500/20' },
-  medium: { dot: 'bg-amber-500',  bar: 'bg-amber-500',  glow: 'shadow-amber-500/20' },
-  low:    { dot: 'bg-emerald-500', bar: 'bg-emerald-500', glow: 'shadow-emerald-500/20' },
+  high:   { dot: 'bg-error',   bar: 'bg-error',   glow: 'shadow-sm' },
+  medium: { dot: 'bg-warning',  bar: 'bg-warning',  glow: 'shadow-sm' },
+  low:    { dot: 'bg-secondary', bar: 'bg-secondary', glow: 'shadow-sm' },
 };
 
 function fmtDate(date: string | null): string {
@@ -138,13 +138,12 @@ export default function TaskCard({
       <div
         ref={cardRef}
         className={`
-          overflow-hidden transition-all p-0 relative rounded-2xl bg-[#14111F] border border-white/5
-          ${expanded ? 'z-40 ring-1 ring-violet-500/50 shadow-2xl' : 'shadow-sm'}
+          overflow-hidden transition-all p-0 relative rounded-2xl border border-subtle
+          ${expanded ? 'z-40 shadow-elevated bg-elevated' : 'bg-surface shadow-card'}
           ${isDragging ? 'dragging-card' : ''}
-          ${dragOver  ? 'drag-over-card ring-2 ring-emerald-500' : ''}
+          ${dragOver  ? 'drag-over-card ring-2 ring-primary' : ''}
           ${isSessionTask ? 'card-session-active' : ''}
-          ${complete && !expanded ? 'opacity-60 ring-1 ring-emerald-500/20' : ''}
-          ${complete && expanded ? 'ring-1 ring-emerald-500/20' : ''}
+          ${complete ? 'opacity-60' : ''}
         `}
         onClick={handleCardClick}
         draggable
@@ -156,20 +155,20 @@ export default function TaskCard({
       >
         {/* ── Active Session Pulsing Header Banner (if active) ── */}
         {isSessionTask && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-3.5 py-2 flex items-center justify-between">
+          <div className="bg-warning/10 border-b border-warning/20 px-3.5 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="relative flex h-2.5 w-2.5">
-                {!isPaused && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPaused ? 'bg-amber-500/50' : 'bg-amber-500'}`}></span>
+                {!isPaused && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>}
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPaused ? 'bg-warning/50' : 'bg-warning'}`}></span>
               </span>
-              <span className={`text-[11px] font-mono font-bold ${isPaused ? 'text-amber-500/70' : 'text-amber-400'}`}>
+              <span className={`text-[11px] font-mono font-bold ${isPaused ? 'text-warning/70' : 'text-warning'}`}>
                 {isPaused ? 'PAUSED' : 'SESSION RUNNING'} • {tickerText}
               </span>
             </div>
 
             {/* Session Timestamp */}
             {activeSession && (
-              <div className="text-[10.5px] font-mono text-amber-500/80 font-bold tracking-tight">
+              <div className="text-[10.5px] font-mono text-warning/80 font-bold tracking-tight">
                 ({new Date(activeSession.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ∞)
               </div>
             )}
@@ -180,7 +179,7 @@ export default function TaskCard({
         <div className="flex items-start gap-2.5 px-3.5 pt-3.5 pb-3">
           {/* Drag Handle */}
           <div
-            className="mt-1 cursor-grab active:cursor-grabbing shrink-0 text-slate-600 hover:text-slate-400 transition"
+            className="mt-1 cursor-grab active:cursor-grabbing shrink-0 text-content-muted hover:text-content-secondary transition"
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical size={16} />
@@ -202,19 +201,19 @@ export default function TaskCard({
                           onJumpToGoal();
                         }
                       }}
-                      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-white/5 rounded-lg px-2 py-0.5 leading-normal shadow-xs ${
-                        onJumpToGoal ? 'cursor-pointer hover:bg-[#1F1B2C] hover:border-violet-500/20 transition-all group/path' : ''
+                      className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold bg-elevated border border-subtle rounded-lg px-2 py-0.5 leading-normal shadow-xs ${
+                        onJumpToGoal ? 'cursor-pointer hover:bg-primary-soft hover:border-primary/20 transition-all group/path' : ''
                       }`}
                       title={onJumpToGoal ? 'Jump to this task in Goal Blueprint' : undefined}
                     >
-                      <Link2 size={10} className="shrink-0 text-violet-500 mr-0.5 group-hover/path:text-violet-400 transition-colors" />
+                      <Link2 size={10} className="shrink-0 text-primary mr-0.5 group-hover/path:text-primary-glow transition-colors" />
                       {badgeNodes.map((n, i) => (
                         <span key={i} className="inline-flex items-center gap-1.5">
-                          <span className="text-violet-300 group-hover/path:text-violet-200 transition-colors">
+                          <span className="text-primary group-hover/path:text-primary-glow transition-colors">
                             {n.title}
                           </span>
                           {i < badgeNodes.length - 1 && (
-                            <span className="text-white/20">•</span>
+                            <span className="text-content-muted">•</span>
                           )}
                         </span>
                       ))}
@@ -223,7 +222,7 @@ export default function TaskCard({
                 );
               })()
             ) : !task.goalNodeId ? (
-              <div className="mb-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-violet-400 bg-[#1A1625] border border-white/5 px-2 py-0.5 rounded-lg shadow-xs">
+              <div className="mb-1.5 inline-flex items-center gap-1 text-[10px] font-extrabold text-primary bg-elevated border border-subtle px-2 py-0.5 rounded-lg shadow-xs">
                 ⚡ Quick Task
               </div>
             ) : null}
@@ -233,7 +232,7 @@ export default function TaskCard({
               <div className="flex items-start gap-2 flex-1">
                 <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot} shadow-sm ${ps.glow}`} />
                 <h3 className={`text-[15px] font-bold leading-snug tracking-tight ${
-                  complete ? 'line-through text-slate-500' : 'text-slate-100'
+                  complete ? 'line-through text-content-muted' : 'text-content-primary'
                 }`}>
                   {task.title}
                 </h3>
@@ -253,12 +252,12 @@ export default function TaskCard({
                 >
                   {/* Spinning ring when playing */}
                   {!isPaused && (
-                    <div className="absolute inset-0 rounded-full border-[1.5px] border-amber-500/20 border-t-amber-500 border-r-amber-500 animate-spin" style={{ animationDuration: '3s' }}></div>
+                    <div className="absolute inset-0 rounded-full border-[1.5px] border-warning/20 border-t-accent border-r-accent animate-spin" style={{ animationDuration: '3s' }}></div>
                   )}
                   <div className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-full transition-colors ${
                     isPaused 
-                      ? 'bg-amber-500 text-[#14111F] shadow-[0_0_12px_rgba(245,158,11,0.5)] group-hover:bg-amber-400' 
-                      : 'bg-amber-500/20 text-amber-400 group-hover:bg-amber-500/30'
+                      ? 'bg-warning text-[#0F172A] shadow-[0_0_12px_var(--warning)] group-hover:bg-warning-hover' 
+                      : 'bg-warning/20 text-warning group-hover:bg-warning/30'
                   }`}>
                     {isPaused ? <Play className="w-3.5 h-3.5 fill-current ml-[1.5px]" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
                   </div>
@@ -271,11 +270,11 @@ export default function TaskCard({
               const ctxNodes = originNodes.filter(n => n.kind !== 'goal' && n.kind !== 'phase');
               if (ctxNodes.length === 0) return null;
               return (
-                <div className="mt-1 flex items-center flex-wrap gap-1 text-[10.5px] text-slate-500 font-semibold tracking-wide ml-3.5">
+                <div className="mt-1 flex items-center flex-wrap gap-1 text-[10.5px] text-content-secondary font-semibold tracking-wide ml-3.5">
                   {ctxNodes.map((n, i) => (
                     <span key={i} className="inline-flex items-center gap-1">
                       <span>{n.title}</span>
-                      {i < ctxNodes.length - 1 && <span className="text-white/10">/</span>}
+                      {i < ctxNodes.length - 1 && <span className="text-content-muted">/</span>}
                     </span>
                   ))}
                 </div>
@@ -283,9 +282,9 @@ export default function TaskCard({
             })()}
 
             {/* Date / Deadline / Description Row */}
-            <div className="mt-2.5 flex items-center gap-3 text-[11px] text-slate-500 font-medium flex-wrap ml-3.5">
+            <div className="mt-2.5 flex items-center gap-3 text-[11px] text-content-secondary font-medium flex-wrap ml-3.5">
               {task.originalTargetDate && (
-                <span className="inline-flex items-center gap-1 font-bold text-[10px] text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-lg">
+                <span className="inline-flex items-center gap-1 font-bold text-[10px] text-error bg-error-soft border border-error px-2 py-0.5 rounded-lg">
                   📋 Backlog
                 </span>
               )}
@@ -293,13 +292,13 @@ export default function TaskCard({
               {/* Completed Session Timestamp removed from here as per user request */}
 
               <span className="inline-flex items-center gap-1">
-                <Calendar size={11} className="text-slate-600" /> {fmtDate(task.targetDate)}
+                <Calendar size={11} className="text-content-muted" /> {fmtDate(task.targetDate)}
               </span>
               {task.deadline && (
                 <span className={`inline-flex items-center gap-1 font-semibold ${
-                  new Date(task.deadline).getTime() < Date.now() ? 'text-rose-500' : ''
+                  new Date(task.deadline).getTime() < Date.now() ? 'text-error' : ''
                 }`}>
-                  <Clock size={11} className={new Date(task.deadline).getTime() < Date.now() ? "text-rose-500" : "text-slate-600"} /> {fmtCountdown(task.deadline)}
+                  <Clock size={11} className={new Date(task.deadline).getTime() < Date.now() ? "text-error" : "text-content-muted"} /> {fmtCountdown(task.deadline)}
                 </span>
               )}
               {task.description && (
@@ -310,10 +309,10 @@ export default function TaskCard({
                       onOpenDescription(task.title, task.description);
                     }
                   }}
-                  className="inline-flex items-center gap-1 font-medium hover:text-violet-300 transition-colors"
+                  className="inline-flex items-center gap-1 font-medium hover:text-primary-glow transition-colors"
                   title="View full description"
                 >
-                  <FileText size={11} className="text-violet-500/70 shrink-0" />
+                  <FileText size={11} className="text-primary shrink-0" />
                   <span className="max-w-[140px] sm:max-w-[200px] truncate">Description</span>
                 </button>
               )}
@@ -330,9 +329,9 @@ export default function TaskCard({
             {/* ── ZONE 1: MICRO TASKS ── */}
             {hasSteps && (
               <div className="flex flex-col gap-2.5">
-                <div className="text-[9px] font-extrabold text-[#5F5980] uppercase tracking-widest flex items-center justify-between">
+                <div className="text-[9px] font-extrabold text-content-secondary uppercase tracking-widest flex items-center justify-between">
                   <span>Micro Tasks</span>
-                  <span className={task.progress === task.steps.length ? 'text-emerald-400' : 'text-[#5F5980]'}>
+                  <span className={task.progress === task.steps.length ? 'text-secondary' : 'text-content-secondary'}>
                     {task.progress}/{task.steps.length}
                   </span>
                 </div>
@@ -351,19 +350,19 @@ export default function TaskCard({
                         <span className={`
                           mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-colors border
                           ${done 
-                            ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_8px_rgba(16,185,129,0.25)]' 
-                            : 'bg-transparent border-white/10 group-hover/step:border-white/30'}
+                            ? 'bg-secondary border-secondary text-[#0F172A] shadow-[0_0_8px_var(--secondary)]' 
+                            : 'bg-transparent border-subtle group-hover/step:border-content-muted'}
                         `}>
-                           {done && <CheckCircle2 className="w-3 h-3 text-white" strokeWidth={3} />}
+                           {done && <CheckCircle2 className="w-3 h-3 text-[#0F172A]" strokeWidth={3} />}
                         </span>
                         <div className="flex-1 flex items-start justify-between gap-3 min-w-0">
                           <span className={`text-[12px] leading-[1.4] break-words ${
-                            done ? 'line-through text-[#5F5980]' : 'text-[#EEE9FC]'
+                            done ? 'line-through text-content-muted' : 'text-content-primary'
                           }`}>
                             {s}
                           </span>
                           {stamp && (
-                            <span className="shrink-0 text-[10px] font-mono text-amber-500/50 font-bold whitespace-nowrap bg-amber-500/5 px-1.5 py-0.5 rounded-md self-start mt-0.5">
+                            <span className="shrink-0 text-[10px] font-mono text-warning/80 font-bold whitespace-nowrap bg-warning/10 px-1.5 py-0.5 rounded-md self-start mt-0.5">
                               {stamp}
                             </span>
                           )}
@@ -378,13 +377,13 @@ export default function TaskCard({
             {/* SEPARATOR */}
             {hasSteps && (
               <div className="flex justify-center">
-                <div className="h-px w-3/4 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <div className="h-px w-3/4 bg-subtle" />
               </div>
             )}
 
             {/* ── ZONE 2: ACTIONS ── */}
             <div className="flex flex-col gap-2">
-              <div className="text-[9px] font-extrabold text-[#5F5980] uppercase tracking-widest text-center mb-0.5">
+              <div className="text-[9px] font-extrabold text-content-secondary uppercase tracking-widest text-center mb-0.5">
                 Actions
               </div>
               
@@ -392,7 +391,7 @@ export default function TaskCard({
               {isSessionTask ? (
                 <button
                   onClick={() => { setExpanded(false); if (onStopSession) onStopSession(); }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white font-black text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20 transition-all"
+                  className="w-full py-3.5 px-4 rounded-2xl bg-error hover:bg-error-soft active:scale-[0.98] text-white font-black text-[13px] flex items-center justify-center gap-2 border border-error shadow-sm transition-all"
                 >
                   <Square className="w-4 h-4 fill-current" />
                   Stop Active Session
@@ -400,7 +399,7 @@ export default function TaskCard({
               ) : (
                 <button
                   onClick={() => { setExpanded(false); if (onStartSession) onStartSession(task.id); }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-black text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-all"
+                  className="w-full py-3.5 px-4 rounded-2xl bg-warning hover:bg-warning-hover active:scale-[0.98] text-[#0F172A] font-black text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   Start Focus Session
@@ -411,9 +410,9 @@ export default function TaskCard({
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <button
                   onClick={() => { setExpanded(false); if (onViewStats) onViewStats(task); }}
-                  className="py-2.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  className="py-2.5 px-2 rounded-xl bg-surface hover:bg-elevated text-content-primary border border-subtle text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <BarChart2 className="w-3.5 h-3.5 text-amber-400" />
+                  <BarChart2 className="w-3.5 h-3.5 text-warning" />
                   Stats
                 </button>
 
@@ -426,7 +425,7 @@ export default function TaskCard({
                       onAdvance(task.id);
                     }
                   }}
-                  className="py-2.5 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-bold flex items-center justify-center gap-1.5 border border-emerald-500/20 transition-colors"
+                  className="py-2.5 px-2 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-[11px] font-bold flex items-center justify-center gap-1.5 border border-secondary/30 transition-colors"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {task.goalNodeId ? 'Jump' : 'Advance'}
@@ -434,15 +433,15 @@ export default function TaskCard({
 
                 <button
                   onClick={() => { setExpanded(false); onDuplicate(task.id); }}
-                  className="py-2.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  className="py-2.5 px-2 rounded-xl bg-surface hover:bg-elevated text-content-primary border border-subtle text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <Copy className="w-3.5 h-3.5 text-violet-400" />
+                  <Copy className="w-3.5 h-3.5 text-primary" />
                   Duplicate
                 </button>
 
                 <button
                   onClick={() => { setExpanded(false); onDelete(task.id); }}
-                  className="py-2.5 px-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  className="py-2.5 px-2 rounded-xl bg-error-soft hover:bg-error text-error border border-error-soft text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {softRemove ? 'Remove' : 'Delete'}

@@ -1,9 +1,49 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-  darkMode: 'class',
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'base': 'var(--bg-base)',
+        'surface': 'var(--bg-surface)',
+        'elevated': 'var(--bg-elevated)',
+        
+        'primary': 'var(--primary)',
+        'primary-soft': 'var(--primary-soft)',
+        'primary-glow': 'var(--primary-glow)',
+        
+        'secondary': 'var(--secondary)',
+        'secondary-soft': 'var(--secondary-soft)',
+        
+        'accent': 'var(--accent)',
+        'accent-hover': 'var(--accent-hover)',
+        'accent-soft': 'var(--accent-soft)',
+        
+        'success': 'var(--success)',
+        'success-soft': 'var(--success-soft)',
+        
+        'warning': 'var(--warning)',
+        
+        'error': 'var(--error)',
+        'error-soft': 'var(--error-soft)',
+      },
+      textColor: {
+        'content': {
+          'primary': 'var(--text-primary)',
+          'secondary': 'var(--text-secondary)',
+          'muted': 'var(--text-muted)',
+        }
+      },
+      borderColor: {
+        DEFAULT: 'var(--border)',
+        'subtle': 'var(--border-subtle)',
+      },
+      boxShadow: {
+        'card': 'var(--shadow-card)',
+        'elevated': 'var(--shadow-elevated)',
+      }
+    },
   },
   plugins: [],
 };

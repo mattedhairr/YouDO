@@ -2,49 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
+/* DARK MODE */
+html[data-theme="dark"] {
+  --bg-base: #0B1120;
+  --bg-surface: #151E32;
+  --bg-elevated: #1E293B;
+  
+  --primary: #6366F1;
+  --primary-soft: #312E81;
+  --primary-glow: #818CF8;
+  
+  --secondary: #2DD4BF;
+  --secondary-soft: #134E4A;
+  
+  --accent: #F59E0B;
+  --accent-hover: #FBBF24;
+  --accent-soft: #451A03;
+  
+  --success: #34D399;
+  --success-soft: #064E3B;
+  
+  --warning: #F59E0B;
+  
+  --error: #F87171;
+  --error-soft: #450A0A;
+  
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #475569;
+  
+  --border: #334155;
+  --border-subtle: #1E293B;
+  
+  --shadow-card: 0 0 0 rgba(0,0,0,0);
+  --shadow-elevated: 0 0 0 rgba(0,0,0,0);
+  
+  --backdrop: rgba(11, 17, 32, 0.8);
+}
 
-  /* ── Deep Warm Purple Surface Layers ─────────────────────────────── */
-  --surface-0: #0D0B14;           /* page background (very deep warm dark) */
-  --surface-1: #14111F;           /* card base                             */
-  --surface-2: #1D1930;           /* elevated card / sheet                 */
-  --surface-3: #27233D;           /* hover / active state                  */
+/* LIGHT MODE */
+html[data-theme="light"] {
+  --bg-base: #F1F5F9;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  
+  --primary: #4F46E5;
+  --primary-soft: #EEF2FF;
+  --primary-glow: #4338CA;
+  
+  --secondary: #0D9488;
+  --secondary-soft: #CCFBF1;
+  
+  --accent: #D97706;
+  --accent-hover: #B45309;
+  --accent-soft: #FFFBEB;
+  
+  --success: #059669;
+  --success-soft: #D1FAE5;
+  
+  --warning: #D97706;
+  
+  --error: #DC2626;
+  --error-soft: #FEE2E2;
+  
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  
+  --border: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-elevated: 0 4px 12px rgba(15, 23, 42, 0.12);
+  
+  --backdrop: rgba(15, 23, 42, 0.4);
+}
 
-  /* ── Glass borders ──────────────────────────────────────────── */
-  --border-subtle:   rgba(255, 255, 255, 0.05);
-  --border-default:  rgba(255, 255, 255, 0.10);
-  --border-emphasis: rgba(255, 255, 255, 0.18);
-
-  /* ── Accent palette ─────────────────────────────────────────── */
-  --accent-primary:       #7C3AED;   /* deep indigo-violet                  */
-  --accent-primary-light: #A78BFA;
-  --accent-primary-dim:   rgba(124, 58, 237, 0.18);
-  --accent-primary-glow:  rgba(124, 58, 237, 0.35);
-
-  --accent-amber:         #F59E0B;   /* warm amber / session active         */
-  --accent-amber-light:   #FCD34D;
-  --accent-amber-dim:     rgba(245, 158, 11, 0.18);
-
-  --accent-emerald:       #10B981;   /* completion / growth                 */
-  --accent-emerald-dim:   rgba(16, 185, 129, 0.18);
-
-  --accent-rose:          #F43F5E;   /* backlog / stop                      */
-  --accent-rose-dim:      rgba(244, 63, 94, 0.18);
-
-  /* ── Text hierarchy ─────────────────────────────────────────── */
-  --text-primary:   #EEE9FC;   /* warm white, not harsh               */
-  --text-secondary: #A09CB8;   /* muted purple-grey                   */
-  --text-muted:     #5F5980;   /* deep muted                          */
-
-  /* ── Typography ─────────────────────────────────────────────── */
+html[data-theme="dark"],
+html[data-theme="light"] {
+  --transition-theme: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease;
+  
   --font-sans: 'Inter', 'SF Pro Display', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
 
-  /* ── Leading ────────────────────────────────────────────────── */
-  --leading-heading: 1.1;
-  --leading-body:    1.6;
-  --leading-tight:   1.3;
+html, html * {
+  transition: var(--transition-theme);
+}
+
+/* Disable transition on progress bars and focus rings to avoid visual lag */
+.progress-bar, .focus-ring, [role="progressbar"] {
+  transition: none !important;
 }
 
 html,
@@ -53,6 +101,12 @@ body,
   min-height: 100%;
   margin: 0;
   padding: 0;
+  background-color: var(--bg-base) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
 }
 
 /* Disable accidental web text selection & long-press menus globally */
@@ -82,204 +136,16 @@ textarea * {
   user-select: text !important;
 }
 
-/* ── Dusky Off-White Light Theme Overrides ── */
-html.light-dusky {
-  color-scheme: light;
-  --surface-0: #F4F2F8;
-  --surface-1: #FFFFFF;
-  --surface-2: #ECE8F5;
-  --surface-3: #E1DBF0;
-
-  --border-subtle:   rgba(0, 0, 0, 0.06);
-  --border-default:  rgba(0, 0, 0, 0.12);
-  --border-emphasis: rgba(0, 0, 0, 0.22);
-
-  --text-primary:   #1E1B2E;
-  --text-secondary: #585375;
-  --text-muted:     #8C86A8;
-}
-
-html.light-dusky body,
-html.light-dusky #root {
-  background-color: #F4F2F8 !important;
-  color: #1E1B2E !important;
-}
-
-/* Light mode card overrides */
-html.light-dusky .card {
-  background: #FFFFFF !important;
-  color: #1E1B2E !important;
-  border: 1px solid rgba(124, 58, 237, 0.12) !important;
-  box-shadow: 0 4px 16px 0 rgba(30, 27, 46, 0.08) !important;
-}
-
-/* Hardcoded dark background class overrides in Light Mode */
-html.light-dusky [class*="bg-[#0D0B14]"],
-html.light-dusky [class*="bg-[#0f0c18]"] {
-  background-color: #F4F2F8 !important;
-}
-
-html.light-dusky [class*="bg-[#14111F]"],
-html.light-dusky [class*="bg-[#1D1930]"] {
-  background-color: #FFFFFF !important;
-  border-color: rgba(124, 58, 237, 0.12) !important;
-}
-
-html.light-dusky [class*="bg-[#27233D]"] {
-  background-color: #ECE8F5 !important;
-  color: #1E1B2E !important;
-  border-color: rgba(124, 58, 237, 0.2) !important;
-}
-
-html.light-dusky [class*="bg-black/"],
-html.light-dusky [class*="bg-white/5"],
-html.light-dusky [class*="bg-white/8"],
-html.light-dusky [class*="bg-white/10"] {
-  background-color: rgba(124, 58, 237, 0.06) !important;
-}
-
-/* Text color overrides for Light Mode */
-html.light-dusky [class*="text-slate-100"],
-html.light-dusky [class*="text-[#EEE9FC]"],
-html.light-dusky [class*="text-white"]:not(button):not(.bg-violet-600):not(.bg-rose-600) {
-  color: #1E1B2E !important;
-}
-
-html.light-dusky [class*="text-slate-200"],
-html.light-dusky [class*="text-slate-300"],
-html.light-dusky [class*="text-[#A09CB8]"] {
-  color: #4A4568 !important;
-}
-
-html.light-dusky [class*="text-slate-400"],
-html.light-dusky [class*="text-slate-500"],
-html.light-dusky [class*="text-[#5F5980]"] {
-  color: #6E6890 !important;
-}
-
-/* Unified Crisp Modal Backdrop System (Zero-blur, 100% bug-free) */
+/* Unified Crisp Modal Backdrop System */
 .modal-backdrop {
-  background-color: rgba(0, 0, 0, 0.65) !important;
+  background-color: var(--backdrop) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-}
-
-html.light-dusky .modal-backdrop {
-  background-color: rgba(15, 12, 24, 0.45) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Navigation bar and bottom command bar overrides */
-html.light-dusky .glass-nav,
-html.light-dusky .glass-header,
-html.light-dusky footer,
-html.light-dusky nav {
-  background: #FFFFFF !important;
-  border-color: rgba(124, 58, 237, 0.15) !important;
-  color: #1E1B2E !important;
-  box-shadow: 0 -4px 20px rgba(30, 27, 46, 0.08) !important;
-}
-
-html.light-dusky header {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
-html,
-body {
-  background-color: var(--surface-0) !important;
-  color: var(--text-primary) !important;
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overscroll-behavior: none;
 }
 
 /* Universally prevent scroll-chaining on all internal scrollable containers */
 .overflow-y-auto, .overflow-auto {
   overscroll-behavior: contain;
-}
-
-/* ---------- Surface & Glass Theme Definitions ---------- */
-@layer components {
-  /* SOLID CARD (Default Dark) */
-  .card {
-    background: #14111F !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 6px 24px 0 rgba(0, 0, 0, 0.55) !important;
-    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, opacity 0.25s ease !important;
-  }
-
-  .card:hover {
-    transform: translateY(-1.5px);
-    border-color: rgba(124, 58, 237, 0.3) !important;
-    box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.65), 0 0 12px 0 rgba(124, 58, 237, 0.12) !important;
-  }
-
-  .glass-header {
-    background: #0f0c18 !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    transition: opacity 0.25s ease, filter 0.25s ease !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  }
-
-  body.task-card-expanded .glass-header {
-    opacity: 0.35 !important;
-    pointer-events: none !important;
-  }
-
-  .glass-nav {
-    background: #14111F !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    transition: opacity 0.25s ease, filter 0.25s ease !important;
-    border: 1px solid rgba(255, 255, 255, 0.10) !important;
-    box-shadow: 0 14px 36px -4px rgba(0, 0, 0, 0.7) !important;
-  }
-
-  body.task-card-expanded .glass-nav {
-    opacity: 0.35 !important;
-    pointer-events: none !important;
-  }
-
-
-  /* Inactive task dimming when session active */
-  .card-dimmed {
-    opacity: 0.55 !important;
-    transform: scale(0.985) !important;
-    filter: saturate(85%) !important;
-    pointer-events: auto !important;
-  }
-
-  /* Active session card glowing border */
-  .card-session-active {
-    border-color: rgba(245, 158, 11, 0.6) !important;
-    box-shadow: 0 0 20px 2px rgba(245, 158, 11, 0.25), 0 8px 32px 0 rgba(0, 0, 0, 0.7) !important;
-    animation: session-border-pulse 2.5s ease-in-out infinite !important;
-  }
-
-  /* Enhanced Drag Card Effect */
-  .dragging-card {
-    opacity: 0.85 !important;
-    transform: scale(1.03) rotate(1deg) !important;
-    box-shadow: 0 20px 48px rgba(124, 58, 237, 0.35), 0 0 0 2px rgba(124, 58, 237, 0.7) !important;
-    z-index: 50 !important;
-    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
-  }
-
-  .drag-over-card {
-    border-color: rgba(124, 58, 237, 0.8) !important;
-    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.5), inset 0 0 12px rgba(124, 58, 237, 0.15) !important;
-    transform: translateY(4px) !important;
-    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  }
 }
 
 /* ---------- Utilities ---------- */
@@ -432,8 +298,8 @@ body {
 }
 
 @keyframes session-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-  50% { transform: scale(1.2); opacity: 0.85; box-shadow: 0 0 8px 3px rgba(245, 158, 11, 0.4); }
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 var(--accent-hover); }
+  50% { transform: scale(1.2); opacity: 0.85; box-shadow: 0 0 8px 3px var(--accent-soft); }
 }
 
 .animate-session-pulse {
@@ -441,8 +307,8 @@ body {
 }
 
 @keyframes session-border-pulse {
-  0%, 100% { border-color: rgba(245, 158, 11, 0.4); }
-  50% { border-color: rgba(245, 158, 11, 0.85); }
+  0%, 100% { border-color: var(--accent); }
+  50% { border-color: var(--accent-hover); }
 }
 
 @keyframes ambient-clock-tick {

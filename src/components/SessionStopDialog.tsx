@@ -49,35 +49,35 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop animate-fade-in">
-      <div className="relative w-full max-w-md bg-[#14111F] card border border-white/10 rounded-t-3xl sm:rounded-3xl p-5 pb-8 shadow-2xl sheet-up max-h-[85vh] overflow-y-auto">
+      <div className="relative w-full max-w-md bg-elevated card border border-subtle rounded-t-3xl sm:rounded-3xl p-5 pb-8 shadow-elevated sheet-up max-h-[85vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-subtle">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+            <div className="w-8 h-8 rounded-xl bg-primary-soft border border-primary flex items-center justify-center text-primary">
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-100">Session Completed</h3>
-              <p className="text-xs text-slate-400">How did it go?</p>
+              <h3 className="text-sm font-bold text-content-primary">Session Completed</h3>
+              <p className="text-xs text-content-secondary">How did it go?</p>
             </div>
           </div>
           <button
             onClick={onCancel}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition"
+            className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary hover:bg-elevated transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Task Title */}
-        <p className="text-sm font-semibold text-slate-200 mb-4 bg-[#1D1930] p-3 rounded-xl border border-white/5">
+        <p className="text-sm font-semibold text-content-primary mb-4 bg-surface p-3 rounded-xl border border-subtle">
           {task.title}
         </p>
 
         {/* Micro-steps Checklist (if any exist) */}
         {hasSteps && (
           <div className="mb-5">
-            <label className="block text-xs font-semibold text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-content-secondary mb-2">
               Select steps completed during this session:
             </label>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -90,14 +90,14 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
                     onClick={() => toggleStep(idx)}
                     className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs text-left transition border ${
                       checked
-                        ? 'bg-violet-600/15 border-violet-500/40 text-slate-100'
-                        : 'bg-[#1D1930] border-white/5 text-slate-400 hover:text-slate-200'
+                        ? 'bg-primary-soft border-primary text-content-primary'
+                        : 'bg-surface border-subtle text-content-secondary hover:text-content-primary'
                     }`}
                   >
                     <span className="truncate pr-2">{step}</span>
                     <div
                       className={`w-5 h-5 rounded-lg flex items-center justify-center border transition ${
-                        checked ? 'bg-violet-600 border-violet-500 text-white' : 'border-white/20'
+                        checked ? 'bg-primary border-primary text-white' : 'border-subtle'
                       }`}
                     >
                       {checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -113,7 +113,7 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
         {hasSteps ? (
           <button
             onClick={handleSaveStepsProgress}
-            className="w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold flex items-center justify-center gap-2 transition shadow-md shadow-violet-600/20 active:scale-[0.98]"
+            className="w-full py-3.5 rounded-xl bg-primary hover:bg-primary-glow text-white text-sm font-bold flex items-center justify-center gap-2 transition shadow-sm active:scale-[0.98]"
           >
             <CheckCircle2 className="w-5 h-5" />
             Save Progress
@@ -122,17 +122,17 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
           <div className="grid grid-cols-2 gap-2.5 pt-2">
             <button
               onClick={() => handleOutcome(true)}
-              className="py-3 px-2 rounded-xl bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
+              className="py-3 px-2 rounded-xl bg-secondary/10 border border-secondary/30 hover:bg-secondary/20 text-secondary text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
             >
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-secondary" />
               Completed
             </button>
 
             <button
               onClick={() => handleOutcome(false)}
-              className="py-3 px-2 rounded-xl bg-slate-800 border border-white/10 hover:bg-slate-700 text-slate-300 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
+              className="py-3 px-2 rounded-xl bg-surface border border-subtle hover:bg-elevated text-content-secondary text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
             >
-              <AlertCircle className="w-4 h-4 text-slate-400" />
+              <AlertCircle className="w-4 h-4 text-content-secondary" />
               Not Done
             </button>
           </div>

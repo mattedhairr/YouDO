@@ -90,22 +90,22 @@ export function AmbientScreen({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black text-slate-100 flex flex-col justify-between p-6 select-none animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-base text-content-primary flex flex-col justify-between p-6 select-none animate-fade-in">
       {/* Top Bar with Dynamic Safe Area Padding */}
       <div
         className="flex items-center justify-between"
         style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
       >
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-session-pulse" />
-          <span className="text-xs font-mono text-amber-400 tracking-wider uppercase font-semibold">
+          <span className="w-2.5 h-2.5 rounded-full bg-warning animate-session-pulse" />
+          <span className="text-xs font-mono text-warning tracking-wider uppercase font-semibold">
             {activeSession.isPaused ? 'PAUSED' : 'FOCUS SESSION'}
           </span>
         </div>
 
         <button
           onClick={onMinimize}
-          className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-slate-300 transition flex items-center gap-1.5 text-xs font-medium"
+          className="p-2.5 rounded-full bg-elevated hover:bg-primary-soft active:scale-95 text-content-primary transition flex items-center gap-1.5 text-xs font-medium"
         >
           <Minimize2 className="w-4 h-4" />
           <span>Exit Ambient</span>
@@ -118,35 +118,35 @@ export function AmbientScreen({
         {origin && (
           <button
             onClick={handleGoToGoal}
-            className={`mb-6 w-full max-w-sm mx-auto flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-slate-300 bg-white/5 border border-white/10 px-3 py-2 rounded-xl transition-all active:scale-95 hover:bg-white/10 hover:border-violet-500/40 group ${!onJumpToGoal ? 'pointer-events-none' : ''}`}
+            className={`mb-6 w-full max-w-sm mx-auto flex items-center justify-center gap-1.5 flex-wrap text-[11px] leading-relaxed font-semibold text-content-primary bg-surface border border-subtle px-3 py-2 rounded-xl transition-all active:scale-95 hover:bg-elevated hover:border-primary group ${!onJumpToGoal ? 'pointer-events-none' : ''}`}
           >
-            <Link2 size={11} className="shrink-0 text-violet-400" />
+            <Link2 size={11} className="shrink-0 text-primary" />
             <span className="break-words text-center">{origin}</span>
             {onJumpToGoal && (
-              <ExternalLink size={10} className="shrink-0 text-violet-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+              <ExternalLink size={10} className="shrink-0 text-primary opacity-60 group-hover:opacity-100 transition-opacity" />
             )}
           </button>
         )}
 
         {/* Task Title */}
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mb-6 max-w-md leading-snug">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-content-primary mb-6 max-w-md leading-snug">
           {task.title}
         </h1>
 
         {/* Large Mono Timer */}
         <div className="relative mb-6">
-          <div className="text-6xl sm:text-7xl font-mono font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-100 to-slate-400 animate-ambient-clock drop-shadow-2xl">
+          <div className="text-6xl sm:text-7xl font-mono font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-content-primary to-content-secondary animate-ambient-clock drop-shadow-2xl">
             {formattedTime}
           </div>
           {activeSession.isPaused && (
-            <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs font-medium text-amber-400/90 tracking-widest uppercase">
+            <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs font-medium text-warning/90 tracking-widest uppercase">
               Paused
             </span>
           )}
         </div>
 
         {/* Wall Clock Info */}
-        <div className="text-xs font-mono text-slate-500 flex items-center gap-3">
+        <div className="text-xs font-mono text-content-secondary flex items-center gap-3">
           <span>Started at {activeSession.wallClockStart}</span>
           {activeSession.pauses.length > 0 && (
             <>
@@ -158,8 +158,8 @@ export function AmbientScreen({
 
         {/* ── Detailed Pause Timestamps Log (Point 6) ── */}
         {activeSession.pauses.length > 0 && (
-          <div className="mt-4 w-full max-w-xs space-y-1.5 max-h-32 overflow-y-auto no-scrollbar bg-white/5 border border-white/8 p-3 rounded-2xl">
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400/80 text-left flex items-center gap-1">
+          <div className="mt-4 w-full max-w-xs space-y-1.5 max-h-32 overflow-y-auto no-scrollbar bg-surface border border-white/8 p-3 rounded-2xl">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-warning/80 text-left flex items-center gap-1">
               <Clock size={10} /> Pause Timestamps Log
             </p>
             {activeSession.pauses.map((p, idx) => {
@@ -167,9 +167,9 @@ export function AmbientScreen({
               const endStr = p.end ? (p.wallClockEnd || formatWallClockTime(p.end)) : 'Ongoing';
               const durMs = p.end ? (p.durationMs || (p.end - p.start)) : (activeSession.pauseStart ? Date.now() - activeSession.pauseStart : 0);
               return (
-                <div key={idx} className="flex items-center justify-between text-[10.5px] font-mono text-slate-300 bg-white/5 px-2.5 py-1 rounded-lg">
+                <div key={idx} className="flex items-center justify-between text-[10.5px] font-mono text-content-primary bg-surface px-2.5 py-1 rounded-lg">
                   <span>({startStr} - {endStr})</span>
-                  <span className="font-bold text-amber-400">{formatPauseDuration(durMs)}</span>
+                  <span className="font-bold text-warning">{formatPauseDuration(durMs)}</span>
                 </div>
               );
             })}
@@ -182,7 +182,7 @@ export function AmbientScreen({
         {activeSession.isPaused ? (
           <button
             onClick={onResume}
-            className="flex-1 py-4 px-6 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-bold text-sm shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 transition"
+            className="flex-1 py-4 px-6 rounded-2xl bg-accent hover:bg-accent-hover active:scale-95 text-black font-bold text-sm shadow-lg shadow-sm flex items-center justify-center gap-2 transition"
           >
             <Play className="w-5 h-5 fill-current" />
             Resume
@@ -190,7 +190,7 @@ export function AmbientScreen({
         ) : (
           <button
             onClick={onPause}
-            className="flex-1 py-4 px-6 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 text-slate-200 font-semibold text-sm border border-white/10 flex items-center justify-center gap-2 transition"
+            className="flex-1 py-4 px-6 rounded-2xl bg-elevated hover:bg-primary-soft active:scale-95 text-slate-200 font-semibold text-sm border border-subtle flex items-center justify-center gap-2 transition"
           >
             <Pause className="w-5 h-5" />
             Pause
@@ -199,7 +199,7 @@ export function AmbientScreen({
 
         <button
           onClick={onStop}
-          className="py-4 px-6 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-400 border border-rose-500/30 font-semibold text-sm flex items-center justify-center gap-2 transition"
+          className="py-4 px-6 rounded-2xl bg-error-soft hover:bg-error/30 active:scale-95 text-error border border-error/20 font-semibold text-sm flex items-center justify-center gap-2 transition"
         >
           <Square className="w-4 h-4 fill-current" />
           Stop

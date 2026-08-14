@@ -117,19 +117,19 @@ export default function AddGoalSheet({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={onClose} />
-      <div className="sheet-up relative w-full max-w-md bg-[#14111F] card rounded-t-3xl p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar shadow-2xl border-t border-white/10">
+      <div className="sheet-up relative w-full max-w-md bg-elevated card rounded-t-3xl p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar shadow-2xl border-t border-subtle">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+          <h2 className="text-lg font-bold text-content-primary">
             {getHeaderTitle()}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary dark:hover:text-content-primary hover:bg-elevated">
             <X size={18} />
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+            <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">
               {isRootGoal ? 'Goal Title' : 'Title'}
             </label>
             <input
@@ -138,25 +138,25 @@ export default function AddGoalSheet({
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               placeholder={isRootGoal ? 'e.g. Competitive Exam Prep' : 'e.g. Core Syllabus Module'}
-              className="mt-1 w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-slate-600 transition-colors"
+              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
             />
           </div>
 
           <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Description</label>
+            <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional details…"
               rows={2}
-              className="mt-1 w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-slate-600 transition-colors resize-none"
+              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors resize-none"
             />
           </div>
 
           {/* Node Type Selector: Only shown when adding a child or editing a child node */}
           {!isRootGoal && (editing?.kind !== 'goal') && (
             <div>
-              <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Node type</label>
+              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Node type</label>
               <div className="mt-1.5 grid grid-cols-5 gap-1.5">
                 {kindOptions.map((k) => (
                   <button
@@ -165,8 +165,8 @@ export default function AddGoalSheet({
                     onClick={() => setKind(k.value)}
                     className={`py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
                       kind === k.value
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-surface text-content-secondary dark:text-content-muted border-subtle hover:bg-elevated'
                     }`}
                   >
                     {k.label}
@@ -178,21 +178,21 @@ export default function AddGoalSheet({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Start date</label>
+              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Start date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-slate-600 transition-colors"
+                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
               />
             </div>
             <div>
-              <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">End date</label>
+              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">End date</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1 w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-slate-600 transition-colors"
+                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
               />
             </div>
           </div>
@@ -200,8 +200,8 @@ export default function AddGoalSheet({
           {kind === 'leaf' && (
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Micro-progress steps</label>
-                <span className="text-[10px] text-slate-300 dark:text-slate-500">{steps.length}/8</span>
+                <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Micro-progress steps</label>
+                <span className="text-[10px] text-content-muted dark:text-content-secondary">{steps.length}/8</span>
               </div>
               <div className="mt-1.5 space-y-2">
                 {steps.map((s, i) => (
@@ -214,7 +214,7 @@ export default function AddGoalSheet({
                       setSteps(next);
                     }}
                     placeholder={`Step ${i + 1}`}
-                    className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-400 focus:bg-white dark:focus:bg-slate-600 transition-colors"
+                    className="w-full bg-surface border border-subtle rounded-xl px-3.5 py-2 text-sm text-content-primary placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
                   />
                 ))}
               </div>
@@ -222,7 +222,7 @@ export default function AddGoalSheet({
                 <button
                   type="button"
                   onClick={() => setSteps([...steps, ''])}
-                  className="mt-2 text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
+                  className="mt-2 text-[11px] font-medium text-primary hover:text-blue-700 transition-colors"
                 >
                   + Add step
                 </button>
@@ -234,7 +234,7 @@ export default function AddGoalSheet({
             {isEditing && editing && (
               <button
                 onClick={() => { onDeleteNode(editing.id); onClose(); }}
-                className="px-4 py-3 rounded-2xl text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors inline-flex items-center gap-1.5"
+                className="px-4 py-3 rounded-2xl text-sm font-medium text-error bg-error-soft hover:bg-error/20 border border-error/20 transition-colors inline-flex items-center gap-1.5"
               >
                 <Trash2 size={14} />
               </button>
@@ -242,7 +242,7 @@ export default function AddGoalSheet({
             <button
               onClick={submit}
               disabled={!title.trim()}
-              className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white bg-primary hover:bg-primary-glow disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {isEditing ? 'Save' : parentId ? 'Add Node' : 'Create Goal'}
             </button>

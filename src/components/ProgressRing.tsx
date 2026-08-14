@@ -1,11 +1,11 @@
 interface Props {
   percent: number;
-  accent?: string;
+  color?: string;
   size?: number;
   dark?: boolean;
 }
 
-export default function ProgressRing({ percent, accent = '#3b82f6', size = 44, dark = false }: Props) {
+export default function ProgressRing({ percent, color = 'var(--primary)', size = 44, dark = false }: Props) {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const stroke = 4;
   const r = (size - stroke) / 2;
@@ -23,7 +23,7 @@ export default function ProgressRing({ percent, accent = '#3b82f6', size = 44, d
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={accent}
+          stroke={color}
           strokeWidth={stroke}
           strokeDasharray={c}
           strokeDashoffset={offset}

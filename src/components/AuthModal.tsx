@@ -69,19 +69,19 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 font-extrabold text-lg shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-primary-soft border border-primary/30 flex items-center justify-center text-primary font-extrabold text-lg shadow-inner">
               <ShieldCheck size={20} />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-slate-100 leading-tight">
+              <h2 className="text-base font-extrabold text-content-primary leading-tight">
                 {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
               </h2>
-              <p className="text-[11px] font-medium text-slate-400">Sync goals &amp; progress safely</p>
+              <p className="text-[11px] font-medium text-content-secondary">Sync goals &amp; progress safely</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/8 transition active:scale-95"
+            className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-elevated transition active:scale-95"
           >
             <X className="w-4 h-4" />
           </button>
@@ -98,8 +98,8 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               mode === 'signin'
-                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/25'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-primary text-white shadow-md shadow-sm'
+                : 'text-content-secondary hover:text-content-primary'
             }`}
           >
             <LogIn size={13} /> Sign In
@@ -113,8 +113,8 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               mode === 'signup'
-                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/25'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-primary text-white shadow-md shadow-sm'
+                : 'text-content-secondary hover:text-content-primary'
             }`}
           >
             <UserPlus size={13} /> Create Account
@@ -123,13 +123,13 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
 
         {/* Error / Success Banners */}
         {error && (
-          <div className="mb-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2 animate-fade-in">
+          <div className="mb-4 p-3 rounded-2xl bg-error-soft border border-error/30 text-error text-xs font-medium flex items-start gap-2 animate-fade-in">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-start gap-2 animate-fade-in">
+          <div className="mb-4 p-3 rounded-2xl bg-secondary/10 border border-secondary/30 text-secondary text-xs font-medium flex items-start gap-2 animate-fade-in">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{success}</span>
           </div>
@@ -139,46 +139,46 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
         <form onSubmit={handleSubmit} className="space-y-3.5">
           {mode === 'signup' && (
             <div>
-              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-300 mb-1">
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-content-primary mb-1">
                 Full Name
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+                <User className="absolute left-3 top-3 w-4 h-4 text-content-secondary" />
                 <input
                   type="text"
                   required={mode === 'signup'}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Aspirant's Name"
-                  className="w-full bg-[#1D1930] border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition font-medium"
+                  className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-3 py-2.5 text-xs text-content-primary placeholder:text-content-secondary focus:outline-none focus:border-primary transition font-medium"
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-300 mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-content-primary mb-1">
               Email Address
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+              <Mail className="absolute left-3 top-3 w-4 h-4 text-content-secondary" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="aspirant@example.com"
-                className="w-full bg-[#1D1930] border border-white/10 rounded-2xl pl-9 pr-3 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition font-medium"
+                className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-3 py-2.5 text-xs text-content-primary placeholder:text-content-secondary focus:outline-none focus:border-primary transition font-medium"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-300 mb-1">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-content-primary mb-1">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+              <Lock className="absolute left-3 top-3 w-4 h-4 text-content-secondary" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
@@ -186,12 +186,12 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-[#1D1930] border border-white/10 rounded-2xl pl-9 pr-10 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-violet-500 transition font-medium"
+                className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-10 py-2.5 text-xs text-content-primary placeholder:text-content-secondary focus:outline-none focus:border-primary transition font-medium"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((p) => !p)}
-                className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition"
+                className="absolute right-3 top-3 text-content-secondary hover:text-content-primary transition"
               >
                 {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
@@ -201,7 +201,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 active:scale-[0.98] text-white text-xs font-extrabold shadow-lg shadow-violet-600/25 flex items-center justify-center gap-2 transition disabled:opacity-50 mt-2"
+            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-primary to-primary-glow hover:from-primary-glow hover:to-primary active:scale-[0.98] text-white text-xs font-extrabold shadow-lg shadow-sm flex items-center justify-center gap-2 transition disabled:opacity-50 mt-2"
           >
             {loading ? (
               <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

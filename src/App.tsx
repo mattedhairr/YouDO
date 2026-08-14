@@ -614,12 +614,12 @@ function AppInner() {
           <div className="flex items-center justify-between gap-2.5 h-10">
             {/* Left: YouDO Icon + Brand */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="grid place-items-center w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 shadow-xs shrink-0">
+              <span className="grid place-items-center w-9 h-9 rounded-xl bg-primary-soft text-primary shrink-0">
                 <YouDoIcon size={18} />
               </span>
               <div className="shrink-0">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-extrabold leading-none">YouDO</div>
-                <div className="text-[13px] font-extrabold text-slate-100 leading-tight mt-0.5">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-content-muted font-extrabold leading-none">YouDO</div>
+                <div className="text-[13px] font-extrabold text-content-primary leading-tight mt-0.5">
                   {view === 'goals'
                     ? 'Goals'
                     : view === 'calendar'
@@ -630,11 +630,11 @@ function AppInner() {
             </div>
 
             {/* Right: Marquee Quote Ticker */}
-            <div className="flex-1 min-w-0 card h-10 px-3 flex items-center gap-2 border border-violet-500/15 dark:border-white/10 overflow-hidden rounded-2xl shadow-2xs">
-              <Quote size={12} className="text-violet-600 dark:text-violet-400 shrink-0" />
+            <div className="flex-1 min-w-0 bg-surface h-10 px-3 flex items-center gap-2 border border-subtle overflow-hidden rounded-2xl shadow-card">
+              <Quote size={12} className="text-primary shrink-0" />
               <div className="marquee-container flex-1">
-                <div className="marquee-content text-[11px] italic font-medium text-slate-800 dark:text-slate-200">
-                  "{randomQuote.text}" <span className="not-italic font-extrabold text-violet-600 dark:text-violet-400 text-[10px] ml-1.5">— {randomQuote.author}</span>
+                <div className="marquee-content text-[11px] italic font-medium text-content-secondary">
+                  "{randomQuote.text}" <span className="not-italic font-extrabold text-primary text-[10px] ml-1.5">— {randomQuote.author}</span>
                 </div>
               </div>
             </div>
@@ -642,16 +642,16 @@ function AppInner() {
 
           {/* Today Tab Progress Bar */}
           {view === 'tasks' && (
-            <div className="card p-2.5 space-y-1.5 border border-white/10">
+            <div className="bg-surface p-2.5 space-y-1.5 border border-subtle rounded-2xl shadow-card">
               <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="text-slate-300">Scheduled Progress</span>
-                <span className="text-violet-400 tabular-nums">
+                <span className="text-content-primary">Scheduled Progress</span>
+                <span className="text-primary tabular-nums">
                   {todayDone}/{todayCount} tasks • {todayProgress}%
                 </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-[#1D1930] overflow-hidden border border-white/5">
+              <div className="h-2 w-full rounded-full bg-elevated overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-600 via-purple-500 to-emerald-400 progress-bar-fill shadow-sm shadow-violet-600/30"
+                  className="h-full rounded-full bg-[linear-gradient(90deg,var(--primary),var(--secondary))] progress-bar-fill"
                   style={{ width: `${todayProgress}%` }}
                 />
               </div>
@@ -675,12 +675,12 @@ function AppInner() {
               <div className="space-y-3">
                 {/* Cloud Backup Available Banner */}
                 {user && tasks.length === 0 && goals.length === 0 && (
-                  <div className="card p-3.5 bg-violet-950/50 border-violet-500/40 flex items-center justify-between gap-3 animate-fade-in shadow-lg">
+                  <div className="p-3.5 bg-primary-soft border border-primary flex items-center justify-between gap-3 animate-fade-in shadow-lg rounded-2xl">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <Cloud className="w-5 h-5 text-violet-400 shrink-0 animate-bounce" />
+                      <Cloud className="w-5 h-5 text-primary shrink-0 animate-bounce" />
                       <div className="min-w-0">
-                        <div className="text-xs font-extrabold text-slate-100">Cloud Backup Ready</div>
-                        <div className="text-[10.5px] text-slate-400 font-medium truncate">Restore your study goals &amp; tasks</div>
+                        <div className="text-xs font-extrabold text-content-primary">Cloud Backup Ready</div>
+                        <div className="text-[10.5px] text-content-muted font-medium truncate">Restore your study goals &amp; tasks</div>
                       </div>
                     </div>
                     <button
@@ -688,7 +688,7 @@ function AppInner() {
                         const ok = await restoreFromCloud();
                         if (!ok) alert('No cloud backup found for this account.');
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-extrabold shadow-md shadow-violet-600/30 shrink-0 transition active:scale-95"
+                      className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-glow text-white text-xs font-extrabold shrink-0 transition active:scale-95"
                     >
                       Restore Cloud Data
                     </button>
@@ -696,17 +696,17 @@ function AppInner() {
                 )}
 
                 {/* Today vs Backlog Sub-tabs */}
-                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#1D1930] border border-white/5 w-full">
+                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-surface border border-subtle w-full">
                   <button
                     onClick={() => startTransition(() => setTodaySubTab('today'))}
                     className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'today'
-                        ? 'bg-[#27233D] text-slate-100 shadow-xs border border-white/10'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-elevated text-content-primary shadow-elevated border border-subtle'
+                        : 'text-content-secondary hover:text-content-primary'
                     }`}
                   >
                     <span>Scheduled</span>
-                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${todaySubTab === 'today' ? 'bg-violet-600/30 text-violet-300' : 'bg-white/5 text-slate-400'}`}>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${todaySubTab === 'today' ? 'bg-primary text-white' : 'bg-surface text-content-muted'}`}>
                       {todayTasks.length}
                     </span>
                   </button>
@@ -714,13 +714,13 @@ function AppInner() {
                     onClick={() => startTransition(() => setTodaySubTab('backlog'))}
                     className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'backlog'
-                        ? 'bg-[#27233D] text-rose-400 shadow-xs border border-white/10'
-                        : 'text-slate-400 hover:text-rose-400'
+                        ? 'bg-elevated text-error shadow-elevated border border-error-soft'
+                        : 'text-content-secondary hover:text-error'
                     }`}
                   >
-                    <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-rose-500' : 'text-slate-400'} />
+                    <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-error' : 'text-content-secondary'} />
                     <span>Backlog</span>
-                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${backlogTasks.length > 0 ? 'bg-rose-500 text-white' : 'bg-white/5 text-slate-400'}`}>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${backlogTasks.length > 0 ? 'bg-error text-white' : 'bg-surface text-content-muted'}`}>
                       {backlogTasks.length}
                     </span>
                   </button>
@@ -733,8 +733,8 @@ function AppInner() {
                       onClick={() => setActiveCategoryFilter('all')}
                       className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap border transition ${
                         activeCategoryFilter === 'all'
-                          ? 'bg-violet-600/25 border-violet-500/50 text-violet-300 shadow-sm'
-                          : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-surface border-subtle text-content-secondary hover:bg-elevated'
                       }`}
                     >
                       All ({todaySubTab === 'today' ? todayTasks.length : backlogTasks.length})
@@ -745,12 +745,12 @@ function AppInner() {
                         onClick={() => setActiveCategoryFilter(chip.id)}
                         className={`px-2.5 py-1 rounded-xl font-bold whitespace-nowrap border transition flex items-center gap-1 ${
                           activeCategoryFilter === chip.id
-                            ? 'bg-violet-600/25 border-violet-500/50 text-violet-300 shadow-sm'
-                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-surface border-subtle text-content-secondary hover:bg-elevated'
                         }`}
                       >
                         <span className="truncate max-w-[130px]">{chip.label}</span>
-                        <span className="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-white/10 text-slate-300">
+                        <span className="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-white/10 text-content-muted">
                           {chip.count}
                         </span>
                       </button>
@@ -803,39 +803,39 @@ function AppInner() {
                   <div className="space-y-4 fade-in">
                     {/* Summary header */}
                     {backlogTasks.length > 0 ? (
-                      <div className="card p-4 space-y-3 bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/25 rounded-2xl shadow-sm">
+                      <div className="bg-surface p-4 space-y-3 border border-error-soft rounded-2xl shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-error-soft border border-error flex items-center justify-center text-error shrink-0">
                               <AlertTriangle size={18} />
                             </div>
                             <div>
-                              <p className="text-sm font-extrabold text-slate-900 dark:text-[#EEE9FC]">
+                              <p className="text-sm font-extrabold text-content-primary">
                                 {backlogTasks.length} Task{backlogTasks.length > 1 ? 's' : ''} in Backlog
                               </p>
-                              <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400/90">
+                              <p className="text-[11px] font-bold text-error">
                                 Across {backlogByDate.length} missed date{backlogByDate.length > 1 ? 's' : ''}
                               </p>
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-[10px] font-extrabold text-slate-500 dark:text-[#5F5980] uppercase tracking-wider">Oldest Due</p>
-                            <p className="text-xs font-black text-rose-600 dark:text-rose-300">
+                            <p className="text-[10px] font-extrabold text-content-secondary uppercase tracking-wider">Oldest Due</p>
+                            <p className="text-xs font-black text-error">
                               {backlogByDate.length > 0 ? backlogByDate[backlogByDate.length - 1].formattedDate : '—'}
                             </p>
                           </div>
                         </div>
-                        <p className="text-[11px] text-rose-700 dark:text-rose-200/70 font-semibold leading-relaxed border-t border-rose-500/15 pt-2.5">
+                        <p className="text-[11px] text-content-secondary font-semibold leading-relaxed border-t border-error-soft pt-2.5">
                           ⚡ Reschedule or complete these tasks to restore your momentum. Don't let backlog compound!
                         </p>
                       </div>
                     ) : (
-                      <div className="card p-6 bg-emerald-500/8 border border-emerald-500/22 rounded-2xl text-center space-y-2">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 mb-1">
+                      <div className="bg-surface p-6 border border-subtle rounded-2xl text-center space-y-2">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-transparent text-content-muted/50 mb-1">
                           <Flame size={22} />
                         </div>
-                        <h3 className="text-sm font-extrabold text-emerald-300 uppercase tracking-wider">Zero Backlog</h3>
-                        <p className="text-[12px] text-emerald-200/70 font-medium max-w-xs mx-auto">
+                        <h3 className="text-sm font-extrabold text-content-secondary uppercase tracking-wider">Zero Backlog</h3>
+                        <p className="text-[12px] text-content-muted font-medium max-w-xs mx-auto">
                           🔥 Outstanding! Every task is on schedule. Keep the streak alive.
                         </p>
                       </div>
@@ -846,14 +846,14 @@ function AppInner() {
                       <div key={group.date} className="space-y-2">
                         {/* Group header row */}
                         <div className="flex items-center gap-2 px-0.5">
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/12 border border-rose-500/18">
-                            <Calendar size={11} className="text-rose-600 dark:text-rose-400" />
-                            <span className="text-[10.5px] font-extrabold text-rose-600 dark:text-rose-400">{group.formattedDate}</span>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-soft border border-error">
+                            <Calendar size={11} className="text-error" />
+                            <span className="text-[10.5px] font-extrabold text-error">{group.formattedDate}</span>
                           </div>
-                          <span className="text-[10px] font-semibold text-slate-500 dark:text-[#5F5980]">
+                          <span className="text-[10px] font-semibold text-content-secondary">
                             {group.tasks.length} task{group.tasks.length > 1 ? 's' : ''}
                           </span>
-                          <div className="flex-1 h-px bg-slate-200 dark:bg-white/5" />
+                          <div className="flex-1 h-px bg-subtle" />
                         </div>
 
                         {/* Task cards */}
@@ -895,10 +895,10 @@ function AppInner() {
                                         e.stopPropagation();
                                         handlePushBacklogTask(t);
                                       }}
-                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl text-white bg-rose-600 hover:bg-rose-500 shadow-sm shadow-rose-500/30 transition-all active:scale-95 shrink-0"
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-error text-error bg-transparent hover:bg-error-soft shadow-sm transition-all active:scale-95 shrink-0"
                                       title="Reschedule task"
                                     >
-                                      <Zap size={12} className="fill-white" /> Reschedule
+                                      <Zap size={12} className="text-error" /> Reschedule
                                     </button>
                                   }
                                 />
@@ -943,9 +943,9 @@ function AppInner() {
 
         {/* Floating Undo Goal Delete Toast */}
         {lastDeletedNotification && (
-          <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-rose-950/90 border border-rose-500/40 text-rose-100 p-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-sheet-up">
+          <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-error-soft border border-error text-content-primary p-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-sheet-up">
             <div className="flex items-center gap-2 min-w-0">
-              <Trash2 size={16} className="text-rose-400 shrink-0" />
+              <Trash2 size={16} className="text-error shrink-0" />
               <span className="text-xs font-bold truncate">
                 Deleted "{lastDeletedNotification.title}"
               </span>
@@ -953,13 +953,13 @@ function AppInner() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => restoreDeletedGoal(lastDeletedNotification.id)}
-                className="px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow-md transition active:scale-95"
+                className="px-3 py-1 rounded-xl border border-error text-error bg-transparent hover:bg-error shadow-md transition active:scale-95"
               >
                 Undo Delete
               </button>
               <button
                 onClick={clearDeletedNotification}
-                className="p-1 rounded-lg text-rose-300 hover:text-white hover:bg-rose-900/50"
+                className="p-1 rounded-lg text-content-secondary hover:text-content-primary hover:bg-error"
               >
                 <X size={14} />
               </button>
@@ -984,7 +984,6 @@ function AppInner() {
           view={view}
           onNavigate={handleNavigateTab}
           onSettings={openSettings}
-          accent={ACCENT}
           todayCount={todayCount}
           todayDone={todayDone}
           goalsCount={goals.length}
@@ -1051,22 +1050,22 @@ function AppInner() {
       {descModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={closeDescriptionModal} />
-          <div className="sheet-up relative w-full max-w-lg bg-[#14111F] card border border-white/10 rounded-3xl p-5 pb-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-start justify-between pb-3 border-b border-white/5 gap-2">
+          <div className="sheet-up relative w-full max-w-lg bg-elevated border border-subtle rounded-3xl p-5 pb-6 shadow-elevated space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-start justify-between pb-3 border-b border-subtle gap-2">
               <div className="flex items-start gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-violet-600/20 text-violet-400 border border-violet-500/30 shrink-0 mt-0.5">
+                <div className="p-2 rounded-xl bg-primary-soft text-primary border border-primary shrink-0 mt-0.5">
                   <FileText size={18} />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-violet-400">Full Description</span>
-                  <h3 className="text-base font-extrabold text-slate-100 leading-snug break-words">{descModalData.title}</h3>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-primary">Full Description</span>
+                  <h3 className="text-base font-extrabold text-content-primary leading-snug break-words">{descModalData.title}</h3>
                 </div>
               </div>
-              <button onClick={closeDescriptionModal} className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition shrink-0">
+              <button onClick={closeDescriptionModal} className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface transition shrink-0">
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-slate-200 whitespace-pre-wrap font-medium bg-[#1D1930] p-4 rounded-2xl border border-white/5">
+            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-content-primary whitespace-pre-wrap font-medium bg-surface p-4 rounded-2xl border border-subtle">
               {descModalData.description}
             </div>
           </div>
@@ -1119,24 +1118,24 @@ function AppInner() {
       {/* ── Session Crash Recovery Dialog ── */}
       {recoverySessionPrompt && activeSession && activeTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">
-          <div className="card max-w-sm w-full bg-[#14111F] border border-amber-500/30 p-5 rounded-3xl space-y-4 shadow-2xl">
-            <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-              <Clock className="w-5 h-5 text-amber-400" />
+          <div className="max-w-sm w-full bg-elevated border border-accent p-5 rounded-3xl space-y-4 shadow-elevated">
+            <div className="flex items-center gap-2 text-warning font-bold text-sm">
+              <Clock className="w-5 h-5 text-warning" />
               <span>Interrupted Session Detected</span>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              You had an active focus session for <span className="font-bold text-slate-100">"{activeTask.title}"</span> that was interrupted. Would you like to resume it or discard it?
+            <p className="text-xs text-content-secondary leading-relaxed">
+              You had an active focus session for <span className="font-bold text-content-primary">"{activeTask.title}"</span> that was interrupted. Would you like to resume it or discard it?
             </p>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setRecoverySessionPrompt(false)}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-accent text-[#0F172A] hover:bg-accent-hover font-bold text-xs transition"
               >
                 Resume Session
               </button>
               <button
                 onClick={() => { discardSession(); setRecoverySessionPrompt(false); }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 text-slate-300 font-semibold text-xs hover:bg-white/10 border border-white/5 transition"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-transparent text-content-secondary font-semibold text-xs hover:bg-surface border border-subtle transition"
               >
                 Discard
               </button>
@@ -1151,16 +1150,16 @@ function AppInner() {
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="mt-20 flex flex-col items-center justify-center opacity-80 text-center px-6">
-      <div className="w-16 h-16 rounded-full bg-violet-500/10 flex items-center justify-center mb-4">
-        <ListChecks size={28} className="text-violet-400" />
+      <div className="w-16 h-16 rounded-full bg-primary-soft flex items-center justify-center mb-4">
+        <ListChecks size={28} className="text-primary" />
       </div>
-      <h3 className="mt-4 text-base font-bold text-slate-100">No tasks for today</h3>
-      <p className="mt-2 text-sm text-slate-400 max-w-[240px] leading-relaxed">
+      <h3 className="mt-4 text-base font-bold text-content-primary">No tasks for today</h3>
+      <p className="mt-2 text-sm text-content-secondary max-w-[240px] leading-relaxed">
         Dispatch tasks from your Goals or add quick targets to keep your day on track.
       </p>
       <button
         onClick={onAdd}
-        className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-full bg-violet-600/20 text-violet-300 text-sm font-semibold hover:bg-violet-600/30 transition-colors"
+        className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:bg-primary-glow transition-colors"
       >
         <Plus size={16} />
         Add Task

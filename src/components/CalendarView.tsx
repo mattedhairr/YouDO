@@ -136,11 +136,11 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
     <div className="fade-in space-y-4">
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-2">
-        <button onClick={prevMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+        <button onClick={prevMonth} className="p-2 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface transition-colors">
           <ChevronLeft size={18} />
         </button>
-        <h2 className="text-base font-bold text-slate-100">{monthName}</h2>
-        <button onClick={nextMonth} className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors">
+        <h2 className="text-base font-bold text-content-primary">{monthName}</h2>
+        <button onClick={nextMonth} className="p-2 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface transition-colors">
           <ChevronRight size={18} />
         </button>
       </div>
@@ -149,7 +149,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
       <div className="card p-3.5">
         <div className="grid grid-cols-7 mb-2">
           {WEEKDAYS.map((d) => (
-            <div key={d} className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 py-1">{d}</div>
+            <div key={d} className="text-center text-[10px] font-bold uppercase tracking-wider text-content-secondary py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -168,10 +168,10 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                 onClick={() => setSelectedDate(dateStr)}
                 className={`relative aspect-square rounded-xl flex items-center justify-center transition-all text-[13px] font-medium ${
                   isSelected
-                    ? 'bg-violet-600 text-white font-bold shadow-lg shadow-violet-600/30 scale-105 z-10'
+                    ? 'bg-primary text-white font-bold shadow-lg shadow-sm scale-105 z-10'
                     : isToday
-                      ? 'bg-violet-950/40 text-violet-300 font-bold border border-violet-700/60'
-                      : 'text-slate-200 hover:bg-white/5'
+                      ? 'bg-primary-soft text-primary-glow font-bold border border-primary/20'
+                      : 'text-content-primary hover:bg-surface'
                 }`}
               >
                 {/* Math Superscript Notation x^n */}
@@ -180,10 +180,10 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                   {hasTasks && (
                     <sup className={`task-sup font-bold ${
                       isSelected
-                        ? 'text-amber-300'
+                        ? 'text-warning'
                         : allDone
-                          ? 'text-emerald-400'
-                          : 'text-amber-400'
+                          ? 'text-secondary'
+                          : 'text-warning'
                     }`}>
                       {dayTasks.length}
                     </sup>
@@ -200,7 +200,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
         <div className="flex items-center justify-between mb-2">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-[14px] font-bold text-slate-100">
+              <h3 className="text-[14px] font-bold text-content-primary">
                 {selectedDate
                   ? new Date(selectedDate + 'T00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
                   : 'Select a date'}
@@ -208,7 +208,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               {selectedDate && (
                 <button
                   onClick={() => setDayStatsModalDate(selectedDate)}
-                  className="p-1 rounded-lg bg-violet-600/20 text-violet-300 hover:bg-violet-600/30 border border-violet-500/30 transition text-[10px] font-bold flex items-center gap-1"
+                  className="p-1 rounded-lg bg-primary-soft text-primary-glow hover:bg-primary-soft border border-primary/20 transition text-[10px] font-bold flex items-center gap-1"
                   title="View Daily Efficiency & Stats"
                 >
                   <BarChart2 size={12} /> Stats
@@ -216,7 +216,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               )}
             </div>
             {selectedTasks.length > 0 && (
-              <p className="text-[11px] text-slate-400 font-medium">
+              <p className="text-[11px] text-content-secondary font-medium">
                 {selectedDone}/{selectedTasks.length} done
               </p>
             )}
@@ -224,7 +224,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
           {selectedDate && (
             <button
               onClick={() => onAddTask(selectedDate)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md shadow-violet-600/25 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-glow active:scale-95 text-white text-xs font-semibold rounded-xl shadow-md shadow-sm transition-all"
             >
               <Plus size={14} /> Add task
             </button>
@@ -232,7 +232,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
         </div>
 
         {selectedTasks.length === 0 ? (
-          <div className="card p-6 text-center text-slate-400 text-xs">
+          <div className="card p-6 text-center text-content-secondary text-xs">
             No tasks planned for this date.
           </div>
         ) : (
@@ -256,7 +256,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     if (onViewStats) onViewStats(t.id, t.title);
                   }}
                   className={`card p-4 transition-all select-none ${
-                    complete ? 'opacity-70 bg-[#1D1930]/20' : ''
+                    complete ? 'bg-surface/20' : ''
                   }`}
                 >
                   <div className="flex flex-col gap-1.5 mb-2">
@@ -264,13 +264,13 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     {originPath && (
                       <div
                         onClick={() => onJumpToGoal(t.goalNodeId)}
-                        className="flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-white/5 rounded-lg px-2 py-0.5 leading-normal shadow-xs hover:bg-[#1F1B2C] hover:border-violet-500/20 transition-all cursor-pointer w-fit group/path max-w-full"
+                        className="flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-subtle rounded-lg px-2 py-0.5 leading-normal shadow-xs hover:bg-[#1F1B2C] hover:border-primary/20 transition-all cursor-pointer w-fit group/path max-w-full"
                       >
-                        <Link2 size={10} className="shrink-0 text-violet-500 mr-0.5 group-hover/path:text-violet-400 transition-colors" />
+                        <Link2 size={10} className="shrink-0 text-primary mr-0.5 group-hover/path:text-primary transition-colors" />
                         <div className="flex items-center gap-1.5 truncate">
                           {originPath.split('/').slice(0, 2).map((part, i, arr) => (
                             <span key={i} className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-violet-300 group-hover/path:text-violet-200 transition-colors truncate">
+                              <span className="text-primary-glow group-hover/path:text-primary-glow transition-colors truncate">
                                 {part.trim()}
                               </span>
                               {i < arr.length - 1 && (
@@ -285,10 +285,10 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     {/* Title Row */}
                     <div className="flex items-start justify-between gap-3 pr-1">
                       <div className="flex items-start gap-2 flex-1">
-                        <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${complete ? 'bg-emerald-500/30' : 'bg-amber-400'} shadow-sm`} />
+                        <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${complete ? 'bg-secondary/30' : 'bg-primary'} shadow-sm`} />
                         <div className="flex flex-col gap-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className={`text-[14.5px] font-bold leading-snug tracking-tight ${complete ? 'line-through text-slate-500' : 'text-slate-100'}`}>
+                            <h3 className={`text-[14.5px] font-bold leading-snug tracking-tight ${complete ? 'line-through text-content-muted' : 'text-content-primary'}`}>
                               {t.title}
                             </h3>
                             {hasFailedNativelyHere && (
@@ -297,12 +297,12 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                               </span>
                             )}
                             {isBacklogCompletedHere && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-error-soft text-error border border-error/20">
                                 BACKLOG
                               </span>
                             )}
                             {isManualCompletion && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-500/20 text-slate-300 border border-slate-500/30">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-surface text-content-muted border border-subtle">
                                 MANUAL
                               </span>
                             )}
@@ -310,28 +310,28 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
 
                           {/* Subtitle context (remaining path) */}
                           {originPath && originPath.split('/').length > 3 && (
-                            <div className="text-[11.5px] font-semibold text-slate-500/80 line-clamp-1">
+                            <div className="text-[11.5px] font-semibold text-content-secondary/80 line-clamp-1">
                               {originPath.split('/').slice(2, -1).map(p => p.trim()).join(' / ')}
                             </div>
                           )}
 
                           {t.description && (
-                            <p className="text-[11.5px] text-slate-400/80 line-clamp-2 mt-1">
+                            <p className="text-[11.5px] text-content-secondary/80 line-clamp-2 mt-1">
                               {t.description}
                             </p>
                           )}
                         </div>
                       </div>
-                      <span className="text-[12px] font-bold tabular-nums text-slate-400 shrink-0 mt-0.5">
+                      <span className="text-[12px] font-bold tabular-nums text-content-secondary shrink-0 mt-0.5">
                         {t.progress}/{hasSteps ? t.steps.length : 1}
                       </span>
                     </div>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="mt-1 h-1.5 rounded-full bg-slate-800/80 overflow-hidden mb-2.5">
+                  <div className="mt-1 h-1.5 rounded-full bg-surface/80 overflow-hidden mb-2.5">
                     <div
-                      className="h-full bg-emerald-500 progress-bar-fill rounded-full"
+                      className="h-full bg-secondary progress-bar-fill rounded-full"
                       style={{ width: `${(t.progress / (hasSteps ? t.steps.length : 1)) * 100}%` }}
                     />
                   </div>
@@ -346,8 +346,8 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                             key={idx}
                             className={`text-[10px] px-2 py-0.5 rounded-md font-medium transition-all ${
                               stepDone
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 line-through'
-                                : 'bg-white/5 text-slate-400 border border-white/5'
+                                ? 'bg-secondary/10 text-secondary border border-secondary/20 line-through'
+                                : 'bg-surface text-content-secondary border border-subtle'
                             }`}
                           >
                             {stepDone ? '✓ ' : ''}{s}
@@ -371,23 +371,23 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md bg-[#14111F] card border border-white/10 rounded-3xl p-5 shadow-2xl space-y-4 cursor-default"
+            className="relative w-full max-w-md bg-elevated card border border-subtle rounded-3xl p-5 shadow-2xl space-y-4 cursor-default"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+            <div className="flex items-center justify-between pb-3 border-b border-subtle">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
+                <div className="w-8 h-8 rounded-xl bg-primary-soft border border-primary/20 flex items-center justify-center text-primary dark:text-primary">
                   <BarChart2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Daily Focus Stats</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <h3 className="text-sm font-bold text-content-primary">Daily Focus Stats</h3>
+                  <p className="text-xs text-content-secondary">
                     {new Date(dayStatsModalDate + 'T00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setDayStatsModalDate(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition"
+                className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary dark:hover:text-content-primary hover:bg-elevated dark:hover:bg-surface transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -395,25 +395,25 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto no-scrollbar pb-2">
               {/* Group 1: Task Execution */}
-              <div className="bg-[#1D1930]/40 p-3 rounded-2xl border border-white/5 space-y-2.5">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Task Execution</h4>
+              <div className="bg-surface/40 p-3 rounded-2xl border border-subtle space-y-2.5">
+                <h4 className="text-[10px] font-bold text-content-secondary uppercase tracking-wider">Task Execution</h4>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-slate-100 dark:bg-[#14111F] p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-slate-500">Scheduled</p>
-                    <p className="text-sm font-black text-slate-200">{nativeScheduledCount}</p>
+                  <div className="bg-elevated  p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-content-secondary">Scheduled</p>
+                    <p className="text-sm font-black text-content-primary">{nativeScheduledCount}</p>
                   </div>
-                  <div className="bg-emerald-500/10 dark:bg-[#14111F] p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-emerald-500">Completed</p>
-                    <p className="text-sm font-black text-emerald-400">{nativeCompletedCount}</p>
+                  <div className="bg-secondary/10  p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-secondary">Completed</p>
+                    <p className="text-sm font-black text-secondary">{nativeCompletedCount}</p>
                   </div>
-                  <div className="bg-red-500/10 dark:bg-[#14111F] p-2 rounded-xl text-center">
+                  <div className="bg-red-500/10  p-2 rounded-xl text-center">
                     <p className="text-[9px] font-bold uppercase text-red-500">Failed</p>
                     <p className="text-sm font-black text-red-400">{nativeFailedCount}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-300 w-24">Task Efficiency</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <span className="text-[10px] font-bold text-content-muted w-24">Task Efficiency</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-surface overflow-hidden">
                     <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${taskEfficiency}%` }} />
                   </div>
                   <span className="text-[10px] font-bold text-indigo-400 w-8 text-right">{taskEfficiency}%</span>
@@ -421,46 +421,46 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               </div>
 
               {/* Group 2: Focus Quality */}
-              <div className="bg-[#1D1930]/40 p-3 rounded-2xl border border-white/5 space-y-2.5">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Focus Quality</h4>
+              <div className="bg-surface/40 p-3 rounded-2xl border border-subtle space-y-2.5">
+                <h4 className="text-[10px] font-bold text-content-secondary uppercase tracking-wider">Focus Quality</h4>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-amber-500/10 dark:bg-[#14111F] p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-amber-600">Net Focus</p>
-                    <p className="text-sm font-black text-amber-500">{formatDuration(dayTotalNFT)}</p>
+                  <div className="bg-primary/10  p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-warning">Net Focus</p>
+                    <p className="text-sm font-black text-warning">{formatDuration(dayTotalNFT)}</p>
                   </div>
-                  <div className="bg-slate-100 dark:bg-[#14111F] p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-slate-500">Total Duration</p>
-                    <p className="text-sm font-black text-slate-300">{formatDuration(dayTotalWCD)}</p>
+                  <div className="bg-elevated  p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-content-secondary">Total Duration</p>
+                    <p className="text-sm font-black text-content-muted">{formatDuration(dayTotalWCD)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-300 w-24">Focus Efficiency</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full" style={{ width: `${focusEfficiency}%` }} />
+                  <span className="text-[10px] font-bold text-content-muted w-24">Focus Efficiency</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-surface overflow-hidden">
+                    <div className="h-full bg-warning rounded-full" style={{ width: `${focusEfficiency}%` }} />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 w-8 text-right">{focusEfficiency}%</span>
+                  <span className="text-[10px] font-bold text-warning w-8 text-right">{focusEfficiency}%</span>
                 </div>
               </div>
 
               {/* Group 3: Momentum */}
-              <div className="bg-[#1D1930]/40 p-3 rounded-2xl border border-white/5 space-y-2">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Momentum</h4>
+              <div className="bg-surface/40 p-3 rounded-2xl border border-subtle space-y-2">
+                <h4 className="text-[10px] font-bold text-content-secondary uppercase tracking-wider">Momentum</h4>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-300">Backlogs Cleared</span>
-                  <span className="text-xs font-black text-rose-400">
+                  <span className="text-xs font-bold text-content-muted">Backlogs Cleared</span>
+                  <span className="text-xs font-black text-error">
                     {totalRelevantBacklogs === 0 ? 'No Backlogs Remaining' : `${backlogsCleared} out of ${totalRelevantBacklogs}`}
                   </span>
                 </div>
-                <p className="text-[10.5px] font-semibold text-slate-400 italic">
+                <p className="text-[10.5px] font-semibold text-content-secondary italic">
                   {momentumStr}
                 </p>
               </div>
 
               {/* Sessions List */}
             <div>
-              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Sessions Run ({modalDateSessions.length})</h4>
+              <h4 className="text-xs font-bold text-content-secondary mb-2">Sessions Run ({modalDateSessions.length})</h4>
               {modalDateSessions.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 italic py-3 text-center bg-slate-100 dark:bg-[#1D1930]/40 rounded-xl border border-slate-200 dark:border-white/5">
+                <p className="text-xs text-content-secondary italic py-3 text-center bg-elevated  rounded-xl border border-subtle dark:border-subtle">
                   No focus sessions logged on this date.
                 </p>
               ) : (
@@ -470,14 +470,14 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     const title = taskObj?.title || 'Focus Session';
                     const dur = s.endTime - s.startTime;
                     return (
-                      <div key={s.id} className="bg-slate-100 dark:bg-[#1D1930]/80 p-2.5 rounded-xl border border-slate-200 dark:border-white/5 flex items-center justify-between text-xs">
+                      <div key={s.id} className="bg-elevated  p-2.5 rounded-xl border border-subtle dark:border-subtle flex items-center justify-between text-xs">
                         <div className="min-w-0 pr-2">
-                          <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{title}</p>
-                          <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
+                          <p className="font-bold text-content-primary dark:text-content-primary truncate">{title}</p>
+                          <p className="text-[10.5px] text-content-secondary font-mono">
                             {s.wallClockStart} - {s.wallClockEnd} ({formatDuration(dur)})
                           </p>
                         </div>
-                        <span className="text-amber-600 dark:text-amber-400 font-extrabold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-[10.5px] shrink-0">
+                        <span className="text-warning font-extrabold bg-warning/10 border border-warning/20 px-2 py-0.5 rounded-lg text-[10.5px] shrink-0">
                           {formatDuration(s.netFocusMs)}
                         </span>
                       </div>
