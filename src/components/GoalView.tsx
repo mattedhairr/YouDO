@@ -70,7 +70,7 @@ function collectPinned(root: GoalNode, acc: { node: GoalNode; path: GoalNode[] }
 }
 
 interface Props {
-  accent: string;
+  accent?: string;
   pathIds: string[];
   setPathIds: (ids: string[]) => void;
   highlightNodeId?: string | null;
@@ -100,7 +100,7 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf:    { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Leaf' },
 };
 
-export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
+export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion, sessionHistory } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
@@ -292,7 +292,18 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                       })()}
                     </div>
                     <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                      <span className="text-[11px] font-semibold tabular-nums text-content-secondary">{rollupPct(p.node)}%</span>
+                      {(() => {
+                        const pPct = rollupPct(p.node);
+                        return (
+                          <span
+                            className={`text-[11px] font-semibold tabular-nums ${
+                              pPct >= 100 ? 'text-secondary' : pPct > 0 ? 'text-primary' : 'text-content-muted'
+                            }`}
+                          >
+                            {pPct}%
+                          </span>
+                        );
+                      })()}
                       <ChevronRight size={16} className="text-content-muted" />
                     </div>
                   </button>
@@ -336,7 +347,19 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                 </button>
               )}
               <div className="text-right mr-1">
-                <div className="text-lg font-bold tabular-nums" style={{ color: accent }}>{rollupPct(current)}%</div>
+                {(() => {
+                  const parentPct = rollupPct(current);
+                  const isParentDone = parentPct >= 100;
+                  return (
+                    <div
+                      className={`text-lg font-bold tabular-nums ${
+                        isParentDone ? 'text-secondary' : parentPct > 0 ? 'text-primary' : 'text-content-muted'
+                      }`}
+                    >
+                      {parentPct}%
+                    </div>
+                  );
+                })()}
               </div>
               <button
                 onClick={() => togglePin(current.id)}
@@ -351,7 +374,19 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
             </div>
           </div>
           <div className="mt-3 h-2 rounded-full bg-elevated overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${rollupPct(current)}%`, background: accent }} />
+            {(() => {
+              const parentPct = rollupPct(current);
+              const isParentDone = parentPct >= 100;
+              return (
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${parentPct}%`,
+                    background: isParentDone ? 'var(--secondary)' : 'var(--primary)'
+                  }}
+                />
+              );
+            })()}
           </div>
         </div>
       )}
@@ -433,7 +468,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
 
                 {/* Progress % + drill */}
                 <div className="shrink-0 flex items-center gap-1">
-                  <span className={`text-[13px] font-bold tabular-nums ${isDone ? 'text-secondary' : 'text-content-muted'}`}>{pct}%</span>
+                  <span className={`text-[13px] font-bold tabular-nums ${isDone ? 'text-secondary' : pct > 0 ? 'text-primary' : 'text-content-muted'}`}>{pct}%</span>
                   {canDrill && (
                     <button
                       onClick={() => drillInto(child)}
@@ -492,7 +527,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
 
               {/* Progress Bar */}
               <div className={`mt-2.5 h-1.5 rounded-full bg-elevated overflow-hidden ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: isDone ? 'var(--secondary)' : meta.tint }} />
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: isDone ? 'var(--secondary)' : 'var(--primary)' }} />
               </div>
 
               {/* Micro-step chips */}

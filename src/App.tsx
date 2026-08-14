@@ -918,7 +918,6 @@ function AppInner() {
               />
             ) : (
               <GoalView
-                accent="var(--primary)"
                 pathIds={goalPathIds}
                 setPathIds={setGoalPathIds}
                 highlightNodeId={highlightNodeId}
