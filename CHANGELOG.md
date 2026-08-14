@@ -4,7 +4,7 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
-## [v3.0.2] — 2026-08-14 ("Execution, backlog honesty, and onboarding")
+## [v3.1.0] — 2026-08-14 ("Execution, backlog honesty, and onboarding")
 
 ### 🚀 Major Highlights
 - **Goals stay the source of truth**: edits in Goals (title, description, steps, completion) update every linked Today, Backlog, and Plan card. Those cards do not edit the goal backwards.
@@ -24,7 +24,7 @@ All notable changes to the **YouDO** project will be documented in this file.
 - Session stats: Net focus, Duration, Average efficiency; clearer remaining / failed / completed step language.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.0.2**, versionCode **7**. Same package id — install over 3.0.1.
+- **Android APK**: versionName **3.1.0**, versionCode **7**. Same package id — install over 3.0.1.
 
 ---
 
