@@ -44,22 +44,34 @@ const MOTIVATIONAL_QUOTES = [
 
 function YouDoIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={size} height={size} viewBox="3 3 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path
         d="M4 4L11.5 13.5V20"
         style={{ stroke: 'var(--primary)' }}
-        strokeWidth="2.8"
+        strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M20 4L11.5 13.5L8.5 10"
         style={{ stroke: 'var(--secondary)' }}
-        strokeWidth="2.8"
+        strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function YouDoWordmark() {
+  return (
+    <span className="inline-flex items-center gap-[1px]" aria-label="YouDO">
+      <YouDoIcon size={28} />
+      <span className="text-[22px] font-semibold leading-none tracking-[-0.045em] text-content-primary">
+        <span className="text-content-secondary font-medium tracking-[-0.03em]">ou</span>
+        DO
+      </span>
+    </span>
   );
 }
 
@@ -621,36 +633,39 @@ function AppInner() {
     <div className="min-h-screen">
 
       <div
-        className="relative min-h-screen w-full max-w-md mx-auto px-4 pb-28"
+        className="app-frame relative min-h-screen w-full max-w-md mx-auto px-4 pb-28"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
         {/* Header */}
         <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <span className="grid place-items-center w-9 h-9 rounded-[12px] bg-primary-soft text-primary">
-                <YouDoIcon size={18} />
-              </span>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-content-muted font-semibold">YouDO</div>
-                <div className="text-[15px] font-semibold text-content-primary leading-tight">
-                  {view === 'goals'
-                    ? 'Goals'
-                    : view === 'calendar'
-                      ? 'Calendar'
-                      : new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
-                </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-center gap-3">
+              <YouDoWordmark />
+              <span className="w-px h-3.5 bg-border-subtle shrink-0" aria-hidden="true" />
+              <div className="text-[15px] font-semibold text-content-primary leading-none shrink-0">
+                {view === 'goals'
+                  ? 'Goals'
+                  : view === 'calendar'
+                    ? 'Calendar'
+                    : new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
               </div>
             </div>
-            <blockquote className="m-0 min-w-0 flex-1 rounded-[12px] bg-surface border border-subtle px-3 py-2">
-              <p className="text-[12px] leading-snug text-content-secondary break-words">
-                “{randomQuote.text}”
-              </p>
-              <cite className="mt-0.5 block text-[10px] not-italic text-content-muted truncate">
-                {randomQuote.author}
-              </cite>
+            <blockquote className="quote-ticker m-0">
+              <div className="quote-ticker-track">
+                {[0, 1].map((copy) => (
+                  <p key={copy} className="quote-ticker-item" aria-hidden={copy === 1}>
+                    “{randomQuote.text}”
+                    {randomQuote.author !== 'Unknown' && (
+                      <cite className="font-mono text-[10px] tracking-[0.1em] uppercase text-content-muted not-italic">
+                        {' · '}
+                        {randomQuote.author}
+                      </cite>
+                    )}
+                  </p>
+                ))}
+              </div>
             </blockquote>
           </div>
 

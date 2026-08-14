@@ -4,6 +4,23 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+## [v3.1.2] — 2026-08-14 ("Header, layout & signed-in identity")
+
+### 🚀 Major Highlights
+- **Auth blur on open**: Sign in over Settings blurs immediately — not only after you tap Sign In.
+- **Header lockup**: `[Y]ouDO` wordmark with a centered date, and a quoted ticker underneath.
+- **Layouts adapt**: rows wrap and two-column grids drop a column on narrow phones instead of overlapping.
+- **Signed-in account card**: same hero treatment as Guest mode — live on every device, Sync now, Edit / Restore / Sign out.
+
+### ⚡ Flow
+- New Task: Target date and Hard deadline stack; Today / Tomorrow sit above the date field.
+- Enter on a sub-step or micro-progress step creates the next one and moves the cursor there.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.1.2**, versionCode **9**. Same package id `com.mattedhairr.youdo` — install over 3.1.1.
+
+---
+
 ## [v3.1.1] — 2026-08-14 ("Auth blur & tab hover")
 
 - **Auth over Settings**: Sign in / Create account now blurs Settings behind the sheet (nested overlays stack correctly).

@@ -3,6 +3,7 @@ import { Trash2, X } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
 import { uid } from '../store';
 import Overlay from './Overlay';
+import StepListEditor, { MAX_STEPS } from './StepListEditor';
 
 interface Props {
   open: boolean;
@@ -71,7 +72,7 @@ export default function AddGoalSheet({
 
   const submit = () => {
     if (!title.trim()) return;
-    const cleanSteps = steps.map((s) => s.trim()).filter(Boolean);
+    const cleanSteps = steps.map((s) => s.trim()).filter(Boolean).slice(0, MAX_STEPS);
     const finalKind = isEditing ? kind : (parentId ? kind : 'goal');
 
     if (isEditing && editing) {
@@ -176,58 +177,29 @@ export default function AddGoalSheet({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+            <div className="min-w-0">
               <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Start date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
+                className="mt-1 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">End date</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
+                className="mt-1 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
               />
             </div>
           </div>
 
           {kind === 'leaf' && (
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Micro-progress steps</label>
-                <span className="text-[10px] text-content-muted">{steps.length}/8</span>
-              </div>
-              <div className="mt-1.5 space-y-2">
-                {steps.map((s, i) => (
-                  <input
-                    key={i}
-                    value={s}
-                    onChange={(e) => {
-                      const next = [...steps];
-                      next[i] = e.target.value;
-                      setSteps(next);
-                    }}
-                    placeholder={`Step ${i + 1}`}
-                    className="w-full bg-surface border border-subtle rounded-xl px-3.5 py-2 text-sm text-content-primary placeholder:text-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors"
-                  />
-                ))}
-              </div>
-              {steps.length < 8 && (
-                <button
-                  type="button"
-                  onClick={() => setSteps([...steps, ''])}
-                  className="mt-2 text-[11px] font-medium text-primary hover:text-primary-glow transition-colors"
-                >
-                  + Add step
-                </button>
-              )}
-            </div>
+            <StepListEditor label="Micro-progress steps" steps={steps} onChange={setSteps} />
           )}
 
           <div className="flex gap-2">
