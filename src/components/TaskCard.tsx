@@ -323,19 +323,19 @@ export default function TaskCard({
         {/* ── EXPANDED ACTION GRID OVERLAY ── */}
         {expanded && (
           <div
-            className="px-4 pb-4 pt-1 animate-fade-in flex flex-col gap-4"
+            className="px-4 pb-4 pt-2 animate-fade-in flex flex-col gap-3.5 border-t border-subtle mt-2"
             onClick={(e) => e.stopPropagation()}
           >
             {/* ── ZONE 1: MICRO TASKS ── */}
             {hasSteps && (
-              <div className="flex flex-col gap-2.5">
-                <div className="text-[9px] font-extrabold text-content-secondary uppercase tracking-widest flex items-center justify-between">
+              <div className="bg-surface/80 border border-subtle rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-2xs">
+                <div className="text-[9.5px] font-bold text-content-secondary uppercase tracking-wider flex items-center justify-between">
                   <span>Micro Tasks</span>
-                  <span className={task.progress === task.steps.length ? 'text-secondary' : 'text-content-secondary'}>
+                  <span className={task.progress === task.steps.length ? 'text-secondary font-bold' : 'text-content-secondary'}>
                     {task.progress}/{task.steps.length}
                   </span>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2.5">
                   {task.steps.map((s, i) => {
                     const done = i < task.progress;
                     let stamp = null;
@@ -348,15 +348,15 @@ export default function TaskCard({
                     return (
                       <div key={i} className="flex items-start gap-2.5 group/step">
                         <span className={`
-                          mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-colors border
+                          mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all
                           ${done 
-                            ? 'bg-secondary border-secondary text-on-accent shadow-[0_0_8px_var(--secondary)]' 
-                            : 'bg-transparent border-subtle group-hover/step:border-content-muted'}
+                            ? 'bg-secondary border border-secondary text-on-accent' 
+                            : 'bg-surface border-[1.5px] border-content-muted/60 group-hover/step:border-primary'}
                         `}>
                            {done && <CheckCircle2 className="w-3 h-3 text-on-accent" strokeWidth={3} />}
                         </span>
                         <div className="flex-1 flex items-start justify-between gap-3 min-w-0">
-                          <span className={`text-[12px] leading-[1.4] break-words ${
+                          <span className={`text-[12.5px] leading-snug break-words ${
                             done ? 'line-through text-content-muted' : 'text-content-primary'
                           }`}>
                             {s}
@@ -374,16 +374,9 @@ export default function TaskCard({
               </div>
             )}
 
-            {/* SEPARATOR */}
-            {hasSteps && (
-              <div className="flex justify-center">
-                <div className="h-px w-3/4 bg-subtle" />
-              </div>
-            )}
-
             {/* ── ZONE 2: ACTIONS ── */}
-            <div className="flex flex-col gap-2">
-              <div className="text-[9px] font-extrabold text-content-secondary uppercase tracking-widest text-center mb-0.5">
+            <div className="flex flex-col gap-2 pt-1">
+              <div className="text-[9.5px] font-bold text-content-secondary uppercase tracking-wider text-center mb-0.5">
                 Actions
               </div>
               

@@ -28,6 +28,8 @@ export default {
         'error': 'var(--error)',
         'error-soft': 'var(--error-soft)',
         'on-accent': 'var(--on-accent)',
+        'border': 'var(--border)',
+        'border-subtle': 'var(--border-subtle)',
       },
       textColor: {
         'content': {

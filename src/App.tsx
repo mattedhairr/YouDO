@@ -851,7 +851,7 @@ function AppInner() {
                           <span className="text-[10px] font-semibold text-content-secondary">
                             {group.tasks.length} task{group.tasks.length > 1 ? 's' : ''}
                           </span>
-                          <div className="flex-1 h-px bg-subtle" />
+                          <div className="flex-1 h-px bg-border/60" />
                         </div>
 
                         {/* Task cards */}

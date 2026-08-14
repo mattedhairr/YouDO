@@ -314,11 +314,11 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
           {/* Partition Divider */}
           <div className="flex items-center gap-3 my-4">
-            <div className="h-px flex-1 bg-subtle" />
+            <div className="h-px flex-1 bg-border/60" />
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-content-secondary">
               All Goals
             </span>
-            <div className="h-px flex-1 bg-subtle" />
+            <div className="h-px flex-1 bg-border/60" />
           </div>
         </>
       )}
