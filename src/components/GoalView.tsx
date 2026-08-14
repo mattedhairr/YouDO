@@ -373,7 +373,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               </button>
             </div>
           </div>
-          <div className="mt-3 h-2 rounded-full bg-elevated overflow-hidden">
+          <div className="mt-3 h-2 rounded-full bg-border-subtle overflow-hidden">
             {(() => {
               const parentPct = rollupPct(current);
               const isParentDone = parentPct >= 100;
@@ -526,7 +526,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               </div>
 
               {/* Progress Bar */}
-              <div className={`mt-2.5 h-1.5 rounded-full bg-elevated overflow-hidden ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
+              <div className={`mt-2.5 h-1.5 rounded-full bg-border-subtle overflow-hidden ${isTaskKind ? 'ml-[28px]' : 'ml-[24px]'}`}>
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: isDone ? 'var(--secondary)' : 'var(--primary)' }} />
               </div>
 

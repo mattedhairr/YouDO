@@ -39,7 +39,7 @@ function efficiencyColor(pct: number): string {
 function EfficiencyBar({ pct }: { pct: number }) {
   const barColor = pct >= 80 ? 'bg-secondary' : pct >= 55 ? 'bg-accent' : 'bg-error-soft';
   return (
-    <div className="h-1.5 w-full rounded-full bg-surface overflow-hidden">
+    <div className="h-1.5 w-full rounded-full bg-border-subtle overflow-hidden">
       <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${Math.min(100, pct)}%` }} />
     </div>
   );

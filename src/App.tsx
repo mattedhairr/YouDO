@@ -647,7 +647,7 @@ function AppInner() {
                   {todayDone}/{todayCount} tasks • {todayProgress}%
                 </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-elevated overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-border-subtle overflow-hidden">
                 <div
                   className="h-full rounded-full bg-[linear-gradient(90deg,var(--primary),var(--secondary))] progress-bar-fill"
                   style={{ width: `${todayProgress}%` }}

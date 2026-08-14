@@ -329,7 +329,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                   </div>
 
                   {/* Progress bar */}
-                  <div className="mt-1 h-1.5 rounded-full bg-surface/80 overflow-hidden mb-2.5">
+                  <div className="mt-1 h-1.5 rounded-full bg-border-subtle overflow-hidden mb-2.5">
                     <div
                       className="h-full bg-secondary progress-bar-fill rounded-full"
                       style={{ width: `${(t.progress / (hasSteps ? t.steps.length : 1)) * 100}%` }}
@@ -413,7 +413,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-content-muted w-24">Task Efficiency</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-surface overflow-hidden">
+                  <div className="flex-1 h-1.5 rounded-full bg-border-subtle overflow-hidden">
                     <div className="h-full bg-primary rounded-full" style={{ width: `${taskEfficiency}%` }} />
                   </div>
                   <span className="text-[10px] font-bold text-primary w-8 text-right">{taskEfficiency}%</span>
@@ -435,7 +435,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-content-muted w-24">Focus Efficiency</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-surface overflow-hidden">
+                  <div className="flex-1 h-1.5 rounded-full bg-border-subtle overflow-hidden">
                     <div className="h-full bg-warning rounded-full" style={{ width: `${focusEfficiency}%` }} />
                   </div>
                   <span className="text-[10px] font-bold text-warning w-8 text-right">{focusEfficiency}%</span>
