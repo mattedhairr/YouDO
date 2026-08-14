@@ -103,7 +103,7 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
           ) : (
             <>
               {/* ── Overall Summary ── */}
-              <div className="bg-[#16132a] rounded-2xl border border-subtle p-4 space-y-3">
+              <div className="bg-elevated rounded-2xl border border-subtle p-4 space-y-3">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Zap size={12} className="text-primary" />
                   <span className="text-[10px] font-extrabold uppercase tracking-widest text-content-secondary">
@@ -113,7 +113,7 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
 
                 <div className="grid grid-cols-3 gap-2">
                   {/* Sessions */}
-                  <div className="bg-[#0D0B1A] rounded-xl border border-subtle p-3 text-center">
+                  <div className="bg-base rounded-xl border border-subtle p-3 text-center">
                     <p className="text-[9.5px] font-extrabold uppercase tracking-widest text-content-secondary mb-1">
                       Sessions
                     </p>
@@ -171,7 +171,7 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                           : { label: 'Stopped', cls: 'text-content-secondary bg-surface border-subtle' };
 
                     return (
-                      <div key={s.id} className="bg-[#13102A] rounded-2xl border border-subtle overflow-hidden">
+                      <div key={s.id} className="bg-elevated rounded-2xl border border-subtle overflow-hidden">
                         {/* Session Header */}
                         <div className="flex items-center justify-between px-3.5 pt-3 pb-2 border-b border-subtle">
                           <div className="flex items-center gap-2">

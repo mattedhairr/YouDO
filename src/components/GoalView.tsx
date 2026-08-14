@@ -92,12 +92,12 @@ interface Props {
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
-  goal: { icon: Target, tint: 'var(--primary)', label: 'Goal' },
-  phase: { icon: Flag, tint: 'var(--primary-glow)', label: 'Phase' },
-  section: { icon: Layers, tint: 'var(--secondary)', label: 'Section' },
-  task: { icon: ListTree, tint: 'var(--secondary)', label: 'Task' },
-  sub: { icon: CircleDot, tint: 'var(--warning)', label: 'Sub' },
-  leaf: { icon: CircleDot, tint: 'var(--error)', label: 'Leaf' },
+  goal:    { icon: Target,    tint: 'var(--primary)',        label: 'Goal' },
+  phase:   { icon: Flag,      tint: 'var(--primary-glow)',   label: 'Phase' },
+  section: { icon: Layers,    tint: 'var(--text-secondary)', label: 'Section' },
+  task:    { icon: ListTree,  tint: 'var(--text-secondary)', label: 'Task' },
+  sub:     { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Sub' },
+  leaf:    { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Leaf' },
 };
 
 export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
@@ -222,7 +222,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
           className={`text-[13px] font-bold transition-all shrink-0 ${
             path.length === 0
               ? 'text-content-primary'
-              : 'text-content-secondary hover:text-primary dark:text-content-secondary dark:hover:text-blue-400'
+              : 'text-content-secondary hover:text-primary  '
           }`}
         >
           All Goals
@@ -235,7 +235,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
               className={`text-[13px] font-bold transition-all max-w-[160px] truncate ${
                 i === path.length - 1
                   ? 'text-primary'
-                  : 'text-content-secondary hover:text-primary dark:text-content-secondary dark:hover:text-blue-400'
+                  : 'text-content-secondary hover:text-primary  '
               }`}
             >
               {n.title}
@@ -322,7 +322,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                 <h2 className="text-base font-bold text-content-primary truncate">{current.title}</h2>
               </div>
               {current.description && <p className="mt-1 text-[12px] text-content-secondary">{current.description}</p>}
-              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-content-secondary dark:text-content-secondary">
+              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-content-secondary ">
                 <span style={{ color: kindMeta[current.kind].tint }}>{kindMeta[current.kind].label}</span>
                 <span>{countCompletedDirectChildren(current)}/{countDirectChildren(current)} done</span>
                 {current.startDate && <span>· {fmtShort(current.startDate)}</span>}
@@ -480,7 +480,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
                           onOpenDescription(child.title, child.description!);
                         }
                       }}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-content-secondary hover:text-primary dark:hover:text-blue-400 transition-colors"
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-content-secondary hover:text-primary  transition-colors"
                       title="View full description"
                     >
                       <FileText size={11} className="text-primary shrink-0" />
@@ -624,7 +624,7 @@ export default function GoalView({ accent, pathIds, setPathIds, highlightNodeId,
             <Target size={26} className="text-content-secondary" />
           </div>
           <h3 className="mt-4 text-base font-semibold text-content-primary">No goals yet</h3>
-          <p className="mt-1 text-sm text-content-secondary dark:text-content-secondary">Map your big ambitions into daily action.</p>
+          <p className="mt-1 text-sm text-content-secondary ">Map your big ambitions into daily action.</p>
         </div>
       )}
     </div>

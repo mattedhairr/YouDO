@@ -5,14 +5,14 @@ interface Props {
   dark?: boolean;
 }
 
-export default function ProgressRing({ percent, color = 'var(--primary)', size = 44, dark = false }: Props) {
+export default function ProgressRing({ percent, color = 'var(--primary)', size = 44 }: Props) {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const stroke = 4;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (clamped / 100) * c;
-  const trackColor = dark ? '#374151' : '#eceef2';
-  const textColor = dark ? '#e2e8f0' : '#475569';
+  const trackColor = 'var(--border-subtle)';
+  const textColor = 'var(--text-secondary)';
 
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>

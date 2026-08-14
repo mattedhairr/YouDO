@@ -12,8 +12,8 @@ interface Props {
 
 const priorities: { value: Priority; label: string; active: string }[] = [
   { value: 'high', label: 'High', active: 'bg-error text-white border-error' },
-  { value: 'medium', label: 'Medium', active: 'bg-warning text-[#0F172A] border-warning' },
-  { value: 'low', label: 'Low', active: 'bg-secondary text-[#0F172A] border-secondary' },
+  { value: 'medium', label: 'Medium', active: 'bg-warning text-on-accent border-warning' },
+  { value: 'low', label: 'Low', active: 'bg-secondary text-on-accent border-secondary' },
 ];
 
 function uid() {

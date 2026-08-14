@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-  darkMode: ['class', '[data-theme="dark"]'],
+  darkMode: ['class'],
   theme: {
     extend: {
       colors: {
@@ -27,6 +27,7 @@ export default {
         
         'error': 'var(--error)',
         'error-soft': 'var(--error-soft)',
+        'on-accent': 'var(--on-accent)',
       },
       textColor: {
         'content': {

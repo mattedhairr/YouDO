@@ -19,8 +19,6 @@ import { TaskSessionStats } from './components/TaskSessionStats';
 import { AuthModal } from './components/AuthModal';
 import { useTheme } from './hooks/useTheme';
 
-const ACCENT = '#7C3AED';
-
 const MOTIVATIONAL_QUOTES = [
   { text: "Giving up is not in the blood sir... not in the blood", author: "Nimsdai Purja" },
   { text: "Dream is not that which you see while sleeping, it is something that does not let you sleep.", author: "Dr. A.P.J. Abdul Kalam" },
@@ -37,14 +35,14 @@ function YouDoIcon({ size = 18 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M4 4L11.5 13.5V20"
-        stroke="#7C3AED"
+        style={{ stroke: 'var(--primary)' }}
         strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M20 4L11.5 13.5L8.5 10"
-        stroke="#10b981"
+        style={{ stroke: 'var(--secondary)' }}
         strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -920,7 +918,7 @@ function AppInner() {
               />
             ) : (
               <GoalView
-                accent={ACCENT}
+                accent="var(--primary)"
                 pathIds={goalPathIds}
                 setPathIds={setGoalPathIds}
                 highlightNodeId={highlightNodeId}
@@ -971,8 +969,7 @@ function AppInner() {
         {view === 'tasks' && (
           <button
             onClick={() => openAddTask()}
-            className="fixed bottom-20 right-4 w-12 h-12 rounded-full text-white grid place-items-center shadow-lg transition-all active:scale-90 z-30"
-            style={{ background: ACCENT, boxShadow: `0 6px 20px -4px ${ACCENT}aa` }}
+            className="fixed bottom-20 right-4 w-12 h-12 rounded-full text-white grid place-items-center bg-primary shadow-elevated transition-all active:scale-90 z-30"
             title="Add task"
           >
             <Plus size={24} />
@@ -1117,7 +1114,7 @@ function AppInner() {
 
       {/* ── Session Crash Recovery Dialog ── */}
       {recoverySessionPrompt && activeSession && activeTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop animate-fade-in">
           <div className="max-w-sm w-full bg-elevated border border-accent p-5 rounded-3xl space-y-4 shadow-elevated">
             <div className="flex items-center gap-2 text-warning font-bold text-sm">
               <Clock className="w-5 h-5 text-warning" />
@@ -1129,7 +1126,7 @@ function AppInner() {
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setRecoverySessionPrompt(false)}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-accent text-[#0F172A] hover:bg-accent-hover font-bold text-xs transition"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-accent text-on-accent hover:bg-accent-hover font-bold text-xs transition"
               >
                 Resume Session
               </button>

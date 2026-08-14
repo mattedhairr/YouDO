@@ -264,7 +264,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     {originPath && (
                       <div
                         onClick={() => onJumpToGoal(t.goalNodeId)}
-                        className="flex items-center gap-1.5 text-[10px] font-extrabold bg-[#1A1625] border border-subtle rounded-lg px-2 py-0.5 leading-normal shadow-xs hover:bg-[#1F1B2C] hover:border-primary/20 transition-all cursor-pointer w-fit group/path max-w-full"
+                        className="flex items-center gap-1.5 text-[10px] font-extrabold bg-elevated border border-subtle rounded-lg px-2 py-0.5 leading-normal shadow-xs hover:bg-surface hover:border-primary/20 transition-all cursor-pointer w-fit group/path max-w-full"
                       >
                         <Link2 size={10} className="shrink-0 text-primary mr-0.5 group-hover/path:text-primary transition-colors" />
                         <div className="flex items-center gap-1.5 truncate">
@@ -274,7 +274,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                                 {part.trim()}
                               </span>
                               {i < arr.length - 1 && (
-                                <span className="text-white/20 shrink-0">•</span>
+                                <span className="text-content-muted shrink-0">•</span>
                               )}
                             </span>
                           ))}
@@ -292,7 +292,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                               {t.title}
                             </h3>
                             {hasFailedNativelyHere && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-error-soft text-error border border-error/20">
                                 FAILED
                               </span>
                             )}
@@ -406,17 +406,17 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
                     <p className="text-[9px] font-bold uppercase text-secondary">Completed</p>
                     <p className="text-sm font-black text-secondary">{nativeCompletedCount}</p>
                   </div>
-                  <div className="bg-red-500/10  p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-red-500">Failed</p>
-                    <p className="text-sm font-black text-red-400">{nativeFailedCount}</p>
+                  <div className="bg-error-soft  p-2 rounded-xl text-center">
+                    <p className="text-[9px] font-bold uppercase text-error">Failed</p>
+                    <p className="text-sm font-black text-error">{nativeFailedCount}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-content-muted w-24">Task Efficiency</span>
                   <div className="flex-1 h-1.5 rounded-full bg-surface overflow-hidden">
-                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${taskEfficiency}%` }} />
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${taskEfficiency}%` }} />
                   </div>
-                  <span className="text-[10px] font-bold text-indigo-400 w-8 text-right">{taskEfficiency}%</span>
+                  <span className="text-[10px] font-bold text-primary w-8 text-right">{taskEfficiency}%</span>
                 </div>
               </div>
 

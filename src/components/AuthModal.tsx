@@ -64,7 +64,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm bg-[#14111F] border border-white/12 p-6 shadow-2xl rounded-3xl sheet-up cursor-default flex flex-col"
+        className="relative w-full max-w-sm bg-elevated border border-subtle p-6 shadow-2xl rounded-3xl sheet-up cursor-default flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -81,14 +81,14 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-elevated transition active:scale-95"
+            className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface transition active:scale-95"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-[#0D0B14] p-1 rounded-2xl border border-white/8 mb-4">
+        <div className="flex bg-base p-1 rounded-2xl border border-subtle mb-4">
           <button
             type="button"
             onClick={() => {

@@ -34,7 +34,7 @@ interface Props {
 
 const priorityStyles: Record<Priority, { dot: string; bar: string; glow: string }> = {
   high:   { dot: 'bg-error',   bar: 'bg-error',   glow: 'shadow-sm' },
-  medium: { dot: 'bg-warning',  bar: 'bg-warning',  glow: 'shadow-sm' },
+  medium: { dot: 'bg-accent',  bar: 'bg-accent',  glow: 'shadow-sm' },
   low:    { dot: 'bg-secondary', bar: 'bg-secondary', glow: 'shadow-sm' },
 };
 
@@ -54,9 +54,9 @@ function fmtCountdown(deadline: string | null): string {
 }
 
 export default function TaskCard({
-  task, activeSession, onAdvance, onUndo: _onUndo, onDelete, onDuplicate,
-  onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove, dark: _dark = true,
-  onCardClick, backlogAction: _backlogAction, onJumpToGoal, onOpenDescription,
+  task, activeSession, onAdvance, onDelete, onDuplicate,
+  onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove,
+  onCardClick, onJumpToGoal, onOpenDescription,
   onStartSession, onPauseSession, onResumeSession, onStopSession, onViewStats, onOpenAmbient, taskSessions
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -155,11 +155,11 @@ export default function TaskCard({
       >
         {/* ── Active Session Pulsing Header Banner (if active) ── */}
         {isSessionTask && (
-          <div className="bg-warning/10 border-b border-warning/20 px-3.5 py-2 flex items-center justify-between">
+          <div className="bg-accent/10 border-b border-warning/20 px-3.5 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="relative flex h-2.5 w-2.5">
-                {!isPaused && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPaused ? 'bg-warning/50' : 'bg-warning'}`}></span>
+                {!isPaused && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>}
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isPaused ? 'bg-accent/50' : 'bg-accent'}`}></span>
               </span>
               <span className={`text-[11px] font-mono font-bold ${isPaused ? 'text-warning/70' : 'text-warning'}`}>
                 {isPaused ? 'PAUSED' : 'SESSION RUNNING'} • {tickerText}
@@ -241,7 +241,7 @@ export default function TaskCard({
               {/* Circular Play/Pause "Music Player" Chip (Right Aligned) */}
               {isSessionTask && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); isPaused ? onResumeSession?.() : onPauseSession?.(); }}
+                  onClick={(e) => { e.stopPropagation(); if (isPaused) { onResumeSession?.(); } else { onPauseSession?.(); } }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -256,8 +256,8 @@ export default function TaskCard({
                   )}
                   <div className={`relative z-10 flex items-center justify-center w-7 h-7 rounded-full transition-colors ${
                     isPaused 
-                      ? 'bg-warning text-[#0F172A] shadow-[0_0_12px_var(--warning)] group-hover:bg-warning-hover' 
-                      : 'bg-warning/20 text-warning group-hover:bg-warning/30'
+                      ? 'bg-accent text-on-accent shadow-[0_0_12px_var(--warning)] group-hover:bg-accent-hover' 
+                      : 'bg-accent/20 text-warning group-hover:bg-accent/30'
                   }`}>
                     {isPaused ? <Play className="w-3.5 h-3.5 fill-current ml-[1.5px]" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
                   </div>
@@ -350,10 +350,10 @@ export default function TaskCard({
                         <span className={`
                           mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-colors border
                           ${done 
-                            ? 'bg-secondary border-secondary text-[#0F172A] shadow-[0_0_8px_var(--secondary)]' 
+                            ? 'bg-secondary border-secondary text-on-accent shadow-[0_0_8px_var(--secondary)]' 
                             : 'bg-transparent border-subtle group-hover/step:border-content-muted'}
                         `}>
-                           {done && <CheckCircle2 className="w-3 h-3 text-[#0F172A]" strokeWidth={3} />}
+                           {done && <CheckCircle2 className="w-3 h-3 text-on-accent" strokeWidth={3} />}
                         </span>
                         <div className="flex-1 flex items-start justify-between gap-3 min-w-0">
                           <span className={`text-[12px] leading-[1.4] break-words ${
@@ -362,7 +362,7 @@ export default function TaskCard({
                             {s}
                           </span>
                           {stamp && (
-                            <span className="shrink-0 text-[10px] font-mono text-warning/80 font-bold whitespace-nowrap bg-warning/10 px-1.5 py-0.5 rounded-md self-start mt-0.5">
+                            <span className="shrink-0 text-[10px] font-mono text-warning/80 font-bold whitespace-nowrap bg-accent/10 px-1.5 py-0.5 rounded-md self-start mt-0.5">
                               {stamp}
                             </span>
                           )}
@@ -399,7 +399,7 @@ export default function TaskCard({
               ) : (
                 <button
                   onClick={() => { setExpanded(false); if (onStartSession) onStartSession(task.id); }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-warning hover:bg-warning-hover active:scale-[0.98] text-[#0F172A] font-black text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
+                  className="w-full py-3.5 px-4 rounded-2xl bg-accent hover:bg-accent-hover active:scale-[0.98] text-on-accent font-black text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   Start Focus Session

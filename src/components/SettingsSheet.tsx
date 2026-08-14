@@ -28,7 +28,7 @@ interface Props {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5F5980] mb-2 px-1">
+    <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-content-muted mb-2 px-1">
       {children}
     </h2>
   );
@@ -122,7 +122,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#0D0B14] page-slide-in flex flex-col overflow-hidden w-full h-full"
+      className="fixed inset-0 z-50 bg-base page-slide-in flex flex-col overflow-hidden w-full h-full"
       style={{ maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto', left: 0, right: 0 }}
     >
       {/* ── 1. Clean Top Bar ── */}
@@ -132,7 +132,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
       >
         <button
           onClick={onClose}
-          className="p-2 -ml-1.5 rounded-xl text-[#A09CB8] hover:text-content-primary hover:bg-surface transition-colors active:scale-95 flex items-center justify-center"
+          className="p-2 -ml-1.5 rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface transition-colors active:scale-95 flex items-center justify-center"
           aria-label="Back"
         >
           <ArrowLeft size={20} />
@@ -174,7 +174,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                       <h3 className="text-xs font-black text-content-primary truncate">
                         {user.user_metadata?.full_name || 'Aspirant'}
                       </h3>
-                      <p className="text-[11px] text-[#A09CB8] font-medium truncate">{user.email}</p>
+                      <p className="text-[11px] text-content-secondary font-medium truncate">{user.email}</p>
                       <span className="text-[9.5px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-md border border-secondary/20 inline-block mt-0.5">
                         ● Cloud Synced
                       </span>
@@ -187,7 +187,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                         setEditAvatar(user.user_metadata?.avatar_url || '🎓');
                         setEditProfileOpen((p) => !p);
                       }}
-                      className="p-2 rounded-xl bg-surface hover:bg-white/10 text-content-primary transition text-xs font-bold"
+                      className="p-2 rounded-xl bg-surface hover:bg-elevated text-content-primary transition text-xs font-bold"
                       title="Edit Profile"
                     >
                       <Edit2 size={14} className="text-primary" />
@@ -204,9 +204,9 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
 
                 {/* Edit Profile Form */}
                 {editProfileOpen && (
-                  <div className="p-4 bg-[#0D0B14] space-y-3 animate-fade-in">
+                  <div className="p-4 bg-base space-y-3 animate-fade-in">
                     <div>
-                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#5F5980] mb-1">
+                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-content-muted mb-1">
                         Full Name
                       </label>
                       <input
@@ -218,7 +218,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#5F5980] mb-1">
+                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-content-muted mb-1">
                         Avatar Icon Preset
                       </label>
                       <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
@@ -230,7 +230,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                             className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition border ${
                               editAvatar === emoji
                                 ? 'bg-primary-soft border-primary text-white scale-105'
-                                : 'bg-surface border-subtle text-content-muted hover:bg-white/10'
+                                : 'bg-surface border-subtle text-content-muted hover:bg-elevated'
                             }`}
                           >
                             {emoji}
@@ -310,7 +310,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                         </button>
                         <button
                           onClick={() => setConfirmDeleteAccount(false)}
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-[#A09CB8] bg-surface hover:bg-white/10 transition"
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
                         >
                           Cancel
                         </button>
@@ -323,12 +323,12 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               /* Guest State */
               <div className="p-4 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-surface flex items-center justify-center text-[#5F5980] shrink-0 mt-0.5">
+                  <div className="w-10 h-10 rounded-2xl bg-surface flex items-center justify-center text-content-muted shrink-0 mt-0.5">
                     <User size={18} />
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-content-primary">Guest Mode (Offline)</h3>
-                    <p className="text-[11px] text-[#A09CB8] font-medium leading-snug mt-0.5">
+                    <p className="text-[11px] text-content-secondary font-medium leading-snug mt-0.5">
                       Sign in to sync your goals and focus analytics seamlessly across devices.
                     </p>
                   </div>
@@ -343,7 +343,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                   </button>
                   <button
                     onClick={() => onOpenAuth?.('signup')}
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-surface hover:bg-white/10 active:scale-95 text-content-primary text-xs font-extrabold flex items-center justify-center gap-1.5 transition"
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-surface hover:bg-elevated active:scale-95 text-content-primary text-xs font-extrabold flex items-center justify-center gap-1.5 transition"
                   >
                     <UserPlus size={14} className="text-primary" /> Create Account
                   </button>
@@ -363,12 +363,12 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               </div>
               <div>
                 <h3 className="text-xs font-black text-content-primary">Interface Theme</h3>
-                <p className="text-[10.5px] text-[#A09CB8] font-medium">Dark or Light look</p>
+                <p className="text-[10.5px] text-content-secondary font-medium">Dark or Light look</p>
               </div>
             </div>
 
             {/* Segmented Switch Control */}
-            <div className="flex bg-[#0D0B14] p-1 rounded-xl border border-subtle shrink-0">
+            <div className="flex bg-base p-1 rounded-xl border border-subtle shrink-0">
               <button
                 type="button"
                 onClick={() => setTheme({ darkMode: true })}
@@ -410,23 +410,23 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                   <Trash2 size={16} className="text-primary shrink-0" />
                   <div>
                     <h3 className="text-xs font-black text-content-primary">Recently Deleted Goals</h3>
-                    <p className="text-[10.5px] text-[#A09CB8] font-medium">
+                    <p className="text-[10.5px] text-content-secondary font-medium">
                       {recentlyDeletedGoals.length} {recentlyDeletedGoals.length === 1 ? 'item' : 'items'} in trash
                     </p>
                   </div>
                 </div>
                 <ChevronDown
                   size={16}
-                  className={`text-[#5F5980] transition-transform duration-200 ${
+                  className={`text-content-muted transition-transform duration-200 ${
                     trashOpen ? 'rotate-180 text-primary' : ''
                   }`}
                 />
               </button>
 
               {trashOpen && (
-                <div className="px-4 pb-4 pt-1 bg-[#0D0B14] space-y-2 animate-fade-in">
+                <div className="px-4 pb-4 pt-1 bg-base space-y-2 animate-fade-in">
                   {recentlyDeletedGoals.length === 0 ? (
-                    <p className="text-[11px] text-[#A09CB8] font-medium italic py-1">
+                    <p className="text-[11px] text-content-secondary font-medium italic py-1">
                       No deleted goals in trash. Deleting goals moves them here for quick recovery!
                     </p>
                   ) : (
@@ -478,7 +478,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <Download size={16} className="text-primary shrink-0" />
                 <div>
                   <h3 className="text-xs font-black text-content-primary">Export Backup (JSON)</h3>
-                  <p className="text-[10.5px] text-[#A09CB8] font-medium">Download offline JSON snapshot</p>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Download offline JSON snapshot</p>
                 </div>
               </div>
               <button
@@ -495,7 +495,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <Upload size={16} className="text-secondary shrink-0" />
                 <div>
                   <h3 className="text-xs font-black text-content-primary">Import Backup (JSON)</h3>
-                  <p className="text-[10.5px] text-[#A09CB8] font-medium">Restore state from file</p>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Restore state from file</p>
                 </div>
               </div>
               <button
@@ -539,7 +539,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 </button>
                 <button
                   onClick={() => setConfirmImport(false)}
-                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-[#A09CB8] bg-surface hover:bg-white/10 transition"
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
                 >
                   Cancel
                 </button>
@@ -563,19 +563,19 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                   <Sparkles size={16} className="text-primary shrink-0" />
                   <div>
                     <h3 className="text-xs font-black text-content-primary">About YouDO Architecture</h3>
-                    <p className="text-[10.5px] text-[#A09CB8] font-medium">Design rationale &amp; key features</p>
+                    <p className="text-[10.5px] text-content-secondary font-medium">Design rationale &amp; key features</p>
                   </div>
                 </div>
                 <ChevronDown
                   size={16}
-                  className={`text-[#5F5980] transition-transform duration-200 ${
+                  className={`text-content-muted transition-transform duration-200 ${
                     archOpen ? 'rotate-180 text-primary' : ''
                   }`}
                 />
               </button>
 
               {archOpen && (
-                <div className="p-4 bg-[#0D0B14] space-y-3 text-xs text-[#A09CB8] leading-relaxed animate-fade-in">
+                <div className="p-4 bg-base space-y-3 text-xs text-content-secondary leading-relaxed animate-fade-in">
                   <p>
                     <strong className="text-content-primary">YouDO</strong> is built around the principle of{' '}
                     <strong className="text-primary">Execution Friction Minimization</strong>.
@@ -601,19 +601,19 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                   <Zap size={16} className="text-accent shrink-0" />
                   <div>
                     <h3 className="text-xs font-black text-content-primary">Aspirant Execution Guide</h3>
-                    <p className="text-[10.5px] text-[#A09CB8] font-medium">Step-by-step onboarding walkthrough</p>
+                    <p className="text-[10.5px] text-content-secondary font-medium">Step-by-step onboarding walkthrough</p>
                   </div>
                 </div>
                 <ChevronDown
                   size={16}
-                  className={`text-[#5F5980] transition-transform duration-200 ${
+                  className={`text-content-muted transition-transform duration-200 ${
                     guideOpen ? 'rotate-180 text-accent' : ''
                   }`}
                 />
               </button>
 
               {guideOpen && (
-                <div className="p-4 bg-[#0D0B14] space-y-3 animate-fade-in">
+                <div className="p-4 bg-base space-y-3 animate-fade-in">
                   <div className="space-y-2">
                     {USER_GUIDE_STEPS.map((step, idx) => {
                       const IconComp = step.icon;
@@ -623,7 +623,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                             <IconComp size={14} className="text-primary shrink-0" />
                             {step.title}
                           </div>
-                          <p className="text-[11px] text-[#A09CB8] font-medium leading-relaxed">
+                          <p className="text-[11px] text-content-secondary font-medium leading-relaxed">
                             {step.desc}
                           </p>
                         </div>

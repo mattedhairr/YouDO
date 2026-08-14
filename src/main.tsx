@@ -53,7 +53,7 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
             </button>
             <button
               onClick={this.handleReset}
-              className="flex-1 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-bold text-xs text-content-primary transition"
+              className="flex-1 py-3 px-4 rounded-xl bg-surface hover:bg-elevated border border-subtle font-bold text-xs text-content-primary transition"
             >
               Reset Data
             </button>

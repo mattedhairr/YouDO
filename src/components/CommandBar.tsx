@@ -64,7 +64,7 @@ export default function CommandBar({ view, onNavigate, onSettings, todayCount = 
             {batch.leafCount > 0 && (
               <button
                 onClick={batch.onSchedule}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl text-[12px] font-semibold bg-accent hover:bg-accent-hover text-[#0F172A] transition-all active:scale-95 shrink-0 shadow-sm"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-[12px] font-semibold bg-accent hover:bg-accent-hover text-on-accent transition-all active:scale-95 shrink-0 shadow-sm"
                 title={`Schedule ${batch.leafCount} task${batch.leafCount > 1 ? 's' : ''}`}
               >
                 <Zap size={14} />
@@ -114,7 +114,7 @@ export default function CommandBar({ view, onNavigate, onSettings, todayCount = 
             </button>
             <button
               onClick={paste.onPaste}
-              className="px-3.5 py-2 rounded-xl text-[12px] font-bold bg-accent hover:bg-accent-hover text-[#0F172A] shadow-md transition-all active:scale-95 shrink-0"
+              className="px-3.5 py-2 rounded-xl text-[12px] font-bold bg-accent hover:bg-accent-hover text-on-accent shadow-md transition-all active:scale-95 shrink-0"
             >
               Paste here
             </button>

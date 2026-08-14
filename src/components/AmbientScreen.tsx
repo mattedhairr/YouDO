@@ -158,7 +158,7 @@ export function AmbientScreen({
 
         {/* ── Detailed Pause Timestamps Log (Point 6) ── */}
         {activeSession.pauses.length > 0 && (
-          <div className="mt-4 w-full max-w-xs space-y-1.5 max-h-32 overflow-y-auto no-scrollbar bg-surface border border-white/8 p-3 rounded-2xl">
+          <div className="mt-4 w-full max-w-xs space-y-1.5 max-h-32 overflow-y-auto no-scrollbar bg-surface border border-subtle p-3 rounded-2xl">
             <p className="text-[10px] font-extrabold uppercase tracking-wider text-warning/80 text-left flex items-center gap-1">
               <Clock size={10} /> Pause Timestamps Log
             </p>
@@ -182,7 +182,7 @@ export function AmbientScreen({
         {activeSession.isPaused ? (
           <button
             onClick={onResume}
-            className="flex-1 py-4 px-6 rounded-2xl bg-accent hover:bg-accent-hover active:scale-95 text-black font-bold text-sm shadow-lg shadow-sm flex items-center justify-center gap-2 transition"
+            className="flex-1 py-4 px-6 rounded-2xl bg-accent hover:bg-accent-hover active:scale-95 text-on-accent font-bold text-sm shadow-lg shadow-sm flex items-center justify-center gap-2 transition"
           >
             <Play className="w-5 h-5 fill-current" />
             Resume
@@ -190,7 +190,7 @@ export function AmbientScreen({
         ) : (
           <button
             onClick={onPause}
-            className="flex-1 py-4 px-6 rounded-2xl bg-elevated hover:bg-primary-soft active:scale-95 text-slate-200 font-semibold text-sm border border-subtle flex items-center justify-center gap-2 transition"
+            className="flex-1 py-4 px-6 rounded-2xl bg-elevated hover:bg-primary-soft active:scale-95 text-content-primary font-semibold text-sm border border-subtle flex items-center justify-center gap-2 transition"
           >
             <Pause className="w-5 h-5" />
             Pause

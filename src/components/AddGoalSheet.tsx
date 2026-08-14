@@ -138,7 +138,7 @@ export default function AddGoalSheet({
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               placeholder={isRootGoal ? 'e.g. Competitive Exam Prep' : 'e.g. Core Syllabus Module'}
-              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
+              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder:text-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors"
             />
           </div>
 
@@ -149,7 +149,7 @@ export default function AddGoalSheet({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional details…"
               rows={2}
-              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors resize-none"
+              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder:text-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors resize-none"
             />
           </div>
 
@@ -166,7 +166,7 @@ export default function AddGoalSheet({
                     className={`py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
                       kind === k.value
                         ? 'bg-primary text-white border-primary'
-                        : 'bg-surface text-content-secondary dark:text-content-muted border-subtle hover:bg-elevated'
+                        : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
                     }`}
                   >
                     {k.label}
@@ -183,7 +183,7 @@ export default function AddGoalSheet({
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
+                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
               />
             </div>
             <div>
@@ -192,7 +192,7 @@ export default function AddGoalSheet({
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
+                className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
               />
             </div>
           </div>
@@ -201,7 +201,7 @@ export default function AddGoalSheet({
             <div>
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Micro-progress steps</label>
-                <span className="text-[10px] text-content-muted dark:text-content-secondary">{steps.length}/8</span>
+                <span className="text-[10px] text-content-muted">{steps.length}/8</span>
               </div>
               <div className="mt-1.5 space-y-2">
                 {steps.map((s, i) => (
@@ -214,7 +214,7 @@ export default function AddGoalSheet({
                       setSteps(next);
                     }}
                     placeholder={`Step ${i + 1}`}
-                    className="w-full bg-surface border border-subtle rounded-xl px-3.5 py-2 text-sm text-content-primary placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-primary focus:bg-elevated focus:bg-elevated transition-colors"
+                    className="w-full bg-surface border border-subtle rounded-xl px-3.5 py-2 text-sm text-content-primary placeholder:text-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors"
                   />
                 ))}
               </div>
@@ -222,7 +222,7 @@ export default function AddGoalSheet({
                 <button
                   type="button"
                   onClick={() => setSteps([...steps, ''])}
-                  className="mt-2 text-[11px] font-medium text-primary hover:text-blue-700 transition-colors"
+                  className="mt-2 text-[11px] font-medium text-primary hover:text-primary-glow transition-colors"
                 >
                   + Add step
                 </button>
