@@ -1,5 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
+import {
+  fetchLiveBackupMeta,
+  fetchVisitSnapshotData,
+  freezeLiveBackupForVisit,
+  listVisitSnapshots,
+  resetVisitSnapshotFreeze,
+  type VisitSnapshotMeta,
+} from '../lib/cloudBackup';
+import { hasClockIncident } from '../lib/deviceClock';
 import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
@@ -7,8 +16,11 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
-  updateCloudBackup: (backupData: any) => Promise<{ ok: boolean; error?: string }>;
+  updateCloudBackup: (backupData: unknown) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
+  fetchLiveBackupInfo: () => Promise<{ backupData: string; updatedAt: string } | null>;
+  listVisitSnapshots: () => Promise<VisitSnapshotMeta[]>;
+  fetchVisitSnapshot: (snapshotId: string) => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +30,9 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: async () => false,
   updateCloudBackup: async () => ({ ok: false, error: 'Not initialized' }),
   fetchCloudBackup: async () => null,
+  fetchLiveBackupInfo: async () => null,
+  listVisitSnapshots: async () => [],
+  fetchVisitSnapshot: async () => null,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -30,7 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }).catch(() => setLoading(false));
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+        resetVisitSnapshotFreeze(session?.user?.id);
+      }
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -39,13 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    resetVisitSnapshotFreeze();
     await supabase.auth.signOut();
     setUser(null);
   };
 
   const updateProfile = async ({ fullName, avatarUrl }: { fullName?: string; avatarUrl?: string }): Promise<boolean> => {
     try {
-      const data: Record<string, any> = {};
+      const data: Record<string, string> = {};
       if (fullName !== undefined) data.full_name = fullName;
       if (avatarUrl !== undefined) data.avatar_url = avatarUrl;
       const { data: updated, error } = await supabase.auth.updateUser({ data });
@@ -58,12 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Saves backup to Supabase Database table (user_backups).
-   * Uses robust select -> update OR insert logic (never relies on ON CONFLICT constraints).
-   */
-  const updateCloudBackup = async (backupData: any): Promise<{ ok: boolean; error?: string }> => {
+  const updateCloudBackup = async (backupData: unknown): Promise<{ ok: boolean; error?: string }> => {
     try {
+      if (hasClockIncident()) {
+        return { ok: false, error: 'Cloud write blocked until device date & time is corrected.' };
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         return { ok: false, error: 'No active user session found. Please sign in again.' };
@@ -71,9 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
       const userId = session.user.id;
+      const freeze = await freezeLiveBackupForVisit(userId);
+      if (freeze === 'retry') {
+        return { ok: false, error: 'Could not freeze a visit snapshot. Sync will retry.' };
+      }
       const now = new Date().toISOString();
 
-      // Check if user backup row already exists
       const { data: existing } = await supabase
         .from('user_backups')
         .select('id')
@@ -81,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (existing) {
-        // Update existing row
         const { error: updateErr } = await supabase
           .from('user_backups')
           .update({ backup_data: jsonStr, updated_at: now })
@@ -92,14 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false, error: updateErr.message || 'Database update failed' };
         }
       } else {
-        // Insert new row
         const { error: insertErr } = await supabase
           .from('user_backups')
           .insert({ user_id: userId, backup_data: jsonStr, updated_at: now });
 
         if (insertErr) {
-          console.error('insertErr:', insertErr);
-          // If duplicate key error, fallback to update
           const { error: fallbackErr } = await supabase
             .from('user_backups')
             .update({ backup_data: jsonStr, updated_at: now })
@@ -112,15 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       return { ok: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown network error';
       console.error('updateCloudBackup failed:', err);
-      return { ok: false, error: err?.message || 'Unknown network error' };
+      return { ok: false, error: message };
     }
   };
 
-  /**
-   * Fetches the stored backup JSON from Supabase Database for the current user.
-   */
   const fetchCloudBackup = async (): Promise<string | null> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -133,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.error('fetchCloudBackup error:', JSON.stringify(error));
+        console.error('fetchCloudBackup error:', error.message);
         return null;
       }
       return data?.backup_data ?? null;
@@ -143,8 +158,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchLiveBackupInfo = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
+    return fetchLiveBackupMeta(session.user.id);
+  };
+
+  const listVisitSnapshotsForUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return [];
+    return listVisitSnapshots(session.user.id);
+  };
+
+  const fetchVisitSnapshot = async (snapshotId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
+    return fetchVisitSnapshotData(session.user.id, snapshotId);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signOut, updateProfile, updateCloudBackup, fetchCloudBackup }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        signOut,
+        updateProfile,
+        updateCloudBackup,
+        fetchCloudBackup,
+        fetchLiveBackupInfo,
+        listVisitSnapshots: listVisitSnapshotsForUser,
+        fetchVisitSnapshot,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

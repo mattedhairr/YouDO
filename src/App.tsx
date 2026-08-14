@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
-import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Quote, X, Zap, Clock, Cloud, Trash2 } from 'lucide-react';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clock, Cloud, Trash2 } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore } from './store';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, findGoal, collectDescendantIds } from './store';
+import Overlay from './components/Overlay';
+import { useAuth } from './contexts/AuthContext';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
@@ -15,19 +16,30 @@ import StepSliceSheet from './components/StepSliceSheet';
 import CalendarView from './components/CalendarView';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
+import { SessionReconstructSheet } from './components/SessionReconstructSheet';
 import { TaskSessionStats } from './components/TaskSessionStats';
 import { AuthModal } from './components/AuthModal';
 import { useTheme } from './hooks/useTheme';
+import { useClockIntegrity } from './hooks/useClockIntegrity';
+import { assertDeviceClock, clearClockIncident } from './lib/deviceClock';
 
 const MOTIVATIONAL_QUOTES = [
-  { text: "Giving up is not in the blood sir... not in the blood", author: "Nimsdai Purja" },
-  { text: "Dream is not that which you see while sleeping, it is something that does not let you sleep.", author: "Dr. A.P.J. Abdul Kalam" },
-  { text: "Discipline equals freedom.", author: "Jocko Willink" },
-  { text: "Cultivation of mind should be the ultimate aim of human existence.", author: "Dr. B.R. Ambedkar" },
-  { text: "Arise, awake, and stop not till the goal is reached.", author: "Swami Vivekananda" },
-  { text: "At dawn, when you have trouble getting out of bed, tell yourself: 'I have to go to work — as a human being.'", author: "Marcus Aurelius" },
-  { text: "Suffer the pain of discipline or suffer the pain of regret.", author: "Jim Rohn" },
-  { text: "Don't count the days, make the days count.", author: "Muhammad Ali" },
+  { text: 'Giving up is not in the blood sir..... not in the blood', author: 'Nimsdai Purja' },
+  { text: "It's not about being the best. It's about being better than you were yesterday.", author: 'Unknown' },
+  { text: 'Discipline equals freedom.', author: 'Jocko Willink' },
+  { text: 'You must do the thing you think you cannot do.', author: 'Eleanor Roosevelt' },
+  { text: 'Hard work beats talent when talent does not work hard.', author: 'Tim Notke' },
+  { text: "Don't wish it were easier. Wish you were better.", author: 'Jim Rohn' },
+  { text: 'You do not have to be great to start. You have to start to be great.', author: 'Zig Ziglar' },
+  { text: 'The pain of discipline is nothing compared to the pain of regret.', author: 'Unknown' },
+  { text: 'While you rest, someone else is studying.', author: 'Unknown' },
+  { text: 'Sit down. Open the book. Begin.', author: 'YouDO' },
+  { text: 'Nobody is coming to save you. Do the work.', author: 'Unknown' },
+  { text: 'Comfort is the enemy of growth.', author: 'Unknown' },
+  { text: 'Suffer the hours now. Own the years later.', author: 'YouDO' },
+  { text: 'Arise, awake, and stop not till the goal is reached.', author: 'Swami Vivekananda' },
+  { text: 'Make the days count.', author: 'Muhammad Ali' },
+  { text: 'The obstacle is the way.', author: 'Marcus Aurelius' },
 ];
 
 function YouDoIcon({ size = 18 }: { size?: number }) {
@@ -72,11 +84,7 @@ function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppInner />
-    </AuthProvider>
-  );
+  return <AppInner />;
 }
 
 function AppInner() {
@@ -113,12 +121,16 @@ function AppInner() {
     resumeSession,
     stopSession,
     discardSession,
+    continueInterruptedSession,
     heartbeatSession,
     completeSessionSteps,
   } = useStore();
 
   const { user } = useAuth();
   const [{ darkMode }] = useTheme();
+  const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity(discardSession);
+  const [clockVerifyBusy, setClockVerifyBusy] = useState(false);
+  const [clockVerifyError, setClockVerifyError] = useState<string | null>(null);
 
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -140,6 +152,7 @@ function AppInner() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
+  const [reconstructOpen, setReconstructOpen] = useState(false);
 
   // Heartbeat timer (30s)
   useEffect(() => {
@@ -153,19 +166,10 @@ function AppInner() {
     if (!statsTarget.isGoal) {
       return sessionHistory[statsTarget.id] ?? [];
     }
-    // For a goal, gather all sessions with matching goalNodeId
-    return Object.values(sessionHistory).flat().filter(s => s.goalNodeId === statsTarget.id);
-  }, [statsTarget, sessionHistory]);
-
-  // Crash / Interrupted Session Recovery check on startup
-  useEffect(() => {
-    if (activeSession && activeSession.lastHeartbeat) {
-      const msSinceHeartbeat = Date.now() - activeSession.lastHeartbeat;
-      if (msSinceHeartbeat > 300_000) { // 5 mins
-        setRecoverySessionPrompt(true);
-      }
-    }
-  }, []);
+    const node = findGoal(goals, statsTarget.id);
+    const nodeIds = new Set(node ? collectDescendantIds(node) : [statsTarget.id]);
+    return Object.values(sessionHistory).flat().filter((s) => s.goalNodeId && nodeIds.has(s.goalNodeId));
+  }, [statsTarget, sessionHistory, goals]);
 
   // Batch selection state
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([]);
@@ -330,21 +334,41 @@ function AppInner() {
   }, []);
 
   const [randomQuote] = useState(() => {
-    const idx = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
-    return MOTIVATIONAL_QUOTES[idx];
-  });
+      const idx = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
+      return MOTIVATIONAL_QUOTES[idx];
+    });
+
+  useEffect(() => {
+    if (!clockReady || clockBlocked) return;
+    if (!activeSession) return;
+    if (!activeSession.lastHeartbeat) return;
+    const msSinceHeartbeat = Date.now() - activeSession.lastHeartbeat;
+    if (msSinceHeartbeat > 300_000) {
+      setRecoverySessionPrompt(true);
+    }
+    // One-shot after the device clock has been checked — do not re-run on heartbeats.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clockReady, clockBlocked]);
+
+  useEffect(() => {
+    if (!clockBlocked) return;
+    setShowAmbient(false);
+    setRecoverySessionPrompt(false);
+    setReconstructOpen(false);
+    setStopDialogTask(null);
+  }, [clockBlocked]);
 
   useEffect(() => {
     const initStatusBar = async () => {
       try {
-        await StatusBar.setStyle({ style: Style.Dark });
+        await StatusBar.setStyle({ style: darkMode ? Style.Dark : Style.Light });
         await StatusBar.setOverlaysWebView({ overlay: false });
       } catch {
         /* fallback */
       }
     };
     initStatusBar();
-  }, []);
+  }, [darkMode]);
 
   const [todaySubTab, setTodaySubTab] = useState<'today' | 'backlog'>('today');
 
@@ -528,7 +552,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || statsTarget) return;
+      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || statsTarget || recoverySessionPrompt || reconstructOpen) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -543,7 +567,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, statsTarget],
+    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, statsTarget, recoverySessionPrompt, reconstructOpen],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -568,7 +592,7 @@ function AppInner() {
   }, []);
 
   const onTouchEnd = useCallback(
-    (_e: React.TouchEvent) => {
+    () => {
       if (!touchState.current.tracking || touchState.current.isHorizontal !== true) {
         touchState.current.tracking = false;
         return;
@@ -599,25 +623,24 @@ function AppInner() {
   );
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen">
 
       <div
-        className="relative z-10 min-h-screen w-full max-w-md mx-auto px-4 pb-28"
+        className="relative min-h-screen w-full max-w-md mx-auto px-4 pb-28"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
         {/* Header */}
-        <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-2 shrink-0 overflow-hidden">
-          <div className="flex items-center justify-between gap-2.5 h-10">
-            {/* Left: YouDO Icon + Brand */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="grid place-items-center w-9 h-9 rounded-xl bg-primary-soft text-primary shrink-0">
+        <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span className="grid place-items-center w-9 h-9 rounded-[12px] bg-primary-soft text-primary">
                 <YouDoIcon size={18} />
               </span>
-              <div className="shrink-0">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-content-muted font-extrabold leading-none">YouDO</div>
-                <div className="text-[13px] font-extrabold text-content-primary leading-tight mt-0.5">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-content-muted font-semibold">YouDO</div>
+                <div className="text-[15px] font-semibold text-content-primary leading-tight">
                   {view === 'goals'
                     ? 'Goals'
                     : view === 'calendar'
@@ -626,30 +649,27 @@ function AppInner() {
                 </div>
               </div>
             </div>
-
-            {/* Right: Marquee Quote Ticker */}
-            <div className="flex-1 min-w-0 bg-surface h-10 px-3 flex items-center gap-2 border border-subtle overflow-hidden rounded-2xl shadow-card">
-              <Quote size={12} className="text-primary shrink-0" />
-              <div className="marquee-container flex-1">
-                <div className="marquee-content text-[11px] italic font-medium text-content-secondary">
-                  "{randomQuote.text}" <span className="not-italic font-extrabold text-primary text-[10px] ml-1.5">— {randomQuote.author}</span>
-                </div>
-              </div>
-            </div>
+            <blockquote className="m-0 min-w-0 flex-1 rounded-[12px] bg-surface border border-subtle px-3 py-2">
+              <p className="text-[12px] leading-snug text-content-secondary break-words">
+                “{randomQuote.text}”
+              </p>
+              <cite className="mt-0.5 block text-[10px] not-italic text-content-muted truncate">
+                {randomQuote.author}
+              </cite>
+            </blockquote>
           </div>
 
-          {/* Today Tab Progress Bar */}
           {view === 'tasks' && (
-            <div className="bg-surface p-2.5 space-y-1.5 border border-subtle rounded-2xl shadow-card">
-              <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="text-content-primary">Scheduled Progress</span>
-                <span className="text-primary tabular-nums">
-                  {todayDone}/{todayCount} tasks • {todayProgress}%
+            <div className="bg-surface p-3 space-y-2 border border-subtle rounded-[12px] shadow-card">
+              <div className="flex items-center justify-between text-[12px] font-medium">
+                <span className="text-content-secondary">Today</span>
+                <span className="text-content-primary tabular-nums">
+                  {todayDone}/{todayCount} · {todayProgress}%
                 </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-border-subtle overflow-hidden">
+              <div className="progress-track h-1.5">
                 <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,var(--primary),var(--secondary))] progress-bar-fill"
+                  className="h-full rounded-full bg-primary progress-bar-fill"
                   style={{ width: `${todayProgress}%` }}
                 />
               </div>
@@ -658,7 +678,7 @@ function AppInner() {
         </header>
 
         {/* Main View Area */}
-        <main className="mt-3 overflow-hidden">
+        <main className="mt-3">
           <div
             key={`${view}-${goalPathIds.join('-')}`}
             className={
@@ -671,14 +691,13 @@ function AppInner() {
           >
             {view === 'tasks' ? (
               <div className="space-y-3">
-                {/* Cloud Backup Available Banner */}
                 {user && tasks.length === 0 && goals.length === 0 && (
-                  <div className="p-3.5 bg-primary-soft border border-primary flex items-center justify-between gap-3 animate-fade-in shadow-lg rounded-2xl">
+                  <div className="p-3.5 bg-primary-soft border border-subtle flex items-center justify-between gap-3 rounded-[16px]">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <Cloud className="w-5 h-5 text-primary shrink-0 animate-bounce" />
+                      <Cloud className="w-4 h-4 text-primary shrink-0" />
                       <div className="min-w-0">
-                        <div className="text-xs font-extrabold text-content-primary">Cloud Backup Ready</div>
-                        <div className="text-[10.5px] text-content-muted font-medium truncate">Restore your study goals &amp; tasks</div>
+                        <div className="text-xs font-semibold text-content-primary">Cloud backup ready</div>
+                        <div className="text-[11px] text-content-muted truncate">Restore your goals and tasks</div>
                       </div>
                     </div>
                     <button
@@ -686,39 +705,38 @@ function AppInner() {
                         const ok = await restoreFromCloud();
                         if (!ok) alert('No cloud backup found for this account.');
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-glow text-white text-xs font-extrabold shrink-0 transition active:scale-95"
+                      className="px-3 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-semibold shrink-0"
                     >
-                      Restore Cloud Data
+                      Restore
                     </button>
                   </div>
                 )}
 
-                {/* Today vs Backlog Sub-tabs */}
-                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-surface border border-subtle w-full">
+                <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full">
                   <button
                     onClick={() => startTransition(() => setTodaySubTab('today'))}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'today'
-                        ? 'bg-elevated text-content-primary shadow-elevated border border-subtle'
-                        : 'text-content-secondary hover:text-content-primary'
+                        ? 'bg-elevated text-content-primary border border-subtle'
+                        : 'text-content-secondary'
                     }`}
                   >
                     <span>Scheduled</span>
-                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${todaySubTab === 'today' ? 'bg-primary text-white' : 'bg-surface text-content-muted'}`}>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${todaySubTab === 'today' ? 'bg-primary text-on-primary' : 'bg-base text-content-muted'}`}>
                       {todayTasks.length}
                     </span>
                   </button>
                   <button
                     onClick={() => startTransition(() => setTodaySubTab('backlog'))}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
                       todaySubTab === 'backlog'
-                        ? 'bg-elevated text-error shadow-elevated border border-error-soft'
-                        : 'text-content-secondary hover:text-error'
+                        ? 'bg-elevated text-error border border-error-soft'
+                        : 'text-content-secondary'
                     }`}
                   >
-                    <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-error' : 'text-content-secondary'} />
+                    <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-error' : 'text-content-muted'} />
                     <span>Backlog</span>
-                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${backlogTasks.length > 0 ? 'bg-error text-white' : 'bg-surface text-content-muted'}`}>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${backlogTasks.length > 0 ? 'bg-error text-white' : 'bg-base text-content-muted'}`}>
                       {backlogTasks.length}
                     </span>
                   </button>
@@ -748,7 +766,7 @@ function AppInner() {
                         }`}
                       >
                         <span className="truncate max-w-[130px]">{chip.label}</span>
-                        <span className="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded-full bg-white/10 text-content-muted">
+                        <span className="text-[9.5px] font-semibold px-1.5 py-0.2 rounded-full bg-white/10 text-content-muted">
                           {chip.count}
                         </span>
                       </button>
@@ -801,40 +819,30 @@ function AppInner() {
                   <div className="space-y-4 fade-in">
                     {/* Summary header */}
                     {backlogTasks.length > 0 ? (
-                      <div className="bg-surface p-4 space-y-3 border border-error-soft rounded-2xl shadow-sm">
+                      <div className="bg-surface p-4 space-y-2 border border-subtle rounded-[16px]">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-error-soft border border-error flex items-center justify-center text-error shrink-0">
-                              <AlertTriangle size={18} />
-                            </div>
-                            <div>
-                              <p className="text-sm font-extrabold text-content-primary">
-                                {backlogTasks.length} Task{backlogTasks.length > 1 ? 's' : ''} in Backlog
-                              </p>
-                              <p className="text-[11px] font-bold text-error">
-                                Across {backlogByDate.length} missed date{backlogByDate.length > 1 ? 's' : ''}
-                              </p>
-                            </div>
+                          <div>
+                            <p className="text-sm font-semibold text-content-primary">
+                              {backlogTasks.length} overdue
+                            </p>
+                            <p className="text-[12px] text-content-muted">
+                              Across {backlogByDate.length} date{backlogByDate.length > 1 ? 's' : ''}
+                            </p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-[10px] font-extrabold text-content-secondary uppercase tracking-wider">Oldest Due</p>
-                            <p className="text-xs font-black text-error">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Oldest</p>
+                            <p className="text-xs font-semibold text-error">
                               {backlogByDate.length > 0 ? backlogByDate[backlogByDate.length - 1].formattedDate : '—'}
                             </p>
                           </div>
                         </div>
-                        <p className="text-[11px] text-content-secondary font-semibold leading-relaxed border-t border-error-soft pt-2.5">
-                          ⚡ Reschedule or complete these tasks to restore your momentum. Don't let backlog compound!
-                        </p>
                       </div>
                     ) : (
-                      <div className="bg-surface p-6 border border-subtle rounded-2xl text-center space-y-2">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-transparent text-content-muted/50 mb-1">
-                          <Flame size={22} />
-                        </div>
-                        <h3 className="text-sm font-extrabold text-content-secondary uppercase tracking-wider">Zero Backlog</h3>
-                        <p className="text-[12px] text-content-muted font-medium max-w-xs mx-auto">
-                          🔥 Outstanding! Every task is on schedule. Keep the streak alive.
+                      <div className="bg-surface p-8 border border-subtle rounded-[16px] text-center space-y-2">
+                        <Flame size={20} className="mx-auto text-content-muted" />
+                        <h3 className="text-sm font-semibold text-content-primary">Clear slate</h3>
+                        <p className="text-[12px] text-content-muted max-w-xs mx-auto">
+                          Nothing overdue. Keep the streak.
                         </p>
                       </div>
                     )}
@@ -844,9 +852,9 @@ function AppInner() {
                       <div key={group.date} className="space-y-2">
                         {/* Group header row */}
                         <div className="flex items-center gap-2 px-0.5">
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-soft border border-error">
-                            <Calendar size={11} className="text-error" />
-                            <span className="text-[10.5px] font-extrabold text-error">{group.formattedDate}</span>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error-soft text-error">
+                            <Calendar size={11} />
+                            <span className="text-[11px] font-semibold">{group.formattedDate}</span>
                           </div>
                           <span className="text-[10px] font-semibold text-content-secondary">
                             {group.tasks.length} task{group.tasks.length > 1 ? 's' : ''}
@@ -893,7 +901,7 @@ function AppInner() {
                                         e.stopPropagation();
                                         handlePushBacklogTask(t);
                                       }}
-                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-error text-error bg-transparent hover:bg-error-soft shadow-sm transition-all active:scale-95 shrink-0"
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border border-subtle text-error hover:bg-error-soft shrink-0"
                                       title="Reschedule task"
                                     >
                                       <Zap size={12} className="text-error" /> Reschedule
@@ -940,19 +948,19 @@ function AppInner() {
 
         {/* Floating Undo Goal Delete Toast */}
         {lastDeletedNotification && (
-          <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-error-soft border border-error text-content-primary p-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-sheet-up">
+          <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-elevated border border-subtle text-content-primary p-3 rounded-[16px] shadow-elevated flex items-center justify-between gap-3 fade-in">
             <div className="flex items-center gap-2 min-w-0">
-              <Trash2 size={16} className="text-error shrink-0" />
-              <span className="text-xs font-bold truncate">
-                Deleted "{lastDeletedNotification.title}"
+              <Trash2 size={15} className="text-error shrink-0" />
+              <span className="text-xs font-medium truncate">
+                Deleted {lastDeletedNotification.title}
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => restoreDeletedGoal(lastDeletedNotification.id)}
-                className="px-3 py-1 rounded-xl border border-error text-error bg-transparent hover:bg-error shadow-md transition active:scale-95"
+                className="px-3 py-1 rounded-xl border border-subtle text-primary text-xs font-semibold"
               >
-                Undo Delete
+                Undo
               </button>
               <button
                 onClick={clearDeletedNotification}
@@ -968,7 +976,7 @@ function AppInner() {
         {view === 'tasks' && (
           <button
             onClick={() => openAddTask()}
-            className="fixed bottom-20 right-4 w-12 h-12 rounded-full text-white grid place-items-center bg-primary shadow-elevated transition-all active:scale-90 z-30"
+            className="fixed bottom-20 right-4 w-12 h-12 rounded-full text-on-primary grid place-items-center bg-primary shadow-elevated z-30"
             title="Add task"
           >
             <Plus size={24} />
@@ -995,15 +1003,7 @@ function AppInner() {
             title: clipboard.length === 1 ? clipboard[0].title : `${clipboard.length} copied items`,
             targetName: (() => {
               if (goalPathIds.length === 0) return 'root level';
-              const findNode = (nodes: GoalNode[], id: string): GoalNode | null => {
-                for (const n of nodes) {
-                  if (n.id === id) return n;
-                  const found = findNode(n.children, id);
-                  if (found) return found;
-                }
-                return null;
-              };
-              const current = findNode(goals, goalPathIds[goalPathIds.length - 1]);
+              const current = findGoal(goals, goalPathIds[goalPathIds.length - 1]);
               return current ? current.title : 'root level';
             })(),
             onPaste: () => pasteGoalNode(goalPathIds.length > 0 ? goalPathIds[goalPathIds.length - 1] : null),
@@ -1044,28 +1044,27 @@ function AppInner() {
 
       {/* Description Viewer Modal */}
       {descModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 modal-backdrop animate-fade-in" onClick={closeDescriptionModal} />
-          <div className="sheet-up relative w-full max-w-lg bg-elevated border border-subtle rounded-3xl p-5 pb-6 shadow-elevated space-y-4 max-h-[85vh] flex flex-col">
+        <Overlay open onClose={closeDescriptionModal} align="center">
+          <div className="panel sheet-up p-5 space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-start justify-between pb-3 border-b border-subtle gap-2">
               <div className="flex items-start gap-2.5 min-w-0">
                 <div className="p-2 rounded-xl bg-primary-soft text-primary border border-primary shrink-0 mt-0.5">
                   <FileText size={18} />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-primary">Full Description</span>
-                  <h3 className="text-base font-extrabold text-content-primary leading-snug break-words">{descModalData.title}</h3>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">Full Description</span>
+                  <h3 className="text-base font-semibold text-content-primary leading-snug break-words">{descModalData.title}</h3>
                 </div>
               </div>
               <button onClick={closeDescriptionModal} className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface transition shrink-0">
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-content-primary whitespace-pre-wrap font-medium bg-surface p-4 rounded-2xl border border-subtle">
+            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-content-primary whitespace-pre-wrap font-medium bg-surface p-4 rounded-[12px] border border-subtle">
               {descModalData.description}
             </div>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {/* ── Ambient Screen Component ── */}
@@ -1090,8 +1089,8 @@ function AppInner() {
           onCancel={() => setStopDialogTask(null)}
           onConfirm={(outcome) => {
             stopSession(outcome);
-            if (outcome.completedStepIndices && outcome.completedStepIndices.length > 0) {
-              completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices);
+            if (outcome.completed === true || (outcome.completedStepIndices?.length ?? 0) > 0) {
+              completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices ?? []);
             }
             setStopDialogTask(null);
           }}
@@ -1108,36 +1107,110 @@ function AppInner() {
         />
       )}
 
+      {/* ── Device clock integrity ── */}
+      {clockBlocked && (
+        <Overlay open align="center">
+          <div className="panel sheet-up p-5 space-y-4">
+            <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Device time looks wrong</span>
+            </div>
+            <p className="text-xs text-content-secondary leading-relaxed">
+              Date &amp; time on this device jumped, so the in-progress session was discarded and was not saved. Cloud backup was not overwritten.
+              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then sign in again to restore your stats.
+            </p>
+            {clockVerifyError && (
+              <p className="text-xs text-red-500 leading-relaxed">{clockVerifyError}</p>
+            )}
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                disabled={clockVerifyBusy}
+                onClick={async () => {
+                  setClockVerifyError(null);
+                  setClockVerifyBusy(true);
+                  const clock = await assertDeviceClock();
+                  setClockVerifyBusy(false);
+                  if (!clock.ok) {
+                    setClockVerifyError(clock.reason ?? 'Still mismatched. Set automatic date & time.');
+                    return;
+                  }
+                  clearClockIncident();
+                  setClockBlocked(false);
+                }}
+                className="w-full py-2.5 px-3 rounded-xl border border-subtle text-content-primary font-semibold text-xs disabled:opacity-60"
+              >
+                {clockVerifyBusy ? 'Checking…' : 'I fixed date & time'}
+              </button>
+              <button
+                onClick={() => {
+                  setAuthMode('signin');
+                  setAuthOpen(true);
+                }}
+                className="w-full py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
+              >
+                Sign in
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
+
       {/* ── Auth Modal ── */}
       <AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} />
 
       {/* ── Session Crash Recovery Dialog ── */}
-      {recoverySessionPrompt && activeSession && activeTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop animate-fade-in">
-          <div className="max-w-sm w-full bg-elevated border border-accent p-5 rounded-3xl space-y-4 shadow-elevated">
-            <div className="flex items-center gap-2 text-warning font-bold text-sm">
-              <Clock className="w-5 h-5 text-warning" />
-              <span>Interrupted Session Detected</span>
+      {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && !clockBlocked && (
+        <Overlay open onClose={() => setRecoverySessionPrompt(false)} align="center">
+          <div className="panel sheet-up p-5 space-y-4">
+            <div className="flex items-center gap-2 text-primary font-semibold text-sm">
+              <Clock className="w-5 h-5" />
+              <span>Session still running</span>
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
-              You had an active focus session for <span className="font-bold text-content-primary">"{activeTask.title}"</span> that was interrupted. Would you like to resume it or discard it?
+              <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session. If you kept working with the phone off, resume. If you already finished and forgot to stop, reconstruct it.
             </p>
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => setRecoverySessionPrompt(false)}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-accent text-on-accent hover:bg-accent-hover font-bold text-xs transition"
+                onClick={() => {
+                  continueInterruptedSession();
+                  setRecoverySessionPrompt(false);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
               >
-                Resume Session
+                Resume
               </button>
               <button
-                onClick={() => { discardSession(); setRecoverySessionPrompt(false); }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-transparent text-content-secondary font-semibold text-xs hover:bg-surface border border-subtle transition"
+                onClick={() => {
+                  setRecoverySessionPrompt(false);
+                  setReconstructOpen(true);
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs border border-subtle"
               >
-                Discard
+                I forgot
               </button>
             </div>
           </div>
-        </div>
+        </Overlay>
+      )}
+
+      {reconstructOpen && activeSession && activeTask && (
+        <SessionReconstructSheet
+          open
+          task={activeTask}
+          session={activeSession}
+          onCancel={() => setReconstructOpen(false)}
+          onWasNotWorking={() => {
+            discardSession();
+            setReconstructOpen(false);
+          }}
+          onSave={({ endTime, completed, completedStepIndices }) => {
+            stopSession({ completed, completedStepIndices }, { endTime, ignoreOpenPause: true });
+            if (completed === true || completedStepIndices.length > 0) {
+              completeSessionSteps(activeTask.id, completedStepIndices);
+            }
+            setReconstructOpen(false);
+          }}
+        />
       )}
     </div>
   );
@@ -1155,7 +1228,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       </p>
       <button
         onClick={onAdd}
-        className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold hover:bg-primary-glow transition-colors"
+        className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-semibold"
       >
         <Plus size={16} />
         Add Task

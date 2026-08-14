@@ -13,290 +13,67 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
+import { parseBackupPayload } from './lib/backup';
+import { clearClockIncident, guardWallClock, hasClockIncident } from './lib/deviceClock';
+import { todayISO } from './lib/dates';
+import { formatWallClock } from './lib/format';
+import {
+  finalizeSession,
+  lastResumeAt,
+  MAX_CONTINUOUS_FOCUS_MS,
+  STALE_HEARTBEAT_MS,
+} from './lib/sessionStats';
+import {
+  clearRollupCache,
+  cloneNode,
+  collectDescendantTaskIds,
+  countSlicedDone,
+  findGoal,
+  isBacklogTask,
+  moveNodeInArray,
+  removeNode,
+  removeNodes,
+  reorderNodesArray,
+  sameTasks,
+  sameTree,
+  sanitizeTreeAndTasks,
+  syncStepDone,
+  updateNode,
+} from './lib/goalTree';
+import { uid } from './lib/ids';
+import { STORAGE_KEYS } from './lib/storageKeys';
 
-function uid(prefix = 'n') {
-  return `${prefix}-${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36)}`;
-}
-
-function isToday(iso: string | null): boolean {
-  if (!iso) return false;
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
-}
-
-export function todayISO(): string {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function tomorrowISO(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function formatDDMMYYYY(isoStr: string | null | undefined): string {
-  if (!isoStr) return '';
-  const parts = isoStr.slice(0, 10).split('-');
-  if (parts.length === 3) {
-    const [y, m, d] = parts;
-    return `${d}-${m}-${y}`;
-  }
-  return isoStr;
-}
-
-/* ---------- Tree helpers ---------- */
-
-export function countDirectChildren(node: GoalNode): number {
-  if (node.children.length === 0) {
-    return node.steps && node.steps.length > 0 ? node.steps.length : 1;
-  }
-  return node.children.length;
-}
-
-export function countCompletedDirectChildren(node: GoalNode): number {
-  if (node.children.length === 0) {
-    if (node.steps && node.steps.length > 0) {
-      return (node.stepDone ?? []).filter(Boolean).length;
-    }
-    return node.completed ? 1 : 0;
-  }
-  return node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
-}
-
-let rollupCache = new Map<string, number>();
-
-export function clearRollupCache() {
-  rollupCache.clear();
-}
-
-export function rollupPct(node: GoalNode): number {
-  if (rollupCache.has(node.id)) {
-    return rollupCache.get(node.id)!;
-  }
-  let pct = 0;
-  if (node.children.length === 0) {
-    if (node.steps && node.steps.length > 0) {
-      pct = Math.round(((node.stepDone ?? []).filter(Boolean).length / node.steps.length) * 100);
-    } else {
-      pct = node.completed ? 100 : 0;
-    }
-  } else {
-    const total = node.children.length;
-    if (total === 0) {
-      pct = 0;
-    } else {
-      const doneCount = node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
-      pct = Math.round((doneCount / total) * 100);
-    }
-  }
-  rollupCache.set(node.id, pct);
-  return pct;
-}
-
-// Retain legacy aliases for compatibility
-export const countLeaves = countDirectChildren;
-export const countCompletedLeaves = countCompletedDirectChildren;
-
-export function findNode(
-  root: GoalNode,
-  id: string,
-): [GoalNode | null, GoalNode | null] {
-  if (root.id === id) return [root, null];
-  for (const child of root.children) {
-    const [found, parent] = findNode(child, id);
-    if (found) return [found, parent ?? root];
-  }
-  return [null, null];
-}
-
-export function updateNode(
-  root: GoalNode,
-  id: string,
-  patch: (n: GoalNode) => GoalNode,
-): GoalNode {
-  if (root.id === id) return patch(root);
-  return { ...root, children: root.children.map((c) => updateNode(c, id, patch)) };
-}
-
-export function removeNode(root: GoalNode, id: string): GoalNode {
-  return {
-    ...root,
-    children: root.children
-      .filter((c) => c.id !== id)
-      .map((c) => removeNode(c, id)),
-  };
-}
-
-export function removeNodes(root: GoalNode, ids: Set<string>): GoalNode {
-  return {
-    ...root,
-    children: root.children
-      .filter((c) => !ids.has(c.id))
-      .map((c) => removeNodes(c, ids)),
-  };
-}
-
-export function collectLeaves(node: GoalNode): GoalNode[] {
-  if (node.children.length === 0) return [node];
-  return node.children.flatMap(collectLeaves);
-}
-
-/** Recursively collect every todayTaskId in a node's subtree (including itself). */
-export function collectDescendantTaskIds(node: GoalNode): string[] {
-  const ids: string[] = [];
-  if (node.todayTaskId) ids.push(node.todayTaskId);
-  for (const child of node.children) {
-    ids.push(...collectDescendantTaskIds(child));
-  }
-  return ids;
-}
-
-/**
- * Tree sanitizer pass:
- * 1. Ensures all GoalNodes have unique IDs (resolves duplicates if any imported or legacy state has them)
- * 2. Cleans stale todayTaskId pointers (pointers referencing task IDs that don't exist in tasks)
- */
-export function sanitizeTreeAndTasks(goals: GoalNode[], tasks: Task[]): { cleanedGoals: GoalNode[]; cleanedTasks: Task[] } {
-  const existingTaskIds = new Set(tasks.map((t) => t.id));
-  const seenNodeIds = new Set<string>();
-
-  function sanitizeNode(node: GoalNode): GoalNode {
-    // 1. Resolve duplicate or missing IDs
-    let id = node.id;
-    if (!id || seenNodeIds.has(id)) {
-      id = uid('goal');
-    }
-    seenNodeIds.add(id);
-
-    // 2. Clean stale todayTaskId pointer
-    let todayTaskId = node.todayTaskId;
-    if (todayTaskId && !existingTaskIds.has(todayTaskId)) {
-      todayTaskId = null;
-    }
-
-    const children = (node.children ?? []).map(sanitizeNode);
-    return {
-      ...node,
-      id,
-      todayTaskId,
-      children,
-    };
-  }
-
-  const cleanedGoals = (goals ?? []).map(sanitizeNode);
-  return { cleanedGoals, cleanedTasks: tasks ?? [] };
-}
-
-
-
-export function pathTitles(root: GoalNode, id: string): string[] {
-  if (root.id === id) return [root.title];
-  for (const child of root.children) {
-    const sub = pathTitles(child, id);
-    if (sub.length) return [root.title, ...sub];
-  }
-  return [];
-}
-
-export function pathNodes(root: GoalNode, id: string): GoalNode[] {
-  if (root.id === id) return [root];
-  for (const child of root.children) {
-    const sub = pathNodes(child, id);
-    if (sub.length) return [root, ...sub];
-  }
-  return [];
-}
-
-export function findGoal(goals: GoalNode[], id: string): GoalNode | null {
-  for (const root of goals) {
-    const [n] = findNode(root, id);
-    if (n) return n;
-  }
-  return null;
-}
-
-export function cloneNode(node: GoalNode): GoalNode {
-  return {
-    ...node,
-    id: uid('n'),
-    todayTaskId: null,
-    pinned: false,
-    createdAt: Date.now(),
-    children: node.children.map(cloneNode),
-  };
-}
-
-function syncStepDone(
-  node: GoalNode,
-  taskProgress: number,
-  slice: number[] | undefined,
-): boolean[] {
-  const steps = node.steps ?? [];
-  const s = slice ?? steps.map((_, i) => i);
-  const existing = node.stepDone ?? steps.map(() => false);
-  const result = [...existing];
-  s.forEach((masterIdx, slicePos) => {
-    if (masterIdx < result.length) result[masterIdx] = slicePos < taskProgress;
-  });
-  return result;
-}
-
-function countSlicedDone(node: GoalNode, slice: number[] | undefined): number {
-  const stepDone = node.stepDone ?? [];
-  const s = slice ?? (node.steps ?? []).map((_, i) => i);
-  return s.filter((idx) => stepDone[idx]).length;
-}
-
-/* ---------- Store ---------- */
-
-/**
- * Canonical completion check used across Today, Calendar, and progress calculations.
- * A task with no steps is never automatically complete — it must be explicitly handled by the UI.
- */
-export function isTaskComplete(task: { steps: string[]; progress: number }): boolean {
-  const total = task.steps.length > 0 ? task.steps.length : 1;
-  return task.progress >= total;
-}
-
-export function isBacklogTask(task: Task): boolean {
-  if (!task.targetDate) return false;
-  if (isTaskComplete(task)) return false;
-  return task.targetDate < todayISO();
-}
-
-export function reorderNodesArray(nodes: GoalNode[], fromId: string, toId: string): GoalNode[] {
-  const fromIdx = nodes.findIndex((n) => n.id === fromId);
-  const toIdx = nodes.findIndex((n) => n.id === toId);
-  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return nodes;
-  const result = [...nodes];
-  const [removed] = result.splice(fromIdx, 1);
-  result.splice(toIdx, 0, removed);
-  return result;
-}
-
-export function moveNodeInArray(nodes: GoalNode[], id: string, direction: 'up' | 'down'): GoalNode[] {
-  const idx = nodes.findIndex((n) => n.id === id);
-  if (idx === -1) return nodes;
-  const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-  if (targetIdx < 0 || targetIdx >= nodes.length) return nodes;
-  const result = [...nodes];
-  const temp = result[idx];
-  result[idx] = result[targetIdx];
-  result[targetIdx] = temp;
-  return result;
-}
+export {
+  todayISO,
+  tomorrowISO,
+  formatDDMMYYYY,
+  isToday,
+} from './lib/dates';
+export { uid } from './lib/ids';
+export {
+  clearRollupCache,
+  cloneNode,
+  collectDescendantIds,
+  collectDescendantTaskIds,
+  collectLeaves,
+  countCompletedDirectChildren,
+  countCompletedLeaves,
+  countDirectChildren,
+  countLeaves,
+  findGoal,
+  findNode,
+  isBacklogTask,
+  isTaskComplete,
+  moveNodeInArray,
+  pathNodes,
+  pathTitles,
+  removeNode,
+  removeNodes,
+  reorderNodesArray,
+  rollupPct,
+  sanitizeTreeAndTasks,
+  updateNode,
+} from './lib/goalTree';
 
 export interface DeletedGoalRecord {
   id: string;
@@ -363,6 +140,11 @@ interface Store {
   syncToCloud: () => Promise<{ ok: boolean; error?: string }>;
   /** Restore state from Supabase cloud metadata */
   restoreFromCloud: () => Promise<boolean>;
+  restoreFromVisitSnapshot: (snapshotId: string) => Promise<boolean>;
+  listCloudRestorePoints: () => Promise<{
+    live: { updatedAt: string } | null;
+    visits: { id: string; createdAt: string }[];
+  }>;
 
   /* ── Session Timer ─────────────────────────────────────────────────────── */
   /** The currently live session (null if none active) */
@@ -376,9 +158,14 @@ interface Store {
   /** Resume a paused session */
   resumeSession: () => void;
   /** Stop the active session and record to history */
-  stopSession: (outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] }) => void;
+  stopSession: (
+    outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] },
+    options?: { endTime?: number; ignoreOpenPause?: boolean },
+  ) => void;
   /** Discard the active session without saving to history */
   discardSession: () => void;
+  /** After an interrupted session, keep counting including phone-off time */
+  continueInterruptedSession: () => void;
   /** Heartbeat — update lastHeartbeat timestamp (call every 30s) */
   heartbeatSession: () => void;
   /** Mark specified step indices done and sync back to GoalBlueprint */
@@ -397,12 +184,12 @@ const SEED_TASKS: Task[] = [];
 const SEED_GOALS: GoalNode[] = [];
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useLocalStorage<Task[]>('tudo-tasks-v3', SEED_TASKS);
-  const [goals, setGoals] = useLocalStorage<GoalNode[]>('tudo-goals-v3', SEED_GOALS);
-  const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>('youdo-deleted-goals-v1', []);
+  const [tasks, setTasks] = useLocalStorage<Task[]>(STORAGE_KEYS.tasks, SEED_TASKS);
+  const [goals, setGoals] = useLocalStorage<GoalNode[]>(STORAGE_KEYS.goals, SEED_GOALS);
+  const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>(STORAGE_KEYS.deletedGoals, []);
   const [lastDeletedNotification, setLastDeletedNotification] = useState<{ id: string; title: string } | null>(null);
-  const [activeSession, setActiveSession] = useLocalStorage<ActiveSession | null>('youdo-active-session-v1', null);
-  const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>('youdo-session-history-v1', {});
+  const [activeSession, setActiveSession] = useLocalStorage<ActiveSession | null>(STORAGE_KEYS.activeSession, null);
+  const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>(STORAGE_KEYS.sessionHistory, {});
 
   // Invalidate rollup cache whenever goals tree changes
   useEffect(() => {
@@ -436,9 +223,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
 
     const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(purgeGoals, purgeTasks);
-    setTasks(cleanedTasks);
-    setGoals(cleanedGoals);
-  }, []);
+    if (!sameTasks(rawTasks, cleanedTasks)) setTasks(cleanedTasks);
+    if (!sameTree(rawGoals, cleanedGoals)) setGoals(cleanedGoals);
+  }, [setGoals, setTasks]);
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
@@ -933,26 +720,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /* ── Session Timer callbacks ──────────────────────────────────────────── */
 
-  const formatWallClock = (ts: number): string => {
-    const d = new Date(ts);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  };
+  const persistActiveSession = useCallback(
+    (
+      outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] },
+      options?: { endTime?: number; ignoreOpenPause?: boolean },
+    ) => {
+      const prev = activeSessionRef.current;
+      if (!prev) return;
+      if (!guardWallClock()) {
+        setActiveSession(null);
+        return;
+      }
+      const endAt = options?.endTime ?? Date.now();
+      const task = tasksRef.current.find((t) => t.id === prev.taskId);
+      const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
+        ignoreOpenPause: options?.ignoreOpenPause,
+      });
+      if (record) {
+        setSessionHistory((hist) => ({
+          ...hist,
+          [record.taskId]: [...(hist[record.taskId] ?? []), record],
+        }));
+      }
+      setActiveSession(null);
+    },
+    [setActiveSession, setSessionHistory],
+  );
 
   const startSession = useCallback((taskId: string) => {
-    const now = Date.now();
-    // Auto-pause any existing session first
-    if (activeSessionRef.current && !activeSessionRef.current.isPaused) {
-      setActiveSession((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          isPaused: true,
-          pauseStart: now,
-          lastHeartbeat: now,
-          pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
-        };
-      });
+    if (hasClockIncident()) return;
+    const existing = activeSessionRef.current;
+    if (existing?.taskId === taskId) return;
+    if (existing) {
+      persistActiveSession({ completed: false, completedStepIndices: [] });
     }
+
+    const now = Date.now();
     const session: ActiveSession = {
       taskId,
       startTime: now,
@@ -980,11 +783,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return t;
       }),
     );
-  }, [setActiveSession, setTasks]);
+  }, [persistActiveSession, setActiveSession, setTasks]);
 
   const pauseSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || prev.isPaused) return prev;
+      if (!guardWallClock()) return null;
       const now = Date.now();
       return {
         ...prev,
@@ -999,6 +803,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const resumeSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || !prev.isPaused) return prev;
+      if (!guardWallClock()) return null;
       const now = Date.now();
       const pauseDuration = prev.pauseStart ? now - prev.pauseStart : 0;
       return {
@@ -1022,89 +827,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [setActiveSession]);
 
   const stopSession = useCallback(
-    (outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] }) => {
+    (
+      outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] },
+      options?: { endTime?: number; ignoreOpenPause?: boolean },
+    ) => {
       const prev = activeSessionRef.current;
       if (!prev) return;
-      const now = Date.now();
-      let finalPausedDuration = prev.pausedDuration;
-      let finalPauses = prev.pauses;
-      if (prev.isPaused && prev.pauseStart) {
-        const pauseDur = now - prev.pauseStart;
-        finalPausedDuration += pauseDur;
-        finalPauses = prev.pauses.map((p, i) =>
-          i === prev.pauses.length - 1
-            ? {
-                ...p,
-                end: now,
-                wallClockEnd: formatWallClock(now),
-                durationMs: p.start ? now - p.start : pauseDur,
-              }
-            : p,
-        );
-      }
-      const netFocusMs = Math.max(0, (now - prev.startTime) - finalPausedDuration);
-      const task = tasksRef.current.find((t) => t.id === prev.taskId);
+      persistActiveSession(outcome, options);
 
-      const session: TaskSession = {
-        id: uid('sess'),
-        taskId: prev.taskId,
-        goalNodeId: task?.goalNodeId,
-        startTime: prev.startTime,
-        endTime: now,
-        pausedDuration: finalPausedDuration,
-        pauses: finalPauses,
-        netFocusMs,
-        wallClockStart: prev.wallClockStart,
-        wallClockEnd: formatWallClock(now),
-        completed: outcome.completed,
-        completedStepIndices: outcome.completedStepIndices ?? [],
-      };
-      setSessionHistory((hist) => ({
-        ...hist,
-        [prev.taskId]: [...(hist[prev.taskId] ?? []), session],
-      }));
-      setActiveSession(null);
-
-      // Handle backlog reverting if not completed
       setTasks((prevTasks) =>
         prevTasks.map((t) => {
           if (t.id === prev.taskId && t.originalTargetDate) {
-            // "if marked not completed then move back to backlog"
             if (outcome.completed === false || outcome.completed === 'partial') {
               const newT = { ...t, targetDate: t.originalTargetDate };
               delete newT.originalTargetDate;
               return newT;
             }
-            // If completed, it stays in today and retains `originalTargetDate` as the backlog tag
           }
           return t;
         }),
       );
     },
-    [setActiveSession, setSessionHistory, setTasks],
+    [persistActiveSession, setTasks],
   );
 
   const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
 
+  const continueInterruptedSession = useCallback(() => {
+    if (!guardWallClock()) {
+      setActiveSession(null);
+      return;
+    }
+    const now = Date.now();
+    setActiveSession((prev) => {
+      if (!prev) return null;
+      return { ...prev, lastHeartbeat: now, returnedAt: now };
+    });
+  }, [setActiveSession]);
+
   const heartbeatSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev) return null;
+      if (!guardWallClock()) return null;
       const now = Date.now();
-
-      // Auto-pause safeguard if continuous focus exceeds 4 hours (14,400,000 ms)
-      if (!prev.isPaused) {
-        const currentRunMs = now - prev.startTime - prev.pausedDuration;
-        if (currentRunMs >= 14_400_000) {
-          return {
-            ...prev,
-            isPaused: true,
-            pauseStart: now,
-            lastHeartbeat: now,
-            pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
-          };
-        }
+      if (now - prev.lastHeartbeat > STALE_HEARTBEAT_MS) {
+        return { ...prev, lastHeartbeat: now };
       }
-
+      if (!prev.isPaused && now - lastResumeAt(prev) >= MAX_CONTINUOUS_FOCUS_MS) {
+        return {
+          ...prev,
+          isPaused: true,
+          pauseStart: now,
+          lastHeartbeat: now,
+          pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
+        };
+      }
       return { ...prev, lastHeartbeat: now };
     });
   }, [setActiveSession]);
@@ -1115,12 +892,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!task) return;
 
       if (!task.goalNodeId) {
-        // Standalone task — just bump progress to full
-        if (stepIndices.length > 0 || task.steps.length === 0) {
-          setTasks((prev) =>
-            prev.map((x) => x.id === taskId ? { ...x, progress: x.steps.length || 1 } : x)
-          );
+        if (task.steps.length === 0) {
+          setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, progress: 1 } : x)));
+          return;
         }
+        if (stepIndices.length === 0) return;
+        const next = Math.min(task.steps.length, Math.max(task.progress, Math.max(...stepIndices) + 1));
+        setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, progress: next } : x)));
         return;
       }
 
@@ -1173,7 +951,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const exportBackup = useCallback(async (): Promise<string> => {
     const data = {
       app: 'YouDO',
-      version: '1.0.0',
+      version: '3.0.0',
       exportedAt: new Date().toISOString(),
       tasks: tasksRef.current,
       goals: goalsRef.current,
@@ -1241,123 +1019,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const importBackup = useCallback(
     (jsonData: string): boolean => {
-      try {
-        const parsed = JSON.parse(jsonData);
-        if (!parsed || typeof parsed !== 'object') return false;
+      const parsed = parseBackupPayload(jsonData);
+      if (!parsed) return false;
 
-        // Parse & normalize raw tasks
-        const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : (Array.isArray(parsed.t) ? parsed.t : []);
-        const importedTasks: Task[] = [];
-        for (const t of rawTasks) {
-          if (!t || typeof t !== 'object') continue;
-          const id = String(t.id || t.i || uid('task'));
-          const title = String(t.title || t.t || '').trim();
-          if (!title) continue;
-
-          let createdAt = Date.now();
-          if (typeof t.createdAt === 'number') createdAt = t.createdAt;
-          else if (typeof t.createdAt === 'string') createdAt = new Date(t.createdAt).getTime() || Date.now();
-
-          importedTasks.push({
-            id,
-            title,
-            description: String(t.description || ''),
-            priority: (t.priority === 'high' || t.priority === 'low') ? t.priority : 'medium',
-            targetDate: t.targetDate ? String(t.targetDate) : (t.d ? String(t.d) : null),
-            deadline: t.deadline ? String(t.deadline) : null,
-            steps: Array.isArray(t.steps) ? t.steps.map(String) : (Array.isArray(t.s) ? t.s.map(String) : []),
-            progress: typeof t.progress === 'number' ? t.progress : (typeof t.p === 'number' ? t.p : 0),
-            createdAt,
-            order: typeof t.order === 'number' ? t.order : Date.now(),
-            goalNodeId: t.goalNodeId ? String(t.goalNodeId) : (t.g ? String(t.g) : undefined),
-            stepSlice: Array.isArray(t.stepSlice) ? t.stepSlice : undefined,
-            originalTargetDate: t.originalTargetDate ? String(t.originalTargetDate) : undefined,
-          });
-        }
-
-        // Parse & normalize raw goals
-        const rawGoals = Array.isArray(parsed.goals) ? parsed.goals : (Array.isArray(parsed.g) ? parsed.g : []);
-        const validKinds = new Set(['goal', 'phase', 'section', 'task', 'sub', 'leaf']);
-        
-        function normalizeGoal(g: any): GoalNode | null {
-          if (!g || typeof g !== 'object') return null;
-          const id = String(g.id || g.i || uid('n'));
-          const title = String(g.title || g.t || '').trim();
-          if (!title) return null;
-          const kind = validKinds.has(g.kind || g.k) ? (g.kind || g.k) : 'goal';
-          const children: GoalNode[] = [];
-          const rawChildren = Array.isArray(g.children) ? g.children : (Array.isArray(g.c) ? g.c : []);
-          for (const c of rawChildren) {
-            const norm = normalizeGoal(c);
-            if (norm) children.push(norm);
-          }
-
-          let createdAt = Date.now();
-          if (typeof g.createdAt === 'number') createdAt = g.createdAt;
-          else if (typeof g.createdAt === 'string') createdAt = new Date(g.createdAt).getTime() || Date.now();
-
-          return {
-            id,
-            title,
-            kind,
-            description: g.description ? String(g.description) : undefined,
-            startDate: g.startDate ? String(g.startDate) : undefined,
-            endDate: g.endDate ? String(g.endDate) : undefined,
-            children,
-            steps: Array.isArray(g.steps) ? g.steps.map(String) : (Array.isArray(g.s) ? g.s.map(String) : undefined),
-            stepDone: Array.isArray(g.stepDone) ? g.stepDone.map(Boolean) : undefined,
-            completed: Boolean(g.completed),
-            todayTaskId: g.todayTaskId ? String(g.todayTaskId) : undefined,
-            pinned: Boolean(g.pinned),
-            createdAt,
-          };
-        }
-
-        const importedGoals: GoalNode[] = [];
-        for (const g of rawGoals) {
-          const norm = normalizeGoal(g);
-          if (norm) importedGoals.push(norm);
-        }
-
-        // Restore session history if available
-        if (parsed.sessionHistory && typeof parsed.sessionHistory === 'object') {
-          setSessionHistory(parsed.sessionHistory);
-        }
-
-        // Restore recently deleted goals trash bin if available
-        if (Array.isArray(parsed.recentlyDeletedGoals)) {
-          setRecentlyDeletedGoals(parsed.recentlyDeletedGoals);
-        }
-
-        // Run sanitize & repair pass on imported data (duplicate IDs, stale pointers)
-        const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(importedGoals, importedTasks);
-
-        setTasks(cleanedTasks);
-        setGoals(cleanedGoals);
-        clearRollupCache();
-        return true;
-      } catch (err) {
-        console.error('Import failed:', err);
-        return false;
+      if (parsed.sessionHistory && typeof parsed.sessionHistory === 'object') {
+        setSessionHistory(parsed.sessionHistory as Record<string, TaskSession[]>);
       }
+      if (Array.isArray(parsed.recentlyDeletedGoals)) {
+        setRecentlyDeletedGoals(parsed.recentlyDeletedGoals as DeletedGoalRecord[]);
+      }
+
+      const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(parsed.goals, parsed.tasks);
+      setTasks(cleanedTasks);
+      setGoals(cleanedGoals);
+      clearRollupCache();
+      return true;
     },
     [setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals],
   );
 
-  const { user, updateCloudBackup, fetchCloudBackup } = useAuth();
+  const { user, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot } = useAuth();
   const sessionHistoryRef = useRef(sessionHistory);
   sessionHistoryRef.current = sessionHistory;
   const recentlyDeletedRef = useRef(recentlyDeletedGoals);
   recentlyDeletedRef.current = recentlyDeletedGoals;
+  const lastCloudPayloadRef = useRef<string>('');
 
   const syncToCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
-    // Safety guard: Never automatically sync if local state is completely empty to prevent wiping cloud backup
+    if (hasClockIncident()) {
+      return { ok: false, error: 'Sync paused until device date & time is corrected.' };
+    }
     if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
       return { ok: false, error: 'Local data is empty. Sync paused to protect your cloud backup.' };
     }
     const payload = {
       app: 'YouDO',
-      version: '2.0.0',
+      version: '3.0.0',
       exportedAt: new Date().toISOString(),
       updatedAt: Date.now(),
       tasks: tasksRef.current,
@@ -1365,7 +1062,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sessionHistory: sessionHistoryRef.current,
       recentlyDeletedGoals: recentlyDeletedRef.current,
     };
-    return await updateCloudBackup(payload);
+    const signature = JSON.stringify({
+      tasks: payload.tasks,
+      goals: payload.goals,
+      sessionHistory: payload.sessionHistory,
+      recentlyDeletedGoals: payload.recentlyDeletedGoals,
+    });
+    if (signature === lastCloudPayloadRef.current) return { ok: true };
+    const result = await updateCloudBackup(payload);
+    if (result.ok) lastCloudPayloadRef.current = signature;
+    return result;
   }, [updateCloudBackup]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
@@ -1378,19 +1084,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchCloudBackup, importBackup]);
 
+  const restoreFromVisitSnapshot = useCallback(async (snapshotId: string): Promise<boolean> => {
+    const jsonStr = await fetchVisitSnapshot(snapshotId);
+    if (!jsonStr) return false;
+    try {
+      return importBackup(jsonStr);
+    } catch {
+      return false;
+    }
+  }, [fetchVisitSnapshot, importBackup]);
+
+  const listCloudRestorePoints = useCallback(async () => {
+    const [live, visits] = await Promise.all([fetchLiveBackupInfo(), listVisitSnapshots()]);
+    return {
+      live: live ? { updatedAt: live.updatedAt } : null,
+      visits,
+    };
+  }, [fetchLiveBackupInfo, listVisitSnapshots]);
+
   // Auto-restore / Auto-push on user auth change
   useEffect(() => {
     if (!user) return;
     // When user logs in: check if local state is empty, if so auto-restore from cloud
     const autoRestoreOrPush = async () => {
+      if (hasClockIncident()) {
+        const jsonStr = await fetchCloudBackup();
+        if (jsonStr) importBackup(jsonStr);
+        clearClockIncident();
+        return;
+      }
       if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
-        // Local is empty — try to restore from cloud
         const jsonStr = await fetchCloudBackup();
         if (jsonStr) {
           importBackup(jsonStr);
         }
       } else {
-        // Local has data — push it to cloud
         syncToCloud();
       }
     };
@@ -1415,10 +1143,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
-      exportBackup, importBackup, syncToCloud, restoreFromCloud,
+      exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       activeSession, sessionHistory,
       startSession, pauseSession, resumeSession, stopSession,
-      discardSession, heartbeatSession, completeSessionSteps,
+      discardSession, continueInterruptedSession, heartbeatSession, completeSessionSteps,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
@@ -1426,14 +1154,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
-      exportBackup, importBackup, syncToCloud, restoreFromCloud,
+      exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       activeSession, sessionHistory,
       startSession, pauseSession, resumeSession, stopSession,
-      discardSession, heartbeatSession, completeSessionSteps],
+      discardSession, continueInterruptedSession, heartbeatSession, completeSessionSteps],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
-
-export { isToday, uid };
 

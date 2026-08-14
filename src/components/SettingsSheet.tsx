@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
   ChevronDown,
   Download,
   Edit2,
+  History,
   LogIn,
   LogOut,
   Moon,
@@ -16,8 +17,11 @@ import {
   UserPlus,
   Zap,
 } from 'lucide-react';
+import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { visitSnapshotLabel } from '../lib/cloudBackup';
+import { formatBackupStamp } from '../lib/format';
 import { useStore } from '../store';
 
 interface Props {
@@ -28,7 +32,7 @@ interface Props {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-content-muted mb-2 px-1">
+    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2 px-1">
       {children}
     </h2>
   );
@@ -68,6 +72,8 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
     importBackup,
     syncToCloud,
     restoreFromCloud,
+    restoreFromVisitSnapshot,
+    listCloudRestorePoints,
     recentlyDeletedGoals,
     restoreDeletedGoal,
     clearTrash,
@@ -77,6 +83,15 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restorePoints, setRestorePoints] = useState<{
+    live: { updatedAt: string } | null;
+    visits: { id: string; createdAt: string }[];
+  } | null>(null);
+  const [confirmRestore, setConfirmRestore] = useState<
+    { kind: 'live' } | { kind: 'visit'; id: string; label: string; when: string } | null
+  >(null);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
@@ -86,21 +101,34 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const [trashOpen, setTrashOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!open || !user || !restoreOpen) return;
+    let cancelled = false;
+    setRestoreLoading(true);
+    void listCloudRestorePoints()
+      .then((points) => {
+        if (cancelled) return;
+        setRestorePoints(points);
+        setRestoreLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRestorePoints({ live: null, visits: [] });
+        setRestoreLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user, restoreOpen, listCloudRestorePoints]);
+
   if (!open) return null;
 
   const handleExport = async () => {
     try {
-      const jsonStr = await exportBackup();
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `YouDO_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setMsg({ text: '✓ Backup JSON exported successfully!' });
+      const status = await exportBackup();
+      setMsg({ text: status });
     } catch {
-      setMsg({ text: '✗ Failed to export backup.', error: true });
+      setMsg({ text: 'Failed to export backup.', error: true });
     }
   };
 
@@ -121,9 +149,9 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   };
 
   return (
+    <Overlay open={open} onClose={onClose} align="full">
     <div
-      className="fixed inset-0 z-50 bg-base page-slide-in flex flex-col overflow-hidden w-full h-full"
-      style={{ maxWidth: '28rem', marginLeft: 'auto', marginRight: 'auto', left: 0, right: 0 }}
+      className="h-full w-full max-w-md mx-auto bg-base page-slide-in flex flex-col overflow-hidden border-x border-subtle"
     >
       {/* ── 1. Clean Top Bar ── */}
       <div
@@ -137,7 +165,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-[16px] font-black text-content-primary leading-tight">Settings</h1>
+        <h1 className="text-[16px] font-semibold text-content-primary leading-tight">Settings</h1>
       </div>
 
       {/* ── 2. Scrollable Body ── */}
@@ -171,7 +199,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                       {user.user_metadata?.avatar_url || '🎓'}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-xs font-black text-content-primary truncate">
+                      <h3 className="text-xs font-semibold text-content-primary truncate">
                         {user.user_metadata?.full_name || 'Aspirant'}
                       </h3>
                       <p className="text-[11px] text-content-secondary font-medium truncate">{user.email}</p>
@@ -206,7 +234,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 {editProfileOpen && (
                   <div className="p-4 bg-base space-y-3 animate-fade-in">
                     <div>
-                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-content-muted mb-1">
+                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
                         Full Name
                       </label>
                       <input
@@ -218,7 +246,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-extrabold uppercase tracking-widest text-content-muted mb-1">
+                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
                         Avatar Icon Preset
                       </label>
                       <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
@@ -264,24 +292,104 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                           : { text: `✗ ${res.error || 'Failed to sync.'}`, error: true },
                       );
                     }}
-                    className="py-2 px-3 rounded-xl bg-primary-soft hover:bg-primary-soft text-primary-glow text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition active:scale-95"
+                    className="py-2 px-3 rounded-xl bg-primary-soft hover:bg-primary-soft text-primary-glow text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
                   >
                     <Upload size={13} /> Sync Cloud Now
                   </button>
                   <button
-                    onClick={async () => {
-                      const ok = await restoreFromCloud();
-                      setMsg(
-                        ok
-                          ? { text: '✓ Restored from Cloud!' }
-                          : { text: '✗ No Cloud Backup found.', error: true },
-                      );
+                    onClick={() => {
+                      setConfirmRestore(null);
+                      setRestoreOpen((v) => !v);
                     }}
-                    className="py-2 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition active:scale-95"
+                    className="py-2 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-[11px] font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
                   >
-                    <Download size={13} /> Restore Cloud
+                    <History size={13} /> Restore Cloud
                   </button>
                 </div>
+
+                {restoreOpen && (
+                  <div className="px-3 pb-3 space-y-2 animate-fade-in">
+                    <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed px-0.5">
+                      Latest is what is in the cloud now. The other copies were frozen each time you opened the app (last 3 visits). Restoring replaces goals, tasks, and session stats on this device.
+                    </p>
+                    {restoreLoading && (
+                      <p className="text-[11px] text-content-muted font-medium px-1">Loading copies…</p>
+                    )}
+                    {!restoreLoading && restorePoints && !restorePoints.live && restorePoints.visits.length === 0 && (
+                      <p className="text-[11px] text-content-secondary font-medium px-1">No cloud backup found yet.</p>
+                    )}
+                    {!restoreLoading && restorePoints?.live && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRestore({ kind: 'live' })}
+                        className="w-full text-left p-3 rounded-xl bg-base border border-subtle hover:border-primary/40 transition"
+                      >
+                        <div className="text-[11px] font-semibold text-content-primary">Latest cloud</div>
+                        <div className="text-[10px] text-content-secondary mt-0.5">
+                          Includes this visit · {formatBackupStamp(restorePoints.live.updatedAt)}
+                        </div>
+                      </button>
+                    )}
+                    {!restoreLoading &&
+                      restorePoints?.visits.map((visit, index) => (
+                        <button
+                          key={visit.id}
+                          type="button"
+                          onClick={() =>
+                            setConfirmRestore({
+                              kind: 'visit',
+                              id: visit.id,
+                              label: visitSnapshotLabel(index),
+                              when: formatBackupStamp(visit.createdAt),
+                            })
+                          }
+                          className="w-full text-left p-3 rounded-xl bg-base border border-subtle hover:border-primary/40 transition"
+                        >
+                          <div className="text-[11px] font-semibold text-content-primary">{visitSnapshotLabel(index)}</div>
+                          <div className="text-[10px] text-content-secondary mt-0.5">{formatBackupStamp(visit.createdAt)}</div>
+                        </button>
+                      ))}
+                    {confirmRestore && (
+                      <div className="rounded-xl bg-error-soft border border-error/20 p-3 space-y-2">
+                        <div className="flex items-center gap-2 text-error font-semibold text-[12px]">
+                          <AlertTriangle size={14} className="shrink-0" />
+                          Replace current data?
+                        </div>
+                        <p className="text-[11px] text-error/75 font-medium leading-relaxed">
+                          {confirmRestore.kind === 'live'
+                            ? 'Restore the latest cloud copy. Anything only on this device since the last sync will be lost.'
+                            : `Restore “${confirmRestore.label}” from ${confirmRestore.when}. Work after that copy will be lost.`}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              const ok =
+                                confirmRestore.kind === 'live'
+                                  ? await restoreFromCloud()
+                                  : await restoreFromVisitSnapshot(confirmRestore.id);
+                              setConfirmRestore(null);
+                              setRestoreOpen(false);
+                              setMsg(
+                                ok
+                                  ? { text: '✓ Restored from cloud copy.' }
+                                  : { text: '✗ Could not restore that copy.', error: true },
+                              );
+                            }}
+                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-error hover:bg-error-soft transition"
+                          >
+                            Restore this copy
+                          </button>
+                          <button
+                            onClick={() => setConfirmRestore(null)}
+                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Account Danger Action */}
                 <div className="p-3 flex justify-end">
@@ -294,7 +402,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                     </button>
                   ) : (
                     <div className="w-full rounded-xl bg-error-soft p-3 space-y-2 fade-in">
-                      <div className="flex items-center gap-2 text-error font-extrabold text-[11px]">
+                      <div className="flex items-center gap-2 text-error font-semibold text-[11px]">
                         <AlertTriangle size={13} /> Delete Account &amp; Reset Data?
                       </div>
                       <div className="flex gap-2">
@@ -327,7 +435,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                     <User size={18} />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-content-primary">Guest Mode (Offline)</h3>
+                    <h3 className="text-xs font-semibold text-content-primary">Guest mode</h3>
                     <p className="text-[11px] text-content-secondary font-medium leading-snug mt-0.5">
                       Sign in to sync your goals and focus analytics seamlessly across devices.
                     </p>
@@ -337,13 +445,13 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     onClick={() => onOpenAuth?.('signin')}
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-primary hover:bg-primary-glow active:scale-95 text-white text-xs font-extrabold shadow-md shadow-sm flex items-center justify-center gap-1.5 transition"
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5"
                   >
                     <LogIn size={14} /> Sign In
                   </button>
                   <button
                     onClick={() => onOpenAuth?.('signup')}
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-surface hover:bg-elevated active:scale-95 text-content-primary text-xs font-extrabold flex items-center justify-center gap-1.5 transition"
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-surface hover:bg-elevated active:scale-95 text-content-primary text-xs font-semibold flex items-center justify-center gap-1.5 transition"
                   >
                     <UserPlus size={14} className="text-primary" /> Create Account
                   </button>
@@ -362,7 +470,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
               </div>
               <div>
-                <h3 className="text-xs font-black text-content-primary">Interface Theme</h3>
+                <h3 className="text-xs font-semibold text-content-primary">Theme</h3>
                 <p className="text-[10.5px] text-content-secondary font-medium">Dark or Light look</p>
               </div>
             </div>
@@ -372,9 +480,9 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               <button
                 type="button"
                 onClick={() => setTheme({ darkMode: true })}
-                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
                   theme.darkMode
-                    ? 'bg-primary text-white shadow-xs'
+                    ? 'bg-primary text-on-primary'
                     : 'text-content-secondary hover:text-content-primary'
                 }`}
               >
@@ -383,9 +491,9 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               <button
                 type="button"
                 onClick={() => setTheme({ darkMode: false })}
-                className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
                   !theme.darkMode
-                    ? 'bg-accent text-white shadow-xs'
+                    ? 'bg-primary text-on-primary'
                     : 'text-content-secondary hover:text-content-primary'
                 }`}
               >
@@ -409,7 +517,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <div className="flex items-center gap-3">
                   <Trash2 size={16} className="text-primary shrink-0" />
                   <div>
-                    <h3 className="text-xs font-black text-content-primary">Recently Deleted Goals</h3>
+                    <h3 className="text-xs font-semibold text-content-primary">Recently Deleted Goals</h3>
                     <p className="text-[10.5px] text-content-secondary font-medium">
                       {recentlyDeletedGoals.length} {recentlyDeletedGoals.length === 1 ? 'item' : 'items'} in trash
                     </p>
@@ -477,13 +585,13 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               <div className="flex items-center gap-3">
                 <Download size={16} className="text-primary shrink-0" />
                 <div>
-                  <h3 className="text-xs font-black text-content-primary">Export Backup (JSON)</h3>
+                  <h3 className="text-xs font-semibold text-content-primary">Export Backup (JSON)</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">Download offline JSON snapshot</p>
                 </div>
               </div>
               <button
                 onClick={handleExport}
-                className="py-1.5 px-3 rounded-xl bg-primary-soft hover:bg-primary-soft text-primary-glow text-xs font-extrabold transition active:scale-95"
+                className="py-1.5 px-3 rounded-xl bg-primary-soft hover:bg-primary-soft text-primary-glow text-xs font-semibold transition active:scale-95"
               >
                 Export
               </button>
@@ -494,7 +602,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
               <div className="flex items-center gap-3">
                 <Upload size={16} className="text-secondary shrink-0" />
                 <div>
-                  <h3 className="text-xs font-black text-content-primary">Import Backup (JSON)</h3>
+                  <h3 className="text-xs font-semibold text-content-primary">Import Backup (JSON)</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">Restore state from file</p>
                 </div>
               </div>
@@ -503,7 +611,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                   setMsg(null);
                   setConfirmImport(true);
                 }}
-                className="py-1.5 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-xs font-extrabold transition active:scale-95"
+                className="py-1.5 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-xs font-semibold transition active:scale-95"
               >
                 Import
               </button>
@@ -523,7 +631,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
 
           {confirmImport && (
             <div className="rounded-2xl bg-error-soft border border-error/20 p-3.5 space-y-2.5 animate-fade-in">
-              <div className="flex items-center gap-2 text-error font-extrabold text-[12px]">
+              <div className="flex items-center gap-2 text-error font-semibold text-[12px]">
                 <AlertTriangle size={14} className="shrink-0" />
                 Replace ALL current data?
               </div>
@@ -562,7 +670,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <div className="flex items-center gap-3">
                   <Sparkles size={16} className="text-primary shrink-0" />
                   <div>
-                    <h3 className="text-xs font-black text-content-primary">About YouDO Architecture</h3>
+                    <h3 className="text-xs font-semibold text-content-primary">About YouDO Architecture</h3>
                     <p className="text-[10.5px] text-content-secondary font-medium">Design rationale &amp; key features</p>
                   </div>
                 </div>
@@ -600,7 +708,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <div className="flex items-center gap-3">
                   <Zap size={16} className="text-accent shrink-0" />
                   <div>
-                    <h3 className="text-xs font-black text-content-primary">Aspirant Execution Guide</h3>
+                    <h3 className="text-xs font-semibold text-content-primary">Aspirant Execution Guide</h3>
                     <p className="text-[10.5px] text-content-secondary font-medium">Step-by-step onboarding walkthrough</p>
                   </div>
                 </div>
@@ -619,7 +727,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                       const IconComp = step.icon;
                       return (
                         <div key={idx} className="p-3 rounded-xl bg-elevated border border-subtle space-y-1">
-                          <div className="flex items-center gap-2 text-xs font-black text-content-primary">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-content-primary">
                             <IconComp size={14} className="text-primary shrink-0" />
                             {step.title}
                           </div>
@@ -637,5 +745,6 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
         </section>
       </div>
     </div>
+    </Overlay>
   );
 }

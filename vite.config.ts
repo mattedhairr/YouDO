@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -59,8 +60,8 @@ export default defineConfig({
         name: 'YouDO',
         short_name: 'YouDO',
         description: 'Execution & Goal Tracker',
-        theme_color: '#0A0C12',
-        background_color: '#0A0C12',
+        theme_color: '#11100E',
+        background_color: '#11100E',
         display: 'standalone',
         display_override: ['standalone', 'minimal-ui'],
         orientation: 'portrait',
@@ -98,6 +99,10 @@ export default defineConfig({
   ],
   optimizeDeps: {
     exclude: ['lucide-react'],
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
   },
 });
 

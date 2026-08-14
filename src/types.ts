@@ -85,4 +85,6 @@ export interface ActiveSession {
   lastHeartbeat: number;         // updated every 30s; used for crash recovery
   pauses: SessionPause[];
   wallClockStart: string;        // "8:12 AM"
+  /** Set when user resumes an interrupted session; 4h auto-pause is measured from this, not phone-off time */
+  returnedAt?: number;
 }

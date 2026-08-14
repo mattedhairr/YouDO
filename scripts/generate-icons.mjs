@@ -9,7 +9,7 @@ const resDir = join(__dirname, '..', 'android', 'app', 'src', 'main', 'res');
 const svgPath = join(publicDir, 'icon.svg');
 const svgBuffer = readFileSync(svgPath);
 
-const bgColor = { r: 11, g: 15, b: 23, alpha: 1 }; // #0B0F17
+const bgColor = { r: 17, g: 16, b: 14, alpha: 1 }; // #11100E
 
 async function generateMaskableIcon(size, targetPath) {
   const iconPadded = await sharp(svgBuffer)

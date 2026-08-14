@@ -12,6 +12,7 @@ export default {
         'primary': 'var(--primary)',
         'primary-soft': 'var(--primary-soft)',
         'primary-glow': 'var(--primary-glow)',
+        'on-primary': 'var(--on-primary)',
         
         'secondary': 'var(--secondary)',
         'secondary-soft': 'var(--secondary-soft)',

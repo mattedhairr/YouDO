@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 
 export interface Theme {
   darkMode: boolean;
@@ -10,7 +11,7 @@ export const DEFAULT_THEME: Theme = {
 };
 
 export function useTheme() {
-  const [theme, setTheme] = useLocalStorage<Theme>('tudo-theme-v4', DEFAULT_THEME);
+  const [theme, setTheme] = useLocalStorage<Theme>(STORAGE_KEYS.theme, DEFAULT_THEME);
 
   useEffect(() => {
     if (theme.darkMode) {
