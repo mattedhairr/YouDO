@@ -15,7 +15,6 @@ import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
 import { parseBackupPayload } from './lib/backup';
 import { clearClockIncident, guardWallClock, hasClockIncident } from './lib/deviceClock';
-import { todayISO } from './lib/dates';
 import { formatWallClock } from './lib/format';
 import {
   finalizeSession,
@@ -29,7 +28,9 @@ import {
   collectDescendantTaskIds,
   countSlicedDone,
   findGoal,
-  isBacklogTask,
+  isTaskComplete,
+  clearBacklogIfComplete,
+  restoreBacklogIfIncomplete,
   moveNodeInArray,
   removeNode,
   removeNodes,
@@ -37,6 +38,7 @@ import {
   sameTasks,
   sameTree,
   sanitizeTreeAndTasks,
+  syncLinkedTasksFromGoal,
   syncStepDone,
   updateNode,
 } from './lib/goalTree';
@@ -243,7 +245,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const totalSteps = t.steps.length > 0 ? t.steps.length : 1;
       if (t.progress >= totalSteps) return;
       const nextProgress = t.progress + 1;
-      setTasks((prev) => prev.map((x) => (x.id === id ? { ...x, progress: nextProgress } : x)));
+      setTasks((prev) =>
+        prev.map((x) => {
+          if (x.id !== id) return x;
+          const updated = { ...x, progress: nextProgress };
+          return clearBacklogIfComplete(updated);
+        }),
+      );
       if (t.goalNodeId) {
         setGoals((prev) =>
           prev.map((root) =>
@@ -267,7 +275,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const t = tasksRef.current.find((x) => x.id === id);
       if (!t) return;
       const nextProgress = Math.max(0, t.progress - 1);
-      setTasks((prev) => prev.map((x) => (x.id === id ? { ...x, progress: nextProgress } : x)));
+      setTasks((prev) =>
+        prev.map((x) => {
+          if (x.id !== id) return x;
+          return restoreBacklogIfIncomplete({ ...x, progress: nextProgress });
+        }),
+      );
       if (t.goalNodeId) {
         setGoals((prev) =>
           prev.map((root) =>
@@ -340,18 +353,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (id: string, patch: (n: GoalNode) => GoalNode) => {
       setGoals((prev) => prev.map((root) => updateNode(root, id, patch)));
       const oldNode = findGoal(goalsRef.current, id);
-      if (oldNode?.todayTaskId) {
-        const patched = patch(oldNode);
-        setTasks((prev) =>
-          prev.map((t) => {
-            if (t.id !== oldNode.todayTaskId) return t;
-            const slice = t.stepSlice ?? patched.steps?.map((_, i) => i) ?? [];
-            const newSteps = slice.map((idx) => patched.steps?.[idx] ?? `Step ${idx + 1}`);
-            const newProgress = countSlicedDone(patched, t.stepSlice);
-            return { ...t, steps: newSteps, progress: newProgress };
-          }),
-        );
-      }
+      if (!oldNode) return;
+      const patched = patch(oldNode);
+      setTasks((prev) => syncLinkedTasksFromGoal(prev, patched));
     },
     [setGoals, setTasks],
   );
@@ -505,12 +509,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           updateNode(root, nodeId, (n) => ({ ...n, stepDone: newStepDone, completed: allDone })),
         ),
       );
-      if (node.todayTaskId) {
-        const doneCount = newStepDone.filter(Boolean).length;
-        setTasks((prev) =>
-          prev.map((t) => (t.id === node.todayTaskId ? { ...t, progress: doneCount } : t)),
-        );
-      }
+      const patched: GoalNode = { ...node, stepDone: newStepDone, completed: allDone };
+      setTasks((prev) => syncLinkedTasksFromGoal(prev, patched));
     },
     [setGoals, setTasks],
   );
@@ -584,17 +584,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       );
 
-      if (node.todayTaskId) {
-        setTasks((prev) =>
-          prev.map((t) => {
-            if (t.id === node.todayTaskId) {
-              const maxProgress = t.steps.length > 0 ? t.steps.length : 1;
-              return { ...t, progress: nextCompleted ? maxProgress : 0 };
-            }
-            return t;
-          }),
-        );
-      }
+      const walk = (n: GoalNode, acc: GoalNode[]) => {
+        acc.push(n);
+        n.children.forEach((c) => walk(c, acc));
+      };
+      const patchedNodes: GoalNode[] = [];
+      walk(setCompletedTree(node, nextCompleted), patchedNodes);
+      setTasks((prev) => {
+        let next = prev;
+        for (const n of patchedNodes) next = syncLinkedTasksFromGoal(next, n);
+        return next;
+      });
     },
     [setGoals, setTasks],
   );
@@ -751,9 +751,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (hasClockIncident()) return;
     const existing = activeSessionRef.current;
     if (existing?.taskId === taskId) return;
-    if (existing) {
-      persistActiveSession({ completed: false, completedStepIndices: [] });
-    }
+    if (existing) return;
 
     const now = Date.now();
     const session: ActiveSession = {
@@ -766,24 +764,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       wallClockStart: formatWallClock(now),
     };
     setActiveSession(session);
-
-    // Move backlog task to today while keeping the tag
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId && isBacklogTask(t)) {
-          const isNative = !t.originalTargetDate;
-          return { 
-            ...t, 
-            originalTargetDate: t.targetDate, 
-            targetDate: todayISO(),
-            pastFailedNativeDates: isNative && t.targetDate ? [...(t.pastFailedNativeDates || []), t.targetDate] : t.pastFailedNativeDates,
-            pastFailedBacklogDates: !isNative && t.targetDate ? [...(t.pastFailedBacklogDates || []), t.targetDate] : t.pastFailedBacklogDates
-          };
-        }
-        return t;
-      }),
-    );
-  }, [persistActiveSession, setActiveSession, setTasks]);
+  }, [setActiveSession]);
 
   const pauseSession = useCallback(() => {
     setActiveSession((prev) => {
@@ -837,11 +818,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       setTasks((prevTasks) =>
         prevTasks.map((t) => {
-          if (t.id === prev.taskId && t.originalTargetDate) {
-            if (outcome.completed === false || outcome.completed === 'partial') {
-              const newT = { ...t, targetDate: t.originalTargetDate };
-              delete newT.originalTargetDate;
-              return newT;
+          if (t.id !== prev.taskId) return t;
+          if (outcome.completed === true) return clearBacklogIfComplete(t);
+          if (t.originalTargetDate && (outcome.completed === false || outcome.completed === 'partial')) {
+            if (!isTaskComplete({ ...t, progress: t.progress })) {
+              return {
+                ...t,
+                targetDate: t.originalTargetDate,
+                originalTargetDate: undefined,
+              };
             }
           }
           return t;
@@ -893,12 +878,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (!task.goalNodeId) {
         if (task.steps.length === 0) {
-          setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, progress: 1 } : x)));
+          setTasks((prev) => prev.map((x) => (x.id === taskId ? clearBacklogIfComplete({ ...x, progress: 1 }) : x)));
           return;
         }
         if (stepIndices.length === 0) return;
         const next = Math.min(task.steps.length, Math.max(task.progress, Math.max(...stepIndices) + 1));
-        setTasks((prev) => prev.map((x) => (x.id === taskId ? { ...x, progress: next } : x)));
+        setTasks((prev) => prev.map((x) => (x.id === taskId ? clearBacklogIfComplete({ ...x, progress: next }) : x)));
         return;
       }
 
@@ -940,7 +925,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       setTasks((prev) =>
-        prev.map((x) => x.id === taskId ? { ...x, progress: newProgress } : x)
+        prev.map((x) => (x.id === taskId ? clearBacklogIfComplete({ ...x, progress: newProgress }) : x))
       );
     },
     [setGoals, setTasks],

@@ -48,7 +48,7 @@ export default function CommandBar({
 
   return (
     <nav className="fixed bottom-3 inset-x-4 z-30 max-w-md mx-auto">
-      <div className="flex items-center gap-1 rounded-[14px] bg-elevated border border-subtle p-1.5 shadow-elevated">
+      <div className="flex items-center gap-0.5 rounded-[16px] bg-surface border border-subtle p-1 shadow-elevated">
         {batch ? (
           <>
             <span className="pl-2 text-[12px] font-semibold text-content-secondary shrink-0 tabular-nums">
@@ -95,23 +95,34 @@ export default function CommandBar({
                 <button
                   key={tab.id}
                   onClick={() => onNavigate(tab.id)}
-                  className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-medium transition-colors duration-200 ${
-                    active ? 'bg-primary-soft text-primary' : 'text-content-secondary hover:text-content-primary'
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[12px] text-[12px] transition-colors duration-200 ${
+                    active
+                      ? 'bg-primary text-on-primary font-semibold'
+                      : 'text-content-muted font-medium hover:text-content-primary hover:bg-elevated'
                   }`}
                 >
-                  <Icon size={16} />
+                  <Icon size={15} strokeWidth={active ? 2.4 : 2} />
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && (
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${
-                      active ? 'bg-primary text-on-primary' : 'bg-surface text-content-muted'
-                    }`}>
+                    <span
+                      className={`min-w-[18px] text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none tabular-nums ${
+                        active
+                          ? 'bg-base text-primary'
+                          : 'bg-elevated text-content-secondary'
+                      }`}
+                    >
                       {tab.badge}
                     </span>
                   )}
                 </button>
               );
             })}
-            <button onClick={onSettings} className="shrink-0 p-2.5 rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface" title="Settings">
+            <button
+              onClick={onSettings}
+              className="shrink-0 grid place-items-center size-10 rounded-[12px] text-content-muted hover:text-content-primary hover:bg-elevated"
+              title="Settings"
+            >
               <Settings size={17} />
             </button>
           </>

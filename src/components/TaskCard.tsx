@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2, Check } from 'lucide-react';
 import type { Priority, Task, ActiveSession, TaskSession } from '../types';
-import { isTaskComplete } from '../store';
+import { isBacklogTask, isTaskComplete } from '../store';
 import Overlay from './Overlay';
 import { computeNetFocusMs } from '../lib/sessionStats';
 
@@ -315,14 +315,14 @@ export default function TaskCard({
 
             {/* Date / Deadline / Description Row */}
             <div className="mt-2.5 flex items-center gap-3 text-[11px] text-content-secondary font-medium flex-wrap ml-3.5">
-              {task.originalTargetDate && (
+              <span className="inline-flex items-center gap-1">
+                <Calendar size={11} className="text-content-muted" /> {fmtDate(task.targetDate)}
+              </span>
+              {isBacklogTask(task) && (
                 <span className="inline-flex items-center font-semibold text-[10px] text-error bg-error-soft px-2 py-0.5 rounded-lg">
                   Backlog
                 </span>
               )}
-              <span className="inline-flex items-center gap-1">
-                <Calendar size={11} className="text-content-muted" /> {fmtDate(task.targetDate)}
-              </span>
               {task.deadline && (
                 <span className={`inline-flex items-center gap-1 font-semibold ${
                   new Date(task.deadline).getTime() < Date.now() ? 'text-error' : ''

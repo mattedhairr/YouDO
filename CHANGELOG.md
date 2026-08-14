@@ -4,6 +4,30 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+## [v3.0.2] — 2026-08-14 ("Execution, backlog honesty, and onboarding")
+
+### 🚀 Major Highlights
+- **Goals stay the source of truth**: edits in Goals (title, description, steps, completion) update every linked Today, Backlog, and Plan card. Those cards do not edit the goal backwards.
+- **Backlog is honest**: starting a session no longer moves a missed task onto Today. Misses stay in Backlog; the calendar keeps Failed on the original day and Completed + Backlog on the day you clear it.
+- **Focus lock**: only one session at a time. The running card pins to the top; other Today/Backlog cards cannot be tapped until you stop.
+
+### 🎨 Navigation & Goals
+- Command bar: solid brass active tab, muted idle tabs, dark count chip that reads on brass.
+- Goals: location chips instead of a sparse “All Goals” strip; tap anywhere on a phase/goal card to open it (actions still work).
+- Recently Deleted is its own Settings screen (not a 20-item dropdown). Goal deletes only — not standalone Today tasks.
+
+### 📘 First-run guides
+- **The three tabs** and **Getting started** open as full screens: interactive tab explainer, step-by-step walkthrough, sketches that match real Today cards. Backlog is described as automatic.
+- Guest account card is a clear “this device only / sign in” hero.
+
+### 📊 Copy
+- Session stats: Net focus, Duration, Average efficiency; clearer remaining / failed / completed step language.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.0.2**, versionCode **7**. Same package id — install over 3.0.1.
+
+---
+
 ## [v3.0.1] — 2026-08-14 ("Login clock check")
 
 ### 🚀 Major Highlights

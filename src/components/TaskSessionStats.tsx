@@ -9,6 +9,7 @@ interface Props {
   open: boolean;
   title: string;
   sessions: TaskSession[];
+  stepTotal?: number;
   onClose: () => void;
 }
 
@@ -18,28 +19,58 @@ function efficiencyColor(pct: number): string {
   return 'text-error';
 }
 
-function sessionNote(s: TaskSession): { kind: 'done' | 'failed'; text: string } {
+function remainingAfterSession(
+  remaining: number,
+  stepTotal: number,
+): string | null {
+  if (stepTotal <= 0 || remaining <= 0) return null;
+  if (remaining === 1) return '1 step task remaining to complete the whole task';
+  return `${remaining} step tasks remaining to complete the whole task`;
+}
+
+function remainingBySessionId(sessions: TaskSession[], stepTotal: number): Map<string, number> {
+  const map = new Map<string, number>();
+  if (stepTotal <= 0) return map;
+  const done = new Set<number>();
+  [...sessions].sort((a, b) => a.startTime - b.startTime).forEach((s) => {
+    (s.completedStepIndices ?? []).forEach((i) => done.add(i));
+    map.set(s.id, s.completed === true ? 0 : Math.max(0, stepTotal - done.size));
+  });
+  return map;
+}
+
+function sessionNote(
+  s: TaskSession,
+  stepTotal: number,
+): { kind: 'done' | 'failed'; text: string } {
   const marked = s.completedStepIndices?.length ?? 0;
   if (s.completed === true) {
     return {
       kind: 'done',
-      text: marked > 0 ? `Completed · ${marked} step${marked > 1 ? 's' : ''}` : 'Task completed',
+      text: marked > 0 ? `Completed · ${marked} step task${marked > 1 ? 's' : ''}` : 'Task completed',
     };
   }
   if (marked > 0) {
     return {
       kind: 'done',
-      text: `Marked ${marked} step${marked > 1 ? 's' : ''}`,
+      text: `Completed ${marked} step task${marked > 1 ? 's' : ''}`,
     };
   }
-  return { kind: 'failed', text: 'Failed to complete task or step' };
+  if (stepTotal <= 0) {
+    return { kind: 'failed', text: 'Failed to complete the task' };
+  }
+  if (stepTotal === 1) {
+    return { kind: 'failed', text: 'Failed to complete the step task' };
+  }
+  return { kind: 'failed', text: `Failed to complete any of ${stepTotal} step tasks` };
 }
 
-export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
+export function TaskSessionStats({ open, title, sessions, stepTotal = 0, onClose }: Props) {
   const [showHelp, setShowHelp] = useState(false);
 
   if (!open) return null;
 
+  const remainingMap = remainingBySessionId(sessions, stepTotal);
   const counted = sessions.filter(isCountableSession);
   const totalNFT = counted.reduce((acc, s) => acc + s.netFocusMs, 0);
   const totalDurationMs = counted.reduce((acc, s) => acc + (s.endTime - s.startTime), 0);
@@ -89,10 +120,10 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
           {showHelp && (
             <div className="bg-surface border border-subtle rounded-[12px] p-3.5 space-y-2 text-[12px] text-content-secondary leading-relaxed">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">How stats work</p>
-              <p><span className="font-semibold text-content-primary">TNF</span> is total net focus: time the session was running and not paused.</p>
+              <p><span className="font-semibold text-content-primary">Net focus</span> is time the session was running and not paused.</p>
               <p><span className="font-semibold text-content-primary">Total duration</span> is start-to-stop time, including pauses.</p>
-              <p><span className="font-semibold text-content-primary">Avg efficiency</span> is the average of each session’s TNF ÷ duration. Pauses lower efficiency; finishing the task does not change it.</p>
-              <p>Each session below is a record of that sitting. If you marked the task or a step, it is listed. If you stopped without marking anything, you will see “Failed to complete task or step.” The time still counts in TNF.</p>
+              <p><span className="font-semibold text-content-primary">Average efficiency</span> is the average of each session’s net focus ÷ duration. Pauses lower efficiency; finishing the task does not change it.</p>
+              <p>Each session below is a record of that sitting. If you completed the task or a step task, it is listed. If you stopped without completing anything, you will see a failed message and how many step tasks remain. The time still counts in net focus.</p>
               <p>Sessions under 15 seconds of focus are ignored in the summary so mis-taps do not inflate the numbers.</p>
             </div>
           )}
@@ -113,15 +144,15 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted mb-3">Summary</p>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-primary-soft rounded-[10px] p-3 text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-1">TNF</p>
+                    <p className="text-[10px] font-semibold tracking-wider text-primary mb-1">Net focus</p>
                     <p className="text-lg font-semibold text-primary tabular-nums">{formatDuration(totalNFT)}</p>
                   </div>
                   <div className="bg-base rounded-[10px] border border-subtle p-3 text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted mb-1">Duration</p>
+                    <p className="text-[10px] font-semibold tracking-wider text-content-muted mb-1">Duration</p>
                     <p className="text-lg font-semibold text-content-primary tabular-nums">{formatDuration(totalDurationMs)}</p>
                   </div>
                   <div className="bg-base rounded-[10px] border border-subtle p-3 text-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted mb-1">Avg eff.</p>
+                    <p className="text-[10px] font-semibold tracking-wider text-content-muted mb-1 leading-tight">Average efficiency</p>
                     <p className={`text-lg font-semibold tabular-nums ${efficiencyColor(avgEff)}`}>{avgEff}%</p>
                   </div>
                 </div>
@@ -141,7 +172,8 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                     const durationMs = s.endTime - s.startTime;
                     const countable = isCountableSession(s);
                     const eff = sessionEfficiency(s.netFocusMs, durationMs);
-                    const note = sessionNote(s);
+                    const note = sessionNote(s, stepTotal);
+                    const remainingText = remainingAfterSession(remainingMap.get(s.id) ?? stepTotal, stepTotal);
 
                     return (
                       <div
@@ -162,9 +194,14 @@ export function TaskSessionStats({ open, title, sessions, onClose }: Props) {
                           </span>
                         </div>
                         {countable ? (
-                          <p className={`mt-2 text-[11px] leading-snug ${note.kind === 'failed' ? 'text-error' : 'text-secondary'}`}>
-                            {note.text}
-                          </p>
+                          <div className="mt-2 space-y-0.5">
+                            <p className={`text-[11px] leading-snug ${note.kind === 'failed' ? 'text-error' : 'text-secondary'}`}>
+                              {note.text}
+                            </p>
+                            {remainingText && (
+                              <p className="text-[11px] leading-snug text-content-muted">{remainingText}</p>
+                            )}
+                          </div>
                         ) : (
                           <p className="mt-2 text-[11px] text-content-muted">Accidental session — not in summary</p>
                         )}

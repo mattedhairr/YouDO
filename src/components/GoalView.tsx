@@ -220,33 +220,44 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
   return (
     <div className="fade-in pb-20">
-      {/* Sticky Top Glass Breadcrumb Header */}
-      <div className="sticky top-0 z-30 no-swipe rounded-b-[16px] -mt-4 mb-5 mx-0 px-4 py-3 bg-base/95 flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap border-b border-subtle">
-        <button
-          onClick={goRoot}
-          className={`text-[13px] font-bold transition-all shrink-0 ${
-            path.length === 0
-              ? 'text-content-primary'
-              : 'text-content-secondary hover:text-primary  '
-          }`}
+      <div className="sticky top-0 z-30 no-swipe -mt-4 mb-5 pt-1 pb-3 bg-base/95">
+        <nav
+          aria-label="Goal location"
+          className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-[12px] border border-subtle bg-surface px-1.5 py-1.5"
         >
-          All Goals
-        </button>
-        {path.map((n, i) => (
-          <div key={n.id} className="flex items-center gap-2 shrink-0">
-            <span className="text-content-muted font-light text-[13px]">/</span>
-            <button
-              onClick={() => goTo(i)}
-              className={`text-[13px] font-bold transition-all max-w-[160px] truncate ${
-                i === path.length - 1
-                  ? 'text-primary'
-                  : 'text-content-secondary hover:text-primary  '
-              }`}
-            >
-              {n.title}
-            </button>
-          </div>
-        ))}
+          <button
+            onClick={goRoot}
+            className={`shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[12px] font-semibold transition-colors ${
+              path.length === 0
+                ? 'bg-primary-soft text-primary'
+                : 'text-content-secondary hover:bg-elevated hover:text-content-primary'
+            }`}
+          >
+            <Target size={13} strokeWidth={2.25} />
+            Goals
+          </button>
+          {path.map((n, i) => {
+            const MetaIcon = kindMeta[n.kind].icon;
+            const isHere = i === path.length - 1;
+            return (
+              <div key={n.id} className="flex items-center gap-1 shrink-0 min-w-0">
+                <ChevronRight size={14} className="text-content-muted shrink-0" />
+                <button
+                  onClick={() => goTo(i)}
+                  title={n.title}
+                  className={`inline-flex items-center gap-1.5 h-8 max-w-[168px] px-2.5 rounded-lg text-[12px] font-semibold truncate transition-colors ${
+                    isHere
+                      ? 'bg-primary-soft text-primary'
+                      : 'text-content-secondary hover:bg-elevated hover:text-content-primary'
+                  }`}
+                >
+                  <MetaIcon size={12} className="shrink-0" />
+                  <span className="truncate">{n.title}</span>
+                </button>
+              </div>
+            );
+          })}
+        </nav>
       </div>
 
       {/* Pinned/Favorites section */}
@@ -400,6 +411,8 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             <div
               key={child.id}
               id={`goal-node-${child.id}`}
+              role={canDrill ? 'button' : undefined}
+              tabIndex={canDrill ? 0 : undefined}
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', child.id);
@@ -414,7 +427,19 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 setDragId(null);
                 setOverId(null);
               }}
+              onClick={() => {
+                if (canDrill) drillInto(child);
+              }}
+              onKeyDown={(e) => {
+                if (!canDrill) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  drillInto(child);
+                }
+              }}
               className={`px-3.5 py-3.5 flex flex-col gap-3 bg-surface ${
+                canDrill ? 'cursor-pointer' : ''
+              } ${
                 !isLast ? 'border-b border-subtle' : ''
               } ${
                 isHighlighted
@@ -429,15 +454,13 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   <input
                     type="checkbox"
                     checked={isSelected}
+                    onClick={(e) => e.stopPropagation()}
                     onChange={() => toggleSelect(child.id)}
                     className="w-4 h-4 rounded accent-primary cursor-pointer shrink-0"
                     title="Select for batch operations"
                   />
                 )}
-                <div
-                  className={`flex-1 min-w-0 flex items-center gap-2 ${canDrill ? 'cursor-pointer' : ''}`}
-                  onClick={() => canDrill && drillInto(child)}
-                >
+                <div className="flex-1 min-w-0 flex items-center gap-2">
                   <Icon size={15} style={{ color: meta.tint }} className="shrink-0" />
                   <h3 className={`text-[14.5px] font-semibold leading-snug truncate ${isDone ? 'line-through text-content-muted' : 'text-content-primary'}`}>
                     {child.title}
@@ -448,13 +471,9 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   {pct}%
                 </span>
                 {canDrill && (
-                  <button
-                    onClick={() => drillInto(child)}
-                    className="p-1 -mr-1 rounded-lg text-content-muted hover:text-content-primary"
-                    title={`Open ${meta.label}`}
-                  >
+                  <span className="p-1 -mr-1 rounded-lg text-content-muted" aria-hidden>
                     <ChevronRight size={16} />
-                  </button>
+                  </span>
                 )}
               </div>
 
@@ -488,7 +507,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   {child.steps!.map((s, i) => (
                     <button
                       key={i}
-                      onClick={(e) => { e.stopPropagation(); toggleGoalStep(child.id, i); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleGoalStep(child.id, i);
+                      }}
                       className={`max-w-full text-[10px] font-medium leading-none px-1.5 py-1 rounded-md border truncate ${
                         stepDone[i]
                           ? 'bg-elevated border-subtle text-content-muted line-through'
@@ -504,21 +526,30 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
               <div className="flex items-center gap-1 pt-1">
                 <button
-                  onClick={() => togglePin(child.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePin(child.id);
+                  }}
                   className={`p-2 rounded-[10px] ${child.pinned ? 'text-primary bg-primary-soft' : 'text-content-muted hover:text-content-primary hover:bg-elevated'}`}
                   title={child.pinned ? 'Unpin' : 'Pin'}
                 >
                   {child.pinned ? <Star size={14} className="fill-primary" /> : <Pin size={14} />}
                 </button>
                 <button
-                  onClick={() => onEditNode(child)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditNode(child);
+                  }}
                   className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
                   title="Edit"
                 >
                   <Pencil size={14} />
                 </button>
                 <button
-                  onClick={() => onCopy(child.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCopy(child.id);
+                  }}
                   className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
                   title="Copy"
                 >
@@ -538,7 +569,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 )}
                 {onViewStats && nodeHasStats(child) && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onViewStats(child.id, child.title); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewStats(child.id, child.title);
+                    }}
                     className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
                     title="Stats"
                   >
@@ -550,7 +584,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
                 {isTaskKind && (
                   <button
-                    onClick={() => toggleNodeCompletion(child.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleNodeCompletion(child.id);
+                    }}
                     className={`h-8 px-2.5 rounded-[10px] text-[11px] font-medium border ${
                       isDone
                         ? 'bg-secondary-soft text-secondary border-subtle'
@@ -566,14 +603,20 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   isScheduled ? (
                     <>
                       <button
-                        onClick={() => onPushNode(child)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPushNode(child);
+                        }}
                         className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium border border-subtle text-primary"
                         title="Replan"
                       >
                         Replan
                       </button>
                       <button
-                        onClick={() => child.todayTaskId && onUnplan(child.todayTaskId)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (child.todayTaskId) onUnplan(child.todayTaskId);
+                        }}
                         className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium bg-error-soft text-error border border-subtle"
                         title="Unschedule"
                       >
@@ -582,7 +625,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                     </>
                   ) : (
                     <button
-                      onClick={() => onPushNode(child)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPushNode(child);
+                      }}
                       className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium btn-primary"
                       title={isBacklogged ? 'Schedule backlogged task' : 'Schedule'}
                     >

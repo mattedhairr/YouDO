@@ -202,6 +202,11 @@ button {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.guide-stagger {
+  animation: fade-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--d, 0) * 90ms);
+}
+
 .sheet-up {
   animation: sheet-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -240,6 +245,7 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .fade-in,
+  .guide-stagger,
   .sheet-up,
   .slide-in-left,
   .slide-in-right,
@@ -274,6 +280,7 @@ button {
 .card-dimmed {
   opacity: 0.42;
   filter: grayscale(0.15);
+  pointer-events: none;
 }
 
 .card-session-active {

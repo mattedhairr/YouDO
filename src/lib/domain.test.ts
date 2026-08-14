@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, localISODate, todayISO } from './dates';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, finalizeSession, isCountableSession, splitSessionByLocalDate, clampSessionEnd } from './sessionStats';
-import { clearRollupCache, cloneNode, isBacklogTask, isTaskComplete, rollupPct, sanitizeTreeAndTasks } from './goalTree';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks } from './goalTree';
 import type { GoalNode, Task } from '../types';
 
 describe('dates', () => {
@@ -138,6 +138,32 @@ describe('goal tree', () => {
     expect(isBacklogTask({ ...task, progress: 1 })).toBe(false);
   });
 
+  it('keeps catch-up work in backlog until the next day, and stamps the miss on complete', () => {
+    const today = todayISO();
+    const overdue: Task = {
+      id: 't1',
+      title: 'Read',
+      description: '',
+      priority: 'medium',
+      targetDate: '2000-01-12',
+      deadline: null,
+      steps: [],
+      progress: 0,
+      createdAt: 1,
+      order: 0,
+    };
+    expect(isBacklogTask(overdue, today)).toBe(true);
+    const startedButNotMoved = { ...overdue, originalTargetDate: '2000-01-12', targetDate: today };
+    expect(isBacklogTask(startedButNotMoved, today)).toBe(true);
+
+    const cleared = clearBacklogIfComplete({ ...overdue, progress: 1 }, today);
+    expect(cleared.targetDate).toBe(today);
+    expect(cleared.originalTargetDate).toBe('2000-01-12');
+    expect(cleared.pastFailedNativeDates).toEqual(['2000-01-12']);
+    expect(isBacklogTask(cleared, today)).toBe(true);
+    expect(isBacklogTask(cleared, '2000-01-15')).toBe(false);
+  });
+
   it('clears stale todayTaskId pointers and duplicate ids', () => {
     const goals: GoalNode[] = [
       {
@@ -160,6 +186,44 @@ describe('goal tree', () => {
     expect(copy.id).not.toBe(node.id);
     expect(copy.todayTaskId).toBeNull();
     expect(copy.pinned).toBe(false);
+  });
+
+  it('mirrors goal title, description, and steps onto linked today/calendar cards', () => {
+    const node = leaf({
+      id: 'leaf',
+      title: 'DPP-2',
+      description: 'New notes',
+      steps: ['Q1-12', 'Q13-20'],
+      stepDone: [true, false],
+    });
+    const todayCard: Task = {
+      id: 't-today',
+      title: 'DPP-1',
+      description: 'Old',
+      priority: 'medium',
+      targetDate: '2026-08-14',
+      deadline: null,
+      steps: ['Q : 1-12'],
+      progress: 1,
+      createdAt: 1,
+      order: 0,
+      goalNodeId: 'leaf',
+    };
+    const calendarDone: Task = {
+      ...todayCard,
+      id: 't-old',
+      targetDate: '2026-08-10',
+      progress: 1,
+    };
+    const standalone: Task = { ...todayCard, id: 't-quick', goalNodeId: undefined, title: 'Stay' };
+    expect(mirrorGoalContentToTask(todayCard, node).title).toBe('DPP-2');
+    expect(mirrorGoalContentToTask(todayCard, node).description).toBe('New notes');
+    expect(mirrorGoalContentToTask(todayCard, node).steps).toEqual(['Q1-12', 'Q13-20']);
+    expect(mirrorGoalContentToTask(todayCard, node).progress).toBe(1);
+    expect(mirrorGoalContentToTask(calendarDone, node).title).toBe('DPP-2');
+    expect(mirrorGoalContentToTask(standalone, node).title).toBe('Stay');
+    const stepless = leaf({ id: 'leaf', title: 'Essay', completed: true, steps: [] });
+    expect(mirrorGoalContentToTask({ ...todayCard, steps: [], progress: 0 }, stepless).progress).toBe(1);
   });
 });
 
