@@ -4,12 +4,16 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
-## [v3.1.0] — 2026-08-14 ("Execution, backlog honesty, and onboarding")
+## [v3.1.0] — 2026-08-14 ("The 3.x public drop")
+
+First **public 3.x APK**. v3.0.0 and v3.0.1 were never published as GitHub Releases — this build includes that work plus execution, backlog, and onboarding. Install over **2.3.0** (same package id).
 
 ### 🚀 Major Highlights
+- **Visual identity**: Brass-and-sage theme, new launcher icon, full-viewport overlay blur.
 - **Goals stay the source of truth**: edits in Goals (title, description, steps, completion) update every linked Today, Backlog, and Plan card. Those cards do not edit the goal backwards.
 - **Backlog is honest**: starting a session no longer moves a missed task onto Today. Misses stay in Backlog; the calendar keeps Failed on the original day and Completed + Backlog on the day you clear it.
 - **Focus lock**: only one session at a time. The running card pins to the top; other Today/Backlog cards cannot be tapped until you stop.
+- **Sign-in clock**: login is not blocked just because the WebView hid the HTTP `Date` header. Only a proven skewed clock is blocked.
 
 ### 🎨 Navigation & Goals
 - Command bar: solid brass active tab, muted idle tabs, dark count chip that reads on brass.
@@ -20,22 +24,24 @@ All notable changes to the **YouDO** project will be documented in this file.
 - **The three tabs** and **Getting started** open as full screens: interactive tab explainer, step-by-step walkthrough, sketches that match real Today cards. Backlog is described as automatic.
 - Guest account card is a clear “this device only / sign in” hero.
 
-### 📊 Copy
-- Session stats: Net focus, Duration, Average efficiency; clearer remaining / failed / completed step language.
+### 📊 Sessions & copy
+- Honest session time (no silent overwrite, drop sub-15s accidents, midnight split).
+- Stats labels: Net focus, Duration, Average efficiency; clearer remaining / failed / completed step language.
+- Nimsdai quote restored in the header.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.1.0**, versionCode **7**. Same package id — install over 3.0.1.
+- **Android APK**: versionName **3.1.0**, versionCode **7**. Same package id `com.mattedhairr.youdo` — install over 2.x / any unreleased 3.0 internal build.
 
 ---
 
-## [v3.0.1] — 2026-08-14 ("Login clock check")
+## [v3.0.1] — 2026-08-14 ("Login clock check") *not published as a GitHub Release*
 
 ### 🚀 Major Highlights
 - **Sign-in no longer blocked by a false clock error**: browsers hide the HTTP `Date` header, so the old check treated “could not read server time” as a failed clock. Login now proceeds unless the device is **proven** skewed.
 
 ---
 
-## [v3.0.0] — 2026-08-14 ("The Identity & Reliability Release")
+## [v3.0.0] — 2026-08-14 ("The Identity & Reliability Release") *not published as a GitHub Release*
 
 ### 🚀 Major Highlights
 - **Full Visual Identity**: Brass-and-sage theme (dark charcoal + dusky light), 12px corners, Figtree + IBM Plex Mono, and a new launcher/PWA icon that matches the in-app mark.
