@@ -53,7 +53,7 @@ export function SessionReconstructSheet({ open, task, session, onCancel, onWasNo
           <div>
             <h3 className="text-sm font-semibold text-content-primary">When did you actually stop?</h3>
             <p className="text-[12px] text-content-muted mt-0.5 leading-snug">
-              You left a session running. Mark what you finished and about when you stopped.
+              Drag to about when you actually stopped. If you fell asleep, discard this sitting instead.
             </p>
           </div>
           <button onClick={onCancel} className="p-1.5 rounded-lg text-content-muted hover:text-content-primary shrink-0">
@@ -137,7 +137,7 @@ export function SessionReconstructSheet({ open, task, session, onCancel, onWasNo
           onClick={onWasNotWorking}
           className="w-full mt-2 py-2.5 rounded-[12px] text-[13px] font-medium text-content-secondary"
         >
-          I wasn’t working — discard
+          I fell asleep — discard completely
         </button>
       </div>
     </Overlay>

@@ -31,7 +31,7 @@ export function useClockIntegrity() {
     resetClockSample();
     const sample = (source: 'tick' | 'resume') => {
       if (source === 'tick' && document.visibilityState === 'hidden') return;
-      const { jumped, slept } = noteClockSample();
+      const { jumped, slept } = noteClockSample(source);
       if (slept) return;
       if (!jumped) return;
       void (async () => {

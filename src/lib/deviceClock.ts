@@ -23,9 +23,27 @@ export function isLikelyAppSleep(
   return wallDelta > threshold && monoDelta >= 0 && monoDelta < CLOCK_SLEEP_MONO_MAX_MS;
 }
 
+/** Wall vs monotonic desync. Screen-lock sleep is a separate check — do not fold it in here. */
 export function isClockJump(wallDelta: number, monoDelta: number, threshold = CLOCK_SKEW_MS): boolean {
-  if (isLikelyAppSleep(wallDelta, monoDelta, threshold)) return false;
   return Math.abs(wallDelta - monoDelta) > threshold;
+}
+
+export type ClockSampleSource = 'tick' | 'resume' | 'guard';
+
+/**
+ * Sleep (WebView frozen) is only trusted after the app was in the background.
+ * The same wall/mono gap while visible is a real clock change.
+ */
+export function classifyClockGap(
+  wallDelta: number,
+  monoDelta: number,
+  source: ClockSampleSource,
+  threshold = CLOCK_SKEW_MS,
+): 'ok' | 'sleep' | 'jump' {
+  const fromBackground = source === 'resume';
+  if (fromBackground && isLikelyAppSleep(wallDelta, monoDelta, threshold)) return 'sleep';
+  if (isClockJump(wallDelta, monoDelta, threshold)) return 'jump';
+  return 'ok';
 }
 
 export function resetClockSample(): void {
@@ -35,7 +53,7 @@ export function resetClockSample(): void {
 }
 
 /** Compare wall clock vs monotonic time. Ignores the first sample after load. */
-export function noteClockSample(): { jumped: boolean; slept: boolean } {
+export function noteClockSample(source: ClockSampleSource = 'guard'): { jumped: boolean; slept: boolean } {
   const wall = Date.now();
   const mono = performance.now();
   const wallDelta = wall - lastWall;
@@ -46,10 +64,8 @@ export function noteClockSample(): { jumped: boolean; slept: boolean } {
     primed = true;
     return { jumped: false, slept: false };
   }
-  if (isLikelyAppSleep(wallDelta, monoDelta)) {
-    return { jumped: false, slept: true };
-  }
-  return { jumped: isClockJump(wallDelta, monoDelta), slept: false };
+  const kind = classifyClockGap(wallDelta, monoDelta, source);
+  return { jumped: kind === 'jump', slept: kind === 'sleep' };
 }
 
 export function markClockIncident(): void {
@@ -87,9 +103,9 @@ export function emitClockJump(): void {
  * while the app was actually running (not after screen lock).
  * Sleep gaps must not emit an incident or drop a session.
  */
-export function guardWallClock(): boolean {
+export function guardWallClock(source: ClockSampleSource = 'guard'): boolean {
   if (hasClockIncident()) return false;
-  const { jumped, slept } = noteClockSample();
+  const { jumped, slept } = noteClockSample(source);
   if (slept) return true;
   if (jumped) {
     emitClockJump();

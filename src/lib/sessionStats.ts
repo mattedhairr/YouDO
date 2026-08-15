@@ -59,6 +59,71 @@ export function lastResumeAt(session: ActiveSession): number {
   return session.startTime;
 }
 
+export function shouldOfferSessionRecovery(session: ActiveSession, now: number): boolean {
+  if (!session.lastHeartbeat) return false;
+  return now - session.lastHeartbeat > STALE_HEARTBEAT_MS;
+}
+
+/**
+ * Cap a forgotten sitting at 4h so sleep / a left-on timer cannot inflate stats.
+ * After the user taps Resume ("I kept working"), returnedAt is set and the cap is skipped.
+ */
+export function safetyCapEnd(session: ActiveSession, endAt: number): number {
+  const end = clampSessionEnd(session.startTime, endAt);
+  if (session.returnedAt) return end;
+  const cap = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
+  return clampSessionEnd(session.startTime, Math.min(end, cap));
+}
+
+/** Heartbeat while the app is in the foreground. Never call this when the clock sample failed. */
+export function tickActiveSession(session: ActiveSession, now: number): ActiveSession {
+  const lastBeat = session.lastHeartbeat || session.startTime;
+  if (now - lastBeat > STALE_HEARTBEAT_MS) {
+    return session;
+  }
+  if (!session.isPaused && now - lastResumeAt(session) >= MAX_CONTINUOUS_FOCUS_MS) {
+    const pauseAt = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
+    return {
+      ...session,
+      isPaused: true,
+      pauseStart: pauseAt,
+      lastHeartbeat: now,
+      pauses: [...session.pauses, { start: pauseAt, wallClockStart: formatWallClock(pauseAt) }],
+    };
+  }
+  return { ...session, lastHeartbeat: now };
+}
+
+/** Phone aside / screen off — keep counting. Closes an open pause so lock time is not lost. */
+export function continueAfterInterruption(session: ActiveSession, now: number): ActiveSession {
+  let pausedDuration = session.pausedDuration;
+  let pauses = session.pauses;
+  if (session.isPaused && session.pauseStart) {
+    const closeAt = Math.min(now, Math.max(session.pauseStart, session.lastHeartbeat || session.pauseStart));
+    const dur = Math.max(0, closeAt - session.pauseStart);
+    pausedDuration += dur;
+    pauses = session.pauses.map((p, i) =>
+      i === session.pauses.length - 1 && !p.end
+        ? {
+            ...p,
+            end: closeAt,
+            wallClockEnd: formatWallClock(closeAt),
+            durationMs: dur,
+          }
+        : p,
+    );
+  }
+  return {
+    ...session,
+    isPaused: false,
+    pauseStart: undefined,
+    pausedDuration,
+    pauses,
+    lastHeartbeat: now,
+    returnedAt: now,
+  };
+}
+
 export function computePausedMs(session: ActiveSession, now: number, ignoreOpenPause = false): number {
   const end = clampSessionEnd(session.startTime, now);
   const open =

@@ -18,9 +18,9 @@ import { guardWallClock, hasClockIncident } from './lib/deviceClock';
 import { formatWallClock } from './lib/format';
 import {
   finalizeSession,
-  lastResumeAt,
-  MAX_CONTINUOUS_FOCUS_MS,
-  STALE_HEARTBEAT_MS,
+  tickActiveSession,
+  continueAfterInterruption,
+  safetyCapEnd,
   createManualStepSession,
 } from './lib/sessionStats';
 import {
@@ -141,7 +141,7 @@ interface Store {
   /** Import full state from JSON string backup */
   importBackup: (jsonStr: string) => boolean;
   /** Sync current state to Supabase cloud metadata */
-  syncToCloud: () => Promise<{ ok: boolean; error?: string }>;
+  syncToCloud: (opts?: { allowEmpty?: boolean }) => Promise<{ ok: boolean; error?: string }>;
   /** Restore state from Supabase cloud metadata */
   restoreFromCloud: () => Promise<boolean>;
   restoreFromVisitSnapshot: (snapshotId: string) => Promise<boolean>;
@@ -176,11 +176,42 @@ interface Store {
   completeSessionSteps: (taskId: string, stepIndices: number[]) => void;
 }
 
-const Ctx = createContext<Store | null>(null);
+type DataStore = Omit<
+  Store,
+  | 'activeSession'
+  | 'startSession'
+  | 'pauseSession'
+  | 'resumeSession'
+  | 'stopSession'
+  | 'discardSession'
+  | 'continueInterruptedSession'
+  | 'heartbeatSession'
+>;
+
+type SessionStore = Pick<
+  Store,
+  | 'activeSession'
+  | 'startSession'
+  | 'pauseSession'
+  | 'resumeSession'
+  | 'stopSession'
+  | 'discardSession'
+  | 'continueInterruptedSession'
+  | 'heartbeatSession'
+>;
+
+const DataCtx = createContext<DataStore | null>(null);
+const SessionCtx = createContext<SessionStore | null>(null);
 
 export function useStore() {
-  const c = useContext(Ctx);
+  const c = useContext(DataCtx);
   if (!c) throw new Error('useStore must be used within StoreProvider');
+  return c;
+}
+
+export function useSessionStore() {
+  const c = useContext(SessionCtx);
+  if (!c) throw new Error('useSessionStore must be used within StoreProvider');
   return c;
 }
 
@@ -774,8 +805,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ) => {
       const prev = activeSessionRef.current;
       if (!prev) return;
-      const clockOk = guardWallClock();
-      const endAt = options?.endTime ?? (clockOk ? Date.now() : prev.lastHeartbeat || prev.startTime);
+      const clockOk = guardWallClock('guard');
+      const rawEnd = options?.endTime ?? (clockOk ? Date.now() : prev.lastHeartbeat || prev.startTime);
+      const endAt = options?.endTime != null ? rawEnd : safetyCapEnd(prev, rawEnd);
       const task = tasksRef.current.find((t) => t.id === prev.taskId);
       const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
@@ -813,7 +845,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const pauseSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || prev.isPaused) return prev;
-      guardWallClock();
+      if (!guardWallClock('guard')) return prev;
       const now = Date.now();
       return {
         ...prev,
@@ -828,7 +860,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const resumeSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || !prev.isPaused) return prev;
-      guardWallClock();
+      if (!guardWallClock('guard')) return prev;
       const now = Date.now();
       const pauseDuration = prev.pauseStart ? now - prev.pauseStart : 0;
       return {
@@ -883,32 +915,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
 
   const continueInterruptedSession = useCallback(() => {
-    guardWallClock();
+    if (!guardWallClock('resume')) return;
     const now = Date.now();
     setActiveSession((prev) => {
       if (!prev) return null;
-      return { ...prev, lastHeartbeat: now, returnedAt: now };
+      return continueAfterInterruption(prev, now);
     });
   }, [setActiveSession]);
 
   const heartbeatSession = useCallback(() => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     setActiveSession((prev) => {
       if (!prev) return prev;
-      guardWallClock();
-      const now = Date.now();
-      if (now - prev.lastHeartbeat > STALE_HEARTBEAT_MS) {
-        return { ...prev, lastHeartbeat: now };
-      }
-      if (!prev.isPaused && now - lastResumeAt(prev) >= MAX_CONTINUOUS_FOCUS_MS) {
-        return {
-          ...prev,
-          isPaused: true,
-          pauseStart: now,
-          lastHeartbeat: now,
-          pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
-        };
-      }
-      return { ...prev, lastHeartbeat: now };
+      if (!guardWallClock('guard')) return prev;
+      return tickActiveSession(prev, Date.now());
     });
   }, [setActiveSession]);
 
@@ -1071,12 +1091,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   recentlyDeletedRef.current = recentlyDeletedGoals;
   const lastCloudPayloadRef = useRef<string>('');
 
-  const syncToCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+  const syncToCloud = useCallback(async (opts?: { allowEmpty?: boolean }): Promise<{ ok: boolean; error?: string }> => {
     if (hasClockIncident()) {
       return { ok: false, error: 'Sync paused until device date & time is corrected.' };
     }
-    if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
-      return { ok: false, error: 'Local data is empty. Sync paused to protect your cloud backup.' };
+    if (!opts?.allowEmpty && tasksRef.current.length === 0 && goalsRef.current.length === 0) {
+      return { ok: false, error: 'This device is empty. Restore from cloud, or tap Clear cloud backup if you meant to wipe it.' };
     }
     const payload = {
       app: 'YouDO',
@@ -1158,7 +1178,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [user, tasks, goals, sessionHistory, syncToCloud]);
 
-  const value = useMemo<Store>(
+  const dataValue = useMemo<DataStore>(
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode,
@@ -1167,9 +1187,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
       exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
-      activeSession, sessionHistory,
-      startSession, pauseSession, resumeSession, stopSession,
-      discardSession, continueInterruptedSession, heartbeatSession, completeSessionSteps,
+      sessionHistory,
+      completeSessionSteps,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
@@ -1178,11 +1197,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
       exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
-      activeSession, sessionHistory,
-      startSession, pauseSession, resumeSession, stopSession,
-      discardSession, continueInterruptedSession, heartbeatSession, completeSessionSteps],
+      sessionHistory, completeSessionSteps],
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const sessionValue = useMemo<SessionStore>(
+    () => ({
+      activeSession,
+      startSession, pauseSession, resumeSession, stopSession,
+      discardSession, continueInterruptedSession, heartbeatSession,
+    }),
+    [activeSession, startSession, pauseSession, resumeSession, stopSession,
+      discardSession, continueInterruptedSession, heartbeatSession],
+  );
+
+  return (
+    <DataCtx.Provider value={dataValue}>
+      <SessionCtx.Provider value={sessionValue}>{children}</SessionCtx.Provider>
+    </DataCtx.Provider>
+  );
 }
 

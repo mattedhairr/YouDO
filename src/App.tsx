@@ -3,7 +3,8 @@ import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clo
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, findGoal, collectDescendantIds } from './store';
+import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, useSessionStore, findGoal, collectDescendantIds } from './store';
+import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
 import { useAuth } from './contexts/AuthContext';
 import TaskCard from './components/TaskCard';
@@ -124,10 +125,13 @@ function AppInner() {
     lastDeletedNotification,
     clearDeletedNotification,
     restoreDeletedGoal,
-    // Session state & actions
-    activeSession,
     restoreFromCloud,
     sessionHistory,
+    completeSessionSteps,
+  } = useStore();
+
+  const {
+    activeSession,
     startSession,
     pauseSession,
     resumeSession,
@@ -135,8 +139,7 @@ function AppInner() {
     discardSession,
     continueInterruptedSession,
     heartbeatSession,
-    completeSessionSteps,
-  } = useStore();
+  } = useSessionStore();
 
   const { user } = useAuth();
   const [{ darkMode }] = useTheme();
@@ -165,12 +168,21 @@ function AppInner() {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
   const [reconstructOpen, setReconstructOpen] = useState(false);
+  const activeSessionRef = useRef(activeSession);
+  activeSessionRef.current = activeSession;
 
-  // Heartbeat timer (30s)
+  // Heartbeat while visible (30s). Also tick on return so a long lock is handled immediately.
   useEffect(() => {
     if (!activeSession) return;
     const interval = setInterval(heartbeatSession, 30_000);
-    return () => clearInterval(interval);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') heartbeatSession();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [activeSession, heartbeatSession]);
 
   const targetSessions = useMemo(() => {
@@ -353,14 +365,18 @@ function AppInner() {
   useEffect(() => {
     if (!clockReady || clockBlocked) return;
     if (!activeSession) return;
-    if (!activeSession.lastHeartbeat) return;
-    const msSinceHeartbeat = Date.now() - activeSession.lastHeartbeat;
-    if (msSinceHeartbeat > 300_000) {
-      setRecoverySessionPrompt(true);
-    }
-    // One-shot after the device clock has been checked — do not re-run on heartbeats.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clockReady, clockBlocked]);
+    const check = () => {
+      const session = activeSessionRef.current;
+      if (!session) return;
+      if (document.visibilityState !== 'visible') return;
+      if (shouldOfferSessionRecovery(session, Date.now())) {
+        setRecoverySessionPrompt(true);
+      }
+    };
+    check();
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, [clockReady, clockBlocked, activeSession?.taskId]);
 
   useEffect(() => {
     if (!clockBlocked) return;
@@ -1229,33 +1245,45 @@ function AppInner() {
 
       {/* ── Session Crash Recovery Dialog ── */}
       {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && !clockBlocked && (
-        <Overlay open onClose={() => setRecoverySessionPrompt(false)} align="center">
+        <Overlay open align="center">
           <div className="panel sheet-up p-5 space-y-4">
             <div className="flex items-center gap-2 text-primary font-semibold text-sm">
               <Clock className="w-5 h-5" />
               <span>Session still running</span>
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
-              <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session. If you kept working with the phone off, resume. If you already finished and forgot to stop, reconstruct it.
+              <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session.
+              If you kept working with the phone aside, resume — that time is kept.
+              If you forgot to stop, pick when you actually finished.
+              If you fell asleep or this sitting should not count, discard it.
             </p>
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1">
               <button
                 onClick={() => {
                   continueInterruptedSession();
                   setRecoverySessionPrompt(false);
                 }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
+                className="w-full py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
               >
-                Resume
+                Resume — I kept working
               </button>
               <button
                 onClick={() => {
                   setRecoverySessionPrompt(false);
                   setReconstructOpen(true);
                 }}
-                className="flex-1 py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs border border-subtle"
+                className="w-full py-2.5 px-3 rounded-xl text-content-primary font-medium text-xs border border-subtle"
               >
-                I forgot
+                I forgot to stop
+              </button>
+              <button
+                onClick={() => {
+                  discardSession();
+                  setRecoverySessionPrompt(false);
+                }}
+                className="w-full py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs"
+              >
+                Discard — I fell asleep
               </button>
             </div>
           </div>
@@ -1267,7 +1295,13 @@ function AppInner() {
           open
           task={activeTask}
           session={activeSession}
-          onCancel={() => setReconstructOpen(false)}
+          onCancel={() => {
+            setReconstructOpen(false);
+            const session = activeSessionRef.current;
+            if (session && shouldOfferSessionRecovery(session, Date.now())) {
+              setRecoverySessionPrompt(true);
+            }
+          }}
           onWasNotWorking={() => {
             discardSession();
             setReconstructOpen(false);

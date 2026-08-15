@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, localISODate, todayISO } from './dates';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
-import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks } from './goalTree';
+import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS } from './sessionStats';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task } from '../types';
 
 describe('dates', () => {
@@ -105,6 +105,36 @@ describe('session math', () => {
     expect(slices[1].date).toBe('2026-08-15');
     expect(slices[0].netFocusMs + slices[1].netFocusMs).toBe(end - start);
   });
+
+  it('does not move lastHeartbeat on a stale gap (phone was away)', () => {
+    const stale = { ...base, lastHeartbeat: 1_000_000 };
+    const later = 1_000_000 + STALE_HEARTBEAT_MS + 1;
+    expect(tickActiveSession(stale, later)).toBe(stale);
+    expect(shouldOfferSessionRecovery(stale, later)).toBe(true);
+  });
+
+  it('pauses at 4h of continuous foreground time, not at wake', () => {
+    const now = base.startTime + MAX_CONTINUOUS_FOCUS_MS;
+    const ticked = tickActiveSession({ ...base, lastHeartbeat: now - 30_000 }, now);
+    expect(ticked.isPaused).toBe(true);
+    expect(ticked.pauseStart).toBe(base.startTime + MAX_CONTINUOUS_FOCUS_MS);
+    expect(ticked.lastHeartbeat).toBe(now);
+  });
+
+  it('caps forgotten sittings at 4h unless the user said they kept working', () => {
+    const eightHours = base.startTime + 8 * 60 * 60 * 1000;
+    expect(safetyCapEnd(base, eightHours)).toBe(base.startTime + MAX_CONTINUOUS_FOCUS_MS);
+    const resumed = { ...base, returnedAt: eightHours };
+    expect(safetyCapEnd(resumed, eightHours)).toBe(eightHours);
+  });
+
+  it('resume after a lock keeps the sitting and starts counting again', () => {
+    const now = base.startTime + 40 * 60 * 1000;
+    const next = continueAfterInterruption(base, now);
+    expect(next.returnedAt).toBe(now);
+    expect(next.isPaused).toBe(false);
+    expect(next.lastHeartbeat).toBe(now);
+  });
 });
 
 describe('goal tree', () => {
@@ -121,6 +151,27 @@ describe('goal tree', () => {
     clearRollupCache();
     expect(rollupPct(leaf({ id: 'a', steps: ['a', 'b', 'c'], stepDone: [true, true, false] }))).toBe(67);
     expect(rollupPct(leaf({ id: 'b', completed: true }))).toBe(100);
+  });
+
+  it('reuses unchanged goal branches when patching a leaf', () => {
+    const untouched = leaf({ id: 'keep' });
+    const target = leaf({ id: 'edit', title: 'Old' });
+    const root: GoalNode = {
+      id: 'root',
+      kind: 'goal',
+      title: 'Root',
+      children: [untouched, target],
+      createdAt: 1,
+    };
+    const next = updateNode(root, 'edit', (n) => ({ ...n, title: 'New' }));
+    expect(next).not.toBe(root);
+    expect(next.children[0]).toBe(untouched);
+    expect(next.children[1]).not.toBe(target);
+    expect(next.children[1].title).toBe('New');
+    const same = updateNode(root, 'missing', (n) => ({ ...n, title: 'X' }));
+    expect(same).toBe(root);
+    const afterRemove = removeNode(root, 'missing');
+    expect(afterRemove).toBe(root);
   });
 
   it('treats tasks without steps as incomplete until progress is 1', () => {
@@ -245,17 +296,18 @@ describe('device clock integrity', () => {
     expect(isClockJump(CLOCK_SKEW_MS, CLOCK_SKEW_MS)).toBe(false);
   });
 
-  it('treats screen-lock freeze as sleep, not a clock jump', async () => {
-    const { isClockJump, isLikelyAppSleep, CLOCK_SKEW_MS } = await import('./deviceClock');
+  it('treats screen-lock freeze as sleep only after a background resume', async () => {
+    const { isClockJump, isLikelyAppSleep, classifyClockGap } = await import('./deviceClock');
     const fortyMinutes = 40 * 60 * 1000;
     expect(isLikelyAppSleep(fortyMinutes, 40)).toBe(true);
-    expect(isClockJump(fortyMinutes, 40)).toBe(false);
-    expect(isClockJump(2 * 60 * 60 * 1000, 15_000)).toBe(false);
-    expect(isClockJump(CLOCK_SKEW_MS + 1, 0)).toBe(false);
+    expect(classifyClockGap(fortyMinutes, 40, 'resume')).toBe('sleep');
+    expect(classifyClockGap(fortyMinutes, 40, 'tick')).toBe('jump');
+    expect(classifyClockGap(fortyMinutes, 40, 'guard')).toBe('jump');
+    expect(isClockJump(fortyMinutes, 40)).toBe(true);
   });
 
   it('flags wall clock jumping while the app is actually running', async () => {
-    const { isClockJump, CLOCK_SKEW_MS } = await import('./deviceClock');
+    const { isClockJump } = await import('./deviceClock');
     expect(isClockJump(2 * 60 * 60 * 1000, 15 * 60 * 1000)).toBe(true);
     expect(isClockJump(-2 * 60 * 60 * 1000, 15_000)).toBe(true);
   });
