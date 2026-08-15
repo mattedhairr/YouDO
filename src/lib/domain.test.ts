@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, localISODate, todayISO } from './dates';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, finalizeSession, isCountableSession, splitSessionByLocalDate, clampSessionEnd } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks } from './goalTree';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks } from './goalTree';
 import type { GoalNode, Task } from '../types';
 
 describe('dates', () => {
@@ -161,6 +161,7 @@ describe('goal tree', () => {
     expect(cleared.originalTargetDate).toBe('2000-01-12');
     expect(cleared.pastFailedNativeDates).toEqual(['2000-01-12']);
     expect(isBacklogTask(cleared, today)).toBe(true);
+    expect(isOpenBacklogTask(cleared, today)).toBe(false);
     expect(isBacklogTask(cleared, '2000-01-15')).toBe(false);
   });
 

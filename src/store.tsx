@@ -65,6 +65,7 @@ export {
   findGoal,
   findNode,
   isBacklogTask,
+  isOpenBacklogTask,
   isTaskComplete,
   moveNodeInArray,
   pathNodes,

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import Overlay from './Overlay';
 import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X, Info } from 'lucide-react';
 import type { Task } from '../types';
-import { isTaskComplete, pathTitles, useStore, isBacklogTask } from '../store';
+import { isTaskComplete, pathTitles, useStore, isOpenBacklogTask } from '../store';
 import { formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
 
@@ -130,7 +130,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
   const focusEfficiency = dayTotalWCD > 0 ? Math.min(100, Math.round((dayTotalNFT / dayTotalWCD) * 100)) : 0;
 
   // Group 3: Momentum
-  const globalBacklogsCount = tasks.filter((t) => isBacklogTask(t)).length;
+  const globalBacklogsCount = tasks.filter((t) => isOpenBacklogTask(t)).length;
   const backlogsCleared = modalDateTasks.filter(t => !!t.originalTargetDate && t.targetDate === dayStatsModalDate! && isTaskComplete(t) && hasSessionProcess(t.id, dayStatsModalDate!)).length;
   const totalRelevantBacklogs = globalBacklogsCount + backlogsCleared;
 

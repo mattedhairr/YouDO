@@ -3,7 +3,7 @@ import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clo
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, findGoal, collectDescendantIds } from './store';
+import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, findGoal, collectDescendantIds } from './store';
 import Overlay from './components/Overlay';
 import { useAuth } from './contexts/AuthContext';
 import TaskCard from './components/TaskCard';
@@ -389,6 +389,21 @@ function AppInner() {
     [tasks],
   );
   const backlogTasks = useMemo(() => tasks.filter((t) => isBacklogTask(t)), [tasks]);
+  const openBacklogCount = useMemo(
+    () => backlogTasks.filter((t) => isOpenBacklogTask(t)).length,
+    [backlogTasks],
+  );
+  const openBacklogDateCount = useMemo(() => {
+    const dates = new Set<string>();
+    for (const t of backlogTasks) {
+      if (isOpenBacklogTask(t) && t.targetDate) dates.add(t.targetDate);
+    }
+    return dates.size;
+  }, [backlogTasks]);
+  const openTodayCount = useMemo(
+    () => todayTasks.filter((t) => !isTaskComplete(t)).length,
+    [todayTasks],
+  );
   const todayCount = todayTasks.length;
   const todayDone = todayTasks.filter(isTaskComplete).length;
   const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
@@ -487,6 +502,7 @@ function AppInner() {
 
     let quickCount = 0;
     for (const t of activeTasksList) {
+      if (isTaskComplete(t)) continue;
       if (!t.goalNodeId) {
         quickCount++;
       } else {
@@ -733,7 +749,7 @@ function AppInner() {
                   >
                     <span>Scheduled</span>
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${todaySubTab === 'today' ? 'bg-primary text-on-primary' : 'bg-base text-content-muted'}`}>
-                      {todayTasks.length}
+                      {openTodayCount}
                     </span>
                   </button>
                   <button
@@ -744,10 +760,10 @@ function AppInner() {
                         : 'text-content-secondary'
                     }`}
                   >
-                    <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-error' : 'text-content-muted'} />
+                    <AlertTriangle size={13} className={openBacklogCount > 0 ? 'text-error' : 'text-content-muted'} />
                     <span>Backlog</span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${backlogTasks.length > 0 ? 'bg-error text-white' : 'bg-base text-content-muted'}`}>
-                      {backlogTasks.length}
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${openBacklogCount > 0 ? 'bg-error text-white' : 'bg-base text-content-muted'}`}>
+                      {openBacklogCount}
                     </span>
                   </button>
                 </div>
@@ -763,7 +779,7 @@ function AppInner() {
                           : 'bg-surface border-subtle text-content-secondary hover:bg-elevated'
                       }`}
                     >
-                      All ({todaySubTab === 'today' ? todayTasks.length : backlogTasks.length})
+                      All ({todaySubTab === 'today' ? openTodayCount : openBacklogCount})
                     </button>
                     {categoryChips.map((chip) => (
                       <button
@@ -833,10 +849,10 @@ function AppInner() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-content-primary">
-                              {backlogTasks.length} overdue
+                              {openBacklogCount} overdue
                             </p>
                             <p className="text-[12px] text-content-muted">
-                              Across {backlogByDate.length} date{backlogByDate.length > 1 ? 's' : ''}
+                              Across {openBacklogDateCount} date{openBacklogDateCount > 1 ? 's' : ''}
                             </p>
                           </div>
                           <div className="text-right shrink-0">

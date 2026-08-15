@@ -223,6 +223,11 @@ export function isBacklogTask(task: Task, today = todayISO()): boolean {
   return !!task.originalTargetDate && task.targetDate === today;
 }
 
+/** Open (incomplete) backlog — use for badges and “N overdue”, not for the list itself. */
+export function isOpenBacklogTask(task: Task, today = todayISO()): boolean {
+  return isBacklogTask(task, today) && !isTaskComplete(task);
+}
+
 /** When overdue work is finished today, stamp today as the clear date and keep the miss for calendar/stats. */
 export function clearBacklogIfComplete(task: Task, today = todayISO()): Task {
   if (!isTaskComplete(task)) return task;
