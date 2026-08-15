@@ -23,7 +23,8 @@ function remainingAfterSession(
   remaining: number,
   stepTotal: number,
 ): string | null {
-  if (stepTotal <= 0 || remaining <= 0) return null;
+  if (stepTotal <= 0) return null;
+  if (remaining <= 0) return 'Whole task completed';
   if (remaining === 1) return '1 step task remaining to complete the whole task';
   return `${remaining} step tasks remaining to complete the whole task`;
 }
