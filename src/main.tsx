@@ -1,5 +1,6 @@
 import { Component, StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Capacitor } from '@capacitor/core';
 import App from './App.tsx';
 import { StoreProvider } from './store';
 import { AuthProvider } from './contexts/AuthContext';
@@ -75,9 +76,16 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>
 );
 
-// Only register Service Worker on HTTP/HTTPS web origins, NOT in native Capacitor WebViews (capacitor:// / file://)
-if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
+// Web PWA only. Capacitor uses https://localhost, so a protocol check is not enough —
+// a service worker there would cache APK assets and fight updates.
+if ('serviceWorker' in navigator) {
+  if (Capacitor.isNativePlatform()) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((r) => r.unregister());
+    }).catch(() => {});
+  } else if (window.location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
 }

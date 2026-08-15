@@ -16,14 +16,7 @@ import {
   Clock,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
-import { countDirectChildren, countCompletedDirectChildren, collectDescendantIds, findNode, formatDDMMYYYY, isBacklogTask, rollupPct, useStore } from '../store';
-
-function localISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+import { countDirectChildren, countCompletedDirectChildren, collectDescendantIds, findNode, formatDDMMYYYY, isBacklogTask, localISODate, rollupPct, useStore } from '../store';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
   if (!targetDate) return 'Scheduled';

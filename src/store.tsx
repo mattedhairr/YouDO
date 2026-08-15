@@ -53,6 +53,7 @@ export {
   tomorrowISO,
   formatDDMMYYYY,
   isToday,
+  localISODate,
 } from './lib/dates';
 export { uid } from './lib/ids';
 export {
@@ -60,11 +61,8 @@ export {
   cloneNode,
   collectDescendantIds,
   collectDescendantTaskIds,
-  collectLeaves,
   countCompletedDirectChildren,
-  countCompletedLeaves,
   countDirectChildren,
-  countLeaves,
   findGoal,
   findNode,
   isBacklogTask,
