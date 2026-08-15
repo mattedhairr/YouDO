@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, localISODate, todayISO } from './dates';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
-import { computeNetFocusMs, finalizeSession, isCountableSession, splitSessionByLocalDate, clampSessionEnd } from './sessionStats';
+import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd } from './sessionStats';
 import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks } from './goalTree';
 import type { GoalNode, Task } from '../types';
 
@@ -60,6 +60,14 @@ describe('session math', () => {
     const rec = finalizeSession(paused, 1_120_000, { completed: true }, 'g1');
     expect(rec?.netFocusMs).toBe(60_000);
     expect(isCountableSession(rec!)).toBe(true);
+  });
+
+  it('records manual step completions without counting focus time', () => {
+    const row = createManualStepSession('t1', [1], { goalNodeId: 'g1', completed: true });
+    expect(row.manual).toBe(true);
+    expect(row.completedStepIndices).toEqual([1]);
+    expect(isCountableSession(row)).toBe(false);
+    expect(isManualSession(row)).toBe(true);
   });
 
   it('counts phone-off time as focus when finalizing later', () => {

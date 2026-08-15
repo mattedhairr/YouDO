@@ -73,6 +73,8 @@ export interface TaskSession {
   completed: boolean | 'partial';
   completedStepIndices: number[]; // indices into task.steps[] marked done at stop
   goalNodeId?: string;           // link to Goal Blueprint node
+  /** true when step/task was marked done outside a focus session */
+  manual?: boolean;
 }
 
 /** The single currently active (live) session */

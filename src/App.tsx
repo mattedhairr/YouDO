@@ -1165,6 +1165,7 @@ function AppInner() {
           title={statsTarget.title}
           sessions={targetSessions}
           stepTotal={!statsTarget.isGoal ? (tasks.find((t) => t.id === statsTarget.id)?.steps.length ?? 0) : 0}
+          stepProgress={!statsTarget.isGoal ? (tasks.find((t) => t.id === statsTarget.id)?.progress ?? 0) : 0}
           onClose={() => setStatsTarget(null)}
         />
       )}

@@ -21,6 +21,7 @@ import {
   lastResumeAt,
   MAX_CONTINUOUS_FOCUS_MS,
   STALE_HEARTBEAT_MS,
+  createManualStepSession,
 } from './lib/sessionStats';
 import {
   clearRollupCache,
@@ -246,6 +247,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const totalSteps = t.steps.length > 0 ? t.steps.length : 1;
       if (t.progress >= totalSteps) return;
       const nextProgress = t.progress + 1;
+      const stepIndex = t.steps.length > 0 ? nextProgress - 1 : -1;
       setTasks((prev) =>
         prev.map((x) => {
           if (x.id !== id) return x;
@@ -267,8 +269,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
         );
       }
+      // Don't invent a manual row while a focus session is running on this card.
+      if (activeSessionRef.current?.taskId === id) return;
+      const completed = nextProgress >= totalSteps;
+      const indices = stepIndex >= 0 ? [stepIndex] : [];
+      const row = createManualStepSession(id, indices, {
+        goalNodeId: t.goalNodeId ?? undefined,
+        completed: completed ? true : indices.length > 0 ? 'partial' : true,
+      });
+      setSessionHistory((hist) => ({
+        ...hist,
+        [id]: [...(hist[id] ?? []), row],
+      }));
     },
-    [setTasks, setGoals],
+    [setTasks, setGoals, setSessionHistory],
   );
 
   const undo = useCallback(
@@ -503,7 +517,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!node || !node.steps) return;
       const existing = node.stepDone ?? node.steps.map(() => false);
       const newStepDone = [...existing];
-      newStepDone[stepIdx] = !newStepDone[stepIdx];
+      const markingDone = !newStepDone[stepIdx];
+      newStepDone[stepIdx] = markingDone;
       const allDone = newStepDone.every(Boolean);
       setGoals((prev) =>
         prev.map((root) =>
@@ -512,8 +527,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       const patched: GoalNode = { ...node, stepDone: newStepDone, completed: allDone };
       setTasks((prev) => syncLinkedTasksFromGoal(prev, patched));
+
+      if (!markingDone) return;
+
+      setSessionHistory((hist) => {
+        let next = hist;
+        for (const t of tasksRef.current) {
+          if (t.goalNodeId !== nodeId) continue;
+          if (activeSessionRef.current?.taskId === t.id) continue;
+          let localIdx = stepIdx;
+          if (t.stepSlice) {
+            const i = t.stepSlice.indexOf(stepIdx);
+            if (i < 0) continue;
+            localIdx = i;
+          }
+          const taskDoneCount =
+            t.steps.length === 0
+              ? allDone
+                ? 1
+                : 0
+              : t.stepSlice
+                ? t.stepSlice.filter((mi) => newStepDone[mi]).length
+                : newStepDone.filter(Boolean).length;
+          const taskComplete = t.steps.length > 0 ? taskDoneCount >= t.steps.length : allDone;
+          const row = createManualStepSession(t.id, t.steps.length > 0 ? [localIdx] : [], {
+            goalNodeId: nodeId,
+            completed: taskComplete ? true : 'partial',
+          });
+          next = { ...next, [t.id]: [...(next[t.id] ?? []), row] };
+        }
+        return next;
+      });
     },
-    [setGoals, setTasks],
+    [setGoals, setTasks, setSessionHistory],
   );
 
   const togglePin = useCallback(

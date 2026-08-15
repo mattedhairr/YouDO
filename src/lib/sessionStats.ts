@@ -19,6 +19,37 @@ export function isCountableSession(s: { netFocusMs: number }): boolean {
   return s.netFocusMs >= MIN_COUNTABLE_MS;
 }
 
+export function isManualSession(s: { manual?: boolean; netFocusMs: number; completedStepIndices?: number[] }): boolean {
+  if (s.manual === true) return true;
+  return s.netFocusMs < MIN_COUNTABLE_MS && (s.completedStepIndices?.length ?? 0) > 0;
+}
+
+/** Instant history row when a step is checked off outside a focus session. */
+export function createManualStepSession(
+  taskId: string,
+  stepIndices: number[],
+  opts?: { goalNodeId?: string; completed?: boolean | 'partial' },
+): TaskSession {
+  const now = Date.now();
+  const clock = formatWallClock(now);
+  const indices = [...new Set(stepIndices)].filter((i) => i >= 0).sort((a, b) => a - b);
+  return {
+    id: uid('sess'),
+    taskId,
+    goalNodeId: opts?.goalNodeId,
+    startTime: now,
+    endTime: now,
+    pausedDuration: 0,
+    pauses: [],
+    netFocusMs: 0,
+    wallClockStart: clock,
+    wallClockEnd: clock,
+    completed: opts?.completed ?? (indices.length > 0 ? 'partial' : false),
+    completedStepIndices: indices,
+    manual: true,
+  };
+}
+
 export function lastResumeAt(session: ActiveSession): number {
   if (session.returnedAt) return session.returnedAt;
   for (let i = session.pauses.length - 1; i >= 0; i--) {

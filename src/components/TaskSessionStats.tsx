@@ -3,13 +3,15 @@ import { X, Clock, BarChart2, Timer, Info } from 'lucide-react';
 import Overlay from './Overlay';
 import type { TaskSession } from '../types';
 import { formatDuration, sessionEfficiency } from '../lib/format';
-import { isCountableSession } from '../lib/sessionStats';
+import { isCountableSession, isManualSession } from '../lib/sessionStats';
 
 interface Props {
   open: boolean;
   title: string;
   sessions: TaskSession[];
   stepTotal?: number;
+  /** Current completed step count on the task (for steps marked before history existed). */
+  stepProgress?: number;
   onClose: () => void;
 }
 
@@ -43,8 +45,20 @@ function remainingBySessionId(sessions: TaskSession[], stepTotal: number): Map<s
 function sessionNote(
   s: TaskSession,
   stepTotal: number,
-): { kind: 'done' | 'failed'; text: string } {
+): { kind: 'done' | 'failed' | 'manual'; text: string } {
   const marked = s.completedStepIndices?.length ?? 0;
+  if (isManualSession(s)) {
+    if (s.completed === true && marked === 0) {
+      return { kind: 'manual', text: 'Marked complete without a focus session' };
+    }
+    if (marked > 0) {
+      return {
+        kind: 'manual',
+        text: `Completed ${marked} step task${marked > 1 ? 's' : ''} without a focus session`,
+      };
+    }
+    return { kind: 'manual', text: 'Marked without a focus session' };
+  }
   if (s.completed === true) {
     return {
       kind: 'done',
@@ -66,13 +80,47 @@ function sessionNote(
   return { kind: 'failed', text: `Failed to complete any of ${stepTotal} step tasks` };
 }
 
-export function TaskSessionStats({ open, title, sessions, stepTotal = 0, onClose }: Props) {
+function displaySessions(
+  sessions: TaskSession[],
+  stepTotal: number,
+  stepProgress: number,
+): TaskSession[] {
+  if (stepTotal <= 0 || stepProgress <= 0) return sessions;
+  const attributed = new Set<number>();
+  for (const s of sessions) {
+    (s.completedStepIndices ?? []).forEach((i) => attributed.add(i));
+  }
+  const orphans: number[] = [];
+  for (let i = 0; i < Math.min(stepProgress, stepTotal); i++) {
+    if (!attributed.has(i)) orphans.push(i);
+  }
+  if (orphans.length === 0) return sessions;
+  const now = Date.now();
+  const extras: TaskSession[] = orphans.map((idx, n) => ({
+    id: `manual-gap-${idx}`,
+    taskId: sessions[0]?.taskId ?? '',
+    startTime: now + n,
+    endTime: now + n,
+    pausedDuration: 0,
+    pauses: [],
+    netFocusMs: 0,
+    wallClockStart: '—',
+    wallClockEnd: '—',
+    completed: stepProgress >= stepTotal ? true : 'partial',
+    completedStepIndices: [idx],
+    manual: true,
+  }));
+  return [...sessions, ...extras];
+}
+
+export function TaskSessionStats({ open, title, sessions, stepTotal = 0, stepProgress = 0, onClose }: Props) {
   const [showHelp, setShowHelp] = useState(false);
 
   if (!open) return null;
 
-  const remainingMap = remainingBySessionId(sessions, stepTotal);
-  const counted = sessions.filter(isCountableSession);
+  const listed = displaySessions(sessions, stepTotal, stepProgress);
+  const remainingMap = remainingBySessionId(listed, stepTotal);
+  const counted = listed.filter(isCountableSession);
   const totalNFT = counted.reduce((acc, s) => acc + s.netFocusMs, 0);
   const totalDurationMs = counted.reduce((acc, s) => acc + (s.endTime - s.startTime), 0);
   const avgEff =
@@ -124,12 +172,12 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, onClose
               <p><span className="font-semibold text-content-primary">Net focus</span> is time the session was running and not paused.</p>
               <p><span className="font-semibold text-content-primary">Total duration</span> is start-to-stop time, including pauses.</p>
               <p><span className="font-semibold text-content-primary">Average efficiency</span> is the average of each session’s net focus ÷ duration. Pauses lower efficiency; finishing the task does not change it.</p>
-              <p>Each session below is a record of that sitting. If you completed the task or a step task, it is listed. If you stopped without completing anything, you will see a failed message and how many step tasks remain. The time still counts in net focus.</p>
+              <p>Each session below is a record of that sitting. If you completed the task or a step task, it is listed. Steps you mark done without a focus session also appear here as manual completions (they do not change net focus). If you stopped without completing anything, you will see a failed message and how many step tasks remain.</p>
               <p>Sessions under 15 seconds of focus are ignored in the summary so mis-taps do not inflate the numbers.</p>
             </div>
           )}
 
-          {sessions.length === 0 ? (
+          {listed.length === 0 ? (
             <div className="py-12 flex flex-col items-center gap-3">
               <div className="w-14 h-14 rounded-[12px] bg-surface border border-subtle flex items-center justify-center">
                 <Clock className="w-7 h-7 text-content-muted opacity-50" />
@@ -163,23 +211,24 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, onClose
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <Timer size={12} className="text-content-secondary" />
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-content-secondary">
-                    Sessions ({sessions.length})
+                    Sessions ({listed.length})
                   </span>
                 </div>
 
                 <div className="space-y-2">
-                  {sessions.slice().reverse().map((s, revIdx) => {
-                    const sessionNum = sessions.length - revIdx;
+                  {listed.slice().reverse().map((s, revIdx) => {
+                    const sessionNum = listed.length - revIdx;
                     const durationMs = s.endTime - s.startTime;
                     const countable = isCountableSession(s);
                     const eff = sessionEfficiency(s.netFocusMs, durationMs);
                     const note = sessionNote(s, stepTotal);
                     const remainingText = remainingAfterSession(remainingMap.get(s.id) ?? stepTotal, stepTotal);
+                    const manual = isManualSession(s);
 
                     return (
                       <div
                         key={s.id}
-                        className={`bg-elevated rounded-[12px] border border-subtle px-3.5 py-3 ${countable ? '' : 'opacity-55'}`}
+                        className={`bg-elevated rounded-[12px] border border-subtle px-3.5 py-3 ${countable || manual ? '' : 'opacity-55'}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -187,16 +236,33 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, onClose
                               #{sessionNum} · {s.wallClockStart} → {s.wallClockEnd}
                             </p>
                             <p className="text-[11px] text-content-muted mt-0.5 tabular-nums">
-                              {formatDuration(s.netFocusMs)} focus · {formatDuration(durationMs)} duration
+                              {manual
+                                ? 'No focus time · marked manually'
+                                : `${formatDuration(s.netFocusMs)} focus · ${formatDuration(durationMs)} duration`}
                             </p>
                           </div>
-                          <span className={`text-[13px] font-semibold tabular-nums shrink-0 ${efficiencyColor(eff)}`}>
-                            {eff}%
-                          </span>
+                          {!manual && (
+                            <span className={`text-[13px] font-semibold tabular-nums shrink-0 ${efficiencyColor(eff)}`}>
+                              {eff}%
+                            </span>
+                          )}
+                          {manual && (
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted shrink-0 px-1.5 py-0.5 rounded-md bg-surface border border-subtle">
+                              Manual
+                            </span>
+                          )}
                         </div>
-                        {countable ? (
+                        {countable || manual ? (
                           <div className="mt-2 space-y-0.5">
-                            <p className={`text-[11px] leading-snug ${note.kind === 'failed' ? 'text-error' : 'text-secondary'}`}>
+                            <p
+                              className={`text-[11px] leading-snug ${
+                                note.kind === 'failed'
+                                  ? 'text-error'
+                                  : note.kind === 'manual'
+                                    ? 'text-content-secondary'
+                                    : 'text-secondary'
+                              }`}
+                            >
                               {note.text}
                             </p>
                             {remainingText && (
@@ -206,7 +272,7 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, onClose
                         ) : (
                           <p className="mt-2 text-[11px] text-content-muted">Accidental session — not in summary</p>
                         )}
-                        {countable && (s.completedStepIndices?.length ?? 0) > 0 && (
+                        {(countable || manual) && (s.completedStepIndices?.length ?? 0) > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {s.completedStepIndices.map((idx) => (
                               <span

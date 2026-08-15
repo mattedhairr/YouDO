@@ -376,7 +376,8 @@ export default function TaskCard({
                   let stamp: string | null = null;
                   if (done && taskSessions) {
                     const sess = taskSessions.find((item) => item.completedStepIndices?.includes(i));
-                    if (sess) stamp = `${sess.wallClockStart} – ${sess.wallClockEnd || 'now'}`;
+                    if (sess?.manual) stamp = 'Manual';
+                    else if (sess) stamp = `${sess.wallClockStart} – ${sess.wallClockEnd || 'now'}`;
                   }
                   return (
                     <li key={i} className="flex items-center gap-3 px-3.5 h-11 border-t border-subtle">
