@@ -44,7 +44,7 @@ Goal: "UPSC / JEE / NEET Exam 2026"
 2. Download `YouDO.apk` from the latest release.
 3. Install on the device (allow unknown sources if Android asks).
 
-Current release: **v3.0.0**.
+Current release: **v3.2.0**.
 
 ### Web (PWA)
 
@@ -56,7 +56,7 @@ Open YouDO in a browser and use **Add to Home Screen** for a standalone install.
 
 - **6-tier syllabus tree** — split an exam into goals, phases, sections, and micro-tasks.
 - **Step-slice scheduling** — send specific steps from any goal node onto Today.
-- **Backlog** — overdue work is tagged, not lost. Starting it moves it to Today; progress still writes back to the blueprint.
+- **Backlog** — overdue work stays on its original date until you finish it. Starting a focus session does not move it to Today. Progress still writes back to the blueprint.
 - **Focus sessions** — net focus vs elapsed time, pause logs, live `start – ∞` while running.
 - **Ambient mode** — full-screen desk timer (long-press the play control). Screen stays awake.
 - **Honest analytics** — overnight sessions split at midnight, short accidental sessions dropped, goal stats roll up descendants.

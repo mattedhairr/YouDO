@@ -1,4 +1,4 @@
-import type { GoalKind, GoalNode, Task } from '../types';
+import type { GoalNode, Task } from '../types';
 import { todayISO } from './dates';
 import { uid } from './ids';
 
@@ -45,9 +45,6 @@ export function rollupPct(node: GoalNode): number {
   return pct;
 }
 
-export const countLeaves = countDirectChildren;
-export const countCompletedLeaves = countCompletedDirectChildren;
-
 export function findNode(root: GoalNode, id: string): [GoalNode | null, GoalNode | null] {
   if (root.id === id) return [root, null];
   for (const child of root.children) {
@@ -88,11 +85,6 @@ export function removeNodes(root: GoalNode, ids: Set<string>): GoalNode {
     return next;
   });
   return changed ? { ...root, children } : root;
-}
-
-export function collectLeaves(node: GoalNode): GoalNode[] {
-  if (node.children.length === 0) return [node];
-  return node.children.flatMap(collectLeaves);
 }
 
 export function collectDescendantIds(node: GoalNode): string[] {
@@ -292,8 +284,6 @@ export function moveNodeInArray(nodes: GoalNode[], id: string, direction: 'up' |
   result[targetIdx] = temp;
   return result;
 }
-
-export const VALID_GOAL_KINDS: ReadonlySet<GoalKind> = new Set(['goal', 'phase', 'section', 'task', 'sub', 'leaf']);
 
 export function sameTree(a: GoalNode[], b: GoalNode[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);

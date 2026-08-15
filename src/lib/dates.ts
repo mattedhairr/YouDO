@@ -42,9 +42,3 @@ export function formatDDMMYYYY(isoStr: string | null | undefined): string {
   }
   return isoStr;
 }
-
-export function formatShortDate(date: string): string {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return date;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}

@@ -13,17 +13,6 @@ export function formatDuration(ms: number): string {
   return `${secs}s`;
 }
 
-export function formatPauseDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 500) return '0s';
-  const totalSec = Math.round(ms / 1000);
-  const hrs = Math.floor(totalSec / 3600);
-  const mins = Math.floor((totalSec % 3600) / 60);
-  const secs = totalSec % 60;
-  if (hrs > 0) return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-  if (mins > 0) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  return `${secs}s`;
-}
-
 export function formatWallClock(ts: number): string {
   return new Date(ts).toLocaleTimeString('en-US', {
     hour: 'numeric',

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import Overlay from './Overlay';
 import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X, Info } from 'lucide-react';
 import type { Task } from '../types';
-import { isTaskComplete, pathTitles, useStore, isOpenBacklogTask } from '../store';
+import { isTaskComplete, localISODate, pathTitles, useStore, isOpenBacklogTask } from '../store';
 import { formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
 
@@ -14,13 +14,6 @@ interface Props {
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function localISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewStats }: Props) {
   const { goals, sessionHistory } = useStore();

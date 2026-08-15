@@ -24,12 +24,8 @@ Phone lock, a forgotten timer, and falling asleep are three different things —
 - Heartbeats no longer stamp a future time when the clock sample failed.
 - Screen-lock freeze is only trusted after the app was in the background — changing the date while YouDO is open still trips the clock check.
 - Goal tree edits no longer clone every ancestor when a leaf did not change.
+- Dead unused UI (`ProgressRing`), unused `lz-string`, leftover date/tree aliases, unused format helper, and the old hand-written `public/sw.js` removed. Native builds skip (and drop) any leftover service worker so APK updates are not cached.
 - Session heartbeat no longer re-renders Goals / Calendar on every tick.
-
-### 💾 Data Safety
-- **Android APK**: versionName **3.2.0**, versionCode **10**. Same package id `com.mattedhairr.youdo` — install over 3.1.2.
-
-Also in this build (never shipped on 3.1.3): stats say “Whole task completed” when nothing is left; backlog badges count open items only; ambient clock fits the ring; checking a step without a session still shows as Manual in analytics.
 
 ### 💾 Data Safety
 - **Android APK**: versionName **3.2.0**, versionCode **10**. Same package id `com.mattedhairr.youdo` — install over 3.1.2.
