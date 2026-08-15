@@ -3,13 +3,28 @@ import { supabaseUrl } from './supabase';
 export const CLOCK_JUMP_EVENT = 'youdo-clock-jump';
 export const CLOCK_CLEARED_EVENT = 'youdo-clock-cleared';
 export const CLOCK_SKEW_MS = 3 * 60 * 1000;
+/** If monotonic time barely moved, the WebView was frozen (screen lock) — not a clock change. */
+export const CLOCK_SLEEP_MONO_MAX_MS = 60_000;
 export const CLOCK_INCIDENT_KEY = 'youdo-clock-incident-v1';
 
 let lastWall = Date.now();
 let lastMono = performance.now();
 let primed = false;
 
+/**
+ * Android/iOS WebView pauses performance.now() while the screen is locked.
+ * Date.now() keeps moving, so a 40-minute lock looks like a huge wall/mono gap.
+ */
+export function isLikelyAppSleep(
+  wallDelta: number,
+  monoDelta: number,
+  threshold = CLOCK_SKEW_MS,
+): boolean {
+  return wallDelta > threshold && monoDelta >= 0 && monoDelta < CLOCK_SLEEP_MONO_MAX_MS;
+}
+
 export function isClockJump(wallDelta: number, monoDelta: number, threshold = CLOCK_SKEW_MS): boolean {
+  if (isLikelyAppSleep(wallDelta, monoDelta, threshold)) return false;
   return Math.abs(wallDelta - monoDelta) > threshold;
 }
 
@@ -20,7 +35,7 @@ export function resetClockSample(): void {
 }
 
 /** Compare wall clock vs monotonic time. Ignores the first sample after load. */
-export function noteClockSample(): { jumped: boolean } {
+export function noteClockSample(): { jumped: boolean; slept: boolean } {
   const wall = Date.now();
   const mono = performance.now();
   const wallDelta = wall - lastWall;
@@ -29,9 +44,12 @@ export function noteClockSample(): { jumped: boolean } {
   lastMono = mono;
   if (!primed) {
     primed = true;
-    return { jumped: false };
+    return { jumped: false, slept: false };
   }
-  return { jumped: isClockJump(wallDelta, monoDelta) };
+  if (isLikelyAppSleep(wallDelta, monoDelta)) {
+    return { jumped: false, slept: true };
+  }
+  return { jumped: isClockJump(wallDelta, monoDelta), slept: false };
 }
 
 export function markClockIncident(): void {
@@ -64,10 +82,16 @@ export function emitClockJump(): void {
   window.dispatchEvent(new Event(CLOCK_JUMP_EVENT));
 }
 
-/** Returns false if the wall clock is untrustworthy; caller must not save session time. */
+/**
+ * Returns false only when the clock is already a proven incident, or jumped
+ * while the app was actually running (not after screen lock).
+ * Sleep gaps must not emit an incident or drop a session.
+ */
 export function guardWallClock(): boolean {
   if (hasClockIncident()) return false;
-  if (noteClockSample().jumped) {
+  const { jumped, slept } = noteClockSample();
+  if (slept) return true;
+  if (jumped) {
     emitClockJump();
     return false;
   }
@@ -131,7 +155,7 @@ export async function assertDeviceClock(): Promise<{ ok: boolean; reason?: strin
   if (status === 'skewed') {
     return {
       ok: false,
-      reason: 'This device clock does not match server time. Set Date & Time to automatic (correct date), then sign in again. Your cloud backup is safe.',
+      reason: 'This device clock does not match server time. Set Date & Time to automatic (correct date), then try again. Your cloud backup is safe.',
     };
   }
   return { ok: true };

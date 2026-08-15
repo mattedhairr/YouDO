@@ -140,7 +140,7 @@ function AppInner() {
 
   const { user } = useAuth();
   const [{ darkMode }] = useTheme();
-  const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity(discardSession);
+  const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity();
   const [clockVerifyBusy, setClockVerifyBusy] = useState(false);
   const [clockVerifyError, setClockVerifyError] = useState<string | null>(null);
 
@@ -1179,8 +1179,8 @@ function AppInner() {
               <span>Device time looks wrong</span>
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
-              Date &amp; time on this device jumped, so the in-progress session was discarded and was not saved. Cloud backup was not overwritten.
-              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then sign in again to restore your stats.
+              Date &amp; time on this device does not match the server, so cloud backup is paused. Your in-progress session and local data are still on this phone.
+              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then confirm below.
             </p>
             {clockVerifyError && (
               <p className="text-xs text-red-500 leading-relaxed">{clockVerifyError}</p>
@@ -1199,11 +1199,16 @@ function AppInner() {
                   }
                   clearClockIncident();
                   setClockBlocked(false);
+                  if (!user) {
+                    setAuthMode('signin');
+                    setAuthOpen(true);
+                  }
                 }}
                 className="w-full py-2.5 px-3 rounded-xl border border-subtle text-content-primary font-semibold text-xs disabled:opacity-60"
               >
                 {clockVerifyBusy ? 'Checking…' : 'I fixed date & time'}
               </button>
+              {!user && (
               <button
                 onClick={() => {
                   setAuthMode('signin');
@@ -1213,6 +1218,7 @@ function AppInner() {
               >
                 Sign in
               </button>
+              )}
             </div>
           </div>
         </Overlay>

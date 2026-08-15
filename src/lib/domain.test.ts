@@ -245,11 +245,19 @@ describe('device clock integrity', () => {
     expect(isClockJump(CLOCK_SKEW_MS, CLOCK_SKEW_MS)).toBe(false);
   });
 
-  it('flags wall clock jumping ahead or backward vs monotonic time', async () => {
+  it('treats screen-lock freeze as sleep, not a clock jump', async () => {
+    const { isClockJump, isLikelyAppSleep, CLOCK_SKEW_MS } = await import('./deviceClock');
+    const fortyMinutes = 40 * 60 * 1000;
+    expect(isLikelyAppSleep(fortyMinutes, 40)).toBe(true);
+    expect(isClockJump(fortyMinutes, 40)).toBe(false);
+    expect(isClockJump(2 * 60 * 60 * 1000, 15_000)).toBe(false);
+    expect(isClockJump(CLOCK_SKEW_MS + 1, 0)).toBe(false);
+  });
+
+  it('flags wall clock jumping while the app is actually running', async () => {
     const { isClockJump, CLOCK_SKEW_MS } = await import('./deviceClock');
-    expect(isClockJump(2 * 60 * 60 * 1000, 15_000)).toBe(true);
+    expect(isClockJump(2 * 60 * 60 * 1000, 15 * 60 * 1000)).toBe(true);
     expect(isClockJump(-2 * 60 * 60 * 1000, 15_000)).toBe(true);
-    expect(isClockJump(CLOCK_SKEW_MS + 1, 0)).toBe(true);
   });
 
   it('flags device time far from server time', async () => {

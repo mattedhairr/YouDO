@@ -12,41 +12,33 @@ import {
 
 const SAMPLE_MS = 15_000;
 
-export function useClockIntegrity(discardSession: () => void) {
-  const { user, loading, signOut } = useAuth();
+export function useClockIntegrity() {
+  const { loading } = useAuth();
   const [blocked, setBlocked] = useState(() => hasClockIncident());
   const [clockReady, setClockReady] = useState(false);
   const handlingRef = useRef(false);
 
-  const handleCorruption = useCallback(async () => {
+  const handleProvenSkew = useCallback(async () => {
     if (handlingRef.current) return;
     handlingRef.current = true;
     markClockIncident();
-    discardSession();
     setBlocked(true);
     resetClockSample();
-    try {
-      if (user) await signOut();
-    } finally {
-      handlingRef.current = false;
-    }
-  }, [discardSession, signOut, user]);
+    handlingRef.current = false;
+  }, []);
 
   useEffect(() => {
     resetClockSample();
     const sample = (source: 'tick' | 'resume') => {
       if (source === 'tick' && document.visibilityState === 'hidden') return;
-      const { jumped } = noteClockSample();
+      const { jumped, slept } = noteClockSample();
+      if (slept) return;
       if (!jumped) return;
-      if (source === 'resume') {
-        void (async () => {
-          const status = await checkDeviceClock();
-          if (status === 'skewed') await handleCorruption();
-          else resetClockSample();
-        })();
-        return;
-      }
-      void handleCorruption();
+      void (async () => {
+        const status = await checkDeviceClock();
+        if (status === 'skewed') await handleProvenSkew();
+        else resetClockSample();
+      })();
     };
     const interval = window.setInterval(() => sample('tick'), SAMPLE_MS);
     const onVis = () => {
@@ -60,7 +52,7 @@ export function useClockIntegrity(discardSession: () => void) {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('focus', onFocus);
     };
-  }, [handleCorruption]);
+  }, [handleProvenSkew]);
 
   useEffect(() => {
     if (loading) return;
@@ -68,24 +60,30 @@ export function useClockIntegrity(discardSession: () => void) {
     void (async () => {
       const status = await checkDeviceClock();
       if (cancelled) return;
-      if (status === 'skewed') await handleCorruption();
+      if (status === 'skewed') await handleProvenSkew();
       if (!cancelled) setClockReady(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [user, loading, handleCorruption]);
+  }, [loading, handleProvenSkew]);
 
   useEffect(() => {
     const onCleared = () => setBlocked(false);
-    const onJump = () => void handleCorruption();
+    const onJump = () => {
+      void (async () => {
+        const status = await checkDeviceClock();
+        if (status === 'skewed') await handleProvenSkew();
+        else resetClockSample();
+      })();
+    };
     window.addEventListener(CLOCK_CLEARED_EVENT, onCleared);
     window.addEventListener(CLOCK_JUMP_EVENT, onJump);
     return () => {
       window.removeEventListener(CLOCK_CLEARED_EVENT, onCleared);
       window.removeEventListener(CLOCK_JUMP_EVENT, onJump);
     };
-  }, [handleCorruption]);
+  }, [handleProvenSkew]);
 
   return { clockBlocked: blocked, clockReady, setClockBlocked: setBlocked };
 }

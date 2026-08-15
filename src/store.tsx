@@ -14,7 +14,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
 import { parseBackupPayload } from './lib/backup';
-import { clearClockIncident, guardWallClock, hasClockIncident } from './lib/deviceClock';
+import { guardWallClock, hasClockIncident } from './lib/deviceClock';
 import { formatWallClock } from './lib/format';
 import {
   finalizeSession,
@@ -774,11 +774,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ) => {
       const prev = activeSessionRef.current;
       if (!prev) return;
-      if (!guardWallClock()) {
-        setActiveSession(null);
-        return;
-      }
-      const endAt = options?.endTime ?? Date.now();
+      const clockOk = guardWallClock();
+      const endAt = options?.endTime ?? (clockOk ? Date.now() : prev.lastHeartbeat || prev.startTime);
       const task = tasksRef.current.find((t) => t.id === prev.taskId);
       const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
@@ -816,7 +813,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const pauseSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || prev.isPaused) return prev;
-      if (!guardWallClock()) return null;
+      guardWallClock();
       const now = Date.now();
       return {
         ...prev,
@@ -831,7 +828,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const resumeSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || !prev.isPaused) return prev;
-      if (!guardWallClock()) return null;
+      guardWallClock();
       const now = Date.now();
       const pauseDuration = prev.pauseStart ? now - prev.pauseStart : 0;
       return {
@@ -886,10 +883,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
 
   const continueInterruptedSession = useCallback(() => {
-    if (!guardWallClock()) {
-      setActiveSession(null);
-      return;
-    }
+    guardWallClock();
     const now = Date.now();
     setActiveSession((prev) => {
       if (!prev) return null;
@@ -899,8 +893,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const heartbeatSession = useCallback(() => {
     setActiveSession((prev) => {
-      if (!prev) return null;
-      if (!guardWallClock()) return null;
+      if (!prev) return prev;
+      guardWallClock();
       const now = Date.now();
       if (now - prev.lastHeartbeat > STALE_HEARTBEAT_MS) {
         return { ...prev, lastHeartbeat: now };
@@ -1140,9 +1134,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // When user logs in: check if local state is empty, if so auto-restore from cloud
     const autoRestoreOrPush = async () => {
       if (hasClockIncident()) {
-        const jsonStr = await fetchCloudBackup();
-        if (jsonStr) importBackup(jsonStr);
-        clearClockIncident();
         return;
       }
       if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
