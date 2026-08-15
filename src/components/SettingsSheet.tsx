@@ -337,6 +337,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
     { kind: 'live' } | { kind: 'visit'; id: string; label: string; when: string } | null
   >(null);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [confirmWipeCloud, setConfirmWipeCloud] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
@@ -770,6 +771,49 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                     <Upload size={15} strokeWidth={2.25} />
                     Sync now
                   </button>
+
+                  {tasks.length === 0 && goals.length === 0 && (
+                    confirmWipeCloud ? (
+                      <div className="mt-2 rounded-[12px] border border-error/30 bg-error-soft p-3 space-y-2">
+                        <p className="text-[12px] text-content-secondary leading-relaxed">
+                          This device has no goals or cards. Clearing the cloud backup removes the copy on your other devices too. This cannot be undone from here.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const res = await syncToCloud({ allowEmpty: true });
+                              setConfirmWipeCloud(false);
+                              setMsg(
+                                res.ok
+                                  ? { text: '✓ Cloud backup cleared.' }
+                                  : { text: `✗ ${res.error || 'Failed to clear cloud backup.'}`, error: true },
+                              );
+                            }}
+                            className="flex-1 h-10 rounded-[12px] bg-error text-on-primary text-[12px] font-semibold"
+                          >
+                            Yes, clear cloud
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmWipeCloud(false)}
+                            className="flex-1 h-10 rounded-[12px] border border-subtle text-[12px] font-medium text-content-secondary"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmWipeCloud(true)}
+                        className="mt-2 w-full h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 size={14} />
+                        Clear cloud backup
+                      </button>
+                    )
+                  )}
 
                   <div className="mt-2 grid grid-cols-3 gap-1">
                     <button

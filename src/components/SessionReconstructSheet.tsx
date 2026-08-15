@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Check, CheckCircle2, Clock, X } from 'lucide-react';
 import Overlay from './Overlay';
 import type { ActiveSession, Task } from '../types';
-import { computeNetFocusMs } from '../lib/sessionStats';
+import { computeNetFocusMs, MAX_CONTINUOUS_FOCUS_MS } from '../lib/sessionStats';
 import { formatDuration, formatWallClock } from '../lib/format';
 
 interface Props {
@@ -21,7 +21,9 @@ interface Props {
 export function SessionReconstructSheet({ open, task, session, onCancel, onWasNotWorking, onSave }: Props) {
   const openedAt = useMemo(() => Date.now(), []);
   const span = Math.max(1, openedAt - session.startTime);
-  const [t, setT] = useState(0.5);
+  const [t, setT] = useState(() =>
+    span <= MAX_CONTINUOUS_FOCUS_MS ? 0.5 : MAX_CONTINUOUS_FOCUS_MS / span,
+  );
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
 
   if (!open) return null;
@@ -53,7 +55,7 @@ export function SessionReconstructSheet({ open, task, session, onCancel, onWasNo
           <div>
             <h3 className="text-sm font-semibold text-content-primary">When did you actually stop?</h3>
             <p className="text-[12px] text-content-muted mt-0.5 leading-snug">
-              You left a session running. Mark what you finished and about when you stopped.
+              Drag to about when you actually stopped. If you fell asleep, discard this sitting instead.
             </p>
           </div>
           <button onClick={onCancel} className="p-1.5 rounded-lg text-content-muted hover:text-content-primary shrink-0">
@@ -124,6 +126,11 @@ export function SessionReconstructSheet({ open, task, session, onCancel, onWasNo
             <span className="font-semibold text-primary tabular-nums">{formatDuration(durationMs)}</span>
             <span>Now</span>
           </div>
+          {durationMs > MAX_CONTINUOUS_FOCUS_MS && (
+            <p className="text-[11px] text-content-secondary mt-2 leading-relaxed">
+              This is longer than a normal sitting. Drag back unless you really worked this whole time.
+            </p>
+          )}
         </div>
 
         <button
@@ -137,7 +144,7 @@ export function SessionReconstructSheet({ open, task, session, onCancel, onWasNo
           onClick={onWasNotWorking}
           className="w-full mt-2 py-2.5 rounded-[12px] text-[13px] font-medium text-content-secondary"
         >
-          I wasn’t working — discard
+          I fell asleep — discard completely
         </button>
       </div>
     </Overlay>

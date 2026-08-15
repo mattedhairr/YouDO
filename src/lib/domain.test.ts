@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, localISODate, todayISO } from './dates';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
-import { computeNetFocusMs, finalizeSession, isCountableSession, splitSessionByLocalDate, clampSessionEnd } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks } from './goalTree';
+import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS } from './sessionStats';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task } from '../types';
 
 describe('dates', () => {
@@ -62,6 +62,14 @@ describe('session math', () => {
     expect(isCountableSession(rec!)).toBe(true);
   });
 
+  it('records manual step completions without counting focus time', () => {
+    const row = createManualStepSession('t1', [1], { goalNodeId: 'g1', completed: true });
+    expect(row.manual).toBe(true);
+    expect(row.completedStepIndices).toEqual([1]);
+    expect(isCountableSession(row)).toBe(false);
+    expect(isManualSession(row)).toBe(true);
+  });
+
   it('counts phone-off time as focus when finalizing later', () => {
     const stale = { ...base, lastHeartbeat: 1_000_000 };
     const rec = finalizeSession(stale, 1_000_000 + 10 * 60_000, { completed: false });
@@ -97,6 +105,36 @@ describe('session math', () => {
     expect(slices[1].date).toBe('2026-08-15');
     expect(slices[0].netFocusMs + slices[1].netFocusMs).toBe(end - start);
   });
+
+  it('does not move lastHeartbeat on a stale gap (phone was away)', () => {
+    const stale = { ...base, lastHeartbeat: 1_000_000 };
+    const later = 1_000_000 + STALE_HEARTBEAT_MS + 1;
+    expect(tickActiveSession(stale, later)).toBe(stale);
+    expect(shouldOfferSessionRecovery(stale, later)).toBe(true);
+  });
+
+  it('pauses at 4h of continuous foreground time, not at wake', () => {
+    const now = base.startTime + MAX_CONTINUOUS_FOCUS_MS;
+    const ticked = tickActiveSession({ ...base, lastHeartbeat: now - 30_000 }, now);
+    expect(ticked.isPaused).toBe(true);
+    expect(ticked.pauseStart).toBe(base.startTime + MAX_CONTINUOUS_FOCUS_MS);
+    expect(ticked.lastHeartbeat).toBe(now);
+  });
+
+  it('caps forgotten sittings at 4h from the last resume', () => {
+    const eightHours = base.startTime + 8 * 60 * 60 * 1000;
+    expect(safetyCapEnd(base, eightHours)).toBe(base.startTime + MAX_CONTINUOUS_FOCUS_MS);
+    const resumed = { ...base, returnedAt: base.startTime + 40 * 60_000 };
+    expect(safetyCapEnd(resumed, eightHours)).toBe(base.startTime + 40 * 60_000 + MAX_CONTINUOUS_FOCUS_MS);
+  });
+
+  it('resume after a lock keeps the sitting and starts counting again', () => {
+    const now = base.startTime + 40 * 60 * 1000;
+    const next = continueAfterInterruption(base, now);
+    expect(next.returnedAt).toBe(now);
+    expect(next.isPaused).toBe(false);
+    expect(next.lastHeartbeat).toBe(now);
+  });
 });
 
 describe('goal tree', () => {
@@ -113,6 +151,27 @@ describe('goal tree', () => {
     clearRollupCache();
     expect(rollupPct(leaf({ id: 'a', steps: ['a', 'b', 'c'], stepDone: [true, true, false] }))).toBe(67);
     expect(rollupPct(leaf({ id: 'b', completed: true }))).toBe(100);
+  });
+
+  it('reuses unchanged goal branches when patching a leaf', () => {
+    const untouched = leaf({ id: 'keep' });
+    const target = leaf({ id: 'edit', title: 'Old' });
+    const root: GoalNode = {
+      id: 'root',
+      kind: 'goal',
+      title: 'Root',
+      children: [untouched, target],
+      createdAt: 1,
+    };
+    const next = updateNode(root, 'edit', (n) => ({ ...n, title: 'New' }));
+    expect(next).not.toBe(root);
+    expect(next.children[0]).toBe(untouched);
+    expect(next.children[1]).not.toBe(target);
+    expect(next.children[1].title).toBe('New');
+    const same = updateNode(root, 'missing', (n) => ({ ...n, title: 'X' }));
+    expect(same).toBe(root);
+    const afterRemove = removeNode(root, 'missing');
+    expect(afterRemove).toBe(root);
   });
 
   it('treats tasks without steps as incomplete until progress is 1', () => {
@@ -161,6 +220,7 @@ describe('goal tree', () => {
     expect(cleared.originalTargetDate).toBe('2000-01-12');
     expect(cleared.pastFailedNativeDates).toEqual(['2000-01-12']);
     expect(isBacklogTask(cleared, today)).toBe(true);
+    expect(isOpenBacklogTask(cleared, today)).toBe(false);
     expect(isBacklogTask(cleared, '2000-01-15')).toBe(false);
   });
 
@@ -236,11 +296,20 @@ describe('device clock integrity', () => {
     expect(isClockJump(CLOCK_SKEW_MS, CLOCK_SKEW_MS)).toBe(false);
   });
 
-  it('flags wall clock jumping ahead or backward vs monotonic time', async () => {
-    const { isClockJump, CLOCK_SKEW_MS } = await import('./deviceClock');
-    expect(isClockJump(2 * 60 * 60 * 1000, 15_000)).toBe(true);
+  it('treats screen-lock freeze as sleep only after a background resume', async () => {
+    const { isClockJump, isLikelyAppSleep, classifyClockGap } = await import('./deviceClock');
+    const fortyMinutes = 40 * 60 * 1000;
+    expect(isLikelyAppSleep(fortyMinutes, 40)).toBe(true);
+    expect(classifyClockGap(fortyMinutes, 40, 'resume')).toBe('sleep');
+    expect(classifyClockGap(fortyMinutes, 40, 'tick')).toBe('jump');
+    expect(classifyClockGap(fortyMinutes, 40, 'guard')).toBe('jump');
+    expect(isClockJump(fortyMinutes, 40)).toBe(true);
+  });
+
+  it('flags wall clock jumping while the app is actually running', async () => {
+    const { isClockJump } = await import('./deviceClock');
+    expect(isClockJump(2 * 60 * 60 * 1000, 15 * 60 * 1000)).toBe(true);
     expect(isClockJump(-2 * 60 * 60 * 1000, 15_000)).toBe(true);
-    expect(isClockJump(CLOCK_SKEW_MS + 1, 0)).toBe(true);
   });
 
   it('flags device time far from server time', async () => {
@@ -271,5 +340,50 @@ describe('visit snapshot labels', () => {
     expect(visitSnapshotLabel(0)).toBe('When you opened this time');
     expect(visitSnapshotLabel(1)).toBe('Previous time you opened');
     expect(visitSnapshotLabel(2)).toBe('2 opens ago');
+  });
+});
+
+describe('cloud merge', () => {
+  it('keeps sessions from both phones', async () => {
+    const { mergeSessionHistories } = await import('./syncMerge');
+    const merged = mergeSessionHistories(
+      { t1: [{ id: 'a', taskId: 't1', startTime: 1, endTime: 60_000, pausedDuration: 0, pauses: [], netFocusMs: 60_000, wallClockStart: '', wallClockEnd: '', completed: false, completedStepIndices: [] }] },
+      { t1: [{ id: 'b', taskId: 't1', startTime: 2, endTime: 90_000, pausedDuration: 0, pauses: [], netFocusMs: 88_000, wallClockStart: '', wallClockEnd: '', completed: true, completedStepIndices: [0] }] },
+    );
+    expect(merged.t1.map((s) => s.id).sort()).toEqual(['a', 'b']);
+  });
+
+  it('does not resurrect a goal the other phone deleted', async () => {
+    const { mergeWorkspace } = await import('./syncMerge');
+    const node = { id: 'g1', kind: 'goal' as const, title: 'Keep', children: [], createdAt: 1 };
+    const gone = { id: 'g2', kind: 'goal' as const, title: 'Gone', children: [], createdAt: 1 };
+    const merged = mergeWorkspace(
+      { tasks: [], goals: [node, gone], sessionHistory: {}, recentlyDeletedGoals: [] },
+      {
+        tasks: [],
+        goals: [node],
+        sessionHistory: {},
+        recentlyDeletedGoals: [{ id: 'del-1', node: gone, deletedAt: 9, parentRootId: null, tasks: [] }],
+      },
+    );
+    expect(merged.goals.map((g) => g.id)).toEqual(['g1']);
+  });
+
+  it('clamps impossible session numbers', async () => {
+    const { sanitizeSession } = await import('./sessionStats');
+    const row = sanitizeSession({
+      id: 'x',
+      taskId: 't',
+      startTime: 1_000,
+      endTime: 2_000,
+      netFocusMs: 9_000_000_000,
+      pausedDuration: 0,
+      pauses: [],
+      wallClockStart: '',
+      wallClockEnd: '',
+      completed: false,
+      completedStepIndices: [],
+    });
+    expect(row?.netFocusMs).toBe(1_000);
   });
 });

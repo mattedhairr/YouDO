@@ -19,6 +19,37 @@ export function isCountableSession(s: { netFocusMs: number }): boolean {
   return s.netFocusMs >= MIN_COUNTABLE_MS;
 }
 
+export function isManualSession(s: { manual?: boolean; netFocusMs: number; completedStepIndices?: number[] }): boolean {
+  if (s.manual === true) return true;
+  return s.netFocusMs < MIN_COUNTABLE_MS && (s.completedStepIndices?.length ?? 0) > 0;
+}
+
+/** Instant history row when a step is checked off outside a focus session. */
+export function createManualStepSession(
+  taskId: string,
+  stepIndices: number[],
+  opts?: { goalNodeId?: string; completed?: boolean | 'partial' },
+): TaskSession {
+  const now = Date.now();
+  const clock = formatWallClock(now);
+  const indices = [...new Set(stepIndices)].filter((i) => i >= 0).sort((a, b) => a - b);
+  return {
+    id: uid('sess'),
+    taskId,
+    goalNodeId: opts?.goalNodeId,
+    startTime: now,
+    endTime: now,
+    pausedDuration: 0,
+    pauses: [],
+    netFocusMs: 0,
+    wallClockStart: clock,
+    wallClockEnd: clock,
+    completed: opts?.completed ?? (indices.length > 0 ? 'partial' : false),
+    completedStepIndices: indices,
+    manual: true,
+  };
+}
+
 export function lastResumeAt(session: ActiveSession): number {
   if (session.returnedAt) return session.returnedAt;
   for (let i = session.pauses.length - 1; i >= 0; i--) {
@@ -26,6 +57,81 @@ export function lastResumeAt(session: ActiveSession): number {
     if (end) return end;
   }
   return session.startTime;
+}
+
+export function shouldOfferSessionRecovery(session: ActiveSession, now: number): boolean {
+  if (!session.lastHeartbeat) return false;
+  return now - session.lastHeartbeat > STALE_HEARTBEAT_MS;
+}
+
+/**
+ * Cap a forgotten sitting at 4h from the last real resume so sleep cannot inflate stats.
+ * Resume (“I kept working”) only moves the 4h window; it does not remove the cap.
+ */
+export function safetyCapEnd(session: ActiveSession, endAt: number): number {
+  const end = clampSessionEnd(session.startTime, endAt);
+  const cap = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
+  return clampSessionEnd(session.startTime, Math.min(end, cap));
+}
+
+/** End time when the user taps Stop (not the reconstruct slider). */
+export function resolvePersistEndAt(
+  session: ActiveSession,
+  now: number,
+  opts?: { userEnd?: number; clockIncident?: boolean },
+): number {
+  if (opts?.userEnd != null) return clampSessionEnd(session.startTime, opts.userEnd);
+  const raw = opts?.clockIncident ? session.lastHeartbeat || session.startTime : now;
+  return safetyCapEnd(session, raw);
+}
+
+/** Heartbeat while the app is in the foreground. Never call this when the clock sample failed. */
+export function tickActiveSession(session: ActiveSession, now: number): ActiveSession {
+  const lastBeat = session.lastHeartbeat || session.startTime;
+  if (now - lastBeat > STALE_HEARTBEAT_MS) {
+    return session;
+  }
+  if (!session.isPaused && now - lastResumeAt(session) >= MAX_CONTINUOUS_FOCUS_MS) {
+    const pauseAt = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
+    return {
+      ...session,
+      isPaused: true,
+      pauseStart: pauseAt,
+      lastHeartbeat: now,
+      pauses: [...session.pauses, { start: pauseAt, wallClockStart: formatWallClock(pauseAt) }],
+    };
+  }
+  return { ...session, lastHeartbeat: now };
+}
+
+/** Phone aside / screen off — keep counting. Closes an open pause so lock time is not lost. */
+export function continueAfterInterruption(session: ActiveSession, now: number): ActiveSession {
+  let pausedDuration = session.pausedDuration;
+  let pauses = session.pauses;
+  if (session.isPaused && session.pauseStart) {
+    const closeAt = Math.min(now, Math.max(session.pauseStart, session.lastHeartbeat || session.pauseStart));
+    const dur = Math.max(0, closeAt - session.pauseStart);
+    pausedDuration += dur;
+    pauses = session.pauses.map((p, i) =>
+      i === session.pauses.length - 1 && !p.end
+        ? {
+            ...p,
+            end: closeAt,
+            wallClockEnd: formatWallClock(closeAt),
+            durationMs: dur,
+          }
+        : p,
+    );
+  }
+  return {
+    ...session,
+    isPaused: false,
+    pauseStart: undefined,
+    pausedDuration,
+    pauses,
+    lastHeartbeat: now,
+    returnedAt: now,
+  };
 }
 
 export function computePausedMs(session: ActiveSession, now: number, ignoreOpenPause = false): number {
@@ -150,6 +256,57 @@ export function sessionOverlapsLocalDate(
   date: string,
 ): SessionDaySlice | undefined {
   return splitSessionByLocalDate(s).find((sl) => sl.date === date);
+}
+
+export function sanitizeSession(raw: unknown): TaskSession | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as Partial<TaskSession>;
+  if (typeof s.startTime !== 'number' || !Number.isFinite(s.startTime)) return null;
+  const end = clampSessionEnd(s.startTime, typeof s.endTime === 'number' && Number.isFinite(s.endTime) ? s.endTime : s.startTime);
+  const elapsed = Math.max(0, end - s.startTime);
+  let net = typeof s.netFocusMs === 'number' && Number.isFinite(s.netFocusMs) ? s.netFocusMs : 0;
+  net = Math.max(0, Math.min(net, elapsed, MAX_PLAUSIBLE_SESSION_MS));
+  const id = typeof s.id === 'string' && s.id.trim() ? s.id : `sess-${s.startTime}-${s.taskId ?? 'x'}`;
+  const taskId = typeof s.taskId === 'string' ? s.taskId : '';
+  const pausedDuration =
+    typeof s.pausedDuration === 'number' && Number.isFinite(s.pausedDuration)
+      ? Math.max(0, Math.min(s.pausedDuration, elapsed))
+      : Math.max(0, elapsed - net);
+  return {
+    id,
+    taskId,
+    startTime: s.startTime,
+    endTime: end,
+    pausedDuration,
+    pauses: Array.isArray(s.pauses) ? (s.pauses as TaskSession['pauses']) : [],
+    netFocusMs: net,
+    wallClockStart: typeof s.wallClockStart === 'string' ? s.wallClockStart : '',
+    wallClockEnd: typeof s.wallClockEnd === 'string' ? s.wallClockEnd : '',
+    completed: s.completed === true || s.completed === 'partial' ? s.completed : false,
+    completedStepIndices: Array.isArray(s.completedStepIndices)
+      ? s.completedStepIndices.filter((i): i is number => typeof i === 'number')
+      : [],
+    goalNodeId: typeof s.goalNodeId === 'string' ? s.goalNodeId : undefined,
+    manual: s.manual === true,
+  };
+}
+
+export function sanitizeSessionHistory(raw: unknown): Record<string, TaskSession[]> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, TaskSession[]> = {};
+  for (const [taskId, list] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(list)) continue;
+    const byId = new Map<string, TaskSession>();
+    for (const row of list) {
+      const s = sanitizeSession(row);
+      if (!s) continue;
+      const next = { ...s, taskId: s.taskId || taskId };
+      byId.set(next.id, next);
+    }
+    const uniq = [...byId.values()].sort((a, b) => a.startTime - b.startTime);
+    if (uniq.length) out[taskId] = uniq;
+  }
+  return out;
 }
 
 export function aggregateSessions(sessions: { netFocusMs: number; startTime: number; endTime: number }[]) {

@@ -67,7 +67,7 @@ export function AmbientScreen({
   }, [activeSession]);
 
   const formattedTime = formatElapsed(elapsed);
-  const circumference = 2 * Math.PI * 108;
+  const circumference = 2 * Math.PI * 116;
   const minuteProgress = (elapsed % 3600) / 3600;
   const dash = circumference * minuteProgress;
 
@@ -123,13 +123,13 @@ export function AmbientScreen({
             {task.title}
           </h1>
 
-          <div className="relative mb-8 w-[248px] h-[248px] grid place-items-center">
-            <svg width="248" height="248" className="-rotate-90 absolute inset-0">
-              <circle cx="124" cy="124" r="108" fill="none" stroke="var(--border-subtle)" strokeWidth="3" />
+          <div className="relative mb-8 w-[264px] h-[264px] grid place-items-center">
+            <svg width="264" height="264" className="-rotate-90 absolute inset-0" aria-hidden="true">
+              <circle cx="132" cy="132" r="116" fill="none" stroke="var(--border-subtle)" strokeWidth="3" />
               <circle
-                cx="124"
-                cy="124"
-                r="108"
+                cx="132"
+                cy="132"
+                r="116"
                 fill="none"
                 stroke="var(--primary)"
                 strokeWidth="3"
@@ -138,7 +138,7 @@ export function AmbientScreen({
                 style={{ transition: 'stroke-dasharray 0.8s ease' }}
               />
             </svg>
-            <div className="font-mono text-[52px] font-semibold tabular-nums tracking-tight text-content-primary animate-ambient-clock">
+            <div className="font-mono text-[40px] sm:text-[44px] font-semibold tabular-nums tracking-tight text-content-primary animate-ambient-clock leading-none px-5 text-center">
               {formattedTime}
             </div>
           </div>

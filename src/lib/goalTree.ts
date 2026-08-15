@@ -59,21 +59,35 @@ export function findNode(root: GoalNode, id: string): [GoalNode | null, GoalNode
 
 export function updateNode(root: GoalNode, id: string, patch: (n: GoalNode) => GoalNode): GoalNode {
   if (root.id === id) return patch(root);
-  return { ...root, children: root.children.map((c) => updateNode(c, id, patch)) };
+  let changed = false;
+  const children = root.children.map((c) => {
+    const next = updateNode(c, id, patch);
+    if (next !== c) changed = true;
+    return next;
+  });
+  return changed ? { ...root, children } : root;
 }
 
 export function removeNode(root: GoalNode, id: string): GoalNode {
-  return {
-    ...root,
-    children: root.children.filter((c) => c.id !== id).map((c) => removeNode(c, id)),
-  };
+  const kept = root.children.filter((c) => c.id !== id);
+  let changed = kept.length !== root.children.length;
+  const children = kept.map((c) => {
+    const next = removeNode(c, id);
+    if (next !== c) changed = true;
+    return next;
+  });
+  return changed ? { ...root, children } : root;
 }
 
 export function removeNodes(root: GoalNode, ids: Set<string>): GoalNode {
-  return {
-    ...root,
-    children: root.children.filter((c) => !ids.has(c.id)).map((c) => removeNodes(c, ids)),
-  };
+  const kept = root.children.filter((c) => !ids.has(c.id));
+  let changed = kept.length !== root.children.length;
+  const children = kept.map((c) => {
+    const next = removeNodes(c, ids);
+    if (next !== c) changed = true;
+    return next;
+  });
+  return changed ? { ...root, children } : root;
 }
 
 export function collectLeaves(node: GoalNode): GoalNode[] {
@@ -221,6 +235,11 @@ export function isBacklogTask(task: Task, today = todayISO()): boolean {
   }
   if (task.targetDate < today) return true;
   return !!task.originalTargetDate && task.targetDate === today;
+}
+
+/** Open (incomplete) backlog — use for badges and “N overdue”, not for the list itself. */
+export function isOpenBacklogTask(task: Task, today = todayISO()): boolean {
+  return isBacklogTask(task, today) && !isTaskComplete(task);
 }
 
 /** When overdue work is finished today, stamp today as the clear date and keep the miss for calendar/stats. */

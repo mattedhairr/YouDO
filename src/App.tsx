@@ -3,7 +3,8 @@ import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clo
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, isBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, findGoal, collectDescendantIds } from './store';
+import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, useSessionStore, findGoal, collectDescendantIds } from './store';
+import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
 import { useAuth } from './contexts/AuthContext';
 import TaskCard from './components/TaskCard';
@@ -124,10 +125,13 @@ function AppInner() {
     lastDeletedNotification,
     clearDeletedNotification,
     restoreDeletedGoal,
-    // Session state & actions
-    activeSession,
     restoreFromCloud,
     sessionHistory,
+    completeSessionSteps,
+  } = useStore();
+
+  const {
+    activeSession,
     startSession,
     pauseSession,
     resumeSession,
@@ -135,12 +139,11 @@ function AppInner() {
     discardSession,
     continueInterruptedSession,
     heartbeatSession,
-    completeSessionSteps,
-  } = useStore();
+  } = useSessionStore();
 
   const { user } = useAuth();
   const [{ darkMode }] = useTheme();
-  const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity(discardSession);
+  const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity();
   const [clockVerifyBusy, setClockVerifyBusy] = useState(false);
   const [clockVerifyError, setClockVerifyError] = useState<string | null>(null);
 
@@ -165,12 +168,21 @@ function AppInner() {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
   const [reconstructOpen, setReconstructOpen] = useState(false);
+  const activeSessionRef = useRef(activeSession);
+  activeSessionRef.current = activeSession;
 
-  // Heartbeat timer (30s)
+  // Heartbeat while visible (30s). Also tick on return so a long lock is handled immediately.
   useEffect(() => {
     if (!activeSession) return;
     const interval = setInterval(heartbeatSession, 30_000);
-    return () => clearInterval(interval);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') heartbeatSession();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [activeSession, heartbeatSession]);
 
   const targetSessions = useMemo(() => {
@@ -353,14 +365,18 @@ function AppInner() {
   useEffect(() => {
     if (!clockReady || clockBlocked) return;
     if (!activeSession) return;
-    if (!activeSession.lastHeartbeat) return;
-    const msSinceHeartbeat = Date.now() - activeSession.lastHeartbeat;
-    if (msSinceHeartbeat > 300_000) {
-      setRecoverySessionPrompt(true);
-    }
-    // One-shot after the device clock has been checked — do not re-run on heartbeats.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clockReady, clockBlocked]);
+    const check = () => {
+      const session = activeSessionRef.current;
+      if (!session) return;
+      if (document.visibilityState !== 'visible') return;
+      if (shouldOfferSessionRecovery(session, Date.now())) {
+        setRecoverySessionPrompt(true);
+      }
+    };
+    check();
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, [clockReady, clockBlocked, activeSession?.taskId]);
 
   useEffect(() => {
     if (!clockBlocked) return;
@@ -389,6 +405,21 @@ function AppInner() {
     [tasks],
   );
   const backlogTasks = useMemo(() => tasks.filter((t) => isBacklogTask(t)), [tasks]);
+  const openBacklogCount = useMemo(
+    () => backlogTasks.filter((t) => isOpenBacklogTask(t)).length,
+    [backlogTasks],
+  );
+  const openBacklogDateCount = useMemo(() => {
+    const dates = new Set<string>();
+    for (const t of backlogTasks) {
+      if (isOpenBacklogTask(t) && t.targetDate) dates.add(t.targetDate);
+    }
+    return dates.size;
+  }, [backlogTasks]);
+  const openTodayCount = useMemo(
+    () => todayTasks.filter((t) => !isTaskComplete(t)).length,
+    [todayTasks],
+  );
   const todayCount = todayTasks.length;
   const todayDone = todayTasks.filter(isTaskComplete).length;
   const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
@@ -487,6 +518,7 @@ function AppInner() {
 
     let quickCount = 0;
     for (const t of activeTasksList) {
+      if (isTaskComplete(t)) continue;
       if (!t.goalNodeId) {
         quickCount++;
       } else {
@@ -733,7 +765,7 @@ function AppInner() {
                   >
                     <span>Scheduled</span>
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${todaySubTab === 'today' ? 'bg-primary text-on-primary' : 'bg-base text-content-muted'}`}>
-                      {todayTasks.length}
+                      {openTodayCount}
                     </span>
                   </button>
                   <button
@@ -744,10 +776,10 @@ function AppInner() {
                         : 'text-content-secondary'
                     }`}
                   >
-                    <AlertTriangle size={13} className={backlogTasks.length > 0 ? 'text-error' : 'text-content-muted'} />
+                    <AlertTriangle size={13} className={openBacklogCount > 0 ? 'text-error' : 'text-content-muted'} />
                     <span>Backlog</span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${backlogTasks.length > 0 ? 'bg-error text-white' : 'bg-base text-content-muted'}`}>
-                      {backlogTasks.length}
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${openBacklogCount > 0 ? 'bg-error text-white' : 'bg-base text-content-muted'}`}>
+                      {openBacklogCount}
                     </span>
                   </button>
                 </div>
@@ -763,7 +795,7 @@ function AppInner() {
                           : 'bg-surface border-subtle text-content-secondary hover:bg-elevated'
                       }`}
                     >
-                      All ({todaySubTab === 'today' ? todayTasks.length : backlogTasks.length})
+                      All ({todaySubTab === 'today' ? openTodayCount : openBacklogCount})
                     </button>
                     {categoryChips.map((chip) => (
                       <button
@@ -833,10 +865,10 @@ function AppInner() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-content-primary">
-                              {backlogTasks.length} overdue
+                              {openBacklogCount} overdue
                             </p>
                             <p className="text-[12px] text-content-muted">
-                              Across {backlogByDate.length} date{backlogByDate.length > 1 ? 's' : ''}
+                              Across {openBacklogDateCount} date{openBacklogDateCount > 1 ? 's' : ''}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
@@ -1129,6 +1161,7 @@ function AppInner() {
       {/* ── Session Stop Dialog ── */}
       {stopDialogTask && (
         <SessionStopDialog
+          key={stopDialogTask.id}
           open={!!stopDialogTask}
           task={stopDialogTask}
           onCancel={() => setStopDialogTask(null)}
@@ -1138,6 +1171,8 @@ function AppInner() {
               completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices ?? []);
             }
             setStopDialogTask(null);
+            setRecoverySessionPrompt(false);
+            setReconstructOpen(false);
           }}
         />
       )}
@@ -1149,6 +1184,7 @@ function AppInner() {
           title={statsTarget.title}
           sessions={targetSessions}
           stepTotal={!statsTarget.isGoal ? (tasks.find((t) => t.id === statsTarget.id)?.steps.length ?? 0) : 0}
+          stepProgress={!statsTarget.isGoal ? (tasks.find((t) => t.id === statsTarget.id)?.progress ?? 0) : 0}
           onClose={() => setStatsTarget(null)}
         />
       )}
@@ -1162,8 +1198,8 @@ function AppInner() {
               <span>Device time looks wrong</span>
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
-              Date &amp; time on this device jumped, so the in-progress session was discarded and was not saved. Cloud backup was not overwritten.
-              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then sign in again to restore your stats.
+              Date &amp; time on this device does not match the server, so cloud backup is paused. Your in-progress session and local data are still on this phone.
+              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then confirm below.
             </p>
             {clockVerifyError && (
               <p className="text-xs text-red-500 leading-relaxed">{clockVerifyError}</p>
@@ -1182,11 +1218,16 @@ function AppInner() {
                   }
                   clearClockIncident();
                   setClockBlocked(false);
+                  if (!user) {
+                    setAuthMode('signin');
+                    setAuthOpen(true);
+                  }
                 }}
                 className="w-full py-2.5 px-3 rounded-xl border border-subtle text-content-primary font-semibold text-xs disabled:opacity-60"
               >
                 {clockVerifyBusy ? 'Checking…' : 'I fixed date & time'}
               </button>
+              {!user && (
               <button
                 onClick={() => {
                   setAuthMode('signin');
@@ -1196,6 +1237,7 @@ function AppInner() {
               >
                 Sign in
               </button>
+              )}
             </div>
           </div>
         </Overlay>
@@ -1206,33 +1248,45 @@ function AppInner() {
 
       {/* ── Session Crash Recovery Dialog ── */}
       {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && !clockBlocked && (
-        <Overlay open onClose={() => setRecoverySessionPrompt(false)} align="center">
+        <Overlay open align="center">
           <div className="panel sheet-up p-5 space-y-4">
             <div className="flex items-center gap-2 text-primary font-semibold text-sm">
               <Clock className="w-5 h-5" />
               <span>Session still running</span>
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
-              <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session. If you kept working with the phone off, resume. If you already finished and forgot to stop, reconstruct it.
+              <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session.
+              If you kept working with the phone aside, resume — that time is kept.
+              If you forgot to stop, pick when you actually finished.
+              If you fell asleep or this sitting should not count, discard it.
             </p>
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1">
               <button
                 onClick={() => {
                   continueInterruptedSession();
                   setRecoverySessionPrompt(false);
                 }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
+                className="w-full py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
               >
-                Resume
+                Resume — I kept working
               </button>
               <button
                 onClick={() => {
                   setRecoverySessionPrompt(false);
                   setReconstructOpen(true);
                 }}
-                className="flex-1 py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs border border-subtle"
+                className="w-full py-2.5 px-3 rounded-xl text-content-primary font-medium text-xs border border-subtle"
               >
-                I forgot
+                I forgot to stop
+              </button>
+              <button
+                onClick={() => {
+                  discardSession();
+                  setRecoverySessionPrompt(false);
+                }}
+                className="w-full py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs"
+              >
+                Discard — I fell asleep
               </button>
             </div>
           </div>
@@ -1244,7 +1298,13 @@ function AppInner() {
           open
           task={activeTask}
           session={activeSession}
-          onCancel={() => setReconstructOpen(false)}
+          onCancel={() => {
+            setReconstructOpen(false);
+            const session = activeSessionRef.current;
+            if (session && shouldOfferSessionRecovery(session, Date.now())) {
+              setRecoverySessionPrompt(true);
+            }
+          }}
           onWasNotWorking={() => {
             discardSession();
             setReconstructOpen(false);

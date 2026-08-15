@@ -14,13 +14,15 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
 import { parseBackupPayload } from './lib/backup';
-import { clearClockIncident, guardWallClock, hasClockIncident } from './lib/deviceClock';
+import { guardWallClock, hasClockIncident } from './lib/deviceClock';
 import { formatWallClock } from './lib/format';
 import {
   finalizeSession,
-  lastResumeAt,
-  MAX_CONTINUOUS_FOCUS_MS,
-  STALE_HEARTBEAT_MS,
+  tickActiveSession,
+  continueAfterInterruption,
+  resolvePersistEndAt,
+  createManualStepSession,
+  sanitizeSessionHistory,
 } from './lib/sessionStats';
 import {
   clearRollupCache,
@@ -44,6 +46,7 @@ import {
 } from './lib/goalTree';
 import { uid } from './lib/ids';
 import { STORAGE_KEYS } from './lib/storageKeys';
+import { mergeWorkspace, workspaceSignature, type TrashRecord } from './lib/syncMerge';
 
 export {
   todayISO,
@@ -65,6 +68,7 @@ export {
   findGoal,
   findNode,
   isBacklogTask,
+  isOpenBacklogTask,
   isTaskComplete,
   moveNodeInArray,
   pathNodes,
@@ -139,7 +143,7 @@ interface Store {
   /** Import full state from JSON string backup */
   importBackup: (jsonStr: string) => boolean;
   /** Sync current state to Supabase cloud metadata */
-  syncToCloud: () => Promise<{ ok: boolean; error?: string }>;
+  syncToCloud: (opts?: { allowEmpty?: boolean }) => Promise<{ ok: boolean; error?: string }>;
   /** Restore state from Supabase cloud metadata */
   restoreFromCloud: () => Promise<boolean>;
   restoreFromVisitSnapshot: (snapshotId: string) => Promise<boolean>;
@@ -174,11 +178,42 @@ interface Store {
   completeSessionSteps: (taskId: string, stepIndices: number[]) => void;
 }
 
-const Ctx = createContext<Store | null>(null);
+type DataStore = Omit<
+  Store,
+  | 'activeSession'
+  | 'startSession'
+  | 'pauseSession'
+  | 'resumeSession'
+  | 'stopSession'
+  | 'discardSession'
+  | 'continueInterruptedSession'
+  | 'heartbeatSession'
+>;
+
+type SessionStore = Pick<
+  Store,
+  | 'activeSession'
+  | 'startSession'
+  | 'pauseSession'
+  | 'resumeSession'
+  | 'stopSession'
+  | 'discardSession'
+  | 'continueInterruptedSession'
+  | 'heartbeatSession'
+>;
+
+const DataCtx = createContext<DataStore | null>(null);
+const SessionCtx = createContext<SessionStore | null>(null);
 
 export function useStore() {
-  const c = useContext(Ctx);
+  const c = useContext(DataCtx);
   if (!c) throw new Error('useStore must be used within StoreProvider');
+  return c;
+}
+
+export function useSessionStore() {
+  const c = useContext(SessionCtx);
+  if (!c) throw new Error('useSessionStore must be used within StoreProvider');
   return c;
 }
 
@@ -245,6 +280,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const totalSteps = t.steps.length > 0 ? t.steps.length : 1;
       if (t.progress >= totalSteps) return;
       const nextProgress = t.progress + 1;
+      const stepIndex = t.steps.length > 0 ? nextProgress - 1 : -1;
       setTasks((prev) =>
         prev.map((x) => {
           if (x.id !== id) return x;
@@ -266,8 +302,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
         );
       }
+      // Don't invent a manual row while a focus session is running on this card.
+      if (activeSessionRef.current?.taskId === id) return;
+      const completed = nextProgress >= totalSteps;
+      const indices = stepIndex >= 0 ? [stepIndex] : [];
+      const row = createManualStepSession(id, indices, {
+        goalNodeId: t.goalNodeId ?? undefined,
+        completed: completed ? true : indices.length > 0 ? 'partial' : true,
+      });
+      setSessionHistory((hist) => ({
+        ...hist,
+        [id]: [...(hist[id] ?? []), row],
+      }));
     },
-    [setTasks, setGoals],
+    [setTasks, setGoals, setSessionHistory],
   );
 
   const undo = useCallback(
@@ -502,7 +550,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!node || !node.steps) return;
       const existing = node.stepDone ?? node.steps.map(() => false);
       const newStepDone = [...existing];
-      newStepDone[stepIdx] = !newStepDone[stepIdx];
+      const markingDone = !newStepDone[stepIdx];
+      newStepDone[stepIdx] = markingDone;
       const allDone = newStepDone.every(Boolean);
       setGoals((prev) =>
         prev.map((root) =>
@@ -511,8 +560,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       const patched: GoalNode = { ...node, stepDone: newStepDone, completed: allDone };
       setTasks((prev) => syncLinkedTasksFromGoal(prev, patched));
+
+      if (!markingDone) return;
+
+      setSessionHistory((hist) => {
+        let next = hist;
+        for (const t of tasksRef.current) {
+          if (t.goalNodeId !== nodeId) continue;
+          if (activeSessionRef.current?.taskId === t.id) continue;
+          let localIdx = stepIdx;
+          if (t.stepSlice) {
+            const i = t.stepSlice.indexOf(stepIdx);
+            if (i < 0) continue;
+            localIdx = i;
+          }
+          const taskDoneCount =
+            t.steps.length === 0
+              ? allDone
+                ? 1
+                : 0
+              : t.stepSlice
+                ? t.stepSlice.filter((mi) => newStepDone[mi]).length
+                : newStepDone.filter(Boolean).length;
+          const taskComplete = t.steps.length > 0 ? taskDoneCount >= t.steps.length : allDone;
+          const row = createManualStepSession(t.id, t.steps.length > 0 ? [localIdx] : [], {
+            goalNodeId: nodeId,
+            completed: taskComplete ? true : 'partial',
+          });
+          next = { ...next, [t.id]: [...(next[t.id] ?? []), row] };
+        }
+        return next;
+      });
     },
-    [setGoals, setTasks],
+    [setGoals, setTasks, setSessionHistory],
   );
 
   const togglePin = useCallback(
@@ -727,11 +807,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ) => {
       const prev = activeSessionRef.current;
       if (!prev) return;
-      if (!guardWallClock()) {
-        setActiveSession(null);
-        return;
-      }
-      const endAt = options?.endTime ?? Date.now();
+      const endAt = resolvePersistEndAt(prev, Date.now(), {
+        userEnd: options?.endTime,
+        clockIncident: hasClockIncident(),
+      });
       const task = tasksRef.current.find((t) => t.id === prev.taskId);
       const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
@@ -769,7 +848,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const pauseSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || prev.isPaused) return prev;
-      if (!guardWallClock()) return null;
+      if (!guardWallClock('guard')) return prev;
       const now = Date.now();
       return {
         ...prev,
@@ -784,7 +863,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const resumeSession = useCallback(() => {
     setActiveSession((prev) => {
       if (!prev || !prev.isPaused) return prev;
-      if (!guardWallClock()) return null;
+      if (!guardWallClock('guard')) return prev;
       const now = Date.now();
       const pauseDuration = prev.pauseStart ? now - prev.pauseStart : 0;
       return {
@@ -839,35 +918,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
 
   const continueInterruptedSession = useCallback(() => {
-    if (!guardWallClock()) {
-      setActiveSession(null);
-      return;
-    }
+    if (!guardWallClock('resume')) return;
     const now = Date.now();
     setActiveSession((prev) => {
       if (!prev) return null;
-      return { ...prev, lastHeartbeat: now, returnedAt: now };
+      return continueAfterInterruption(prev, now);
     });
   }, [setActiveSession]);
 
   const heartbeatSession = useCallback(() => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     setActiveSession((prev) => {
-      if (!prev) return null;
-      if (!guardWallClock()) return null;
-      const now = Date.now();
-      if (now - prev.lastHeartbeat > STALE_HEARTBEAT_MS) {
-        return { ...prev, lastHeartbeat: now };
-      }
-      if (!prev.isPaused && now - lastResumeAt(prev) >= MAX_CONTINUOUS_FOCUS_MS) {
-        return {
-          ...prev,
-          isPaused: true,
-          pauseStart: now,
-          lastHeartbeat: now,
-          pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
-        };
-      }
-      return { ...prev, lastHeartbeat: now };
+      if (!prev) return prev;
+      if (!guardWallClock('guard')) return prev;
+      return tickActiveSession(prev, Date.now());
     });
   }, [setActiveSession]);
 
@@ -1008,7 +1072,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!parsed) return false;
 
       if (parsed.sessionHistory && typeof parsed.sessionHistory === 'object') {
-        setSessionHistory(parsed.sessionHistory as Record<string, TaskSession[]>);
+        setSessionHistory(sanitizeSessionHistory(parsed.sessionHistory));
       }
       if (Array.isArray(parsed.recentlyDeletedGoals)) {
         setRecentlyDeletedGoals(parsed.recentlyDeletedGoals as DeletedGoalRecord[]);
@@ -1030,13 +1094,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   recentlyDeletedRef.current = recentlyDeletedGoals;
   const lastCloudPayloadRef = useRef<string>('');
 
-  const syncToCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+  const syncToCloud = useCallback(async (opts?: { allowEmpty?: boolean }): Promise<{ ok: boolean; error?: string }> => {
     if (hasClockIncident()) {
       return { ok: false, error: 'Sync paused until device date & time is corrected.' };
     }
-    if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
-      return { ok: false, error: 'Local data is empty. Sync paused to protect your cloud backup.' };
+    if (!opts?.allowEmpty && tasksRef.current.length === 0 && goalsRef.current.length === 0) {
+      return { ok: false, error: 'This device is empty. Restore from cloud, or tap Clear cloud backup if you meant to wipe it.' };
     }
+
+    if (!opts?.allowEmpty) {
+      const remoteStr = await fetchCloudBackup();
+      if (remoteStr) {
+        const parsed = parseBackupPayload(remoteStr);
+        if (parsed) {
+          const localSlice = {
+            tasks: tasksRef.current,
+            goals: goalsRef.current,
+            sessionHistory: sessionHistoryRef.current,
+            recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
+          };
+          const remoteSlice = {
+            tasks: parsed.tasks,
+            goals: parsed.goals,
+            sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
+            recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
+              ? (parsed.recentlyDeletedGoals as TrashRecord[])
+              : [],
+          };
+          const merged = mergeWorkspace(localSlice, remoteSlice);
+          if (workspaceSignature(merged) !== workspaceSignature(localSlice)) {
+            tasksRef.current = merged.tasks;
+            goalsRef.current = merged.goals;
+            sessionHistoryRef.current = merged.sessionHistory;
+            recentlyDeletedRef.current = merged.recentlyDeletedGoals as typeof recentlyDeletedRef.current;
+            setTasks(merged.tasks);
+            setGoals(merged.goals);
+            setSessionHistory(merged.sessionHistory);
+            setRecentlyDeletedGoals(merged.recentlyDeletedGoals as typeof recentlyDeletedGoals);
+          }
+        }
+      }
+    }
+
     const payload = {
       app: 'YouDO',
       version: '3.0.0',
@@ -1047,17 +1146,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sessionHistory: sessionHistoryRef.current,
       recentlyDeletedGoals: recentlyDeletedRef.current,
     };
-    const signature = JSON.stringify({
+    const signature = workspaceSignature({
       tasks: payload.tasks,
       goals: payload.goals,
       sessionHistory: payload.sessionHistory,
-      recentlyDeletedGoals: payload.recentlyDeletedGoals,
+      recentlyDeletedGoals: payload.recentlyDeletedGoals as TrashRecord[],
     });
     if (signature === lastCloudPayloadRef.current) return { ok: true };
     const result = await updateCloudBackup(payload);
     if (result.ok) lastCloudPayloadRef.current = signature;
     return result;
-  }, [updateCloudBackup]);
+  }, [updateCloudBackup, fetchCloudBackup, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
     const jsonStr = await fetchCloudBackup();
@@ -1093,9 +1192,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // When user logs in: check if local state is empty, if so auto-restore from cloud
     const autoRestoreOrPush = async () => {
       if (hasClockIncident()) {
-        const jsonStr = await fetchCloudBackup();
-        if (jsonStr) importBackup(jsonStr);
-        clearClockIncident();
         return;
       }
       if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
@@ -1120,7 +1216,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [user, tasks, goals, sessionHistory, syncToCloud]);
 
-  const value = useMemo<Store>(
+  const dataValue = useMemo<DataStore>(
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode,
@@ -1129,9 +1225,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
       exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
-      activeSession, sessionHistory,
-      startSession, pauseSession, resumeSession, stopSession,
-      discardSession, continueInterruptedSession, heartbeatSession, completeSessionSteps,
+      sessionHistory,
+      completeSessionSteps,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
@@ -1140,11 +1235,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
       exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
-      activeSession, sessionHistory,
-      startSession, pauseSession, resumeSession, stopSession,
-      discardSession, continueInterruptedSession, heartbeatSession, completeSessionSteps],
+      sessionHistory, completeSessionSteps],
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const sessionValue = useMemo<SessionStore>(
+    () => ({
+      activeSession,
+      startSession, pauseSession, resumeSession, stopSession,
+      discardSession, continueInterruptedSession, heartbeatSession,
+    }),
+    [activeSession, startSession, pauseSession, resumeSession, stopSession,
+      discardSession, continueInterruptedSession, heartbeatSession],
+  );
+
+  return (
+    <DataCtx.Provider value={dataValue}>
+      <SessionCtx.Provider value={sessionValue}>{children}</SessionCtx.Provider>
+    </DataCtx.Provider>
+  );
 }
 
