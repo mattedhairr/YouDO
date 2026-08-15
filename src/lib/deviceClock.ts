@@ -10,6 +10,17 @@ export const CLOCK_INCIDENT_KEY = 'youdo-clock-incident-v1';
 let lastWall = Date.now();
 let lastMono = performance.now();
 let primed = false;
+let lastHiddenAt = 0;
+
+const RECENT_BACKGROUND_MS = 8_000;
+
+export function markAppHidden(): void {
+  lastHiddenAt = Date.now();
+}
+
+export function wasRecentlyBackgrounded(ms = RECENT_BACKGROUND_MS): boolean {
+  return lastHiddenAt > 0 && Date.now() - lastHiddenAt < ms;
+}
 
 /**
  * Android/iOS WebView pauses performance.now() while the screen is locked.
@@ -64,7 +75,9 @@ export function noteClockSample(source: ClockSampleSource = 'guard'): { jumped: 
     primed = true;
     return { jumped: false, slept: false };
   }
-  const kind = classifyClockGap(wallDelta, monoDelta, source);
+  const effective: ClockSampleSource =
+    source === 'resume' || wasRecentlyBackgrounded() ? 'resume' : source;
+  const kind = classifyClockGap(wallDelta, monoDelta, effective);
   return { jumped: kind === 'jump', slept: kind === 'sleep' };
 }
 

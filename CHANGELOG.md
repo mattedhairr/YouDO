@@ -12,17 +12,24 @@ Phone lock, a forgotten timer, and falling asleep are three different things —
 - **Phone aside / screen off**: start a session, lock the phone, come back, stop. That sitting is still there. It is not thrown away, and it is not treated as a broken clock.
 - **Forgot to stop**: after about five minutes away you get a clear choice — resume if you kept working, or drag a slider to about when you actually finished.
 - **Fell asleep**: discard the sitting completely from that same screen (and from the slider sheet). Nothing is saved.
-- **Left running for hours**: a forgotten session cannot quietly add a whole night of focus. Stop without choosing still caps at four hours. Resume (“I kept working”) keeps the real time.
+- **Left running for hours**: a forgotten session cannot quietly add a whole night of focus. Stop without choosing still caps at four hours from the last time you said you were working. Resume (“I kept working”) keeps the real time up to that 4h window.
 
 ### ☁ Cloud
 - An empty device still will not overwrite your cloud backup by accident.
 - If this device is empty on purpose, Settings → **Clear cloud backup** (with a confirm) is how you wipe the cloud copy.
+- Two phones now **combine** sittings, goals, and cards instead of the last open phone wiping the other. A delete on one phone still wins (Recently Deleted is honoured). Restore in Settings still replaces this phone with a chosen backup on purpose.
 
 ### ⚙ Under the hood (so it stays honest)
+- Stopping right after unlock no longer looks like a date change and no longer drops the lock time or pauses cloud.
 - Heartbeats no longer stamp a future time when the clock sample failed.
 - Screen-lock freeze is only trusted after the app was in the background — changing the date while YouDO is open still trips the clock check.
 - Goal tree edits no longer clone every ancestor when a leaf did not change.
 - Session heartbeat no longer re-renders Goals / Calendar on every tick.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.2.0**, versionCode **10**. Same package id `com.mattedhairr.youdo` — install over 3.1.2.
+
+Also in this build (never shipped on 3.1.3): stats say “Whole task completed” when nothing is left; backlog badges count open items only; ambient clock fits the ring; checking a step without a session still shows as Manual in analytics.
 
 ### 💾 Data Safety
 - **Android APK**: versionName **3.2.0**, versionCode **10**. Same package id `com.mattedhairr.youdo` — install over 3.1.2.

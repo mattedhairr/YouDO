@@ -5,9 +5,11 @@ import {
   CLOCK_CLEARED_EVENT,
   CLOCK_JUMP_EVENT,
   hasClockIncident,
+  markAppHidden,
   markClockIncident,
   noteClockSample,
   resetClockSample,
+  wasRecentlyBackgrounded,
 } from '../lib/deviceClock';
 
 const SAMPLE_MS = 15_000;
@@ -42,15 +44,38 @@ export function useClockIntegrity() {
     };
     const interval = window.setInterval(() => sample('tick'), SAMPLE_MS);
     const onVis = () => {
-      if (document.visibilityState === 'visible') sample('resume');
+      if (document.visibilityState === 'hidden') {
+        markAppHidden();
+        return;
+      }
+      sample('resume');
     };
-    const onFocus = () => sample('resume');
+    const onFocus = () => {
+      if (wasRecentlyBackgrounded()) sample('resume');
+    };
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('focus', onFocus);
+    let cancelled = false;
+    let capHandle: { remove: () => Promise<void> } | undefined;
+    void import('@capacitor/app').then(({ App }) => {
+      if (cancelled) return;
+      return App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) markAppHidden();
+        else sample('resume');
+      }).then((h) => {
+        if (cancelled) {
+          void h.remove();
+          return;
+        }
+        capHandle = h;
+      });
+    });
     return () => {
+      cancelled = true;
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('focus', onFocus);
+      void capHandle?.remove();
     };
   }, [handleProvenSkew]);
 

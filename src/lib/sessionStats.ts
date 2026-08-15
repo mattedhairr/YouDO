@@ -65,14 +65,24 @@ export function shouldOfferSessionRecovery(session: ActiveSession, now: number):
 }
 
 /**
- * Cap a forgotten sitting at 4h so sleep / a left-on timer cannot inflate stats.
- * After the user taps Resume ("I kept working"), returnedAt is set and the cap is skipped.
+ * Cap a forgotten sitting at 4h from the last real resume so sleep cannot inflate stats.
+ * Resume (“I kept working”) only moves the 4h window; it does not remove the cap.
  */
 export function safetyCapEnd(session: ActiveSession, endAt: number): number {
   const end = clampSessionEnd(session.startTime, endAt);
-  if (session.returnedAt) return end;
   const cap = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
   return clampSessionEnd(session.startTime, Math.min(end, cap));
+}
+
+/** End time when the user taps Stop (not the reconstruct slider). */
+export function resolvePersistEndAt(
+  session: ActiveSession,
+  now: number,
+  opts?: { userEnd?: number; clockIncident?: boolean },
+): number {
+  if (opts?.userEnd != null) return clampSessionEnd(session.startTime, opts.userEnd);
+  const raw = opts?.clockIncident ? session.lastHeartbeat || session.startTime : now;
+  return safetyCapEnd(session, raw);
 }
 
 /** Heartbeat while the app is in the foreground. Never call this when the clock sample failed. */
@@ -246,6 +256,57 @@ export function sessionOverlapsLocalDate(
   date: string,
 ): SessionDaySlice | undefined {
   return splitSessionByLocalDate(s).find((sl) => sl.date === date);
+}
+
+export function sanitizeSession(raw: unknown): TaskSession | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as Partial<TaskSession>;
+  if (typeof s.startTime !== 'number' || !Number.isFinite(s.startTime)) return null;
+  const end = clampSessionEnd(s.startTime, typeof s.endTime === 'number' && Number.isFinite(s.endTime) ? s.endTime : s.startTime);
+  const elapsed = Math.max(0, end - s.startTime);
+  let net = typeof s.netFocusMs === 'number' && Number.isFinite(s.netFocusMs) ? s.netFocusMs : 0;
+  net = Math.max(0, Math.min(net, elapsed, MAX_PLAUSIBLE_SESSION_MS));
+  const id = typeof s.id === 'string' && s.id.trim() ? s.id : `sess-${s.startTime}-${s.taskId ?? 'x'}`;
+  const taskId = typeof s.taskId === 'string' ? s.taskId : '';
+  const pausedDuration =
+    typeof s.pausedDuration === 'number' && Number.isFinite(s.pausedDuration)
+      ? Math.max(0, Math.min(s.pausedDuration, elapsed))
+      : Math.max(0, elapsed - net);
+  return {
+    id,
+    taskId,
+    startTime: s.startTime,
+    endTime: end,
+    pausedDuration,
+    pauses: Array.isArray(s.pauses) ? (s.pauses as TaskSession['pauses']) : [],
+    netFocusMs: net,
+    wallClockStart: typeof s.wallClockStart === 'string' ? s.wallClockStart : '',
+    wallClockEnd: typeof s.wallClockEnd === 'string' ? s.wallClockEnd : '',
+    completed: s.completed === true || s.completed === 'partial' ? s.completed : false,
+    completedStepIndices: Array.isArray(s.completedStepIndices)
+      ? s.completedStepIndices.filter((i): i is number => typeof i === 'number')
+      : [],
+    goalNodeId: typeof s.goalNodeId === 'string' ? s.goalNodeId : undefined,
+    manual: s.manual === true,
+  };
+}
+
+export function sanitizeSessionHistory(raw: unknown): Record<string, TaskSession[]> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, TaskSession[]> = {};
+  for (const [taskId, list] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(list)) continue;
+    const byId = new Map<string, TaskSession>();
+    for (const row of list) {
+      const s = sanitizeSession(row);
+      if (!s) continue;
+      const next = { ...s, taskId: s.taskId || taskId };
+      byId.set(next.id, next);
+    }
+    const uniq = [...byId.values()].sort((a, b) => a.startTime - b.startTime);
+    if (uniq.length) out[taskId] = uniq;
+  }
+  return out;
 }
 
 export function aggregateSessions(sessions: { netFocusMs: number; startTime: number; endTime: number }[]) {

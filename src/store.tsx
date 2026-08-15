@@ -20,8 +20,9 @@ import {
   finalizeSession,
   tickActiveSession,
   continueAfterInterruption,
-  safetyCapEnd,
+  resolvePersistEndAt,
   createManualStepSession,
+  sanitizeSessionHistory,
 } from './lib/sessionStats';
 import {
   clearRollupCache,
@@ -45,6 +46,7 @@ import {
 } from './lib/goalTree';
 import { uid } from './lib/ids';
 import { STORAGE_KEYS } from './lib/storageKeys';
+import { mergeWorkspace, workspaceSignature, type TrashRecord } from './lib/syncMerge';
 
 export {
   todayISO,
@@ -805,9 +807,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ) => {
       const prev = activeSessionRef.current;
       if (!prev) return;
-      const clockOk = guardWallClock('guard');
-      const rawEnd = options?.endTime ?? (clockOk ? Date.now() : prev.lastHeartbeat || prev.startTime);
-      const endAt = options?.endTime != null ? rawEnd : safetyCapEnd(prev, rawEnd);
+      const endAt = resolvePersistEndAt(prev, Date.now(), {
+        userEnd: options?.endTime,
+        clockIncident: hasClockIncident(),
+      });
       const task = tasksRef.current.find((t) => t.id === prev.taskId);
       const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
@@ -1069,7 +1072,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!parsed) return false;
 
       if (parsed.sessionHistory && typeof parsed.sessionHistory === 'object') {
-        setSessionHistory(parsed.sessionHistory as Record<string, TaskSession[]>);
+        setSessionHistory(sanitizeSessionHistory(parsed.sessionHistory));
       }
       if (Array.isArray(parsed.recentlyDeletedGoals)) {
         setRecentlyDeletedGoals(parsed.recentlyDeletedGoals as DeletedGoalRecord[]);
@@ -1098,6 +1101,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!opts?.allowEmpty && tasksRef.current.length === 0 && goalsRef.current.length === 0) {
       return { ok: false, error: 'This device is empty. Restore from cloud, or tap Clear cloud backup if you meant to wipe it.' };
     }
+
+    if (!opts?.allowEmpty) {
+      const remoteStr = await fetchCloudBackup();
+      if (remoteStr) {
+        const parsed = parseBackupPayload(remoteStr);
+        if (parsed) {
+          const localSlice = {
+            tasks: tasksRef.current,
+            goals: goalsRef.current,
+            sessionHistory: sessionHistoryRef.current,
+            recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
+          };
+          const remoteSlice = {
+            tasks: parsed.tasks,
+            goals: parsed.goals,
+            sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
+            recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
+              ? (parsed.recentlyDeletedGoals as TrashRecord[])
+              : [],
+          };
+          const merged = mergeWorkspace(localSlice, remoteSlice);
+          if (workspaceSignature(merged) !== workspaceSignature(localSlice)) {
+            tasksRef.current = merged.tasks;
+            goalsRef.current = merged.goals;
+            sessionHistoryRef.current = merged.sessionHistory;
+            recentlyDeletedRef.current = merged.recentlyDeletedGoals as typeof recentlyDeletedRef.current;
+            setTasks(merged.tasks);
+            setGoals(merged.goals);
+            setSessionHistory(merged.sessionHistory);
+            setRecentlyDeletedGoals(merged.recentlyDeletedGoals as typeof recentlyDeletedGoals);
+          }
+        }
+      }
+    }
+
     const payload = {
       app: 'YouDO',
       version: '3.0.0',
@@ -1108,17 +1146,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sessionHistory: sessionHistoryRef.current,
       recentlyDeletedGoals: recentlyDeletedRef.current,
     };
-    const signature = JSON.stringify({
+    const signature = workspaceSignature({
       tasks: payload.tasks,
       goals: payload.goals,
       sessionHistory: payload.sessionHistory,
-      recentlyDeletedGoals: payload.recentlyDeletedGoals,
+      recentlyDeletedGoals: payload.recentlyDeletedGoals as TrashRecord[],
     });
     if (signature === lastCloudPayloadRef.current) return { ok: true };
     const result = await updateCloudBackup(payload);
     if (result.ok) lastCloudPayloadRef.current = signature;
     return result;
-  }, [updateCloudBackup]);
+  }, [updateCloudBackup, fetchCloudBackup, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
     const jsonStr = await fetchCloudBackup();

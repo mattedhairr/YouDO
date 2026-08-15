@@ -1161,6 +1161,7 @@ function AppInner() {
       {/* ── Session Stop Dialog ── */}
       {stopDialogTask && (
         <SessionStopDialog
+          key={stopDialogTask.id}
           open={!!stopDialogTask}
           task={stopDialogTask}
           onCancel={() => setStopDialogTask(null)}
@@ -1170,6 +1171,8 @@ function AppInner() {
               completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices ?? []);
             }
             setStopDialogTask(null);
+            setRecoverySessionPrompt(false);
+            setReconstructOpen(false);
           }}
         />
       )}

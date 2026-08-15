@@ -121,11 +121,11 @@ describe('session math', () => {
     expect(ticked.lastHeartbeat).toBe(now);
   });
 
-  it('caps forgotten sittings at 4h unless the user said they kept working', () => {
+  it('caps forgotten sittings at 4h from the last resume', () => {
     const eightHours = base.startTime + 8 * 60 * 60 * 1000;
     expect(safetyCapEnd(base, eightHours)).toBe(base.startTime + MAX_CONTINUOUS_FOCUS_MS);
-    const resumed = { ...base, returnedAt: eightHours };
-    expect(safetyCapEnd(resumed, eightHours)).toBe(eightHours);
+    const resumed = { ...base, returnedAt: base.startTime + 40 * 60_000 };
+    expect(safetyCapEnd(resumed, eightHours)).toBe(base.startTime + 40 * 60_000 + MAX_CONTINUOUS_FOCUS_MS);
   });
 
   it('resume after a lock keeps the sitting and starts counting again', () => {
@@ -340,5 +340,50 @@ describe('visit snapshot labels', () => {
     expect(visitSnapshotLabel(0)).toBe('When you opened this time');
     expect(visitSnapshotLabel(1)).toBe('Previous time you opened');
     expect(visitSnapshotLabel(2)).toBe('2 opens ago');
+  });
+});
+
+describe('cloud merge', () => {
+  it('keeps sessions from both phones', async () => {
+    const { mergeSessionHistories } = await import('./syncMerge');
+    const merged = mergeSessionHistories(
+      { t1: [{ id: 'a', taskId: 't1', startTime: 1, endTime: 60_000, pausedDuration: 0, pauses: [], netFocusMs: 60_000, wallClockStart: '', wallClockEnd: '', completed: false, completedStepIndices: [] }] },
+      { t1: [{ id: 'b', taskId: 't1', startTime: 2, endTime: 90_000, pausedDuration: 0, pauses: [], netFocusMs: 88_000, wallClockStart: '', wallClockEnd: '', completed: true, completedStepIndices: [0] }] },
+    );
+    expect(merged.t1.map((s) => s.id).sort()).toEqual(['a', 'b']);
+  });
+
+  it('does not resurrect a goal the other phone deleted', async () => {
+    const { mergeWorkspace } = await import('./syncMerge');
+    const node = { id: 'g1', kind: 'goal' as const, title: 'Keep', children: [], createdAt: 1 };
+    const gone = { id: 'g2', kind: 'goal' as const, title: 'Gone', children: [], createdAt: 1 };
+    const merged = mergeWorkspace(
+      { tasks: [], goals: [node, gone], sessionHistory: {}, recentlyDeletedGoals: [] },
+      {
+        tasks: [],
+        goals: [node],
+        sessionHistory: {},
+        recentlyDeletedGoals: [{ id: 'del-1', node: gone, deletedAt: 9, parentRootId: null, tasks: [] }],
+      },
+    );
+    expect(merged.goals.map((g) => g.id)).toEqual(['g1']);
+  });
+
+  it('clamps impossible session numbers', async () => {
+    const { sanitizeSession } = await import('./sessionStats');
+    const row = sanitizeSession({
+      id: 'x',
+      taskId: 't',
+      startTime: 1_000,
+      endTime: 2_000,
+      netFocusMs: 9_000_000_000,
+      pausedDuration: 0,
+      pauses: [],
+      wallClockStart: '',
+      wallClockEnd: '',
+      completed: false,
+      completedStepIndices: [],
+    });
+    expect(row?.netFocusMs).toBe(1_000);
   });
 });
