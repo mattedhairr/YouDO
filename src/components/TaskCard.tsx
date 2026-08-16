@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2, Check } from 'lucide-react';
+import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, Trash2, CheckCircle2, Check } from 'lucide-react';
 import type { Priority, Task, ActiveSession, TaskSession } from '../types';
 import { isBacklogTask, isTaskComplete } from '../store';
 import { hapticSessionStart, hapticSessionPause, hapticAmbient } from '../lib/haptics';
@@ -30,7 +30,6 @@ interface Props {
   onPauseSession?: () => void;
   onResumeSession?: () => void;
   onStopSession?: () => void;
-  onViewStats?: (task: Task) => void;
   onOpenAmbient?: () => void;
   taskSessions?: TaskSession[];
 }
@@ -63,7 +62,7 @@ export default function TaskCard({
   task, activeSession, onAdvance, onDelete, onDuplicate,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove,
   onCardClick, onJumpToGoal, onOpenDescription,
-  onStartSession, onPauseSession, onResumeSession, onStopSession, onViewStats, onOpenAmbient, taskSessions
+  onStartSession, onPauseSession, onResumeSession, onStopSession, onOpenAmbient, taskSessions
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -435,13 +434,6 @@ export default function TaskCard({
             )}
 
             <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => { setExpanded(false); onViewStats?.(task); }}
-                className="py-2.5 rounded-[12px] bg-surface text-content-primary border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
-              >
-                <BarChart2 className="w-3.5 h-3.5 text-primary" />
-                Stats
-              </button>
               <button
                 onClick={() => {
                   setExpanded(false);

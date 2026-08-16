@@ -3,7 +3,7 @@ import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clo
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, useSessionStore, findGoal, collectDescendantIds } from './store';
+import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, useSessionStore, findGoal } from './store';
 import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
 import { useAuth } from './contexts/AuthContext';
@@ -23,7 +23,6 @@ import CalendarView from './components/CalendarView';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
 import { SessionReconstructSheet } from './components/SessionReconstructSheet';
-import { TaskSessionStats } from './components/TaskSessionStats';
 import { AuthModal } from './components/AuthModal';
 import { useTheme } from './hooks/useTheme';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
@@ -167,9 +166,7 @@ function AppInner() {
 
   // Session UI states
   const [showAmbient, setShowAmbient] = useState(false);
-  const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null);
-  const [statsTarget, setStatsTarget] = useState<{ id: string; title: string; isGoal?: boolean } | null>(null);
-  
+  const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null); 
   const [helpOpen, setHelpOpen] = useState(false);
   const [hasSeenHelp, setHasSeenHelp] = useLocalStorage(STORAGE_KEYS.helpSeen, false);
   const firstHelpRef = useRef(false);
@@ -209,16 +206,6 @@ function AppInner() {
     };
   }, [activeSession, heartbeatSession]);
 
-  const targetSessions = useMemo(() => {
-    if (!statsTarget) return [];
-    if (!statsTarget.isGoal) {
-      return sessionHistory[statsTarget.id] ?? [];
-    }
-    const node = findGoal(goals, statsTarget.id);
-    const nodeIds = new Set(node ? collectDescendantIds(node) : [statsTarget.id]);
-    return Object.values(sessionHistory).flat().filter((s) => s.goalNodeId && nodeIds.has(s.goalNodeId));
-  }, [statsTarget, sessionHistory, goals]);
-
   // Batch selection state
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([]);
   const [batchLeafIds, setBatchLeafIds] = useState<string[]>([]);
@@ -244,10 +231,6 @@ function AppInner() {
     }
     if (stopDialogTask) {
       setStopDialogTask(null);
-      return true;
-    }
-    if (statsTarget) {
-      setStatsTarget(null);
       return true;
     }
     if (authOpen) {
@@ -392,7 +375,7 @@ function AppInner() {
     });
 
   useEffect(() => {
-    if (!clockReady || clockBlocked) return;
+    if (!clockReady) return;
     if (!activeSession) return;
     const check = () => {
       const session = activeSessionRef.current;
@@ -635,7 +618,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || statsTarget || recoverySessionPrompt || reconstructOpen) return;
+      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || reconstructOpen) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -650,7 +633,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, statsTarget, recoverySessionPrompt, reconstructOpen],
+    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, reconstructOpen],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -706,11 +689,11 @@ function AppInner() {
   );
 
   useEffect(() => {
-    if (hasSeenHelp || clockBlocked || recoverySessionPrompt || reconstructOpen || helpOpen) return;
+    if (hasSeenHelp || recoverySessionPrompt || reconstructOpen || helpOpen) return;
     if (firstHelpRef.current) return;
     firstHelpRef.current = true;
     openHelp({ silent: true });
-  }, [hasSeenHelp, clockBlocked, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
+  }, [hasSeenHelp, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
 
   useEffect(() => {
     if (!cloudHint) return;
@@ -915,7 +898,6 @@ function AppInner() {
                               onPauseSession={pauseSession}
                               onResumeSession={resumeSession}
                               onStopSession={() => setStopDialogTask(t)}
-                              onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
                               onOpenAmbient={() => setShowAmbient(true)}
                               taskSessions={getTaskSessions(t.id)}
                             />
@@ -987,7 +969,6 @@ function AppInner() {
                                 onPauseSession={pauseSession}
                                 onResumeSession={resumeSession}
                                 onStopSession={() => setStopDialogTask(activeBacklogTask)}
-                                onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
                                 onOpenAmbient={() => setShowAmbient(true)}
                                 taskSessions={getTaskSessions(activeBacklogTask.id)}
                               />
@@ -1033,9 +1014,8 @@ function AppInner() {
                                   onStartSession={startSession}
                                   onPauseSession={pauseSession}
                                   onResumeSession={resumeSession}
-                                  onStopSession={() => setStopDialogTask(t)}
-                                  onViewStats={(taskToView) => setStatsTarget({ id: taskToView.id, title: taskToView.title, isGoal: false })}
-                                  onOpenAmbient={() => setShowAmbient(true)}
+                              onStopSession={() => setStopDialogTask(t)}
+                              onOpenAmbient={() => setShowAmbient(true)}
                                   taskSessions={getTaskSessions(t.id)}
                                   backlogAction={
                                     <button
@@ -1067,7 +1047,6 @@ function AppInner() {
                 tasks={tasks}
                 onAddTask={(date) => openAddTask(date)}
                 onJumpToGoal={jumpToGoalTask}
-                onViewStats={(id, title) => setStatsTarget({ id, title, isGoal: false })}
               />
             ) : (
               <GoalView
@@ -1085,7 +1064,6 @@ function AppInner() {
                 clearSelectionRef={clearSelectionRef}
                 onNavigateToPath={navigateToGoalPath}
                 onOpenDescription={openDescriptionModal}
-                onViewStats={(id, title) => setStatsTarget({ id, title, isGoal: true })}
               />
             )}
           </div>
@@ -1220,29 +1198,6 @@ function AppInner() {
         />
       )}
 
-      {/* ── Task Session Stats ── */}
-      {statsTarget && (
-        <TaskSessionStats
-          open={!!statsTarget}
-          title={statsTarget.title}
-          sessions={targetSessions}
-          stepTotal={(() => {
-            if (!statsTarget.isGoal) return tasks.find((t) => t.id === statsTarget.id)?.steps.length ?? 0;
-            const node = findGoal(goals, statsTarget.id);
-            if (node && node.children.length === 0) return node.steps?.length ?? 0;
-            return 0;
-          })()}
-          stepProgress={(() => {
-            if (!statsTarget.isGoal) return tasks.find((t) => t.id === statsTarget.id)?.progress ?? 0;
-            const node = findGoal(goals, statsTarget.id);
-            if (node && node.children.length === 0) return (node.stepDone ?? []).filter(Boolean).length;
-            return 0;
-          })()}
-          isParentFolder={statsTarget.isGoal && !!findGoal(goals, statsTarget.id)?.children.length}
-          onClose={() => setStatsTarget(null)}
-        />
-      )}
-
       {/* ── Device clock integrity ── */}
       {clockBlocked && (
         <Overlay open align="center">
@@ -1252,8 +1207,8 @@ function AppInner() {
               <span>Device time looks wrong</span>
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
-              Date &amp; time on this device does not match the server, so cloud backup is paused. Your in-progress session and local data are still on this phone.
-              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then confirm below.
+              Date &amp; time on this device does not match the server. Focus time on this phone may be off until you fix it. Cloud sync still works.
+              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then confirm below — or continue anyway.
             </p>
             {clockVerifyError && (
               <p className="text-xs text-red-500 leading-relaxed">{clockVerifyError}</p>
@@ -1281,6 +1236,12 @@ function AppInner() {
               >
                 {clockVerifyBusy ? 'Checking…' : 'I fixed date & time'}
               </button>
+              <button
+                onClick={() => setClockBlocked(false)}
+                className="w-full py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs"
+              >
+                Continue anyway
+              </button>
               {!user && (
               <button
                 onClick={() => {
@@ -1301,7 +1262,7 @@ function AppInner() {
       <AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} />
 
       {/* ── Session Crash Recovery Dialog ── */}
-      {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && !clockBlocked && (
+      {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && (
         <Overlay open align="center">
           <div className="panel sheet-up p-5 space-y-4">
             <div className="flex items-center gap-2 text-primary font-semibold text-sm">

@@ -13,10 +13,9 @@ import {
   Plus,
   Star,
   Target,
-  Clock,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
-import { countDirectChildren, countCompletedDirectChildren, collectDescendantIds, findNode, formatDDMMYYYY, isBacklogTask, localISODate, rollupPct, useStore } from '../store';
+import { countDirectChildren, countCompletedDirectChildren, findNode, formatDDMMYYYY, isBacklogTask, localISODate, rollupPct, useStore } from '../store';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
   if (!targetDate) return 'Scheduled';
@@ -77,7 +76,6 @@ interface Props {
   /** Optional direct navigation handler for recording jump origin for 1-step back navigation */
   onNavigateToPath?: (pathIds: string[]) => void;
   onOpenDescription?: (title: string, description: string) => void;
-  onViewStats?: (id: string, title: string) => void;
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
@@ -89,17 +87,8 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf:    { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Leaf' },
 };
 
-export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onViewStats }: Props) {
-  const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion, sessionHistory } = useStore();
-  const sessionNodeIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const list of Object.values(sessionHistory)) {
-      for (const s of list) if (s.goalNodeId) ids.add(s.goalNodeId);
-    }
-    return ids;
-  }, [sessionHistory]);
-
-  const nodeHasStats = (node: GoalNode) => collectDescendantIds(node).some((id) => sessionNodeIds.has(id));
+export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription }: Props) {
+  const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -327,11 +316,6 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              {onViewStats && nodeHasStats(current) && (
-                <button onClick={() => onViewStats(current.id, current.title)} className="p-2 rounded-lg text-warning bg-warning/10 hover:bg-warning/20 transition-colors" title="Session Analytics">
-                  <Clock size={14} />
-                </button>
-              )}
               <div className="text-right mr-1">
                 {(() => {
                   const parentPct = rollupPct(current);
@@ -558,18 +542,6 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                     title="Description"
                   >
                     <FileText size={14} />
-                  </button>
-                )}
-                {onViewStats && nodeHasStats(child) && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewStats(child.id, child.title);
-                    }}
-                    className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
-                    title="Stats"
-                  >
-                    <Clock size={14} />
                   </button>
                 )}
 

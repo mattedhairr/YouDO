@@ -21,7 +21,6 @@ import {
   tickActiveSession,
   continueAfterInterruption,
   resolvePersistEndAt,
-  createManualStepSession,
   sanitizeSessionHistory,
   pruneSessionHistoryBefore,
   SESSION_HISTORY_KEEP_MS,
@@ -42,14 +41,16 @@ import {
   reorderNodesArray,
   sameTasks,
   sameTree,
+  recomputeCompleted,
   sanitizeTreeAndTasks,
+  setSubtreeCompleted,
   syncLinkedTasksFromGoal,
   syncStepDone,
   updateNode,
 } from './lib/goalTree';
 import { uid } from './lib/ids';
 import { APP_VERSION } from './lib/version';
-import { STORAGE_KEYS } from './lib/storageKeys';
+import { STORAGE_KEYS, readWorkspaceUpdatedAt, writeWorkspaceUpdatedAt } from './lib/storageKeys';
 import { mergeWorkspace, workspaceSignature, type TrashRecord } from './lib/syncMerge';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 
@@ -80,7 +81,9 @@ export {
   removeNodes,
   reorderNodesArray,
   rollupPct,
+  recomputeCompleted,
   sanitizeTreeAndTasks,
+  setSubtreeCompleted,
   updateNode,
 } from './lib/goalTree';
 
@@ -271,6 +274,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   recentlyDeletedRef.current = recentlyDeletedGoals;
   const activeSessionRef = useRef(activeSession);
   activeSessionRef.current = activeSession;
+  const workspaceUpdatedAtRef = useRef(readWorkspaceUpdatedAt());
+  const workspaceHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (workspaceUpdatedAtRef.current > 0) return;
+    const n = Date.now();
+    workspaceUpdatedAtRef.current = n;
+    writeWorkspaceUpdatedAt(n);
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceHydratedRef.current) {
+      workspaceHydratedRef.current = true;
+      return;
+    }
+    const n = Date.now();
+    workspaceUpdatedAtRef.current = n;
+    writeWorkspaceUpdatedAt(n);
+  }, [tasks, goals, recentlyDeletedGoals]);
 
   /* ---------- Daily task ops ---------- */
 
@@ -281,7 +303,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const totalSteps = t.steps.length > 0 ? t.steps.length : 1;
       if (t.progress >= totalSteps) return;
       const nextProgress = t.progress + 1;
-      const stepIndex = t.steps.length > 0 ? nextProgress - 1 : -1;
       setTasks((prev) =>
         prev.map((x) => {
           if (x.id !== id) return x;
@@ -292,29 +313,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (t.goalNodeId) {
         setGoals((prev) =>
           prev.map((root) =>
-            updateNode(root, t.goalNodeId!, (n) => {
-              const hasMicroSteps = !!n.steps && n.steps.length > 0;
-              if (hasMicroSteps) {
-                const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
-                return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
-              }
-              return { ...n, completed: true };
-            }),
+            recomputeCompleted(
+              updateNode(root, t.goalNodeId!, (n) => {
+                const hasMicroSteps = !!n.steps && n.steps.length > 0;
+                if (hasMicroSteps) {
+                  const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
+                  return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
+                }
+                return { ...n, completed: true };
+              }),
+            ),
           ),
         );
       }
-      // Don't invent a manual row while a focus session is running on this card.
-      if (activeSessionRef.current?.taskId === id) return;
       const completed = nextProgress >= totalSteps;
-      const indices = stepIndex >= 0 ? [stepIndex] : [];
-      const row = createManualStepSession(id, indices, {
-        goalNodeId: t.goalNodeId ?? undefined,
-        completed: completed ? true : indices.length > 0 ? 'partial' : true,
-      });
-      setSessionHistory((hist) => ({
-        ...hist,
-        [id]: [...(hist[id] ?? []), row],
-      }));
 
       let finishingGoal = false;
       if (t.goalNodeId) {
@@ -328,7 +340,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       else if (completed) hapticSuccess();
       else hapticTick();
     },
-    [setTasks, setGoals, setSessionHistory],
+    [setTasks, setGoals],
   );
 
   const undo = useCallback(
@@ -345,14 +357,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (t.goalNodeId) {
         setGoals((prev) =>
           prev.map((root) =>
-            updateNode(root, t.goalNodeId!, (n) => {
-              const hasMicroSteps = !!n.steps && n.steps.length > 0;
-              if (hasMicroSteps) {
-                const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
-                return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
-              }
-              return { ...n, completed: nextProgress > 0 };
-            }),
+            recomputeCompleted(
+              updateNode(root, t.goalNodeId!, (n) => {
+                const hasMicroSteps = !!n.steps && n.steps.length > 0;
+                if (hasMicroSteps) {
+                  const newStepDone = syncStepDone(n, nextProgress, t.stepSlice);
+                  return { ...n, stepDone: newStepDone, completed: newStepDone.every(Boolean) };
+                }
+                return { ...n, completed: nextProgress > 0 };
+              }),
+            ),
           ),
         );
       }
@@ -417,7 +431,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // goalsRef.current is only updated on re-render, not immediately after setGoals.
       const oldNode = findGoal(goalsRef.current, id);
       const patched = oldNode ? patch(oldNode) : null;
-      setGoals((prev) => prev.map((root) => updateNode(root, id, patch)));
+      setGoals((prev) => prev.map((root) => recomputeCompleted(updateNode(root, id, patch))));
       if (patched) setTasks((prev) => syncLinkedTasksFromGoal(prev, patched));
     },
     [setGoals, setTasks],
@@ -511,18 +525,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const newTasks: Task[] = [];
       const patches: { id: string; taskId: string }[] = [];
       let orderBase = tasksRef.current.length;
+      const replaceIds = new Set<string>();
       for (const id of nodeIds) {
         const target = findGoal(goalsRef.current, id);
-        if (!target || target.todayTaskId) continue;
+        if (!target) continue;
 
-        // Mirror planTask: use full step array as the slice (no partial selection in batch)
         const masterSteps = target.steps ?? [];
-        const slice = masterSteps.map((_, i) => i); // full slice — all steps
+        const slice = masterSteps.map((_, i) => i);
         const slicedStepLabels = slice.map((idx) => masterSteps[idx] ?? `Step ${idx + 1}`);
-        // Seed progress from current stepDone state so already-done steps carry over
         const slicedDoneCount = countSlicedDone(target, undefined);
 
         const taskId = uid('task');
+        if (target.todayTaskId) replaceIds.add(target.todayTaskId);
         newTasks.push({
           id: taskId,
           title: target.title,
@@ -535,12 +549,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           createdAt: Date.now(),
           order: orderBase++,
           goalNodeId: target.id,
-          // stepSlice omitted (undefined) when all steps selected — matches planTask behaviour
         });
         patches.push({ id: target.id, taskId });
       }
       if (newTasks.length === 0) return;
-      setTasks((prev) => [...prev, ...newTasks]);
+      setTasks((prev) => [...prev.filter((t) => !replaceIds.has(t.id)), ...newTasks]);
       setGoals((prev) =>
         prev.map((root) => {
           let working = root;
@@ -581,44 +594,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const allDone = newStepDone.every(Boolean);
       setGoals((prev) =>
         prev.map((root) =>
-          updateNode(root, nodeId, (n) => ({ ...n, stepDone: newStepDone, completed: allDone })),
+          recomputeCompleted(updateNode(root, nodeId, (n) => ({ ...n, stepDone: newStepDone, completed: allDone }))),
         ),
       );
       const patched: GoalNode = { ...node, stepDone: newStepDone, completed: allDone };
       setTasks((prev) => syncLinkedTasksFromGoal(prev, patched));
 
-      if (!markingDone) return;
-
-      setSessionHistory((hist) => {
-        let next = hist;
-        for (const t of tasksRef.current) {
-          if (t.goalNodeId !== nodeId) continue;
-          if (activeSessionRef.current?.taskId === t.id) continue;
-          let localIdx = stepIdx;
-          if (t.stepSlice) {
-            const i = t.stepSlice.indexOf(stepIdx);
-            if (i < 0) continue;
-            localIdx = i;
-          }
-          const taskDoneCount =
-            t.steps.length === 0
-              ? allDone
-                ? 1
-                : 0
-              : t.stepSlice
-                ? t.stepSlice.filter((mi) => newStepDone[mi]).length
-                : newStepDone.filter(Boolean).length;
-          const taskComplete = t.steps.length > 0 ? taskDoneCount >= t.steps.length : allDone;
-          const row = createManualStepSession(t.id, t.steps.length > 0 ? [localIdx] : [], {
-            goalNodeId: nodeId,
-            completed: taskComplete ? true : 'partial',
-          });
-          next = { ...next, [t.id]: [...(next[t.id] ?? []), row] };
-        }
-        return next;
-      });
+      if (markingDone) {
+        if (allDone) hapticGoalComplete();
+        else hapticTick();
+      }
     },
-    [setGoals, setTasks, setSessionHistory],
+    [setGoals, setTasks],
   );
 
   const togglePin = useCallback(
@@ -672,21 +659,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!node) return;
 
       const nextCompleted = !node.completed;
-
-      const setCompletedTree = (n: GoalNode, isDone: boolean): GoalNode => {
-        const steps = n.steps ?? [];
-        const stepDone = steps.map(() => isDone);
-        return {
-          ...n,
-          completed: isDone,
-          stepDone: steps.length > 0 ? stepDone : n.stepDone,
-          children: n.children.map((child) => setCompletedTree(child, isDone)),
-        };
-      };
-
       setGoals((prev) =>
         prev.map((root) =>
-          updateNode(root, nodeId, (target) => setCompletedTree(target, nextCompleted)),
+          recomputeCompleted(updateNode(root, nodeId, (target) => setSubtreeCompleted(target, nextCompleted))),
         ),
       );
 
@@ -695,7 +670,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         n.children.forEach((c) => walk(c, acc));
       };
       const patchedNodes: GoalNode[] = [];
-      walk(setCompletedTree(node, nextCompleted), patchedNodes);
+      walk(setSubtreeCompleted(node, nextCompleted), patchedNodes);
       setTasks((prev) => {
         let next = prev;
         for (const n of patchedNodes) next = syncLinkedTasksFromGoal(next, n);
@@ -753,18 +728,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       for (const id of nodeIds) {
         const node = findGoal(goalsRef.current, id);
-        if (node) {
-          const subTaskIds = collectDescendantTaskIds(node);
-          taskIdsToRemove.push(...subTaskIds);
-          const associated = tasksRef.current.filter((t) => subTaskIds.includes(t.id));
-          recordsToStore.push({
-            id: uid('del'),
-            node: cloneNode(node),
-            deletedAt: Date.now(),
-            parentRootId: null,
-            tasks: associated,
-          });
+        if (!node) continue;
+        const subTaskIds = collectDescendantTaskIds(node);
+        taskIdsToRemove.push(...subTaskIds);
+        const associated = tasksRef.current.filter((t) => subTaskIds.includes(t.id));
+
+        let parentRootId: string | null = null;
+        let parentNodeId: string | null = null;
+        for (const root of goalsRef.current) {
+          const [found, parent] = findNode(root, id);
+          if (!found) continue;
+          parentRootId = root.id === id ? null : root.id;
+          parentNodeId = parent?.id ?? null;
+          break;
         }
+
+        recordsToStore.push({
+          id: uid('del'),
+          node: cloneNode(node),
+          deletedAt: Date.now(),
+          parentRootId,
+          parentNodeId,
+          tasks: associated,
+        });
       }
 
       if (recordsToStore.length > 0) {
@@ -874,7 +860,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const startSession = useCallback((taskId: string) => {
-    if (hasClockIncident()) return;
     const existing = activeSessionRef.current;
     if (existing?.taskId === taskId) return;
     if (existing) return;
@@ -1021,19 +1006,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : newStepDone.filter(Boolean).length;
         setGoals((prev) =>
           prev.map((root) =>
-            updateNode(root, task.goalNodeId!, (n) => ({
-              ...n,
-              stepDone: newStepDone,
-              completed: newStepDone.every(Boolean),
-            }))
-          )
+            recomputeCompleted(
+              updateNode(root, task.goalNodeId!, (n) => ({
+                ...n,
+                stepDone: newStepDone,
+                completed: newStepDone.every(Boolean),
+              })),
+            ),
+          ),
         );
       } else {
         // No steps — mark node completed
         setGoals((prev) =>
           prev.map((root) =>
-            updateNode(root, task.goalNodeId!, (n) => ({ ...n, completed: true }))
-          )
+            recomputeCompleted(updateNode(root, task.goalNodeId!, (n) => ({ ...n, completed: true }))),
+          ),
         );
         newProgress = 1;
       }
@@ -1138,6 +1125,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(parsed.goals, parsed.tasks);
       setTasks(cleanedTasks);
       setGoals(cleanedGoals);
+      const stamp = parsed.updatedAt && parsed.updatedAt > 0 ? parsed.updatedAt : Date.now();
+      workspaceUpdatedAtRef.current = stamp;
+      writeWorkspaceUpdatedAt(stamp);
       clearRollupCache();
       return true;
     },
@@ -1148,13 +1138,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const lastCloudPayloadRef = useRef<string>('');
 
   const syncToCloud = useCallback(async (opts?: { allowEmpty?: boolean }): Promise<{ ok: boolean; error?: string }> => {
-    if (hasClockIncident()) {
-      return { ok: false, error: 'Sync paused until device date & time is corrected.' };
-    }
-
-    // Early exit: if the local state has not changed since the last successful push,
-    // skip the entire remote fetch + merge cycle. This prevents the post-merge state update
-    // from re-triggering the auto-sync useEffect in an infinite loop.
     if (!opts?.allowEmpty) {
       const currentSig = workspaceSignature({
         tasks: tasksRef.current,
@@ -1179,6 +1162,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             goals: goalsRef.current,
             sessionHistory: sessionHistoryRef.current,
             recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
+            updatedAt: workspaceUpdatedAtRef.current,
           };
           const remoteSlice = {
             tasks: parsed.tasks,
@@ -1187,6 +1171,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
               ? (parsed.recentlyDeletedGoals as TrashRecord[])
               : [],
+            updatedAt: parsed.updatedAt ?? 0,
           };
           const merged = mergeWorkspace(localSlice, remoteSlice);
           if (workspaceSignature(merged) !== workspaceSignature(localSlice)) {
@@ -1194,6 +1179,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             goalsRef.current = merged.goals;
             sessionHistoryRef.current = merged.sessionHistory;
             recentlyDeletedRef.current = merged.recentlyDeletedGoals as typeof recentlyDeletedRef.current;
+            if (merged.updatedAt) {
+              workspaceUpdatedAtRef.current = merged.updatedAt;
+              writeWorkspaceUpdatedAt(merged.updatedAt);
+            }
             setTasks(merged.tasks);
             setGoals(merged.goals);
             setSessionHistory(merged.sessionHistory);
@@ -1207,7 +1196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       app: 'YouDO',
       version: APP_VERSION,
       exportedAt: new Date().toISOString(),
-      updatedAt: Date.now(),
+      updatedAt: workspaceUpdatedAtRef.current || Date.now(),
       tasks: tasksRef.current,
       goals: goalsRef.current,
       sessionHistory: sessionHistoryRef.current,
@@ -1269,9 +1258,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     // When user logs in: check if local state is empty, if so auto-restore from cloud
     const autoRestoreOrPush = async () => {
-      if (hasClockIncident()) {
-        return;
-      }
       if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
         const jsonStr = await fetchCloudBackup();
         if (jsonStr) {
@@ -1294,7 +1280,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const timer = setTimeout(() => { syncToCloud(); }, 2000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tasks, goals, sessionHistory]);
+  }, [user, tasks, goals, sessionHistory, recentlyDeletedGoals]);
 
   const dataValue = useMemo<DataStore>(
     () => ({
