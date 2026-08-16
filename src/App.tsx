@@ -711,7 +711,7 @@ function AppInner() {
             <div className="flex items-center justify-center gap-3">
               <YouDoWordmark />
               <span className="w-px h-3.5 bg-border-subtle shrink-0" aria-hidden="true" />
-              <div className="text-[15px] font-semibold text-content-primary leading-none shrink-0">
+              <div className="text-[16px] tracking-tight font-bold text-content-primary leading-none shrink-0">
                 {view === 'goals'
                   ? 'Goals'
                   : view === 'calendar'
@@ -1337,20 +1337,20 @@ function AppInner() {
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="mt-20 flex flex-col items-center justify-center opacity-80 text-center px-6">
-      <div className="w-16 h-16 rounded-full bg-primary-soft flex items-center justify-center mb-4">
-        <ListChecks size={28} className="text-primary" />
+    <div className="mt-16 flex flex-col items-center justify-center text-center px-6 fade-in animate-slide-out" style={{ animationDirection: 'reverse' }}>
+      <div className="w-20 h-20 rounded-[24px] bg-surface shadow-card border border-subtle flex items-center justify-center mb-6 transform -rotate-3 transition-transform hover:rotate-0">
+        <ListChecks size={32} className="text-primary opacity-80" />
       </div>
-      <h3 className="mt-4 text-base font-bold text-content-primary">No tasks for today</h3>
-      <p className="mt-2 text-sm text-content-secondary max-w-[240px] leading-relaxed">
-        Dispatch tasks from your Goals or add quick targets to keep your day on track.
+      <h3 className="text-[17px] font-bold text-content-primary tracking-tight">Your day is clear</h3>
+      <p className="mt-2.5 text-[13px] text-content-secondary max-w-[260px] leading-relaxed">
+        You have no scheduled tasks for today. Dispatch tasks from your Goals to build your plan.
       </p>
       <button
         onClick={onAdd}
-        className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-semibold"
+        className="mt-8 flex items-center gap-2 px-6 py-2.5 rounded-[14px] bg-primary text-on-primary text-[13px] font-semibold shadow-md hover:bg-primary-glow active:scale-[0.98] transition-all"
       >
         <Plus size={16} />
-        Add Task
+        Add Quick Task
       </button>
     </div>
   );

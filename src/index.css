@@ -466,3 +466,31 @@ input[type='datetime-local'] {
 .animate-stamp {
   animation: stamp 0.28s ease both;
 }
+
+@keyframes strike-out {
+  0% { text-decoration-color: transparent; }
+  100% { text-decoration-color: currentColor; }
+}
+.animate-strike {
+  animation: strike-out 0.2s ease-out forwards;
+}
+
+@keyframes slide-and-fade-out {
+  0% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.96) translateY(4px); }
+}
+.animate-slide-out {
+  animation: slide-and-fade-out 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+@supports (backdrop-filter: blur(12px)) {
+  .glass-panel {
+    background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  }
+}
