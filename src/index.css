@@ -96,8 +96,8 @@ body,
   box-sizing: border-box;
 }
 
-/* Layout safety — every screen: children may shrink, rows wrap instead of overlapping.
-   Opt out with flex-nowrap or grid-fixed. */
+/* Layout safety — children shrink; grids stay equal columns (no auto-fit orphans).
+   Opt out with grid-fixed. Very narrow containers stack to one column via @container. */
 img,
 svg,
 video,
@@ -131,11 +131,27 @@ button {
   flex-wrap: wrap;
   row-gap: 0.375rem;
 }
+/* Equal columns that shrink with the container — avoids auto-fit orphan rows (2+1). */
 .grid.grid-cols-2:not(.grid-fixed) {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .grid.grid-cols-3:not(.grid-fixed) {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@container app (max-width: 11rem) {
+  .grid.grid-cols-2:not(.grid-fixed) {
+    grid-template-columns: 1fr;
+  }
+}
+@container app (max-width: 14rem) {
+  .grid.grid-cols-3:not(.grid-fixed) {
+    grid-template-columns: 1fr;
+  }
+}
+@container app (min-width: 18rem) {
+  .cq-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .app-frame,

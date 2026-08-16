@@ -1,6 +1,84 @@
 # Changelog — YouDO
 
-All notable changes to the **YouDO** project will be documented in this file.
+All notable changes to **YouDO** are documented here. Newest release first.
+
+---
+
+## How to write a release entry (template)
+
+Use this file for **both** the project history and **GitHub Release descriptions**.
+
+### When adding a new version
+
+1. Add a new block **at the top** of the release list (below this instructions section).
+2. Bump `package.json`, `src/lib/version.ts`, and `android/app/build.gradle` (`versionName` + `versionCode`) to match.
+3. Copy the new block into the GitHub Release description when publishing.
+
+### Copy rule (GitHub Releases)
+
+Copy **only the release block** — from the version heading through the **Data Safety** section.
+
+- **Include:** `## [vX.Y.Z] …` → intro paragraph → all `###` sections for that version
+- **Exclude:** the `---` divider after the block, older releases, and this instructions section
+
+### Fixed section order (every release)
+
+Use these headings in this order. **Do not rename them.** Omit a section only if it truly has nothing to say (patch releases may skip Cloud).
+
+| Section | Purpose |
+|---|---|
+| `### 🚀 What you will notice` | User-visible changes. Lead with outcomes, not implementation. Bold the feature name, then an em dash, then detail. |
+| `### ☁ Cloud` | Sign-in, sync, backup, multi-device, restore. Skip if no cloud work shipped. |
+| `### ⚙ Under the hood` | Technical fixes, refactors, performance, data migrations. Keep readable — no jargon dumps. |
+| `### 💾 Data Safety` | **Required for every shipped APK.** Always include `versionName`, `versionCode`, package id, and install-over note. |
+
+### Heading line format
+
+```markdown
+## [vX.Y.Z] — YYYY-MM-DD ("Short subtitle in quotes")
+```
+
+- **Subtitle:** 3–8 words; describes the theme of the release.
+- **Intro paragraph:** 1–3 sentences immediately under the heading. Explain *why* this release exists, not a bullet list.
+
+### Bullet style
+
+```markdown
+- **Feature name** — What changed for the user in plain language.
+```
+
+- One idea per bullet.
+- Prefer **you** language (“your goal edits stay put”) over internal terms (“refactored syncMerge”).
+- Past releases stay as-is historically; do not rewrite old user-facing claims unless factually wrong.
+
+### Unpublished / internal builds
+
+Append to the heading line: `*not published as a GitHub Release*`
+
+### Data Safety line format
+
+```markdown
+### 💾 Data Safety
+- **Android APK**: versionName **X.Y.Z**, versionCode **N**. Same package id `com.mattedhairr.youdo` — install over **A.B.C**.
+```
+
+---
+
+## [v3.4.1] — 2026-08-16 ("UI polish and layout fixes")
+
+Patch release after 3.4.0 — cleaner task actions, clearer calendar session log, and grids that stay aligned on every screen width.
+
+### 🚀 What you will notice
+- **Task actions layout** — Remove sits on its own row; Jump and Duplicate share one row with no empty slot.
+- **Calendar session log** — Day stats show Session 1, 2, 3… with times instead of cryptic task titles.
+- **Stats on narrow screens** — Scheduled, Completed, and Failed stay in one balanced row when you resize or use a smaller phone.
+
+### ⚙ Under the hood
+- Fixed global grid CSS that caused orphaned columns (2+1) when panels resized.
+- Add Goal date fields follow panel width, not full monitor width.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.4.1**, versionCode **13**. Same package id `com.mattedhairr.youdo` — install over **3.4.0** and **3.3.x** (versionCode must increase; this build is **13**).
 
 ---
 
@@ -14,7 +92,7 @@ Cloud sync and stats were rebuilt so goal edits stay put, two phones stop fighti
 - **Clearer goal progress** — folder percent reflects actual leaf work, not just sibling count.
 
 ### ☁ Cloud
-- Sync now uses **document last-write-wins** for goals and daily tasks, **unions focus sittings by id**, and still honours **Recently Deleted**.
+- Sync uses **document last-write-wins** for goals and daily tasks, **unions focus sittings by id**, and still honours **Recently Deleted**.
 - Login and cloud backup no longer block on clock checks; the clock warning is advisory only.
 
 ### ⚙ Under the hood
@@ -22,21 +100,21 @@ Cloud sync and stats were rebuilt so goal edits stay put, two phones stop fighti
 - Removed manual “stats rows” when checking a step without a focus session.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.4.0**, versionCode **12**. Same package id `com.mattedhairr.youdo` — install over 3.3.x.
+- **Android APK**: versionName **3.4.0**, versionCode **12**. Same package id `com.mattedhairr.youdo` — install over **3.3.x**.
 
 ---
 
 ## [v3.3.0] — 2026-08-16 ("Guide, feel, and honest trends")
 
-The 3.2.1–3.2.3 ideas stay. The execution is rebuilt so they match the rest of YouDO.
+The 3.2.1–3.2.3 ideas stay. This release rebuilds them so they match the rest of YouDO.
 
 ### 🚀 What you will notice
 - **First run opens the real guide** — not a bounce-arrow overlay. Tap the YouDO mark any time to open it again. Sketches match Today / Goals / Plan cards.
-- **Haptics actually fire on the APK** (the plugin was never synced into Android). Patterns stay short: start, pause, ambient, tick, complete, delete.
-- **Undo after a goal delete** sits above the command bar in YouDO chrome — no generic toast library.
-- **Focus this week** in session stats: tap a day for net focus. Streaks no longer skip a missed day. Shown only when there is countable focus.
-- **Trim old sittings** in Settings keeps the last 90 days if a cloud backup grows too large.
-- **Today empty state** talks in product language: schedule from Goals, or add a quick task.
+- **Haptics on the APK** — short patterns for start, pause, ambient, tick, complete, and delete.
+- **Undo after a goal delete** — sits above the command bar in YouDO chrome, not a generic toast library.
+- **Focus this week** — tap a day in session stats for net focus; streaks no longer skip a missed day.
+- **Trim old sittings** — Settings can drop focus history older than 90 days when a cloud backup grows too large.
+- **Today empty state** — product language: schedule from Goals, or add a quick task.
 
 ### ⚙ Under the hood
 - Help uses the same overlay stack as every other sheet (back gesture, blur, escape).
@@ -45,7 +123,7 @@ The 3.2.1–3.2.3 ideas stay. The execution is rebuilt so they match the rest of
 - Week heatmap and streak math are tested; dates stay local, not UTC.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.3.0**, versionCode **11**. Same package id `com.mattedhairr.youdo` — install over 3.2.x.
+- **Android APK**: versionName **3.3.0**, versionCode **11**. Same package id `com.mattedhairr.youdo` — install over **3.2.x**.
 
 ---
 
@@ -54,181 +132,172 @@ The 3.2.1–3.2.3 ideas stay. The execution is rebuilt so they match the rest of
 Phone lock, a forgotten timer, and falling asleep are three different things — and stats now follow what you actually did.
 
 ### 🚀 What you will notice
-- **Phone aside / screen off**: start a session, lock the phone, come back, stop. That sitting is still there. It is not thrown away, and it is not treated as a broken clock.
-- **Forgot to stop**: after about five minutes away you get a clear choice — resume if you kept working, or drag a slider to about when you actually finished.
-- **Fell asleep**: discard the sitting completely from that same screen (and from the slider sheet). Nothing is saved.
-- **Left running for hours**: a forgotten session cannot quietly add a whole night of focus. Stop without choosing still caps at four hours from the last time you said you were working. Resume (“I kept working”) keeps the real time up to that 4h window.
+- **Phone aside / screen off** — start a session, lock the phone, come back, stop. That sitting is still there; it is not thrown away or treated as a broken clock.
+- **Forgot to stop** — after about five minutes away you get a clear choice: resume if you kept working, or drag a slider to about when you actually finished.
+- **Fell asleep** — discard the sitting completely from that screen (and from the slider sheet). Nothing is saved.
+- **Left running for hours** — a forgotten session cannot quietly add a whole night of focus. Stop without choosing still caps at four hours from the last time you said you were working.
 
 ### ☁ Cloud
 - An empty device still will not overwrite your cloud backup by accident.
-- If this device is empty on purpose, Settings → **Clear cloud backup** (with a confirm) is how you wipe the cloud copy.
-- Two phones now **combine** sittings, goals, and cards instead of the last open phone wiping the other. A delete on one phone still wins (Recently Deleted is honoured). Restore in Settings still replaces this phone with a chosen backup on purpose.
+- Settings → **Clear cloud backup** (with confirm) is how you wipe the cloud copy on purpose.
+- Two phones **combine** sittings, goals, and cards instead of the last open phone wiping the other. A delete on one phone still wins (Recently Deleted is honoured). Restore in Settings still replaces this phone with a chosen backup on purpose.
 
-### ⚙ Under the hood (so it stays honest)
-- Stopping right after unlock no longer looks like a date change and no longer drops the lock time or pauses cloud.
+### ⚙ Under the hood
+- Stopping right after unlock no longer looks like a date change and no longer drops lock time or pauses cloud.
 - Heartbeats no longer stamp a future time when the clock sample failed.
-- Screen-lock freeze is only trusted after the app was in the background — changing the date while YouDO is open still trips the clock check.
+- Screen-lock freeze is only trusted after the app was in the background.
 - Goal tree edits no longer clone every ancestor when a leaf did not change.
-- Dead unused UI (`ProgressRing`), unused `lz-string`, leftover date/tree aliases, unused format helper, and the old hand-written `public/sw.js` removed. Native builds skip (and drop) any leftover service worker so APK updates are not cached.
+- Removed dead UI and unused helpers; native builds skip leftover service workers so APK updates are not cached.
 - Session heartbeat no longer re-renders Goals / Calendar on every tick.
+- Also in this build (never shipped on 3.1.3): stats say “Whole task completed” when nothing is left; backlog badges count open items only; ambient clock fits the ring.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.2.0**, versionCode **10**. Same package id `com.mattedhairr.youdo` — install over 3.1.2.
-
-Also in this build (never shipped on 3.1.3): stats say “Whole task completed” when nothing is left; backlog badges count open items only; ambient clock fits the ring; checking a step without a session still shows as Manual in analytics.
+- **Android APK**: versionName **3.2.0**, versionCode **10**. Same package id `com.mattedhairr.youdo` — install over **3.1.2**.
 
 ---
 
-## [v3.1.2] — 2026-08-14 ("Header, layout & signed-in identity")
+## [v3.1.2] — 2026-08-14 ("Header, layout and signed-in identity")
 
-### 🚀 Major Highlights
-- **Auth blur on open**: Sign in over Settings blurs immediately — not only after you tap Sign In.
-- **Header lockup**: `[Y]ouDO` wordmark with a centered date, and a quoted ticker underneath.
-- **Layouts adapt**: rows wrap and two-column grids drop a column on narrow phones instead of overlapping.
-- **Signed-in account card**: same hero treatment as Guest mode — live on every device, Sync now, Edit / Restore / Sign out.
+Polish for signed-in users, header layout, and narrow-phone screens.
 
-### ⚡ Flow
-- New Task: Target date and Hard deadline stack; Today / Tomorrow sit above the date field.
-- Enter on a sub-step or micro-progress step creates the next one and moves the cursor there.
+### 🚀 What you will notice
+- **Auth blur on open** — Sign in over Settings blurs immediately, not only after you tap Sign In.
+- **Header lockup** — `[Y]ouDO` wordmark with a centered date and quoted ticker underneath.
+- **Layouts adapt** — rows wrap and two-column grids drop a column on narrow phones instead of overlapping.
+- **Signed-in account card** — same hero treatment as Guest mode: Sync now, Edit, Restore, Sign out.
+- **New Task flow** — Target date and Hard deadline stack; Today / Tomorrow sit above the date field.
+- **Step entry** — Enter on a sub-step or micro-progress step creates the next one and moves the cursor there.
+
+### ⚙ Under the hood
+- Nested overlays stack correctly when auth opens over Settings.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.1.2**, versionCode **9**. Same package id `com.mattedhairr.youdo` — install over 3.1.1.
+- **Android APK**: versionName **3.1.2**, versionCode **9**. Same package id `com.mattedhairr.youdo` — install over **3.1.1**.
 
 ---
 
-## [v3.1.1] — 2026-08-14 ("Auth blur & tab hover")
+## [v3.1.1] — 2026-08-14 ("Auth blur and tab hover")
 
-- **Auth over Settings**: Sign in / Create account now blurs Settings behind the sheet (nested overlays stack correctly).
-- **Command bar**: only the current tab stays brass. Idle tabs no longer keep a leftover hover fill after you switch on a phone.
+Small fixes to auth overlay stacking and command-bar hover on touch devices.
+
+### 🚀 What you will notice
+- **Auth over Settings** — Sign in / Create account blurs Settings behind the sheet.
+- **Command bar** — only the current tab stays brass; idle tabs no longer keep a leftover hover fill after you switch on a phone.
+
+### ⚙ Under the hood
+- No other notable internal changes.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.1.1**, versionCode **8**. Same package id — install over 3.1.0.
+- **Android APK**: versionName **3.1.1**, versionCode **8**. Same package id `com.mattedhairr.youdo` — install over **3.1.0**.
 
 ---
 
 ## [v3.1.0] — 2026-08-14 ("The 3.x public drop")
 
-First **public 3.x APK**. v3.0.0 and v3.0.1 were never published as GitHub Releases — this build includes that work plus execution, backlog, and onboarding. Install over **2.3.0** (same package id).
+First **public 3.x APK**. Includes unreleased 3.0.x work plus execution, backlog, and onboarding. Install over **2.3.0** (same package id).
 
-### 🚀 Major Highlights
-- **Visual identity**: Brass-and-sage theme, new launcher icon, full-viewport overlay blur.
-- **Goals stay the source of truth**: edits in Goals (title, description, steps, completion) update every linked Today, Backlog, and Plan card. Those cards do not edit the goal backwards.
-- **Backlog is honest**: starting a session no longer moves a missed task onto Today. Misses stay in Backlog; the calendar keeps Failed on the original day and Completed + Backlog on the day you clear it.
-- **Focus lock**: only one session at a time. The running card pins to the top; other Today/Backlog cards cannot be tapped until you stop.
-- **Sign-in clock**: login is not blocked just because the WebView hid the HTTP `Date` header. Only a proven skewed clock is blocked.
+### 🚀 What you will notice
+- **Visual identity** — brass-and-sage theme, new launcher icon, full-viewport overlay blur.
+- **Goals stay the source of truth** — edits in Goals update every linked Today, Backlog, and Plan card; cards do not edit the goal backwards.
+- **Backlog is honest** — starting a session no longer moves a missed task onto Today. Misses stay in Backlog; the calendar keeps Failed on the original day and Completed + Backlog on the day you clear it.
+- **Focus lock** — only one session at a time. The running card pins to the top until you stop.
+- **Sign-in clock** — login is not blocked just because the WebView hid the HTTP `Date` header. Only a proven skewed clock is blocked.
+- **Navigation and Goals** — brass active tab, location chips, tap anywhere on a phase/goal card to open it, Recently Deleted as its own Settings screen.
+- **First-run guides** — interactive tab explainer and step-by-step walkthrough with sketches that match real Today cards.
+- **Honest session copy** — Net focus, Duration, Average efficiency; clearer remaining / failed / completed step language; Nimsdai quote restored in the header.
 
-### 🎨 Navigation & Goals
-- Command bar: solid brass active tab, muted idle tabs, dark count chip that reads on brass.
-- Goals: location chips instead of a sparse “All Goals” strip; tap anywhere on a phase/goal card to open it (actions still work).
-- Recently Deleted is its own Settings screen (not a 20-item dropdown). Goal deletes only — not standalone Today tasks.
+### ☁ Cloud
+- Optional account sync plus JSON export/import remain available from Settings.
 
-### 📘 First-run guides
-- **The three tabs** and **Getting started** open as full screens: interactive tab explainer, step-by-step walkthrough, sketches that match real Today cards. Backlog is described as automatic.
-- Guest account card is a clear “this device only / sign in” hero.
-
-### 📊 Sessions & copy
-- Honest session time (no silent overwrite, drop sub-15s accidents, midnight split).
-- Stats labels: Net focus, Duration, Average efficiency; clearer remaining / failed / completed step language.
-- Nimsdai quote restored in the header.
+### ⚙ Under the hood
+- Honest session time: no silent overwrite, drop sub-15s accidents, midnight split for calendar totals.
+- Guest account card clarifies “this device only / sign in”.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **3.1.0**, versionCode **7**. Same package id `com.mattedhairr.youdo` — install over 2.x / any unreleased 3.0 internal build.
+- **Android APK**: versionName **3.1.0**, versionCode **7**. Same package id `com.mattedhairr.youdo` — install over **2.x** or any unreleased 3.0 internal build.
 
 ---
 
 ## [v3.0.1] — 2026-08-14 ("Login clock check") *not published as a GitHub Release*
 
-### 🚀 Major Highlights
-- **Sign-in no longer blocked by a false clock error**: browsers hide the HTTP `Date` header, so the old check treated “could not read server time” as a failed clock. Login now proceeds unless the device is **proven** skewed.
+Fixes a false “clock wrong” error that blocked sign-in in some browsers.
+
+### 🚀 What you will notice
+- **Sign-in no longer blocked by a false clock error** — browsers hide the HTTP `Date` header, so the old check treated “could not read server time” as failure. Login now proceeds unless the device is **proven** skewed.
+
+### ⚙ Under the hood
+- Server time check only blocks login when skew is confirmed, not when the header is missing.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.0.1**, versionCode **6**. Same package id `com.mattedhairr.youdo` — internal build only; install over **3.0.0**.
 
 ---
 
-## [v3.0.0] — 2026-08-14 ("The Identity & Reliability Release") *not published as a GitHub Release*
+## [v3.0.0] — 2026-08-14 ("Identity and reliability") *not published as a GitHub Release*
 
-### 🚀 Major Highlights
-- **Full Visual Identity**: Brass-and-sage theme (dark charcoal + dusky light), 12px corners, Figtree + IBM Plex Mono, and a new launcher/PWA icon that matches the in-app mark.
-- **Overlay Architecture Rewrite**: Expanded cards and every sheet now blur the **full viewport** — header and nav included — instead of only the center column.
-- **Honest Session Analytics**: Time you see is work you did: no silent overwrite of an unfinished session, no sub-15s accidents in totals, overnight sessions split at local midnight, goal stats roll up descendants.
+Foundation release: visual identity, honest sessions, ambient mode, and calendar analytics.
 
----
+### 🚀 What you will notice
+- **Full visual identity** — brass-and-sage theme, Figtree + IBM Plex Mono, launcher/PWA icon matching the in-app mark.
+- **Full-viewport blur** — expanded cards and every sheet blur header and nav, not only the center column.
+- **Honest session analytics** — no silent overwrite of unfinished sessions, sub-15s accidents dropped, overnight sessions split at local midnight, goal stats roll up descendants.
+- **Ambient mode** — long-press the play control (~450ms) for full-screen desk mode; screen stays awake.
+- **Step timestamps** — completed steps show wall-clock ranges on the expanded card.
+- **Calendar day stats** — daily Net Focus, Duration, and efficiency on the Plan date sheet; overnight focus attributed to each local day.
 
-### 🎨 Look, Icon & Quotes
-- **App Icon**: Dark `#11100E` field, brass Y-stem, sage check — used for PWA, Apple touch, and Android adaptive launcher.
-- **Task Cards & Goal Tree**: Backlog on the metadata row; Description beside the title; compact expanded step list (check, name, time); cleaned pinned goals and node cards.
-- **Header Quotes**: Nimsdai’s line restored — *Giving up is not in the blood sir..... not in the blood* — plus additional hard-hitting student quotes.
+### ☁ Cloud
+- Optional account sync and JSON export/import (backup payload version **3.0.0**).
 
----
+### ⚙ Under the hood
+- Starting another session saves the previous one first instead of overwriting it.
+- Resume vs Reconstruct: resume counts the gap if you kept working after a crash; reconstruct is for “I forgot to stop.”
+- Task cards and goal tree layout cleanup; header quotes restored.
 
-### 🛡️ Analytics Reliability & Session Safeguards
-- **Session Persistence**: Starting another session saves the previous one first instead of overwriting it.
-- **Countable Focus**: Sessions under 15 seconds of net focus are dropped from save and summaries.
-- **Midnight Split**: Overnight timers are split at local midnight so calendar daily totals stay honest.
-- **Goal Roll-up**: Goal analytics include descendant nodes, not only the node you opened.
-- **Live Timers**: Net focus (not raw wall-clock); durations show seconds when needed; running sessions display `start – ∞`.
-- **Resume vs Reconstruct**: Resume still counts the gap if you kept working after a crash; Reconstruct is for “I forgot to stop.”
-
----
-
-### ⏱️ Live Sessions & Ambient Mode
-- **Long-press Ambient**: Hold the play control ~450ms to enter full-screen desk mode (screen stays awake).
-- **Step Timestamps**: Completed steps show wall-clock ranges on the expanded card.
+### 💾 Data Safety
+- **Android APK**: versionName **3.0.0**, versionCode **5**. Same package id `com.mattedhairr.youdo` — install over **2.x** with no uninstall required.
 
 ---
 
-### 📅 Calendar & Efficiency Analytics
-- **Daily Stats Info**: Same analytics affordance as task/goal stats on the calendar day sheet.
-- **Overnight Attribution**: Focus spanning two dates is attributed to each local day correctly.
+## [v2.0.0] — 2026-08-12 ("The aspirant execution release")
+
+First Android APK and cloud account release, built for competitive exam aspirants (UPSC, JEE, NEET, GATE, CAT).
+
+### 🚀 What you will notice
+- **Native Android APK** — standalone install via Capacitor 8; CI builds on GitHub Actions.
+- **Account and cloud sign-up** — Supabase auth for optional backup and sync.
+- **6-tier goal blueprint** — `Goal` → `Phase` → `Section` → `Task` → `Sub-task` → `Leaf Task`.
+- **Step-slice dispatch** — push specific micro-steps from any goal node onto Today.
+- **Focus timer and pause logs** — net focus vs elapsed time with break timestamps.
+- **Ambient screen** — distraction-free desk clock with safe-area insets.
+- **Calendar analytics** — daily planned count on dates; tap for net focus, duration, and efficiency.
+- **In-app aspirant guide** — six-step workflow in Settings.
+
+### ☁ Cloud
+- Supabase authentication and optional cloud backup introduced.
+
+### ⚙ Under the hood
+- 30-second session heartbeat for crash recovery; resume or discard after ~5 minutes away.
+- 4-hour auto-pause on continuous focus to limit accidental overnight stats.
+- Web Share API backup export on Android; JSON import/export.
+
+### 💾 Data Safety
+- **Android APK**: versionName **2.0.0**, versionCode **4**. Same package id `com.mattedhairr.youdo` — first Capacitor release.
 
 ---
 
-### 💾 Data Safety & Onboarding
-- **Android APK**: versionName **3.0.0**, versionCode **5**. Same package id — no uninstall required to update from 2.x.
-- **Cloud + Local Backup**: Optional account sync plus JSON export/import (backup payload version **3.0.0**).
+## [v1.0.0] — 2026-08-01 ("Initial PWA release")
+
+Core web app: local tasks, basic goal tree, and PWA install.
+
+### 🚀 What you will notice
+- **Today list and tasks** — add, complete, and reorder daily work stored on device.
+- **Basic goal tree** — simple hierarchy for syllabus-style planning.
+- **PWA install** — add to home screen for a standalone web app.
+
+### ⚙ Under the hood
+- Local storage persistence; no account or cloud sync.
+
+### 💾 Data Safety
+- **Web/PWA only** — no Android APK in this release.
 
 ---
-
-## [v2.0.0] — 2026-08-12 ("The Aspirant Execution Release")
-
-### 🚀 Major Highlights
-- **Native Android APK Integration**: Compiled standalone Android `.apk` via Capacitor 8 with automated GitHub Actions CI/CD workflows.
-- **Account & Cloud Sign Up**: Supabase Authentication integration for account-backed session state.
-- **Targeted Aspirant Architecture**: Tailored execution companion specifically engineered for competitive exam aspirants (UPSC, JEE, NEET, GATE, CAT).
-
----
-
-### 🎯 Goal Blueprint & Scheduling
-- **6-Tier Goal Hierarchy**: Structure syllabi into `Goal` → `Phase` → `Section` → `Task` → `Sub-task` → `Leaf Task`.
-- **Step-Slice Dispatching**: Select specific micro-steps from any Goal node and push them directly to Today's execution list.
-- **Backlog & Today Sync**: Starting a session on a Backlog task moves it to Today with a persistent `📋 Backlog` badge. Completing tasks in Today updates master Goal Blueprint progress in real-time.
-
----
-
-### 🛡️ Analytics Reliability & Session Safeguards
-- **30-Second Silent Heartbeat**: Continuous background timer pulse recording session state every 30 seconds.
-- **Interrupted Session Recovery**: Auto-detects app crashes, phone shutdowns, or closures >5 minutes and prompts to **Resume** or **Discard** on launch.
-- **4-Hour Auto-Pause Safeguard**: Automatically pauses continuous focus timers running >4 hours without interaction, protecting Net Focus Efficiency stats from accidental overnight running timers.
-
----
-
-### ⏱️ Live Sessions & Ambient Mode
-- **Focus Timer & Pause Timestamp Logs**: Tracks Net Focus Time (NFT) vs Total Duration. Detailed log of every break taken e.g. `(6:30 PM - 7:10 PM) 40m`.
-- **Ambient Screen-On Mode**: Distraction-free desk clock with dynamic safe-area insets to prevent status bar/camera notch overlap.
-- **Clickable Origin Path**: Tap the ancestor path in Ambient mode or cards to jump straight to the exact syllabus location in the Goal Blueprint.
-
----
-
-### 📅 Calendar & Efficiency Analytics
-- **$x^n$ Superscript Notation**: Month view calendar displays $x$ (date) and $n$ (planned task count, color-coded green when 100% completed).
-- **Single-Tap `[📊 Stats]` Chip**: Single-tap date header stats chip to view daily Net Focus Time, Total Duration, and Daily Focus Efficiency % `(NFT ÷ Total Duration) × 100`.
-- **Streamlined Analytics UI**: Single clean progress bar indicator, backdrop click-to-close on all modals, and clear "Total Duration" terminology.
-
----
-
-### 💾 Data Safety & User Onboarding
-- **Web Share API Backup**: Export JSON files with native System Save / Share prompts on Android (`@capacitor/share`) or direct browser downloads.
-- **In-App Aspirant Guide & Collapsible Architecture**: Comprehensive 6-step user onboarding and collapsible architecture tabs built into Settings.
-
----
-
-## [v1.0.0] — Initial Release
-- Core PWA task manager with local storage support and basic goal tree views.

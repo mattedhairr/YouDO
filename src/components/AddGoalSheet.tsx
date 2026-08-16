@@ -177,7 +177,7 @@ export default function AddGoalSheet({
             </div>
           )}
 
-          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 cq-grid-2 gap-3">
             <div className="min-w-0">
               <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Start date</label>
               <input

@@ -414,25 +414,25 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
               <div className="bg-surface p-3 rounded-[12px] border border-subtle space-y-2.5">
                 <h4 className="text-[10px] font-semibold text-content-muted uppercase tracking-wider">Task execution</h4>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-elevated  p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-content-secondary">Scheduled</p>
-                    <p className="text-sm font-semibold text-content-primary">{nativeScheduledCount}</p>
+                  <div className="bg-elevated p-2 rounded-xl text-center min-w-0 px-1">
+                    <p className="text-[9px] font-bold uppercase text-content-secondary leading-tight">Scheduled</p>
+                    <p className="text-sm font-semibold text-content-primary tabular-nums">{nativeScheduledCount}</p>
                   </div>
-                  <div className="bg-secondary/10  p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-secondary">Completed</p>
-                    <p className="text-sm font-semibold text-secondary">{nativeCompletedCount}</p>
+                  <div className="bg-secondary/10 p-2 rounded-xl text-center min-w-0 px-1">
+                    <p className="text-[9px] font-bold uppercase text-secondary leading-tight">Completed</p>
+                    <p className="text-sm font-semibold text-secondary tabular-nums">{nativeCompletedCount}</p>
                   </div>
-                  <div className="bg-error-soft  p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-error">Failed</p>
-                    <p className="text-sm font-semibold text-error">{nativeFailedCount}</p>
+                  <div className="bg-error-soft p-2 rounded-xl text-center min-w-0 px-1">
+                    <p className="text-[9px] font-bold uppercase text-error leading-tight">Failed</p>
+                    <p className="text-sm font-semibold text-error tabular-nums">{nativeFailedCount}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-content-muted w-24">Task Efficiency</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-border-subtle overflow-hidden">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-bold text-content-muted shrink-0 w-24">Task Efficiency</span>
+                  <div className="flex-1 min-w-0 h-1.5 rounded-full bg-border-subtle overflow-hidden">
                     <div className="h-full bg-primary rounded-full" style={{ width: `${taskEfficiency}%` }} />
                   </div>
-                  <span className="text-[10px] font-bold text-primary w-8 text-right">{taskEfficiency}%</span>
+                  <span className="text-[10px] font-bold text-primary w-8 shrink-0 text-right tabular-nums">{taskEfficiency}%</span>
                 </div>
               </div>
 
@@ -440,21 +440,21 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
               <div className="bg-surface p-3 rounded-[12px] border border-subtle space-y-2.5">
                 <h4 className="text-[10px] font-semibold text-content-muted uppercase tracking-wider">Focus quality</h4>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-primary-soft p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-semibold uppercase text-primary">Net Focus</p>
-                    <p className="text-sm font-semibold text-primary">{formatDuration(dayTotalNFT)}</p>
+                  <div className="bg-primary-soft p-2 rounded-xl text-center min-w-0 px-1">
+                    <p className="text-[9px] font-semibold uppercase text-primary leading-tight">Net Focus</p>
+                    <p className="text-sm font-semibold text-primary tabular-nums">{formatDuration(dayTotalNFT)}</p>
                   </div>
-                  <div className="bg-elevated  p-2 rounded-xl text-center">
-                    <p className="text-[9px] font-bold uppercase text-content-secondary">Total Duration</p>
-                    <p className="text-sm font-semibold text-content-muted">{formatDuration(dayTotalWCD)}</p>
+                  <div className="bg-elevated p-2 rounded-xl text-center min-w-0 px-1">
+                    <p className="text-[9px] font-bold uppercase text-content-secondary leading-tight">Total Duration</p>
+                    <p className="text-sm font-semibold text-content-muted tabular-nums">{formatDuration(dayTotalWCD)}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-content-muted w-24">Focus Efficiency</span>
-                  <div className="flex-1 h-1.5 rounded-full bg-border-subtle overflow-hidden">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-bold text-content-muted shrink-0 w-24">Focus Efficiency</span>
+                  <div className="flex-1 min-w-0 h-1.5 rounded-full bg-border-subtle overflow-hidden">
                     <div className="h-full bg-primary rounded-full" style={{ width: `${focusEfficiency}%` }} />
                   </div>
-                  <span className="text-[10px] font-semibold text-primary w-8 text-right">{focusEfficiency}%</span>
+                  <span className="text-[10px] font-semibold text-primary w-8 shrink-0 text-right tabular-nums">{focusEfficiency}%</span>
                 </div>
               </div>
 
@@ -481,14 +481,14 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                 </p>
               ) : (
                 <div className="space-y-1.5 max-h-40 overflow-y-auto no-scrollbar">
-                  {modalDateSessions.map(({ session: s, slice }) => {
-                    const taskObj = tasks.find((t) => t.id === s.taskId);
-                    const title = taskObj?.title || 'Focus Session';
+                  {[...modalDateSessions]
+                    .sort((a, b) => a.session.startTime - b.session.startTime)
+                    .map(({ session: s, slice }, index) => {
                     const overnight = localISODate(new Date(s.startTime)) !== localISODate(new Date(s.endTime));
                     return (
                       <div key={s.id} className="bg-elevated  p-2.5 rounded-xl border border-subtle dark:border-subtle flex items-center justify-between text-xs">
                         <div className="min-w-0 pr-2">
-                          <p className="font-bold text-content-primary dark:text-content-primary truncate">{title}</p>
+                          <p className="font-bold text-content-primary dark:text-content-primary truncate">Session {index + 1}</p>
                           <p className="text-[10.5px] text-content-secondary font-mono">
                             {s.wallClockStart} - {s.wallClockEnd}
                             {overnight ? ' · split' : ''} ({formatDuration(slice.durationMs)})
