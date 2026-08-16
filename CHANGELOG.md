@@ -4,6 +4,29 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+## [v3.3.0] — 2026-08-16 ("Guide, feel, and honest trends")
+
+The 3.2.1–3.2.3 ideas stay. The execution is rebuilt so they match the rest of YouDO.
+
+### 🚀 What you will notice
+- **First run opens the real guide** — not a bounce-arrow overlay. Tap the YouDO mark any time to open it again. Sketches match Today / Goals / Plan cards.
+- **Haptics actually fire on the APK** (the plugin was never synced into Android). Patterns stay short: start, pause, ambient, tick, complete, delete.
+- **Undo after a goal delete** sits above the command bar in YouDO chrome — no generic toast library.
+- **Focus this week** in session stats: tap a day for net focus. Streaks no longer skip a missed day. Shown only when there is countable focus.
+- **Trim old sittings** in Settings keeps the last 90 days if a cloud backup grows too large.
+- **Today empty state** talks in product language: schedule from Goals, or add a quick task.
+
+### ⚙ Under the hood
+- Help uses the same overlay stack as every other sheet (back gesture, blur, escape).
+- Haptics setting lives with the other YouDO keys (old `youdo_haptics_enabled` still migrates).
+- Restoring a deleted node falls back to the goal root (or as a new root) if the parent is gone.
+- Week heatmap and streak math are tested; dates stay local, not UTC.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.3.0**, versionCode **11**. Same package id `com.mattedhairr.youdo` — install over 3.2.x.
+
+---
+
 ## [v3.2.0] — 2026-08-15 ("Honest sessions after lock, sleep, and forget")
 
 Phone lock, a forgotten timer, and falling asleep are three different things — and stats now follow what you actually did.

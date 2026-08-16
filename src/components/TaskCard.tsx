@@ -41,9 +41,12 @@ const priorityStyles: Record<Priority, { dot: string; bar: string }> = {
   low:    { dot: 'bg-secondary', bar: 'bg-secondary' },
 };
 
-function fmtDate(date: string | null): string {
-  if (!date) return 'No date';
-  return new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function fmtDate(iso: string | null): string {
+  if (!iso) return 'No date';
+  const parts = iso.slice(0, 10).split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return iso;
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function fmtCountdown(deadline: string | null): string {

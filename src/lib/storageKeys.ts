@@ -7,6 +7,8 @@ export const STORAGE_KEYS = {
   theme: 'youdo-theme-v4',
   view: 'youdo-view',
   goalPathIds: 'youdo-goal-path-ids',
+  helpSeen: 'youdo-help-seen-v1',
+  haptics: 'youdo-haptics-v1',
 } as const;
 
 const LEGACY_ALIASES: Record<string, string[]> = {
@@ -15,6 +17,8 @@ const LEGACY_ALIASES: Record<string, string[]> = {
   [STORAGE_KEYS.theme]: ['tudo-theme-v4'],
   [STORAGE_KEYS.view]: ['todo.view'],
   [STORAGE_KEYS.goalPathIds]: ['todo.goalPathIds'],
+  [STORAGE_KEYS.helpSeen]: ['youdo_has_seen_help'],
+  [STORAGE_KEYS.haptics]: ['youdo_haptics_enabled'],
 };
 
 export function readStorageRaw(key: string): string | null {

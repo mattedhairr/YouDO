@@ -1,122 +1,115 @@
+import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { STORAGE_KEYS } from './storageKeys';
 
-// Read setting from local storage directly for safe synchronous access
+const VIBRATE_MS: Record<ImpactStyle, number> = {
+  [ImpactStyle.Light]: 8,
+  [ImpactStyle.Medium]: 16,
+  [ImpactStyle.Heavy]: 28,
+};
+
+let pending: number[] = [];
+
 function isHapticsEnabled(): boolean {
   try {
-    const val = localStorage.getItem('youdo_haptics_enabled');
-    // Default to true if not set
-    if (val === null) return true;
-    return JSON.parse(val) === true;
+    const raw = localStorage.getItem(STORAGE_KEYS.haptics);
+    if (raw === null) return true;
+    return JSON.parse(raw) === true;
   } catch {
     return true;
   }
 }
 
-/** 
- * Light tick
- * Logical Reasoning: A minimal, frictionless confirmation for micro-interactions 
- * like checking off a small step. It feels like snapping a tiny switch.
- */
-export async function hapticTick() {
-  if (!isHapticsEnabled()) return;
+export function setHapticsPreference(enabled: boolean): void {
   try {
-    await Haptics.impact({ style: ImpactStyle.Light });
-  } catch (e) {}
+    localStorage.setItem(STORAGE_KEYS.haptics, JSON.stringify(enabled));
+  } catch {
+    /* quota */
+  }
 }
 
-/** 
- * Medium tap
- * Logical Reasoning: A standard structural confirmation. Used for opening/closing sheets 
- * or making solid UI selections. It gives a feeling of physical depth to the screen.
- */
-export async function hapticTap() {
-  if (!isHapticsEnabled()) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Medium });
-  } catch (e) {}
+function clearPending() {
+  pending.forEach((id) => window.clearTimeout(id));
+  pending = [];
 }
 
-/** 
- * Start Session (Engine Rev / Heartbeat)
- * Logical Reasoning: Starting a focus session should feel like starting an engine 
- * or a heartbeat to build momentum. A crescendo from Light to Heavy prepares the mind.
- */
-export async function hapticSessionStart() {
+async function impact(style: ImpactStyle): Promise<void> {
   if (!isHapticsEnabled()) return;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Haptics.impact({ style });
+      return;
+    } catch {
+      /* WebView without plugin — fall through */
+    }
+  }
   try {
-    await Haptics.impact({ style: ImpactStyle.Light });
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {}), 80);
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}), 180);
-  } catch (e) {}
+    navigator.vibrate?.(VIBRATE_MS[style]);
+  } catch {
+    /* desktop / denied */
+  }
 }
 
-/** 
- * Pause Session (Brake)
- * Logical Reasoning: Pausing a session should feel like tapping the brakes. 
- * A crisp, singular Heavy impact to sharply halt the momentum.
- */
-export async function hapticSessionPause() {
+function play(steps: Array<{ style: ImpactStyle; at: number }>): void {
   if (!isHapticsEnabled()) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Heavy });
-  } catch (e) {}
+  clearPending();
+  for (const step of steps) {
+    if (step.at <= 0) {
+      void impact(step.style);
+      continue;
+    }
+    pending.push(window.setTimeout(() => void impact(step.style), step.at));
+  }
 }
 
-/** 
- * Task Complete (Reward / Ta-da)
- * Logical Reasoning: Completing a task should feel rewarding. 
- * A Heavy impact followed by a delayed Light impact mimics a "Ta-da!" rhythm.
- */
-export async function hapticSuccess() {
-  if (!isHapticsEnabled()) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Heavy });
-    setTimeout(() => {
-      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-    }, 150);
-  } catch (e) {}
+export function hapticTick() {
+  play([{ style: ImpactStyle.Light, at: 0 }]);
 }
 
-/** 
- * Goal Complete (Grand Finale)
- * Logical Reasoning: Finishing an entire goal is a huge milestone. 
- * A rapid sequence of impacts creates a celebratory flutter or crescendo.
- */
-export async function hapticGoalComplete() {
-  if (!isHapticsEnabled()) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Medium });
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}), 100);
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}), 220);
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}), 400);
-  } catch (e) {}
+export function hapticTap() {
+  play([{ style: ImpactStyle.Medium, at: 0 }]);
 }
 
-/** 
- * Warning / Delete (Stutter)
- * Logical Reasoning: Deleting something should feel jarring to ensure the user 
- * is aware of the destructive action. Two quick Medium impacts create a "stutter" feel.
- */
-export async function hapticWarn() {
-  if (!isHapticsEnabled()) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Medium });
-    setTimeout(() => {
-      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
-    }, 100);
-  } catch (e) {}
+/** Engine catch — start a sitting. */
+export function hapticSessionStart() {
+  play([
+    { style: ImpactStyle.Light, at: 0 },
+    { style: ImpactStyle.Medium, at: 70 },
+    { style: ImpactStyle.Heavy, at: 160 },
+  ]);
 }
 
-/** 
- * Ambient Mode Open (Zen ripples)
- * Logical Reasoning: Ambient mode is for zen focus. We want smooth, gentle ripples.
- * Three spaced-out Light impacts feel like ripples in a pond.
- */
-export async function hapticAmbient() {
-  if (!isHapticsEnabled()) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Light });
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}), 200);
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}), 450);
-  } catch (e) {}
+export function hapticSessionPause() {
+  play([{ style: ImpactStyle.Heavy, at: 0 }]);
+}
+
+export function hapticSuccess() {
+  play([
+    { style: ImpactStyle.Heavy, at: 0 },
+    { style: ImpactStyle.Light, at: 140 },
+  ]);
+}
+
+export function hapticGoalComplete() {
+  play([
+    { style: ImpactStyle.Medium, at: 0 },
+    { style: ImpactStyle.Heavy, at: 90 },
+    { style: ImpactStyle.Heavy, at: 200 },
+    { style: ImpactStyle.Light, at: 360 },
+  ]);
+}
+
+export function hapticWarn() {
+  play([
+    { style: ImpactStyle.Medium, at: 0 },
+    { style: ImpactStyle.Medium, at: 90 },
+  ]);
+}
+
+export function hapticAmbient() {
+  play([
+    { style: ImpactStyle.Light, at: 0 },
+    { style: ImpactStyle.Light, at: 180 },
+    { style: ImpactStyle.Light, at: 400 },
+  ]);
 }

@@ -1,5 +1,7 @@
-import { Check, Target, Calendar, Sparkles, Zap, User, GripVertical, Link2, Pause, Cloud, X } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Calendar, Check, Cloud, GripVertical, Link2, Pause, Sparkles, Target, User, X, Zap } from 'lucide-react';
+import Overlay from './Overlay';
+import { hapticTap } from '../lib/haptics';
 
 const HOW_IT_WORKS_TABS = [
   {
@@ -57,8 +59,6 @@ const USER_GUIDE_STEPS = [
       'Nest the work: goal → phase → tasks. As deep as you need.',
       'Leave it here until you are ready to put a piece on a date.',
     ],
-    detail:
-      'Nothing in Goals is due today until you schedule it. Think of this as a map you keep, not the list you work from each morning.',
     mock: 'goals' as const,
   },
   {
@@ -71,8 +71,6 @@ const USER_GUIDE_STEPS = [
       'Tap Schedule. Pick today, or any other day.',
       'That date’s work shows on Today when it arrives, and in Plan on the calendar.',
     ],
-    detail:
-      'Choose today if you want it on the Today tab now. Choose another day if you want it later — it sits on that date in Plan until then. You can replan or unplan from the card later.',
     mock: 'schedule' as const,
   },
   {
@@ -85,8 +83,6 @@ const USER_GUIDE_STEPS = [
       'When you schedule, pick only the steps for that date.',
       'The other steps stay on the goal until you schedule them.',
     ],
-    detail:
-      'That way a large task does not flood Today. You can do steps 1 and 2 on Monday and save 3 and 4 for later.',
     mock: 'steps' as const,
   },
   {
@@ -99,8 +95,6 @@ const USER_GUIDE_STEPS = [
       'Tap a card to start a timed focus session.',
       'If the day ends undone, YouDO moves it to Backlog. You do not move it yourself.',
     ],
-    detail:
-      'You tap a card to start a session or edit it. Backlog is automatic. Plan still shows the original date and the stats.',
     mock: 'today' as const,
   },
   {
@@ -113,16 +107,14 @@ const USER_GUIDE_STEPS = [
       'Sign in to share goals, Today, and session stats.',
       'Deleted goals: Settings → Recently Deleted → Restore.',
     ],
-    detail:
-      'Standalone Today tasks (not linked to a goal) are not kept in that trash. Goal deletes are.',
     mock: 'sync' as const,
   },
 ];
 
-function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | 'steps' | 'sync' }) {
+function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] | (typeof HOW_IT_WORKS_TABS)[number]['mock'] }) {
   if (kind === 'goals') {
     return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2">
+      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2" aria-hidden>
         {['UPSC', 'Phase 1', 'Polity notes'].map((label, i) => (
           <div key={label} className="flex items-center gap-2" style={{ paddingLeft: i * 14 }}>
             <div className={`size-1.5 rounded-full ${i === 2 ? 'bg-primary' : 'bg-border'}`} />
@@ -136,33 +128,31 @@ function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | '
   }
   if (kind === 'today') {
     return (
-      <div className="space-y-2" aria-hidden>
-        <div className="overflow-hidden relative rounded-[12px] border bg-surface shadow-card border-primary">
-          <div className="bg-primary-soft border-b border-subtle px-3 py-1.5 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-primary" />
-            <span className="text-[11px] font-mono font-semibold text-primary">Focus · 12:40</span>
-          </div>
-          <div className="flex items-start gap-2 px-3 pt-3 pb-2.5">
-            <GripVertical size={14} className="mt-1 text-content-muted shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="inline-flex items-center gap-1 text-[10px] font-semibold bg-base border border-subtle rounded-lg px-2 py-0.5 mb-1.5">
-                <Link2 size={10} className="text-primary shrink-0" />
-                <span className="text-primary">UPSC</span>
-                <span className="text-content-muted">•</span>
-                <span className="text-primary">Phase 1</span>
+      <div className="overflow-hidden relative rounded-[12px] border bg-surface shadow-card border-primary" aria-hidden>
+        <div className="bg-primary-soft border-b border-subtle px-3 py-1.5 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-primary" />
+          <span className="text-[11px] font-mono font-semibold text-primary">Focus · 12:40</span>
+        </div>
+        <div className="flex items-start gap-2 px-3 pt-3 pb-2.5">
+          <GripVertical size={14} className="mt-1 text-content-muted shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="inline-flex items-center gap-1 text-[10px] font-semibold bg-base border border-subtle rounded-lg px-2 py-0.5 mb-1.5">
+              <Link2 size={10} className="text-primary shrink-0" />
+              <span className="text-primary">UPSC</span>
+              <span className="text-content-muted">•</span>
+              <span className="text-primary">Phase 1</span>
+            </div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2 min-w-0">
+                <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                <h3 className="text-[14px] font-semibold text-content-primary leading-snug">Essay draft</h3>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2 min-w-0">
-                  <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                  <h3 className="text-[14px] font-semibold text-content-primary leading-snug">Essay draft</h3>
-                </div>
-                <div className="size-7 rounded-full bg-primary-soft text-primary grid place-items-center shrink-0">
-                  <Pause size={12} className="fill-current" />
-                </div>
+              <div className="size-7 rounded-full bg-primary-soft text-primary grid place-items-center shrink-0">
+                <Pause size={12} className="fill-current" />
               </div>
-              <div className="mt-2 flex items-center gap-1 text-[11px] text-content-secondary font-medium ml-3.5">
-                <Calendar size={11} className="text-content-muted" /> Today
-              </div>
+            </div>
+            <div className="mt-2 flex items-center gap-1 text-[11px] text-content-secondary font-medium ml-3.5">
+              <Calendar size={11} className="text-content-muted" /> Today
             </div>
           </div>
         </div>
@@ -171,8 +161,8 @@ function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | '
   }
   if (kind === 'plan') {
     return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3">
-        <div className="grid grid-cols-7 gap-1">
+      <div className="rounded-[12px] border border-subtle bg-base p-3" aria-hidden>
+        <div className="grid grid-cols-7 gap-1 grid-fixed">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
             <div key={`${d}-${i}`} className="text-center text-[9px] font-semibold text-content-muted py-0.5">{d}</div>
           ))}
@@ -193,7 +183,7 @@ function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | '
   }
   if (kind === 'schedule') {
     return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3">
+      <div className="rounded-[12px] border border-subtle bg-base p-3" aria-hidden>
         <div className="text-[11px] font-semibold text-content-primary mb-2">Schedule · pick a date</div>
         <div className="flex gap-1.5">
           {['Today', '16', '17', '18'].map((d, i) => (
@@ -213,7 +203,7 @@ function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | '
   }
   if (kind === 'steps') {
     return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-1.5">
+      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-1.5" aria-hidden>
         {['Read chapter', 'Make notes', 'Revise', 'MCQs'].map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div className={`size-4 rounded border grid place-items-center ${i < 2 ? 'bg-primary border-primary' : 'border-subtle bg-elevated'}`}>
@@ -227,7 +217,7 @@ function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | '
     );
   }
   return (
-    <div className="rounded-[12px] border border-subtle bg-base p-3 flex items-center gap-3">
+    <div className="rounded-[12px] border border-subtle bg-base p-3 flex items-center gap-3" aria-hidden>
       <div className="size-10 rounded-[12px] bg-primary-soft grid place-items-center text-primary">
         <Cloud size={18} />
       </div>
@@ -247,128 +237,137 @@ interface Props {
 export default function HelpCenterSheet({ open, onClose }: Props) {
   const [tab, setTab] = useState<'guide' | 'info'>('guide');
   const [howTab, setHowTab] = useState(HOW_IT_WORKS_TABS[0].name);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [activeGuideStep, setActiveGuideStep] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [guideStep, setGuideStep] = useState(0);
 
   useEffect(() => {
-    if (open) {
-      setTab('guide');
-      setActiveGuideStep(0);
-      if (scrollContainerRef.current) scrollContainerRef.current.scrollTo({ left: 0 });
-    }
+    if (!open) return;
+    setTab('guide');
+    setGuideStep(0);
+    setHowTab(HOW_IT_WORKS_TABS[0].name);
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ left: 0 }));
   }, [open]);
 
   const handleScroll = () => {
-    if (!scrollContainerRef.current) return;
-    const { scrollLeft, clientWidth } = scrollContainerRef.current;
-    const index = Math.round(scrollLeft / clientWidth);
-    setActiveGuideStep(index);
+    const el = scrollRef.current;
+    if (!el || el.clientWidth <= 0) return;
+    setGuideStep(Math.round(el.scrollLeft / el.clientWidth));
   };
 
   const scrollToStep = (index: number) => {
-    if (!scrollContainerRef.current) return;
-    const { clientWidth } = scrollContainerRef.current;
-    scrollContainerRef.current.scrollTo({ left: index * clientWidth, behavior: 'smooth' });
-    setActiveGuideStep(index);
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' });
+    setGuideStep(index);
+    hapticTap();
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex flex-col pointer-events-auto fade-in">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 bg-base rounded-t-[32px] shadow-sheet border-t border-subtle flex flex-col max-h-[90vh] overflow-hidden slide-up glass-panel">
-        <div className="shrink-0 pt-4 pb-2 px-4 flex items-center justify-between border-b border-subtle/50">
+    <Overlay open={open} onClose={onClose} align="bottom">
+      <div className="panel panel-sheet sheet-up max-h-[88vh] flex flex-col overflow-hidden">
+        <div className="shrink-0 pt-3 pb-2 px-4 flex items-center justify-between border-b border-subtle">
           <div className="flex bg-surface rounded-[12px] p-1 border border-subtle">
-            <button
-              onClick={() => setTab('guide')}
-              className={`px-4 py-1.5 rounded-[8px] text-[13px] font-semibold transition-all duration-200 ${
-                tab === 'guide' ? 'bg-primary text-on-primary shadow-sm' : 'text-content-secondary hover:text-content-primary'
-              }`}
-            >
-              App Guide
-            </button>
-            <button
-              onClick={() => setTab('info')}
-              className={`px-4 py-1.5 rounded-[8px] text-[13px] font-semibold transition-all duration-200 ${
-                tab === 'info' ? 'bg-primary text-on-primary shadow-sm' : 'text-content-secondary hover:text-content-primary'
-              }`}
-            >
-              How It Works
-            </button>
+            {(['guide', 'info'] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setTab(id);
+                  hapticTap();
+                }}
+                className={`px-3.5 py-1.5 rounded-[8px] text-[13px] font-semibold transition-colors ${
+                  tab === id ? 'bg-primary text-on-primary' : 'text-content-secondary'
+                }`}
+              >
+                {id === 'guide' ? 'Getting started' : 'The three tabs'}
+              </button>
+            ))}
           </div>
-          <button onClick={onClose} className="p-2 rounded-full bg-surface border border-subtle text-content-secondary hover:text-content-primary hover:bg-elevated transition-colors active:scale-[0.98]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl bg-surface border border-subtle text-content-secondary hover:text-content-primary"
+            aria-label="Close help"
+          >
             <X size={18} />
           </button>
         </div>
 
         {tab === 'guide' && (
-          <div className="flex-1 min-h-0 flex flex-col bg-surface/50">
-            <div className="px-5 pt-5 pb-2">
-              <h2 className="text-xl font-bold tracking-tight text-content-primary">Getting Started</h2>
-              <p className="text-[13px] text-content-secondary mt-1">Swipe to see how YouDO helps you focus.</p>
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div className="px-5 pt-4 pb-1">
+              <p className="text-[13px] text-content-secondary">Swipe through how YouDO is meant to be used.</p>
             </div>
-            
-            {/* Swipeable Carousel */}
-            <div 
-              ref={scrollContainerRef}
+            <div
+              ref={scrollRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory flex no-scrollbar pb-6 pt-2 items-center"
+              className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory flex no-scrollbar"
             >
               {USER_GUIDE_STEPS.map((step, idx) => (
-                <div key={idx} className="w-full shrink-0 snap-center px-5 flex flex-col h-full justify-center">
-                  <div className="bg-elevated border border-subtle rounded-[24px] p-5 shadow-sm h-full max-h-[400px] flex flex-col">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="size-12 rounded-[16px] bg-primary-soft text-primary grid place-items-center shrink-0">
-                        <step.icon size={24} strokeWidth={2.2} />
+                <div key={step.title} className="w-full shrink-0 snap-center px-5 py-3 flex flex-col">
+                  <div className="bg-elevated border border-subtle rounded-[16px] p-4 shadow-card flex flex-col gap-3 max-h-[58vh] overflow-y-auto no-scrollbar">
+                    <div className="flex items-center gap-3">
+                      <div className="size-11 rounded-[12px] bg-primary-soft text-primary grid place-items-center shrink-0">
+                        <step.icon size={22} strokeWidth={2.2} />
                       </div>
                       <div>
-                        <h3 className="text-[17px] font-bold text-content-primary leading-tight tracking-tight">{step.title}</h3>
-                        <div className="text-[12px] font-semibold text-primary mt-0.5 uppercase tracking-wide">{step.where}</div>
+                        <div className="text-[10px] font-semibold text-primary uppercase tracking-wider">{idx + 1} / {USER_GUIDE_STEPS.length} · {step.where}</div>
+                        <h3 className="text-[16px] font-semibold text-content-primary leading-tight">{step.title}</h3>
                       </div>
                     </div>
-                    
-                    <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-4">
-                      <p className="text-[14px] text-content-primary leading-relaxed font-medium">
-                        {step.desc}
-                      </p>
-                      <div className="space-y-2.5 bg-surface rounded-[16px] p-4 border border-subtle">
-                        {step.do.map((line, i) => (
-                          <div key={i} className="flex gap-3 text-[13px] text-content-secondary leading-snug">
-                            <span className="size-5 rounded-full bg-primary-soft text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                            <span>{line}</span>
-                          </div>
-                        ))}
-                      </div>
+                    <p className="text-[13px] text-content-primary leading-relaxed">{step.desc}</p>
+                    <GuideMock kind={step.mock} />
+                    <div className="space-y-2 bg-surface rounded-[12px] p-3 border border-subtle">
+                      {step.do.map((line, i) => (
+                        <div key={line} className="flex gap-2.5 text-[13px] text-content-secondary leading-snug">
+                          <span className="size-5 rounded-full bg-primary-soft text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                          <span>{line}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Pagination Dots */}
-            <div className="shrink-0 pb-8 flex items-center justify-center gap-2">
-              {USER_GUIDE_STEPS.map((_, idx) => (
+            <div className="shrink-0 pb-5 pt-2 flex flex-col items-center gap-3">
+              <div className="flex items-center justify-center gap-2">
+                {USER_GUIDE_STEPS.map((step, idx) => (
+                  <button
+                    key={step.title}
+                    type="button"
+                    onClick={() => scrollToStep(idx)}
+                    className={`h-2 rounded-full transition-all ${idx === guideStep ? 'w-6 bg-primary' : 'w-2 bg-border'}`}
+                    aria-label={`Go to ${step.title}`}
+                  />
+                ))}
+              </div>
+              {guideStep === USER_GUIDE_STEPS.length - 1 ? (
                 <button
-                  key={idx}
-                  onClick={() => scrollToStep(idx)}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    idx === activeGuideStep ? 'w-6 bg-primary' : 'w-2 bg-border hover:bg-content-muted'
-                  }`}
-                  aria-label={`Go to step ${idx + 1}`}
-                />
-              ))}
+                  type="button"
+                  onClick={onClose}
+                  className="px-5 py-2 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
+                >
+                  Got it
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => scrollToStep(guideStep + 1)}
+                  className="px-5 py-2 rounded-[12px] bg-surface border border-subtle text-[13px] font-semibold text-content-primary"
+                >
+                  Next
+                </button>
+              )}
             </div>
           </div>
         )}
 
         {tab === 'info' && (
-          <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-5 pt-5 pb-10 bg-surface/50">
-            <h2 className="text-xl font-bold tracking-tight text-content-primary mb-1">The Three Tabs</h2>
-            <p className="text-[13px] text-content-secondary leading-relaxed mb-4">
-              Tap a tab below to see what it is used for.
+          <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-5 pt-4 pb-8 space-y-4">
+            <p className="text-[13px] text-content-secondary leading-relaxed">
+              Tap a tab to see what it is for — and what it is not.
             </p>
-            <div className="flex items-center gap-1 rounded-[16px] bg-elevated border border-subtle p-1 mb-5 shadow-sm">
+            <div className="flex items-center gap-1 rounded-[12px] bg-elevated border border-subtle p-1">
               {HOW_IT_WORKS_TABS.map((t) => {
                 const Icon = t.icon;
                 const active = howTab === t.name;
@@ -376,14 +375,15 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
                   <button
                     key={t.name}
                     type="button"
-                    onClick={() => setHowTab(t.name)}
-                    className={`flex-1 h-10 rounded-[12px] flex items-center justify-center gap-2 text-[13px] transition-all duration-200 active:scale-[0.98] ${
-                      active
-                        ? 'bg-primary text-on-primary font-bold shadow-md'
-                        : 'text-content-secondary font-medium hover:text-content-primary hover:bg-surface'
+                    onClick={() => {
+                      setHowTab(t.name);
+                      hapticTap();
+                    }}
+                    className={`flex-1 h-10 rounded-[10px] flex items-center justify-center gap-1.5 text-[13px] ${
+                      active ? 'bg-primary text-on-primary font-semibold' : 'text-content-secondary font-medium'
                     }`}
                   >
-                    <Icon size={16} strokeWidth={active ? 2.5 : 2} />
+                    <Icon size={15} strokeWidth={active ? 2.5 : 2} />
                     {t.name}
                   </button>
                 );
@@ -391,48 +391,38 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
             </div>
 
             {(() => {
-              const currentTab = HOW_IT_WORKS_TABS.find((t) => t.name === howTab) ?? HOW_IT_WORKS_TABS[0];
-              const Icon = currentTab.icon;
+              const current = HOW_IT_WORKS_TABS.find((t) => t.name === howTab) ?? HOW_IT_WORKS_TABS[0];
+              const Icon = current.icon;
               return (
-                <div key={currentTab.name} className="space-y-4 fade-in">
-                  <div className="rounded-[24px] border border-subtle bg-elevated p-5 shadow-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="size-14 rounded-[16px] bg-primary-soft text-primary grid place-items-center shrink-0">
-                        <Icon size={26} strokeWidth={2.2} />
+                <div key={current.name} className="space-y-3 fade-in">
+                  <div className="rounded-[16px] border border-subtle bg-elevated p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="size-12 rounded-[12px] bg-primary-soft text-primary grid place-items-center shrink-0">
+                        <Icon size={22} strokeWidth={2.2} />
                       </div>
                       <div>
-                        <div className="text-[20px] font-bold tracking-tight text-content-primary leading-tight">{currentTab.name}</div>
-                        <div className="text-[12px] font-semibold text-primary mt-1 uppercase tracking-wider">{currentTab.role}</div>
+                        <div className="text-[18px] font-semibold tracking-tight text-content-primary">{current.name}</div>
+                        <div className="text-[11px] font-semibold text-primary uppercase tracking-wider">{current.role}</div>
                       </div>
                     </div>
-                    <p className="mt-4 text-[14px] font-medium text-content-primary leading-relaxed">{currentTab.oneLiner}</p>
+                    <p className="mt-3 text-[14px] text-content-primary leading-relaxed">{current.oneLiner}</p>
                   </div>
-
-                  <div className="px-1">
-                    <GuideMock kind={currentTab.mock} />
-                  </div>
-
-                  <div className="rounded-[20px] border border-subtle bg-elevated p-4 space-y-3">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-content-muted">You use it to</p>
-                    {currentTab.uses.map((line) => (
-                      <div key={line} className="flex gap-3 text-[14px] text-content-secondary leading-snug">
-                        <Check size={16} className="text-primary shrink-0 mt-0.5" />
+                  <GuideMock kind={current.mock} />
+                  <div className="rounded-[12px] border border-subtle bg-elevated p-3.5 space-y-2.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">You use it to</p>
+                    {current.uses.map((line) => (
+                      <div key={line} className="flex gap-2.5 text-[13px] text-content-secondary leading-snug">
+                        <Check size={15} className="text-primary shrink-0 mt-0.5" />
                         <span>{line}</span>
                       </div>
                     ))}
                   </div>
-
-                  <div className="rounded-[20px] border border-subtle bg-surface p-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <X size={16} className="text-error shrink-0 mt-0.5" />
-                      <p className="text-[13px] text-content-secondary leading-relaxed">{currentTab.notFor}</p>
+                  <div className="rounded-[12px] border border-subtle bg-surface p-3.5 space-y-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <X size={15} className="text-error shrink-0 mt-0.5" />
+                      <p className="text-[13px] text-content-secondary leading-relaxed">{current.notFor}</p>
                     </div>
-                    <div className="flex items-start gap-3">
-                      <div className="size-4 rounded-full bg-content-muted flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-[10px] text-base font-bold">i</span>
-                      </div>
-                      <p className="text-[13px] text-content-secondary leading-relaxed">{currentTab.after}</p>
-                    </div>
+                    <p className="text-[13px] text-content-secondary leading-relaxed pl-[26px]">{current.after}</p>
                   </div>
                 </div>
               );
@@ -440,6 +430,6 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </Overlay>
   );
 }

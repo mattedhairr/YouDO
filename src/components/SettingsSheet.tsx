@@ -2,28 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  Calendar,
-  Check,
-  ChevronDown,
   ChevronRight,
   Cloud,
   Download,
   Edit2,
-  GripVertical,
   History,
-  Link2,
   LogIn,
   LogOut,
   Moon,
-  Pause,
-  Sparkles,
   Sun,
-  Target,
   Trash2,
   Upload,
-  User,
   UserPlus,
-  Zap,
   ShieldCheck,
   Smartphone,
 } from 'lucide-react';
@@ -33,6 +23,9 @@ import { useTheme } from '../hooks/useTheme';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
 import { formatBackupStamp } from '../lib/format';
 import { useStore } from '../store';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import { STORAGE_KEYS } from '../lib/storageKeys';
+import { hapticTick, setHapticsPreference } from '../lib/haptics';
 
 interface Props {
   open: boolean;
@@ -59,6 +52,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
     recentlyDeletedGoals,
     restoreDeletedGoal,
     clearTrash,
+    pruneOldSessions,
     tasks,
     goals,
   } = useStore();
@@ -81,21 +75,16 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
-  const [exportOpen, setExportOpen] = useState(false);
 
-  const [hapticsEnabled, setHapticsEnabled] = useState(() => {
-    try {
-      const val = localStorage.getItem('youdo_haptics_enabled');
-      return val === null ? true : JSON.parse(val) === true;
-    } catch {
-      return true;
-    }
-  });
+  const [confirmTrimSessions, setConfirmTrimSessions] = useState(false);
+
+  const [hapticsEnabled, setHapticsEnabled] = useLocalStorage(STORAGE_KEYS.haptics, true);
 
   const toggleHaptics = () => {
     const next = !hapticsEnabled;
+    setHapticsPreference(next);
     setHapticsEnabled(next);
-    localStorage.setItem('youdo_haptics_enabled', JSON.stringify(next));
+    if (next) hapticTick();
   };
 
   const [trashOpen, setTrashOpen] = useState(false);
@@ -764,6 +753,28 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 Import
               </button>
             </div>
+
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <History size={16} className="text-primary shrink-0" />
+                <div>
+                  <h3 className="text-xs font-semibold text-content-primary">Trim old sittings</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">
+                    Keep the last 90 days of focus history
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMsg(null);
+                  setConfirmTrimSessions(true);
+                }}
+                className="py-1.5 px-3 rounded-xl bg-primary-soft text-primary-glow text-xs font-semibold"
+              >
+                Trim
+              </button>
+            </div>
           </div>
 
           <input
@@ -796,6 +807,36 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <button
                   onClick={() => setConfirmImport(false)}
                   className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {confirmTrimSessions && (
+            <div className="rounded-2xl bg-surface border border-subtle p-3.5 space-y-2.5 mt-2">
+              <p className="text-[12px] font-semibold text-content-primary">Remove sittings older than 90 days?</p>
+              <p className="text-[11px] text-content-secondary leading-relaxed">
+                Recent focus stats stay. Older rows leave this phone, then the next cloud sync. Goals and Today cards are not touched.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const removed = pruneOldSessions();
+                    setConfirmTrimSessions(false);
+                    setMsg({
+                      text: removed === 0 ? 'Nothing older than 90 days to trim.' : `Removed ${removed} old ${removed === 1 ? 'sitting' : 'sittings'}.`,
+                    });
+                  }}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-primary text-on-primary"
+                >
+                  Trim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmTrimSessions(false)}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-elevated"
                 >
                   Cancel
                 </button>

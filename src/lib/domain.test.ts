@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatDDMMYYYY, localISODate, todayISO } from './dates';
+import { formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
+import { currentFocusStreak, netFocusByLocalDate, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
-import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS } from './sessionStats';
+import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore } from './sessionStats';
 import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
-import type { GoalNode, Task } from '../types';
+import type { GoalNode, Task, TaskSession } from '../types';
 
 describe('dates', () => {
   it('formats ISO dates as DD-MM-YYYY', () => {
@@ -14,6 +15,65 @@ describe('dates', () => {
   it('builds local ISO dates without UTC drift', () => {
     expect(localISODate(new Date(2026, 7, 14))).toBe('2026-08-14');
     expect(todayISO()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('treats YYYY-MM-DD as a local calendar date, not UTC midnight', () => {
+    expect(isToday(todayISO())).toBe(true);
+    expect(isToday('1999-01-01')).toBe(false);
+  });
+});
+
+function sessionAt(iso: string, netFocusMs: number): TaskSession {
+  const [y, m, d] = iso.split('-').map(Number);
+  const startTime = new Date(y, m - 1, d, 10, 0, 0).getTime();
+  return {
+    id: `s-${iso}-${netFocusMs}`,
+    taskId: 't1',
+    startTime,
+    endTime: startTime + 3_600_000,
+    pausedDuration: 0,
+    pauses: [],
+    netFocusMs,
+    wallClockStart: '10:00 AM',
+    wallClockEnd: '11:00 AM',
+    completed: false,
+    completedStepIndices: [],
+  };
+}
+
+describe('focus trends', () => {
+  it('ignores manual / sub-15s sittings', () => {
+    const byDate = netFocusByLocalDate([
+      sessionAt('2026-08-16', 8_000),
+      { ...sessionAt('2026-08-16', 60_000), manual: true, netFocusMs: 0 },
+      sessionAt('2026-08-16', 45_000),
+    ]);
+    expect(byDate.get('2026-08-16')).toBe(45_000);
+  });
+
+  it('keeps a streak alive when today has not started yet', () => {
+    const byDate = netFocusByLocalDate([
+      sessionAt('2026-08-14', 20_000),
+      sessionAt('2026-08-15', 20_000),
+    ]);
+    expect(currentFocusStreak(byDate, '2026-08-16')).toBe(2);
+  });
+
+  it('does not skip a missed day in the middle of a streak', () => {
+    const byDate = netFocusByLocalDate([
+      sessionAt('2026-08-14', 20_000),
+      sessionAt('2026-08-16', 20_000),
+    ]);
+    expect(currentFocusStreak(byDate, '2026-08-16')).toBe(1);
+  });
+
+  it('builds a 7-day heatmap ending today', () => {
+    const byDate = netFocusByLocalDate([sessionAt('2026-08-16', 30_000)]);
+    const week = weekHeatmap(byDate, '2026-08-16');
+    expect(week).toHaveLength(7);
+    expect(week[0].date).toBe('2026-08-10');
+    expect(week[6].date).toBe('2026-08-16');
+    expect(week[6].focusMs).toBe(30_000);
   });
 });
 
@@ -30,6 +90,18 @@ describe('format', () => {
     expect(formatElapsed(3661)).toBe('01:01:01');
     expect(sessionEfficiency(45, 60)).toBe(75);
     expect(sessionEfficiency(10, 0)).toBe(0);
+  });
+});
+
+describe('session history prune', () => {
+  it('keeps sittings that ended on or after the cutoff', () => {
+    const oldRow = sessionAt('2026-01-01', 20_000);
+    const keepRow = sessionAt('2026-08-01', 20_000);
+    const cutoff = keepRow.endTime - 1000;
+    const next = pruneSessionHistoryBefore({ t1: [oldRow, keepRow], t2: [oldRow] }, cutoff);
+    expect(next.t1).toHaveLength(1);
+    expect(next.t1[0].id).toBe(keepRow.id);
+    expect(next.t2).toBeUndefined();
   });
 });
 

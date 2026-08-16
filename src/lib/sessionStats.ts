@@ -309,6 +309,21 @@ export function sanitizeSessionHistory(raw: unknown): Record<string, TaskSession
   return out;
 }
 
+/** Drop sittings that ended before `cutoff`. Empty task keys are removed. */
+export function pruneSessionHistoryBefore(
+  history: Record<string, TaskSession[]>,
+  cutoff: number,
+): Record<string, TaskSession[]> {
+  const out: Record<string, TaskSession[]> = {};
+  for (const [taskId, rows] of Object.entries(history)) {
+    const kept = rows.filter((s) => (s.endTime || s.startTime) >= cutoff);
+    if (kept.length) out[taskId] = kept;
+  }
+  return out;
+}
+
+export const SESSION_HISTORY_KEEP_MS = 90 * 24 * 60 * 60 * 1000;
+
 export function aggregateSessions(sessions: { netFocusMs: number; startTime: number; endTime: number }[]) {
   const counted = sessions.filter(isCountableSession);
   return {
