@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, BarChart2, Trash2, CheckCircle2, Check } from 'lucide-react';
 import type { Priority, Task, ActiveSession, TaskSession } from '../types';
 import { isBacklogTask, isTaskComplete } from '../store';
+import { hapticSessionStart, hapticSessionPause, hapticAmbient } from '../lib/haptics';
 import Overlay from './Overlay';
 import { computeNetFocusMs } from '../lib/sessionStats';
 
@@ -272,12 +273,18 @@ export default function TaskCard({
                       skipClickAfterAmbient.current = false;
                       return;
                     }
-                    if (isPaused) onResumeSession?.();
-                    else onPauseSession?.();
+                    if (isPaused) {
+                      hapticSessionStart();
+                      onResumeSession?.();
+                    } else {
+                      hapticSessionPause();
+                      onPauseSession?.();
+                    }
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    hapticAmbient();
                     openAmbient();
                   }}
                   title="Hold for Ambient Mode"
@@ -416,7 +423,7 @@ export default function TaskCard({
               </button>
             ) : (
               <button
-                onClick={() => { setExpanded(false); onStartSession?.(task.id); }}
+                onClick={() => { setExpanded(false); hapticSessionStart(); onStartSession?.(task.id); }}
                 className="w-full py-3 px-4 rounded-[12px] btn-primary text-[13px] flex items-center justify-center gap-2"
               >
                 <Play className="w-4 h-4 fill-current" />

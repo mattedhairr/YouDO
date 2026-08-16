@@ -13,6 +13,7 @@ interface Props {
   stepTotal?: number;
   /** Current completed step count on the task (for steps marked before history existed). */
   stepProgress?: number;
+  isParentFolder?: boolean;
   onClose: () => void;
 }
 
@@ -114,7 +115,7 @@ function displaySessions(
   return [...sessions, ...extras];
 }
 
-export function TaskSessionStats({ open, title, sessions, stepTotal = 0, stepProgress = 0, onClose }: Props) {
+export function TaskSessionStats({ open, title, sessions, stepTotal = 0, stepProgress = 0, isParentFolder, onClose }: Props) {
   const [showHelp, setShowHelp] = useState(false);
 
   if (!open) return null;
@@ -209,6 +210,7 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, stepPro
                 </div>
               </div>
 
+              {!isParentFolder && (
               <div>
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <Timer size={12} className="text-content-secondary" />
@@ -291,6 +293,7 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, stepPro
                   })}
                 </div>
               </div>
+              )}
             </>
           )}
 
