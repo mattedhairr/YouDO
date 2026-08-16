@@ -48,268 +48,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-const HOW_IT_WORKS_TABS = [
-  {
-    icon: Check,
-    name: 'Today',
-    role: 'Work for this date',
-    oneLiner: 'Only what you scheduled for today. This is the list you actually do.',
-    uses: [
-      'See today’s scheduled cards — nothing else',
-      'Start a focus session to track time',
-      'Finish a card or tap it to start a session and edit',
-    ],
-    notFor: 'Do not build your whole syllabus here. Build that in Goals, then schedule pieces onto a date.',
-    after: 'If a day ends and a card is not done, YouDO moves it to Backlog by itself. Plan still shows the original date and the stats.',
-    mock: 'today' as const,
-  },
-  {
-    icon: Target,
-    name: 'Goals',
-    role: 'Your full plan',
-    oneLiner: 'The map of the work. Nested however you need. Not the daily list.',
-    uses: [
-      'Add a goal, then phases, then tasks under it',
-      'Tap a node to open it, pin it, or edit it',
-      'Tap Schedule on a task and pick any date',
-    ],
-    notFor: 'You do not “work the Goals list” each morning. Schedule a task onto a date, then work from Today.',
-    after: 'Edits in Goals update the linked Today and Plan cards. Delete a goal and it goes to Recently Deleted, not into thin air.',
-    mock: 'goals' as const,
-  },
-  {
-    icon: Calendar,
-    name: 'Plan',
-    role: 'Any date',
-    oneLiner: 'The calendar. Past, today, and future — plus time stats for each day.',
-    uses: [
-      'Tap a date to see what was scheduled there',
-      'Check completed, missed, and backlog on that day',
-      'Read net focus and session stats for the date',
-    ],
-    notFor: 'Plan is not a second Today list. It is the calendar around Today.',
-    after: 'If you scheduled a task for the 18th, it lives on the 18th in Plan. It appears on Today only when that date is today.',
-    mock: 'plan' as const,
-  },
-];
-
-const USER_GUIDE_STEPS = [
-  {
-    icon: Target,
-    title: 'Create your plan',
-    where: 'Goals tab',
-    desc: 'Add a goal, then add phases or tasks under it. This is the map — not today’s list.',
-    do: [
-      'Open Goals and tap Create Goal (or Add under a node).',
-      'Nest the work: goal → phase → tasks. As deep as you need.',
-      'Leave it here until you are ready to put a piece on a date.',
-    ],
-    detail:
-      'Nothing in Goals is due today until you schedule it. Think of this as a map you keep, not the list you work from each morning.',
-    mock: 'goals' as const,
-  },
-  {
-    icon: Calendar,
-    title: 'Pick a day for a task',
-    where: 'A task in Goals',
-    desc: 'Tap Schedule and choose any date — today or later.',
-    do: [
-      'Open the task in Goals.',
-      'Tap Schedule. Pick today, or any other day.',
-      'That date’s work shows on Today when it arrives, and in Plan on the calendar.',
-    ],
-    detail:
-      'Choose today if you want it on the Today tab now. Choose another day if you want it later — it sits on that date in Plan until then. You can replan or unplan from the card later.',
-    mock: 'schedule' as const,
-  },
-  {
-    icon: Sparkles,
-    title: 'Split a big task if you need to',
-    where: 'When a task has steps',
-    desc: 'Send only some steps to a date. Leave the rest.',
-    do: [
-      'If the task has micro-steps, you do not have to take all of them.',
-      'When you schedule, pick only the steps for that date.',
-      'The other steps stay on the goal until you schedule them.',
-    ],
-    detail:
-      'That way a large task does not flood Today. You can do steps 1 and 2 on Monday and save 3 and 4 for later.',
-    mock: 'steps' as const,
-  },
-  {
-    icon: Zap,
-    title: 'Do the work',
-    where: 'Today tab',
-    desc: 'Tap a card to start a session. Missed days move to Backlog on their own.',
-    do: [
-      'Today shows only what you scheduled for this date.',
-      'Tap a card to start a timed focus session.',
-      'If the day ends undone, YouDO moves it to Backlog. You do not move it yourself.',
-    ],
-    detail:
-      'You tap a card to start a session or edit it. Backlog is automatic. Plan still shows the original date and the stats.',
-    mock: 'today' as const,
-  },
-  {
-    icon: User,
-    title: 'Keep your data',
-    where: 'Settings',
-    desc: 'Sign in so another device sees the same plan. Deleted goals can come back.',
-    do: [
-      'Without an account, everything stays on this phone.',
-      'Sign in to share goals, Today, and session stats.',
-      'Deleted goals: Settings → Recently Deleted → Restore.',
-    ],
-    detail:
-      'Standalone Today tasks (not linked to a goal) are not kept in that trash. Goal deletes are.',
-    mock: 'sync' as const,
-  },
-];
-
-function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | 'steps' | 'sync' }) {
-
-  if (kind === 'goals') {
-    return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2">
-        {['UPSC', 'Phase 1', 'Polity notes'].map((label, i) => (
-          <div key={label} className="flex items-center gap-2" style={{ paddingLeft: i * 14 }}>
-            <div className={`size-1.5 rounded-full ${i === 2 ? 'bg-primary' : 'bg-border'}`} />
-            <div className={`h-7 flex-1 rounded-[8px] border border-subtle px-2.5 flex items-center text-[11px] font-medium ${i === 2 ? 'bg-primary-soft text-primary' : 'bg-elevated text-content-secondary'}`}>
-              {label}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (kind === 'today') {
-    return (
-      <div className="space-y-2" aria-hidden>
-        <div className="overflow-hidden relative rounded-[12px] border bg-surface shadow-card border-primary">
-          <div className="bg-primary-soft border-b border-subtle px-3 py-1.5 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-primary" />
-            <span className="text-[11px] font-mono font-semibold text-primary">Focus · 12:40</span>
-          </div>
-          <div className="flex items-start gap-2 px-3 pt-3 pb-2.5">
-            <GripVertical size={14} className="mt-1 text-content-muted shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="inline-flex items-center gap-1 text-[10px] font-semibold bg-base border border-subtle rounded-lg px-2 py-0.5 mb-1.5">
-                <Link2 size={10} className="text-primary shrink-0" />
-                <span className="text-primary">UPSC</span>
-                <span className="text-content-muted">•</span>
-                <span className="text-primary">Phase 1</span>
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2 min-w-0">
-                  <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                  <h3 className="text-[14px] font-semibold text-content-primary leading-snug">Essay draft</h3>
-                </div>
-                <div className="size-7 rounded-full bg-primary-soft text-primary grid place-items-center shrink-0">
-                  <Pause size={12} className="fill-current" />
-                </div>
-              </div>
-              <div className="mt-2 flex items-center gap-1 text-[11px] text-content-secondary font-medium ml-3.5">
-                <Calendar size={11} className="text-content-muted" /> Today
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="overflow-hidden relative rounded-[12px] border bg-surface shadow-card border-subtle">
-          <div className="flex items-start gap-2 px-3 pt-3 pb-2.5">
-            <GripVertical size={14} className="mt-1 text-content-muted shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="inline-flex items-center gap-1 text-[10px] font-semibold bg-base border border-subtle rounded-lg px-2 py-0.5 mb-1.5">
-                <Link2 size={10} className="text-primary shrink-0" />
-                <span className="text-primary">UPSC</span>
-                <span className="text-content-muted">•</span>
-                <span className="text-primary">Phase 1</span>
-              </div>
-              <div className="flex items-start gap-2 min-w-0">
-                  <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
-                  <h3 className="text-[14px] font-semibold text-content-primary leading-snug">MCQ set B</h3>
-                </div>
-              <div className="mt-2 flex items-center gap-1 text-[11px] text-content-secondary font-medium ml-3.5">
-                <Calendar size={11} className="text-content-muted" /> Today
-              </div>
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-0.5">
-            <div className="h-full bg-secondary opacity-80 w-1/3" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (kind === 'plan') {
-    return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3">
-        <div className="grid grid-cols-7 gap-1">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-            <div key={`${d}-${i}`} className="text-center text-[9px] font-semibold text-content-muted py-0.5">{d}</div>
-          ))}
-          {Array.from({ length: 7 }, (_, i) => (
-            <div
-              key={i}
-              className={`h-8 rounded-[8px] grid place-items-center text-[11px] font-semibold tabular-nums ${
-                i === 3 ? 'bg-primary text-on-primary' : 'bg-elevated text-content-secondary border border-subtle'
-              }`}
-            >
-              {12 + i}
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-content-secondary">15th selected — scheduled, done, and stats for that day.</p>
-      </div>
-    );
-  }
-  if (kind === 'schedule') {
-    return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3">
-        <div className="text-[11px] font-semibold text-content-primary mb-2">Schedule · pick a date</div>
-        <div className="flex gap-1.5">
-          {['Today', '16', '17', '18'].map((d, i) => (
-            <div
-              key={d}
-              className={`flex-1 h-9 rounded-[10px] grid place-items-center text-[11px] font-semibold ${
-                i === 2 ? 'bg-primary text-on-primary' : 'bg-elevated border border-subtle text-content-secondary'
-              }`}
-            >
-              {d}
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-content-secondary">17th is not today — it will sit in Plan until then.</p>
-      </div>
-    );
-  }
-  if (kind === 'steps') {
-    return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-1.5">
-        {['Read chapter', 'Make notes', 'Revise', 'MCQs'].map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div className={`size-4 rounded border grid place-items-center ${i < 2 ? 'bg-primary border-primary' : 'border-subtle bg-elevated'}`}>
-              {i < 2 && <Check size={10} className="text-on-primary" />}
-            </div>
-            <span className={`text-[12px] ${i < 2 ? 'text-content-primary font-medium' : 'text-content-muted'}`}>{s}</span>
-            <span className="ml-auto text-[10px] text-content-muted">{i < 2 ? 'This date' : 'Later'}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-[12px] border border-subtle bg-base p-3 flex items-center gap-3">
-      <div className="size-10 rounded-[12px] bg-primary-soft grid place-items-center text-primary">
-        <Cloud size={18} />
-      </div>
-      <div>
-        <div className="text-[12px] font-semibold text-content-primary">This phone ↔ other devices</div>
-        <div className="text-[11px] text-content-secondary mt-0.5">Sign in to copy goals, Today, and stats.</div>
-      </div>
-    </div>
-  );
-}
-
 export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const {
     exportBackup,
@@ -343,10 +81,7 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
-  const [howOpen, setHowOpen] = useState(false);
-  const [howTab, setHowTab] = useState(HOW_IT_WORKS_TABS[0].name);
   const [exportOpen, setExportOpen] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
 
   const [hapticsEnabled, setHapticsEnabled] = useState(() => {
     try {
@@ -363,19 +98,13 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
     localStorage.setItem('youdo_haptics_enabled', JSON.stringify(next));
   };
 
-  const [guideStep, setGuideStep] = useState(0);
-  const [guideMore, setGuideMore] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) {
-      setHowOpen(false);
-      setHowTab(HOW_IT_WORKS_TABS[0].name);
+      setEditProfileOpen(false);
       setTrashOpen(false);
-      setGuideOpen(false);
-      setGuideStep(0);
-      setGuideMore(false);
     }
   }, [open]);
 
@@ -438,212 +167,23 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
       >
         <button
           onClick={
-            howOpen
-              ? () => setHowOpen(false)
-              : guideOpen
-                ? () => {
-                    setGuideOpen(false);
-                    setGuideStep(0);
-                    setGuideMore(false);
-                  }
-                : trashOpen
-                  ? () => setTrashOpen(false)
-                  : onClose
+            trashOpen
+              ? () => setTrashOpen(false)
+              : onClose
           }
           className="p-2 -ml-1.5 rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface transition-colors active:scale-95 flex items-center justify-center"
           aria-label="Back"
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-[16px] font-semibold text-content-primary leading-tight">
-          {howOpen
-            ? 'The three tabs'
-            : guideOpen
-              ? 'Getting started'
-              : trashOpen
-                ? 'Recently Deleted'
-                : 'Settings'}
+        <h1 className="text-[18px] font-bold text-content-primary tracking-tight">
+          {trashOpen
+            ? 'Recently Deleted'
+            : 'Settings'}
         </h1>
       </div>
 
-      {howOpen ? (
-      <div key="how-tabs-no-taps" className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-10">
-        <p className="text-[12px] text-content-secondary leading-relaxed mb-3">
-          Tap a tab. The rest of this page is what that tab is for.
-        </p>
-        <div className="flex items-center gap-0.5 rounded-[16px] bg-surface border border-subtle p-1 mb-4 shadow-elevated">
-          {HOW_IT_WORKS_TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = howTab === tab.name;
-            return (
-              <button
-                key={tab.name}
-                type="button"
-                onClick={() => setHowTab(tab.name)}
-                aria-pressed={active}
-                className={`flex-1 h-10 rounded-[12px] flex items-center justify-center gap-1.5 text-[12px] transition-colors ${
-                  active
-                    ? 'bg-primary text-on-primary font-semibold'
-                    : 'text-content-muted font-medium hover:text-content-primary'
-                }`}
-              >
-                <Icon size={15} strokeWidth={active ? 2.4 : 2} />
-                {tab.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {(() => {
-          const tab = HOW_IT_WORKS_TABS.find((t) => t.name === howTab) ?? HOW_IT_WORKS_TABS[0];
-          const Icon = tab.icon;
-          return (
-            <div key={tab.name} className="space-y-3 fade-in">
-              <div className="rounded-2xl border border-subtle bg-elevated p-4">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 grid place-items-center rounded-[12px] bg-primary-soft text-primary shrink-0">
-                    <Icon size={18} strokeWidth={2.2} />
-                  </div>
-                  <div>
-                    <div className="text-[16px] font-semibold text-content-primary leading-tight">{tab.name}</div>
-                    <div className="text-[11px] font-medium text-primary mt-0.5">{tab.role}</div>
-                  </div>
-                </div>
-                <p className="mt-3 text-[13px] text-content-primary leading-relaxed">{tab.oneLiner}</p>
-              </div>
-
-              <GuideMock kind={tab.mock} />
-
-              <div className="rounded-2xl border border-subtle bg-elevated p-3.5 space-y-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">You use it to</p>
-                {tab.uses.map((line) => (
-                  <div key={line} className="flex gap-2.5 text-[13px] text-content-secondary leading-snug">
-                    <Check size={14} className="text-primary shrink-0 mt-0.5" />
-                    <span>{line}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-2xl border border-subtle bg-surface p-3.5 space-y-2">
-                <p className="text-[13px] text-content-secondary leading-relaxed">{tab.notFor}</p>
-                <p className="text-[13px] text-content-secondary leading-relaxed">{tab.after}</p>
-              </div>
-            </div>
-          );
-        })()}
-
-        <div className="mt-4 rounded-2xl border border-primary/25 bg-primary-soft p-3.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-1.5">How they connect</p>
-          <p className="text-[13px] text-content-primary leading-relaxed">
-            Goals holds the map. Schedule puts a task on any date. If that date is today, it shows on Today. If not, it shows in Plan until that day comes. Focus sessions run from Today cards.
-          </p>
-        </div>
-      </div>
-      ) : guideOpen ? (
-      <div className="flex-1 flex flex-col min-h-0">
-        {(() => {
-          const step = USER_GUIDE_STEPS[guideStep] ?? USER_GUIDE_STEPS[0];
-          const Icon = step.icon;
-          const last = guideStep === USER_GUIDE_STEPS.length - 1;
-          return (
-            <>
-              <div className="px-4 pt-3 pb-2 shrink-0">
-                <div className="flex gap-1">
-                  {USER_GUIDE_STEPS.map((s, i) => (
-                    <button
-                      key={s.title}
-                      type="button"
-                      onClick={() => {
-                        setGuideMore(false);
-                        setGuideStep(i);
-                      }}
-                      className={`flex-1 h-8 rounded-[10px] text-[11px] font-semibold tabular-nums ${
-                        i === guideStep
-                          ? 'bg-primary text-on-primary'
-                          : i < guideStep
-                            ? 'bg-primary-soft text-primary'
-                            : 'bg-elevated border border-subtle text-content-muted'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div key={guideStep} className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar px-4 pb-3 fade-in">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="size-10 shrink-0 grid place-items-center rounded-[12px] bg-primary-soft text-primary">
-                    <Icon size={18} strokeWidth={2.1} />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-[16px] font-semibold text-content-primary leading-snug">{step.title}</h2>
-                    <p className="text-[11px] font-medium text-primary mt-0.5">{step.where}</p>
-                  </div>
-                </div>
-                <p className="text-[14px] text-content-primary leading-relaxed mb-3">{step.desc}</p>
-                <GuideMock kind={step.mock} />
-                <div className="mt-3 rounded-2xl border border-subtle bg-elevated p-3.5 space-y-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Do this</p>
-                  {step.do.map((line, i) => (
-                    <div key={line} className="flex gap-2.5">
-                      <span className="size-5 shrink-0 rounded-full bg-primary-soft text-primary text-[10px] font-semibold grid place-items-center tabular-nums mt-0.5">
-                        {i + 1}
-                      </span>
-                      <span className="text-[13px] text-content-secondary leading-snug">{line}</span>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setGuideMore((v) => !v)}
-                  className="mt-3 w-full flex items-center justify-between gap-2 rounded-[12px] border border-subtle bg-surface px-3 py-2.5 text-left"
-                >
-                  <span className="text-[12px] font-semibold text-primary">
-                    {guideMore ? 'Hide extra detail' : 'Need more detail?'}
-                  </span>
-                  <ChevronDown
-                    size={16}
-                    className={`text-primary shrink-0 transition-transform ${guideMore ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {guideMore && (
-                  <p className="mt-2.5 text-[13px] text-content-secondary leading-relaxed fade-in">{step.detail}</p>
-                )}
-              </div>
-              <div className="shrink-0 px-4 pb-5 pt-2 flex items-center gap-2 border-t border-subtle bg-base">
-                <button
-                  type="button"
-                  disabled={guideStep === 0}
-                  onClick={() => {
-                    setGuideMore(false);
-                    setGuideStep((s) => Math.max(0, s - 1));
-                  }}
-                  className="h-11 px-4 rounded-[12px] text-[13px] font-medium border border-subtle text-content-secondary disabled:opacity-30"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (last) {
-                      setGuideOpen(false);
-                      setGuideStep(0);
-                      setGuideMore(false);
-                    } else {
-                      setGuideMore(false);
-                      setGuideStep((s) => s + 1);
-                    }
-                  }}
-                  className="flex-1 h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
-                >
-                  {last ? 'Done' : 'Next'}
-                </button>
-              </div>
-            </>
-          );
-        })()}
-      </div>
-      ) : trashOpen ? (
+      {trashOpen ? (
       <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-12">
         <p className="text-[12px] text-content-secondary leading-relaxed px-0.5 mb-4">
           Deleted goal nodes and their linked tasks are kept here (up to 20). Restore brings them back. Standalone Today tasks are not stored.
@@ -766,12 +306,6 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                   <div className="mt-3.5 flex flex-wrap gap-1.5">
                     <span className="text-[10px] font-semibold tracking-wide text-secondary bg-secondary-soft border border-secondary/25 px-2.5 py-1 rounded-full">
                       Cloud live
-                    </span>
-                    <span className="text-[10px] font-semibold tracking-wide text-primary bg-primary-soft border border-primary/20 px-2.5 py-1 rounded-full">
-                      {goals.length} {goals.length === 1 ? 'goal' : 'goals'}
-                    </span>
-                    <span className="text-[10px] font-semibold tracking-wide text-primary bg-primary-soft border border-primary/20 px-2.5 py-1 rounded-full">
-                      {tasks.length} {tasks.length === 1 ? 'card' : 'cards'}
                     </span>
                   </div>
 
@@ -1270,44 +804,6 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
           )}
         </section>
 
-        {/* ── SECTION 4: INFORMATION & GUIDES ── */}
-        <section>
-          <SectionLabel>INFORMATION &amp; GUIDES</SectionLabel>
-          <div className="bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
-            <button
-              type="button"
-              onClick={() => setHowOpen(true)}
-              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/2 transition"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Sparkles size={16} className="text-primary shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-content-primary">The three tabs</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">What Goals, Today, and Plan are for</p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-content-muted shrink-0" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setGuideStep(0);
-                setGuideMore(false);
-                setGuideOpen(true);
-              }}
-              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/2 transition"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Zap size={16} className="text-primary shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-content-primary">Getting started</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">Five steps. One at a time.</p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-content-muted shrink-0" />
-            </button>
-          </div>
-        </section>
       </div>
       )}
     </div>

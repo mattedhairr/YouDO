@@ -13,6 +13,9 @@ import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
 import SettingsSheet from './components/SettingsSheet';
+import FocusAnalytics from './components/FocusAnalytics';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import HelpCenterSheet from './components/HelpCenterSheet';
 import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
 import StepSliceSheet from './components/StepSliceSheet';
@@ -166,6 +169,9 @@ function AppInner() {
   const [showAmbient, setShowAmbient] = useState(false);
   const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null);
   const [statsTarget, setStatsTarget] = useState<{ id: string; title: string; isGoal?: boolean } | null>(null);
+  
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [hasSeenHelp, setHasSeenHelp] = useLocalStorage('youdo_has_seen_help', false);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
@@ -266,6 +272,10 @@ function AppInner() {
     if (sliceNodes.length > 0) {
       setSliceNodes([]);
       return true;
+    }
+    if (helpOpen) {
+        setHelpOpen(false);
+        return true;
     }
     return false;
   };
@@ -705,11 +715,41 @@ function AppInner() {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
+        {/* Onboarding Spotlight Overlay */}
+        {!hasSeenHelp && (
+          <div className="fixed inset-0 z-[50] bg-base/80 backdrop-blur-sm flex flex-col items-center pt-[100px] px-6 animate-in fade-in duration-500">
+            <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] border-b-primary mb-4 animate-bounce" />
+            <div className="bg-elevated border border-primary/20 p-5 rounded-2xl max-w-[280px] shadow-2xl text-center space-y-4">
+              <h3 className="text-[14px] font-semibold text-content-primary">Welcome to YouDO!</h3>
+              <p className="text-[12px] text-content-secondary leading-relaxed">
+                Tap the YouDO logo above at any time to open the Help Center for a quick guide on how to get the most out of the app.
+              </p>
+              <button
+                onClick={() => setHasSeenHelp(true)}
+                className="w-full py-2.5 rounded-[10px] bg-surface text-content-secondary border border-subtle text-[12px] font-semibold hover:text-content-primary transition-colors"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
-        <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0">
-          <div className="space-y-2">
+        <header className={`pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0 ${!hasSeenHelp ? 'relative z-[60]' : ''}`}>
+          <div className="space-y-2 relative">
             <div className="flex items-center justify-center gap-3">
-              <YouDoWordmark />
+              <button 
+                onClick={() => {
+                  setHelpOpen(true);
+                  setHasSeenHelp(true);
+                }} 
+                className={`relative group active:scale-[0.98] transition-all rounded-lg ${!hasSeenHelp ? 'ring-2 ring-primary ring-offset-4 ring-offset-base bg-base p-1' : ''}`}
+              >
+                <YouDoWordmark />
+                {!hasSeenHelp && (
+                  <div className="absolute -top-1 -right-2 w-2.5 h-2.5 bg-primary rounded-full animate-pulse border-2 border-base" />
+                )}
+              </button>
               <span className="w-px h-3.5 bg-border-subtle shrink-0" aria-hidden="true" />
               <div className="text-[16px] tracking-tight font-bold text-content-primary leading-none shrink-0">
                 {view === 'goals'
@@ -1196,8 +1236,19 @@ function AppInner() {
           open={!!statsTarget}
           title={statsTarget.title}
           sessions={targetSessions}
-          stepTotal={!statsTarget.isGoal ? (tasks.find((t) => t.id === statsTarget.id)?.steps.length ?? 0) : 0}
-          stepProgress={!statsTarget.isGoal ? (tasks.find((t) => t.id === statsTarget.id)?.progress ?? 0) : 0}
+          stepTotal={(() => {
+            if (!statsTarget.isGoal) return tasks.find((t) => t.id === statsTarget.id)?.steps.length ?? 0;
+            const node = findGoal(goals, statsTarget.id);
+            if (node && node.children.length === 0) return node.steps?.length ?? 0;
+            return 0;
+          })()}
+          stepProgress={(() => {
+            if (!statsTarget.isGoal) return tasks.find((t) => t.id === statsTarget.id)?.progress ?? 0;
+            const node = findGoal(goals, statsTarget.id);
+            if (node && node.children.length === 0) return (node.stepDone ?? []).filter(Boolean).length;
+            return 0;
+          })()}
+          isParentFolder={statsTarget.isGoal && !!findGoal(goals, statsTarget.id)?.children.length}
           onClose={() => setStatsTarget(null)}
         />
       )}
@@ -1331,6 +1382,12 @@ function AppInner() {
           }}
         />
       )}
+
+      {/* ── Help Center Sheet ── */}
+      <HelpCenterSheet
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+      />
     </div>
   );
 }

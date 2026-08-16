@@ -12,17 +12,23 @@ function isHapticsEnabled(): boolean {
   }
 }
 
-/** Light tick, e.g. checking off a single step */
+/** 
+ * Light tick
+ * Logical Reasoning: A minimal, frictionless confirmation for micro-interactions 
+ * like checking off a small step. It feels like snapping a tiny switch.
+ */
 export async function hapticTick() {
   if (!isHapticsEnabled()) return;
   try {
     await Haptics.impact({ style: ImpactStyle.Light });
-  } catch (e) {
-    // Ignore on unsupported platforms (e.g. web browser without vibration API)
-  }
+  } catch (e) {}
 }
 
-/** Medium tap, e.g. starting or pausing a timer */
+/** 
+ * Medium tap
+ * Logical Reasoning: A standard structural confirmation. Used for opening/closing sheets 
+ * or making solid UI selections. It gives a feeling of physical depth to the screen.
+ */
 export async function hapticTap() {
   if (!isHapticsEnabled()) return;
   try {
@@ -30,26 +36,87 @@ export async function hapticTap() {
   } catch (e) {}
 }
 
-/** Heavy buzz, e.g. finishing a task or goal */
+/** 
+ * Start Session (Engine Rev / Heartbeat)
+ * Logical Reasoning: Starting a focus session should feel like starting an engine 
+ * or a heartbeat to build momentum. A crescendo from Light to Heavy prepares the mind.
+ */
+export async function hapticSessionStart() {
+  if (!isHapticsEnabled()) return;
+  try {
+    await Haptics.impact({ style: ImpactStyle.Light });
+    setTimeout(() => Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {}), 80);
+    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}), 180);
+  } catch (e) {}
+}
+
+/** 
+ * Pause Session (Brake)
+ * Logical Reasoning: Pausing a session should feel like tapping the brakes. 
+ * A crisp, singular Heavy impact to sharply halt the momentum.
+ */
+export async function hapticSessionPause() {
+  if (!isHapticsEnabled()) return;
+  try {
+    await Haptics.impact({ style: ImpactStyle.Heavy });
+  } catch (e) {}
+}
+
+/** 
+ * Task Complete (Reward / Ta-da)
+ * Logical Reasoning: Completing a task should feel rewarding. 
+ * A Heavy impact followed by a delayed Light impact mimics a "Ta-da!" rhythm.
+ */
 export async function hapticSuccess() {
   if (!isHapticsEnabled()) return;
   try {
     await Haptics.impact({ style: ImpactStyle.Heavy });
-    // Add a tiny delay and a light tick for a "ta-da" feel
     setTimeout(() => {
       Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
     }, 150);
   } catch (e) {}
 }
 
-/** Warning/Error buzz, e.g. deleting something */
+/** 
+ * Goal Complete (Grand Finale)
+ * Logical Reasoning: Finishing an entire goal is a huge milestone. 
+ * A rapid sequence of impacts creates a celebratory flutter or crescendo.
+ */
+export async function hapticGoalComplete() {
+  if (!isHapticsEnabled()) return;
+  try {
+    await Haptics.impact({ style: ImpactStyle.Medium });
+    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}), 100);
+    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}), 220);
+    setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}), 400);
+  } catch (e) {}
+}
+
+/** 
+ * Warning / Delete (Stutter)
+ * Logical Reasoning: Deleting something should feel jarring to ensure the user 
+ * is aware of the destructive action. Two quick Medium impacts create a "stutter" feel.
+ */
 export async function hapticWarn() {
   if (!isHapticsEnabled()) return;
   try {
-    // Simulate a double-buzz for warning
     await Haptics.impact({ style: ImpactStyle.Medium });
     setTimeout(() => {
       Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
     }, 100);
+  } catch (e) {}
+}
+
+/** 
+ * Ambient Mode Open (Zen ripples)
+ * Logical Reasoning: Ambient mode is for zen focus. We want smooth, gentle ripples.
+ * Three spaced-out Light impacts feel like ripples in a pond.
+ */
+export async function hapticAmbient() {
+  if (!isHapticsEnabled()) return;
+  try {
+    await Haptics.impact({ style: ImpactStyle.Light });
+    setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}), 200);
+    setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }).catch(() => {}), 450);
   } catch (e) {}
 }
