@@ -48,7 +48,7 @@ export default function CommandBar({
 
   return (
     <nav className="fixed bottom-3 inset-x-4 z-30 max-w-md mx-auto">
-      <div className="flex flex-nowrap items-center gap-0.5 rounded-[16px] bg-surface border border-subtle p-1 shadow-elevated">
+      <div className="flex flex-nowrap items-center gap-0.5 rounded-[16px] glass-panel border border-subtle p-1 shadow-elevated">
         {batch ? (
           <>
             <span className="pl-2 text-[12px] font-semibold text-content-secondary shrink-0 tabular-nums">

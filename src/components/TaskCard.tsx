@@ -135,11 +135,12 @@ export default function TaskCard({
         ref={cardRef}
         className={`
           overflow-hidden relative rounded-[12px] border
-          bg-surface shadow-card border-subtle
+          bg-surface shadow-card border-subtle transition-all duration-200
+          active:scale-[0.98]
           ${isDragging ? 'dragging-card' : ''}
           ${dragOver  ? 'drag-over-card ring-2 ring-primary' : ''}
           ${isSessionTask ? 'card-session-active' : ''}
-          ${complete ? 'opacity-60' : ''}
+          ${complete ? 'opacity-50 grayscale-[0.2]' : ''}
         `}
         onClick={handleCardClick}
         draggable
@@ -225,8 +226,8 @@ export default function TaskCard({
               <div className="flex items-start gap-2 flex-1 min-w-0">
                 <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot}`} />
                 <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                  <h3 className={`text-[15px] font-semibold leading-snug ${
-                    complete ? 'line-through text-content-muted' : 'text-content-primary'
+                  <h3 className={`text-[15px] font-semibold leading-snug transition-colors duration-200 ${
+                    complete ? 'animate-strike text-content-muted' : 'text-content-primary'
                   }`}>
                     {task.title}
                   </h3>
