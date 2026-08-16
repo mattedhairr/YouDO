@@ -168,7 +168,7 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, stepPro
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0 bg-base p-4 space-y-4">
-          <FocusAnalytics sessions={sessions} />
+          {listed.some(isCountableSession) && <FocusAnalytics sessions={sessions} />}
           {showHelp && (
             <div className="bg-surface border border-subtle rounded-[12px] p-3.5 space-y-2 text-[12px] text-content-secondary leading-relaxed">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">How stats work</p>

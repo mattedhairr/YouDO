@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
-import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clock, Cloud, Trash2 } from 'lucide-react';
-import { Toaster, toast } from 'sonner';
-import { hapticWarn } from './lib/haptics';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clock, Cloud } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
@@ -13,9 +11,11 @@ import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
 import SettingsSheet from './components/SettingsSheet';
-import FocusAnalytics from './components/FocusAnalytics';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import HelpCenterSheet from './components/HelpCenterSheet';
+import UndoToast from './components/UndoToast';
+import { STORAGE_KEYS } from './lib/storageKeys';
+import { hapticTap } from './lib/haptics';
 import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
 import StepSliceSheet from './components/StepSliceSheet';
@@ -171,7 +171,9 @@ function AppInner() {
   const [statsTarget, setStatsTarget] = useState<{ id: string; title: string; isGoal?: boolean } | null>(null);
   
   const [helpOpen, setHelpOpen] = useState(false);
-  const [hasSeenHelp, setHasSeenHelp] = useLocalStorage('youdo_has_seen_help', false);
+  const [hasSeenHelp, setHasSeenHelp] = useLocalStorage(STORAGE_KEYS.helpSeen, false);
+  const firstHelpRef = useRef(false);
+  const [cloudHint, setCloudHint] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
@@ -179,24 +181,19 @@ function AppInner() {
   const activeSessionRef = useRef(activeSession);
   activeSessionRef.current = activeSession;
 
-  // Watch for deleted goals to show toast and haptic
-  useEffect(() => {
-    if (lastDeletedNotification) {
-      hapticWarn();
-      toast.error(`Deleted ${lastDeletedNotification.title}`, {
-        action: {
-          label: 'Undo',
-          onClick: () => {
-            restoreDeletedGoal(lastDeletedNotification.id);
-            clearDeletedNotification();
-          },
-        },
-        onDismiss: () => clearDeletedNotification(),
-        onAutoClose: () => clearDeletedNotification(),
-        duration: 4000,
-      });
-    }
-  }, [lastDeletedNotification, restoreDeletedGoal, clearDeletedNotification]);
+  const openHelp = useCallback((opts?: { silent?: boolean }) => {
+    setHelpOpen((already) => {
+      if (!already) {
+        try {
+          window.history.pushState({ modal: true }, '', window.location.href);
+        } catch {
+          /* ignore */
+        }
+      }
+      return true;
+    });
+    if (!opts?.silent) hapticTap();
+  }, []);
 
   // Heartbeat while visible (30s). Also tick on return so a long lock is handled immediately.
   useEffect(() => {
@@ -274,8 +271,9 @@ function AppInner() {
       return true;
     }
     if (helpOpen) {
-        setHelpOpen(false);
-        return true;
+      setHasSeenHelp(true);
+      setHelpOpen(false);
+      return true;
     }
     return false;
   };
@@ -407,6 +405,8 @@ function AppInner() {
     check();
     document.addEventListener('visibilitychange', check);
     return () => document.removeEventListener('visibilitychange', check);
+    // Heartbeat mutates activeSession; taskId is the sitting identity we care about.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clockReady, clockBlocked, activeSession?.taskId]);
 
   useEffect(() => {
@@ -705,50 +705,39 @@ function AppInner() {
     [view, goalPathIds, tabs, handleNavigateTab, setGoalPathIds],
   );
 
+  useEffect(() => {
+    if (hasSeenHelp || clockBlocked || recoverySessionPrompt || reconstructOpen || helpOpen) return;
+    if (firstHelpRef.current) return;
+    firstHelpRef.current = true;
+    openHelp({ silent: true });
+  }, [hasSeenHelp, clockBlocked, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
+
+  useEffect(() => {
+    if (!cloudHint) return;
+    const id = window.setTimeout(() => setCloudHint(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [cloudHint]);
+
   return (
     <div className="min-h-screen">
-      <Toaster position="top-center" toastOptions={{ className: 'font-sans' }} />
-
       <div
         className="app-frame relative min-h-screen w-full max-w-md mx-auto px-4 pb-28"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        {/* Onboarding Spotlight Overlay */}
-        {!hasSeenHelp && (
-          <div className="fixed inset-0 z-[50] bg-base/80 backdrop-blur-sm flex flex-col items-center pt-[100px] px-6 animate-in fade-in duration-500">
-            <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] border-b-primary mb-4 animate-bounce" />
-            <div className="bg-elevated border border-primary/20 p-5 rounded-2xl max-w-[280px] shadow-2xl text-center space-y-4">
-              <h3 className="text-[14px] font-semibold text-content-primary">Welcome to YouDO!</h3>
-              <p className="text-[12px] text-content-secondary leading-relaxed">
-                Tap the YouDO logo above at any time to open the Help Center for a quick guide on how to get the most out of the app.
-              </p>
-              <button
-                onClick={() => setHasSeenHelp(true)}
-                className="w-full py-2.5 rounded-[10px] bg-surface text-content-secondary border border-subtle text-[12px] font-semibold hover:text-content-primary transition-colors"
-              >
-                Skip
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Header */}
-        <header className={`pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0 ${!hasSeenHelp ? 'relative z-[60]' : ''}`}>
+        <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0">
           <div className="space-y-2 relative">
             <div className="flex items-center justify-center gap-3">
-              <button 
-                onClick={() => {
-                  setHelpOpen(true);
-                  setHasSeenHelp(true);
-                }} 
-                className={`relative group active:scale-[0.98] transition-all rounded-lg ${!hasSeenHelp ? 'ring-2 ring-primary ring-offset-4 ring-offset-base bg-base p-1' : ''}`}
+              <button
+                type="button"
+                onClick={() => openHelp()}
+                className="relative active:scale-[0.98] rounded-lg"
+                aria-label="Open YouDO guide"
+                title="Guide"
               >
                 <YouDoWordmark />
-                {!hasSeenHelp && (
-                  <div className="absolute -top-1 -right-2 w-2.5 h-2.5 bg-primary rounded-full animate-pulse border-2 border-base" />
-                )}
               </button>
               <span className="w-px h-3.5 bg-border-subtle shrink-0" aria-hidden="true" />
               <div className="text-[16px] tracking-tight font-bold text-content-primary leading-none shrink-0">
@@ -821,14 +810,16 @@ function AppInner() {
                       aria-label="Restore data from cloud backup"
                       onClick={async () => {
                         const ok = await restoreFromCloud();
-                        if (!ok) toast.error('No cloud backup found for this account.');
-                        else toast.success('Backup restored successfully.');
+                        setCloudHint(ok ? 'Restored from cloud.' : 'No cloud backup for this account.');
                       }}
                       className="px-3 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-semibold shrink-0"
                     >
                       Restore
                     </button>
                   </div>
+                )}
+                {cloudHint && (
+                  <p className="text-[12px] text-content-secondary px-1">{cloudHint}</p>
                 )}
 
                 <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full">
@@ -1221,7 +1212,6 @@ function AppInner() {
             stopSession(outcome);
             if (outcome.completed === true || (outcome.completedStepIndices?.length ?? 0) > 0) {
               completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices ?? []);
-              import('./lib/haptics').then((m) => m.hapticSuccess());
             }
             setStopDialogTask(null);
             setRecoverySessionPrompt(false);
@@ -1386,25 +1376,39 @@ function AppInner() {
       {/* ── Help Center Sheet ── */}
       <HelpCenterSheet
         open={helpOpen}
-        onClose={() => setHelpOpen(false)}
+        onClose={() => {
+          setHasSeenHelp(true);
+          setHelpOpen(false);
+        }}
       />
+      {lastDeletedNotification && (
+        <UndoToast
+          key={lastDeletedNotification.id}
+          title={lastDeletedNotification.title}
+          onUndo={() => {
+            restoreDeletedGoal(lastDeletedNotification.id);
+            clearDeletedNotification();
+          }}
+          onGone={clearDeletedNotification}
+        />
+      )}
     </div>
   );
 }
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="mt-16 flex flex-col items-center justify-center text-center px-6 fade-in animate-slide-out" style={{ animationDirection: 'reverse' }}>
-      <div className="w-20 h-20 rounded-[24px] bg-surface shadow-card border border-subtle flex items-center justify-center mb-6 transform -rotate-3 transition-transform hover:rotate-0">
-        <ListChecks size={32} className="text-primary opacity-80" />
+    <div className="mt-16 flex flex-col items-center justify-center text-center px-6 fade-in">
+      <div className="w-16 h-16 rounded-[16px] bg-surface shadow-card border border-subtle flex items-center justify-center mb-5">
+        <ListChecks size={28} className="text-primary" />
       </div>
-      <h3 className="text-[17px] font-bold text-content-primary tracking-tight">Your day is clear</h3>
-      <p className="mt-2.5 text-[13px] text-content-secondary max-w-[260px] leading-relaxed">
-        You have no scheduled tasks for today. Dispatch tasks from your Goals to build your plan.
+      <h3 className="text-[16px] font-semibold text-content-primary tracking-tight">Nothing on today</h3>
+      <p className="mt-2 text-[13px] text-content-secondary max-w-[260px] leading-relaxed">
+        Schedule a piece from Goals, or add a quick task for this date.
       </p>
       <button
         onClick={onAdd}
-        className="mt-8 flex items-center gap-2 px-6 py-2.5 rounded-[14px] bg-primary text-on-primary text-[13px] font-semibold shadow-md hover:bg-primary-glow active:scale-[0.98] transition-all"
+        className="mt-7 flex items-center gap-2 px-5 py-2.5 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
       >
         <Plus size={16} />
         Add Quick Task

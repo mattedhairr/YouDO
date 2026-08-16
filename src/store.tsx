@@ -23,6 +23,8 @@ import {
   resolvePersistEndAt,
   createManualStepSession,
   sanitizeSessionHistory,
+  pruneSessionHistoryBefore,
+  SESSION_HISTORY_KEEP_MS,
 } from './lib/sessionStats';
 import {
   clearRollupCache,
@@ -46,8 +48,10 @@ import {
   updateNode,
 } from './lib/goalTree';
 import { uid } from './lib/ids';
+import { APP_VERSION } from './lib/version';
 import { STORAGE_KEYS } from './lib/storageKeys';
 import { mergeWorkspace, workspaceSignature, type TrashRecord } from './lib/syncMerge';
+import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 
 export {
   todayISO,
@@ -152,6 +156,8 @@ interface Store {
     live: { updatedAt: string } | null;
     visits: { id: string; createdAt: string }[];
   }>;
+  /** Drop sittings older than 90 days from this device. */
+  pruneOldSessions: () => number;
 
   /* ── Session Timer ─────────────────────────────────────────────────────── */
   /** The currently live session (null if none active) */
@@ -259,6 +265,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   tasksRef.current = tasks;
   const goalsRef = useRef(goals);
   goalsRef.current = goals;
+  const sessionHistoryRef = useRef(sessionHistory);
+  sessionHistoryRef.current = sessionHistory;
+  const recentlyDeletedRef = useRef(recentlyDeletedGoals);
+  recentlyDeletedRef.current = recentlyDeletedGoals;
   const activeSessionRef = useRef(activeSession);
   activeSessionRef.current = activeSession;
 
@@ -306,11 +316,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         [id]: [...(hist[id] ?? []), row],
       }));
 
-      if (completed) {
-        import('./lib/haptics').then((m) => m.hapticSuccess());
-      } else {
-        import('./lib/haptics').then((m) => m.hapticTick());
+      let finishingGoal = false;
+      if (t.goalNodeId) {
+        const node = findGoal(goalsRef.current, t.goalNodeId);
+        if (node) {
+          if (!node.steps?.length) finishingGoal = completed;
+          else finishingGoal = syncStepDone(node, nextProgress, t.stepSlice).every(Boolean);
+        }
       }
+      if (finishingGoal) hapticGoalComplete();
+      else if (completed) hapticSuccess();
+      else hapticTick();
     },
     [setTasks, setGoals, setSessionHistory],
   );
@@ -436,6 +452,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       setRecentlyDeletedGoals((prev) => [record, ...prev].slice(0, 20));
       setLastDeletedNotification({ id: record.id, title: node.title });
+      hapticWarn();
 
       if (descendantTaskIds.length > 0) {
         const removeSet = new Set(descendantTaskIds);
@@ -753,6 +770,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (recordsToStore.length > 0) {
         setRecentlyDeletedGoals((prev) => [...recordsToStore, ...prev].slice(0, 20));
         setLastDeletedNotification({ id: recordsToStore[0].id, title: `${recordsToStore.length} Goal Items` });
+        hapticWarn();
       }
 
       if (taskIdsToRemove.length) {
@@ -779,12 +797,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Was a root-level goal — restore at root level
         setGoals((prev) => [...prev, restoredNode]);
       } else if (record.parentNodeId) {
-        // Restore to the exact direct parent node it was deleted from (accurate deep restore)
-        setGoals((prev) =>
-          prev.map((root) =>
-            updateNode(root, record.parentNodeId!, (n) => ({ ...n, children: [...n.children, restoredNode] })),
-          ),
-        );
+        setGoals((prev) => {
+          const parentExists = !!findGoal(prev, record.parentNodeId!);
+          if (parentExists) {
+            return prev.map((root) =>
+              updateNode(root, record.parentNodeId!, (n) => ({ ...n, children: [...n.children, restoredNode] })),
+            );
+          }
+          const rootExists = prev.some((root) => root.id === record.parentRootId);
+          if (rootExists) {
+            return prev.map((root) =>
+              root.id === record.parentRootId
+                ? { ...root, children: [...root.children, restoredNode] }
+                : root,
+            );
+          }
+          return [...prev, restoredNode];
+        });
       } else {
         // Legacy records without parentNodeId — fall back to appending to root's direct children
         setGoals((prev) =>
@@ -961,11 +990,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!task.goalNodeId) {
         if (task.steps.length === 0) {
           setTasks((prev) => prev.map((x) => (x.id === taskId ? clearBacklogIfComplete({ ...x, progress: 1 }) : x)));
+          hapticSuccess();
           return;
         }
         if (stepIndices.length === 0) return;
         const next = Math.min(task.steps.length, Math.max(task.progress, Math.max(...stepIndices) + 1));
         setTasks((prev) => prev.map((x) => (x.id === taskId ? clearBacklogIfComplete({ ...x, progress: next }) : x)));
+        if (next >= task.steps.length) hapticSuccess();
+        else hapticTick();
         return;
       }
 
@@ -1009,6 +1041,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTasks((prev) =>
         prev.map((x) => (x.id === taskId ? clearBacklogIfComplete({ ...x, progress: newProgress }) : x))
       );
+
+      const nodeDone = hasSteps
+        ? ((node.stepDone ?? node.steps!.map(() => false)).map((done, idx) => done || masterIndices.includes(idx)).every(Boolean))
+        : true;
+      const cardDone = task.steps.length === 0 || newProgress >= task.steps.length;
+      if (nodeDone) hapticGoalComplete();
+      else if (cardDone || stepIndices.length > 0) hapticSuccess();
     },
     [setGoals, setTasks],
   );
@@ -1018,11 +1057,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const exportBackup = useCallback(async (): Promise<string> => {
     const data = {
       app: 'YouDO',
-      version: '3.0.0',
+      version: APP_VERSION,
       exportedAt: new Date().toISOString(),
       tasks: tasksRef.current,
       goals: goalsRef.current,
-      sessionHistory: sessionHistory,
+      sessionHistory: sessionHistoryRef.current,
     };
     const jsonStr = JSON.stringify(data, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -1082,7 +1121,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     return '✓ Backup exported to Downloads';
-  }, [sessionHistory]);
+  }, []);
 
   const importBackup = useCallback(
     (jsonData: string): boolean => {
@@ -1106,10 +1145,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const { user, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot } = useAuth();
-  const sessionHistoryRef = useRef(sessionHistory);
-  sessionHistoryRef.current = sessionHistory;
-  const recentlyDeletedRef = useRef(recentlyDeletedGoals);
-  recentlyDeletedRef.current = recentlyDeletedGoals;
   const lastCloudPayloadRef = useRef<string>('');
 
   const syncToCloud = useCallback(async (opts?: { allowEmpty?: boolean }): Promise<{ ok: boolean; error?: string }> => {
@@ -1170,7 +1205,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const payload = {
       app: 'YouDO',
-      version: '3.0.0',
+      version: APP_VERSION,
       exportedAt: new Date().toISOString(),
       updatedAt: Date.now(),
       tasks: tasksRef.current,
@@ -1218,6 +1253,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchLiveBackupInfo, listVisitSnapshots]);
 
+  const pruneOldSessions = useCallback((): number => {
+    const cutoff = Date.now() - SESSION_HISTORY_KEEP_MS;
+    const prev = sessionHistoryRef.current;
+    const next = pruneSessionHistoryBefore(prev, cutoff);
+    const before = Object.values(prev).reduce((n, rows) => n + rows.length, 0);
+    const after = Object.values(next).reduce((n, rows) => n + rows.length, 0);
+    if (before === after) return 0;
+    setSessionHistory(next);
+    return before - after;
+  }, [setSessionHistory]);
+
   // Auto-restore / Auto-push on user auth change
   useEffect(() => {
     if (!user) return;
@@ -1259,6 +1305,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
       exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      pruneOldSessions,
       sessionHistory,
       completeSessionSteps,
     }),
@@ -1269,6 +1316,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
       exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      pruneOldSessions,
       sessionHistory, completeSessionSteps],
   );
 

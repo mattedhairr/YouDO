@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (jsonStr.length > MAX_BACKUP_BYTES) {
         return {
           ok: false,
-          error: `Backup is too large (${(jsonStr.length / 1024 / 1024).toFixed(1)} MB). Clear old session history in Settings → Danger Zone to reduce size.`,
+          error: `Backup is too large (${(jsonStr.length / 1024 / 1024).toFixed(1)} MB). In Settings, trim sittings older than 90 days, then tap Sync now.`,
         };
       }
 

@@ -2,7 +2,7 @@
   "name": "youdo",
   "description": "Execution & Goal Tracker",
   "private": true,
-  "version": "3.2.3",
+  "version": "3.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -26,8 +26,7 @@
     "@supabase/supabase-js": "^2.57.4",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sonner": "^2.0.8"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
