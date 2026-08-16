@@ -1,12 +1,9 @@
 export function isToday(iso: string | null): boolean {
   if (!iso) return false;
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
+  // Compare ISO date strings directly to avoid UTC vs local timezone mismatch.
+  // new Date('YYYY-MM-DD') parses as UTC midnight, which gives wrong results for
+  // users in timezones west of UTC (e.g. task shows as "yesterday" until 7 PM UTC-5).
+  return iso.slice(0, 10) === todayISO();
 }
 
 export function todayISO(): string {

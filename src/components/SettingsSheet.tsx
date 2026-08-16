@@ -25,6 +25,7 @@ import {
   UserPlus,
   Zap,
   ShieldCheck,
+  Smartphone,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
@@ -166,6 +167,7 @@ const USER_GUIDE_STEPS = [
 ];
 
 function GuideMock({ kind }: { kind: 'today' | 'goals' | 'plan' | 'schedule' | 'steps' | 'sync' }) {
+
   if (kind === 'goals') {
     return (
       <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2">
@@ -343,7 +345,24 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
   const [howOpen, setHowOpen] = useState(false);
   const [howTab, setHowTab] = useState(HOW_IT_WORKS_TABS[0].name);
+  const [exportOpen, setExportOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+
+  const [hapticsEnabled, setHapticsEnabled] = useState(() => {
+    try {
+      const val = localStorage.getItem('youdo_haptics_enabled');
+      return val === null ? true : JSON.parse(val) === true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleHaptics = () => {
+    const next = !hapticsEnabled;
+    setHapticsEnabled(next);
+    localStorage.setItem('youdo_haptics_enabled', JSON.stringify(next));
+  };
+
   const [guideStep, setGuideStep] = useState(0);
   const [guideMore, setGuideMore] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
@@ -1124,6 +1143,33 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 <Sun size={12} /> Light
               </button>
             </div>
+          </div>
+
+          <div className="bg-elevated rounded-2xl border border-subtle p-4 flex items-center justify-between shadow-lg mt-2">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                <Smartphone size={16} />
+              </div>
+              <div>
+                <h3 className="text-xs font-semibold text-content-primary">Haptic Feedback</h3>
+                <p className="text-[10.5px] text-content-secondary font-medium">Vibrate on actions</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleHaptics}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+                hapticsEnabled ? 'bg-primary' : 'bg-surface border border-subtle'
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  hapticsEnabled ? 'translate-x-2' : '-translate-x-2'
+                }`}
+              />
+            </button>
           </div>
         </section>
 

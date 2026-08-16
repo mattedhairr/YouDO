@@ -88,6 +88,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
+
+      // Guard against oversized payloads that would silently time out on Supabase.
+      const MAX_BACKUP_BYTES = 4 * 1024 * 1024; // 4 MB
+      if (jsonStr.length > MAX_BACKUP_BYTES) {
+        return {
+          ok: false,
+          error: `Backup is too large (${(jsonStr.length / 1024 / 1024).toFixed(1)} MB). Clear old session history in Settings → Danger Zone to reduce size.`,
+        };
+      }
+
       const userId = session.user.id;
       const freeze = await freezeLiveBackupForVisit(userId);
       if (freeze === 'retry') {

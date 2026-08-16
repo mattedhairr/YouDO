@@ -4,6 +4,7 @@ import Overlay from './Overlay';
 import type { TaskSession } from '../types';
 import { formatDuration, sessionEfficiency } from '../lib/format';
 import { isCountableSession, isManualSession } from '../lib/sessionStats';
+import FocusAnalytics from './FocusAnalytics';
 
 interface Props {
   open: boolean;
@@ -165,7 +166,8 @@ export function TaskSessionStats({ open, title, sessions, stepTotal = 0, stepPro
           </div>
         </div>
 
-        <div className="overflow-y-auto no-scrollbar px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto min-h-0 bg-base p-4 space-y-4">
+          <FocusAnalytics sessions={sessions} />
           {showHelp && (
             <div className="bg-surface border border-subtle rounded-[12px] p-3.5 space-y-2 text-[12px] text-content-secondary leading-relaxed">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">How stats work</p>

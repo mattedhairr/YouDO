@@ -64,24 +64,37 @@ function mergeNode(remote: GoalNode, local: GoalNode): GoalNode {
 }
 
 function mergeGoalList(local: GoalNode[], remote: GoalNode[]): GoalNode[] {
-  const byId = new Map<string, GoalNode>();
-  const order: string[] = [];
-  const ingest = (nodes: GoalNode[], preferLocal: boolean) => {
-    for (const node of nodes) {
-      if (!node?.id) continue;
-      if (!byId.has(node.id)) {
-        order.push(node.id);
-        byId.set(node.id, node);
-      } else if (preferLocal) {
-        byId.set(node.id, mergeNode(byId.get(node.id)!, node));
-      } else {
-        byId.set(node.id, mergeNode(node, byId.get(node.id)!));
-      }
+  // Build a lookup of remote nodes for O(1) access
+  const remoteById = new Map<string, GoalNode>();
+  for (const node of remote) {
+    if (node?.id) remoteById.set(node.id, node);
+  }
+
+  // Track which IDs exist locally so we know what remote nodes are "new"
+  const localIds = new Set(local.filter((n) => n?.id).map((n) => n.id));
+  const result: GoalNode[] = [];
+
+  // 1. Process local nodes IN LOCAL ORDER, merging data with remote counterpart when both exist.
+  //    This ensures the user's intentional ordering on the current device is preserved.
+  for (const localNode of local) {
+    if (!localNode?.id) continue;
+    const remoteNode = remoteById.get(localNode.id);
+    if (remoteNode) {
+      // Both sides have this node — merge with local taking precedence
+      result.push(mergeNode(remoteNode, localNode));
+    } else {
+      // Local-only node (deleted on the other device but still in trash? Keep it)
+      result.push(localNode);
     }
-  };
-  ingest(remote, false);
-  ingest(local, true);
-  return order.map((id) => byId.get(id)!).filter(Boolean);
+  }
+
+  // 2. Append remote-only nodes (added on another device) at the end.
+  for (const remoteNode of remote) {
+    if (!remoteNode?.id || localIds.has(remoteNode.id)) continue;
+    result.push(remoteNode);
+  }
+
+  return result;
 }
 
 function dropDeletedGoals(nodes: GoalNode[], deleted: Set<string>): GoalNode[] {
