@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clock, Cloud, Trash2 } from 'lucide-react';
+import { Toaster, toast } from 'sonner';
+import { hapticWarn } from './lib/haptics';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
@@ -170,6 +172,25 @@ function AppInner() {
   const [reconstructOpen, setReconstructOpen] = useState(false);
   const activeSessionRef = useRef(activeSession);
   activeSessionRef.current = activeSession;
+
+  // Watch for deleted goals to show toast and haptic
+  useEffect(() => {
+    if (lastDeletedNotification) {
+      hapticWarn();
+      toast.error(`Deleted ${lastDeletedNotification.title}`, {
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            restoreDeletedGoal(lastDeletedNotification.id);
+            clearDeletedNotification();
+          },
+        },
+        onDismiss: () => clearDeletedNotification(),
+        onAutoClose: () => clearDeletedNotification(),
+        duration: 4000,
+      });
+    }
+  }, [lastDeletedNotification, restoreDeletedGoal, clearDeletedNotification]);
 
   // Heartbeat while visible (30s). Also tick on return so a long lock is handled immediately.
   useEffect(() => {
@@ -485,19 +506,32 @@ function AppInner() {
     [goals, pushModalState],
   );
 
-  const originNodesFor = (taskId: string): { title: string; kind: GoalKind }[] | undefined => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task?.goalNodeId) return undefined;
-    for (const root of goals) {
-      const nodes = pathNodes(root, task.goalNodeId);
-      if (nodes.length) return nodes.slice(0, -1).map(n => ({ title: n.title, kind: n.kind }));
+  // Precompute goal breadcrumb paths for every task into a Map so the lookup is O(1) per render
+  // instead of O(tasks × depth) for an inline function called inside JSX.
+  const originNodesMap = useMemo(() => {
+    const map = new Map<string, { title: string; kind: GoalKind }[] | undefined>();
+    for (const task of tasks) {
+      if (!task.goalNodeId) { map.set(task.id, undefined); continue; }
+      for (const root of goals) {
+        const nodes = pathNodes(root, task.goalNodeId);
+        if (nodes.length) {
+          map.set(task.id, nodes.slice(0, -1).map((n) => ({ title: n.title, kind: n.kind })));
+          break;
+        }
+      }
     }
-    return undefined;
-  };
+    return map;
+  }, [tasks, goals]);
 
-  const getTaskSessions = (taskId: string): TaskSession[] => {
-    return sessionHistory[taskId] || [];
-  };
+  const originNodesFor = useCallback(
+    (taskId: string): { title: string; kind: GoalKind }[] | undefined => originNodesMap.get(taskId),
+    [originNodesMap],
+  );
+
+  const getTaskSessions = useCallback(
+    (taskId: string): TaskSession[] => sessionHistory[taskId] || [],
+    [sessionHistory],
+  );
 
   const doReorder = () => {
     if (!dragId || !overId || dragId === overId) {
@@ -663,6 +697,7 @@ function AppInner() {
 
   return (
     <div className="min-h-screen">
+      <Toaster position="top-center" toastOptions={{ className: 'font-sans' }} />
 
       <div
         className="app-frame relative min-h-screen w-full max-w-md mx-auto px-4 pb-28"
@@ -743,9 +778,11 @@ function AppInner() {
                       </div>
                     </div>
                     <button
+                      aria-label="Restore data from cloud backup"
                       onClick={async () => {
                         const ok = await restoreFromCloud();
-                        if (!ok) alert('No cloud backup found for this account.');
+                        if (!ok) toast.error('No cloud backup found for this account.');
+                        else toast.success('Backup restored successfully.');
                       }}
                       className="px-3 py-1.5 rounded-xl bg-primary text-on-primary text-xs font-semibold shrink-0"
                     >
@@ -1023,38 +1060,13 @@ function AppInner() {
           </div>
         </main>
 
-        {/* Floating Undo Goal Delete Toast */}
-        {lastDeletedNotification && (
-          <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto z-40 bg-elevated border border-subtle text-content-primary p-3 rounded-[16px] shadow-elevated flex items-center justify-between gap-3 fade-in">
-            <div className="flex items-center gap-2 min-w-0">
-              <Trash2 size={15} className="text-error shrink-0" />
-              <span className="text-xs font-medium truncate">
-                Deleted {lastDeletedNotification.title}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => restoreDeletedGoal(lastDeletedNotification.id)}
-                className="px-3 py-1 rounded-xl border border-subtle text-primary text-xs font-semibold"
-              >
-                Undo
-              </button>
-              <button
-                onClick={clearDeletedNotification}
-                className="p-1 rounded-lg text-content-secondary hover:text-content-primary hover:bg-error"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* FAB */}
         {view === 'tasks' && (
           <button
             onClick={() => openAddTask()}
             className="fixed bottom-20 right-4 w-12 h-12 rounded-full text-on-primary grid place-items-center bg-primary shadow-elevated z-30"
             title="Add task"
+            aria-label="Add new task"
           >
             <Plus size={24} />
           </button>
@@ -1169,6 +1181,7 @@ function AppInner() {
             stopSession(outcome);
             if (outcome.completed === true || (outcome.completedStepIndices?.length ?? 0) > 0) {
               completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices ?? []);
+              import('./lib/haptics').then((m) => m.hapticSuccess());
             }
             setStopDialogTask(null);
             setRecoverySessionPrompt(false);

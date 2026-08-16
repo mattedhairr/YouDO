@@ -71,6 +71,9 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<'ok' | '
       if (insertErr) {
         const missing = /does not exist|schema cache/i.test(insertErr.message);
         if (missing) {
+          // The user_backup_snapshots table is not set up in this environment.
+          // Log a warning so developers can diagnose, but do not block the sync.
+          console.warn('[YouDO] user_backup_snapshots table not found — visit snapshots unavailable. Run the snapshot migration SQL.');
           freezeState.done = true;
           return 'ok';
         }

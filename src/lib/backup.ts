@@ -44,6 +44,13 @@ export function normalizeImportedTask(raw: unknown): Task | null {
     goalNodeId: t.goalNodeId ? String(t.goalNodeId) : t.g ? String(t.g) : undefined,
     stepSlice: Array.isArray(t.stepSlice) ? t.stepSlice.map(Number) : undefined,
     originalTargetDate: t.originalTargetDate ? String(t.originalTargetDate) : undefined,
+    // Validate date arrays so malformed backup data cannot corrupt backlog detection
+    pastFailedNativeDates: Array.isArray(t.pastFailedNativeDates)
+      ? t.pastFailedNativeDates.filter((d): d is string => typeof d === 'string')
+      : undefined,
+    pastFailedBacklogDates: Array.isArray(t.pastFailedBacklogDates)
+      ? t.pastFailedBacklogDates.filter((d): d is string => typeof d === 'string')
+      : undefined,
   };
 }
 
