@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   goalPathIds: 'youdo-goal-path-ids',
   helpSeen: 'youdo-help-seen-v1',
   haptics: 'youdo-haptics-v1',
+  workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
 } as const;
 
 const LEGACY_ALIASES: Record<string, string[]> = {
@@ -20,6 +21,20 @@ const LEGACY_ALIASES: Record<string, string[]> = {
   [STORAGE_KEYS.helpSeen]: ['youdo_has_seen_help'],
   [STORAGE_KEYS.haptics]: ['youdo_haptics_enabled'],
 };
+
+export function readWorkspaceUpdatedAt(): number {
+  const raw = readStorageRaw(STORAGE_KEYS.workspaceUpdatedAt);
+  const n = raw ? Number(raw) : 0;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+export function writeWorkspaceUpdatedAt(value: number): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.workspaceUpdatedAt, String(value));
+  } catch {
+    /* ignore */
+  }
+}
 
 export function readStorageRaw(key: string): string | null {
   try {

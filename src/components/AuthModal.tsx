@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Mail, Lock, LogIn, UserPlus, X, AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
-import { assertDeviceClock } from '../lib/deviceClock';
 import { supabase } from '../lib/supabase';
 import Overlay from './Overlay';
 
@@ -34,12 +33,6 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
     setLoading(true);
 
     try {
-      const clock = await assertDeviceClock();
-      if (!clock.ok) {
-        setError(clock.reason ?? 'Device date & time must be set to automatic before signing in.');
-        return;
-      }
-
       if (mode === 'signup') {
         const { error: signUpErr } = await supabase.auth.signUp({
           email,

@@ -31,12 +31,12 @@ async function pruneVisitSnapshots(userId: string): Promise<void> {
   await supabase.from('user_backup_snapshots').delete().in('id', extraIds);
 }
 
-/** Once per app visit: freeze the current live cloud row before this visit overwrites it. */
-export async function freezeLiveBackupForVisit(userId: string): Promise<'ok' | 'retry'> {
+/** Once per app visit: freeze the current live cloud row. Never blocks the live write. */
+export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
   if (!freezeState || freezeState.userId !== userId) {
     freezeState = { userId, done: false };
   }
-  if (freezeState.done) return 'ok';
+  if (freezeState.done) return;
 
   const { data: live, error: liveErr } = await supabase
     .from('user_backups')
@@ -44,10 +44,10 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<'ok' | '
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (liveErr) return 'retry';
+  if (liveErr) return;
   if (!live?.backup_data) {
     freezeState.done = true;
-    return 'ok';
+    return;
   }
 
   const { data: latest } = await supabase
@@ -60,7 +60,7 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<'ok' | '
 
   if (latest?.backup_data === live.backup_data) {
     freezeState.done = true;
-    return 'ok';
+    return;
   }
 
   const { error: insertErr } = await supabase.from('user_backup_snapshots').insert({
@@ -68,20 +68,55 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<'ok' | '
     backup_data: live.backup_data,
   });
 
-      if (insertErr) {
-        const missing = /does not exist|schema cache/i.test(insertErr.message);
-        if (missing) {
-          // The user_backup_snapshots table is not set up in this environment.
-          // Log a warning so developers can diagnose, but do not block the sync.
-          console.warn('[YouDO] user_backup_snapshots table not found — visit snapshots unavailable. Run the snapshot migration SQL.');
-          freezeState.done = true;
-          return 'ok';
-        }
-        return 'retry';
-      }
+  if (insertErr) {
+    const missing = /does not exist|schema cache/i.test(insertErr.message);
+    if (missing) {
+      console.warn('[YouDO] user_backup_snapshots table not found — visit snapshots unavailable.');
+      freezeState.done = true;
+    }
+    return;
+  }
   await pruneVisitSnapshots(userId);
   freezeState.done = true;
-  return 'ok';
+}
+
+const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
+
+export async function upsertLiveBackup(
+  userId: string,
+  jsonStr: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (jsonStr.length > MAX_BACKUP_BYTES) {
+    return {
+      ok: false,
+      error: `Backup is too large (${(jsonStr.length / 1024 / 1024).toFixed(1)} MB). In Settings, trim sittings older than 90 days, then tap Sync now.`,
+    };
+  }
+
+  await freezeLiveBackupForVisit(userId);
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('user_backups').upsert(
+    { user_id: userId, backup_data: jsonStr, updated_at: now },
+    { onConflict: 'user_id' },
+  );
+  if (error) {
+    console.error('upsertLiveBackup:', error);
+    return { ok: false, error: error.message || 'Database update failed' };
+  }
+  return { ok: true };
+}
+
+export async function fetchBackupData(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('user_backups')
+    .select('backup_data')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) {
+    console.error('fetchBackupData:', error.message);
+    return null;
+  }
+  return data?.backup_data ?? null;
 }
 
 export async function listVisitSnapshots(userId: string): Promise<VisitSnapshotMeta[]> {

@@ -91,6 +91,7 @@ export function parseBackupPayload(jsonData: string): {
   goals: GoalNode[];
   sessionHistory?: unknown;
   recentlyDeletedGoals?: unknown;
+  updatedAt?: number;
 } | null {
   try {
     const parsed = JSON.parse(jsonData) as unknown;
@@ -111,11 +112,14 @@ export function parseBackupPayload(jsonData: string): {
       if (norm) importedGoals.push(norm);
     }
 
+    const updatedAt = asNumber(obj.updatedAt, 0);
+
     return {
       tasks: importedTasks,
       goals: importedGoals,
       sessionHistory: obj.sessionHistory,
       recentlyDeletedGoals: obj.recentlyDeletedGoals,
+      updatedAt: updatedAt > 0 ? updatedAt : undefined,
     };
   } catch {
     return null;

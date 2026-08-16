@@ -25,24 +25,67 @@ export function clearRollupCache() {
   rollupCache.clear();
 }
 
+function leafWork(node: GoalNode): { done: number; total: number } {
+  if (node.children.length > 0) {
+    return node.children.reduce(
+      (acc, child) => {
+        const next = leafWork(child);
+        return { done: acc.done + next.done, total: acc.total + next.total };
+      },
+      { done: 0, total: 0 },
+    );
+  }
+  if (node.steps && node.steps.length > 0) {
+    return { done: (node.stepDone ?? []).filter(Boolean).length, total: node.steps.length };
+  }
+  return { done: node.completed ? 1 : 0, total: 1 };
+}
+
+/** Share of leaf work done (steps, or one unit for a stepless leaf). */
 export function rollupPct(node: GoalNode): number {
   const cached = rollupCache.get(node.id);
   if (cached !== undefined) return cached;
-
-  let pct = 0;
-  if (node.children.length === 0) {
-    if (node.steps && node.steps.length > 0) {
-      pct = Math.round(((node.stepDone ?? []).filter(Boolean).length / node.steps.length) * 100);
-    } else {
-      pct = node.completed ? 100 : 0;
-    }
-  } else {
-    const total = node.children.length;
-    const doneCount = node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
-    pct = total === 0 ? 0 : Math.round((doneCount / total) * 100);
-  }
+  const { done, total } = leafWork(node);
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   rollupCache.set(node.id, pct);
   return pct;
+}
+
+export function recomputeCompleted(node: GoalNode): GoalNode {
+  const children = (node.children ?? []).map(recomputeCompleted);
+  let changed = children.length !== node.children.length;
+  if (!changed) {
+    for (let i = 0; i < children.length; i++) {
+      if (children[i] !== node.children[i]) {
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  let completed = node.completed;
+  if (children.length === 0) {
+    const steps = node.steps ?? [];
+    if (steps.length > 0) {
+      const stepDone = node.stepDone ?? [];
+      completed = steps.every((_, i) => Boolean(stepDone[i]));
+    }
+  } else {
+    completed = children.length > 0 && children.every((c) => c.completed);
+  }
+
+  if (!changed && completed === node.completed) return node;
+  return { ...node, children, completed };
+}
+
+export function setSubtreeCompleted(node: GoalNode, isDone: boolean): GoalNode {
+  const steps = node.steps ?? [];
+  return {
+    ...node,
+    completed: isDone,
+    stepDone: steps.length > 0 ? steps.map(() => isDone) : node.stepDone,
+    children: node.children.map((child) => setSubtreeCompleted(child, isDone)),
+  };
 }
 
 export function findNode(root: GoalNode, id: string): [GoalNode | null, GoalNode | null] {

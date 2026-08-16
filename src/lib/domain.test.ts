@@ -3,7 +3,7 @@ import { formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
 import { currentFocusStreak, netFocusByLocalDate, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task, TaskSession } from '../types';
 
 describe('dates', () => {
@@ -225,6 +225,22 @@ describe('goal tree', () => {
     expect(rollupPct(leaf({ id: 'b', completed: true }))).toBe(100);
   });
 
+  it('rolls up by leaf work, not sibling count', () => {
+    clearRollupCache();
+    const small = leaf({ id: 's', steps: ['a'], stepDone: [true] });
+    const big = leaf({ id: 'b', steps: ['a', 'b', 'c', 'd'], stepDone: [false, false, false, false] });
+    const root: GoalNode = { id: 'r', kind: 'goal', title: 'R', children: [small, big], createdAt: 1 };
+    expect(rollupPct(root)).toBe(20);
+  });
+
+  it('clears ancestor completed when a leaf is unchecked', () => {
+    const child = leaf({ id: 'c', completed: true, steps: ['a'], stepDone: [true] });
+    const root: GoalNode = { id: 'r', kind: 'goal', title: 'R', completed: true, children: [child], createdAt: 1 };
+    const next = recomputeCompleted(updateNode(root, 'c', (n) => ({ ...n, stepDone: [false], completed: false })));
+    expect(next.completed).toBe(false);
+    expect(next.children[0].completed).toBe(false);
+  });
+
   it('reuses unchanged goal branches when patching a leaf', () => {
     const untouched = leaf({ id: 'keep' });
     const target = leaf({ id: 'edit', title: 'Old' });
@@ -439,6 +455,27 @@ describe('cloud merge', () => {
       },
     );
     expect(merged.goals.map((g) => g.id)).toEqual(['g1']);
+  });
+
+  it('does not re-mark a locally unmarked node from an older cloud copy', async () => {
+    const { mergeWorkspace } = await import('./syncMerge');
+    const unmarked = {
+      id: 'g1',
+      kind: 'leaf' as const,
+      title: 'Drill',
+      children: [],
+      createdAt: 1,
+      steps: ['a', 'b'],
+      stepDone: [false, false],
+      completed: false,
+    };
+    const marked = { ...unmarked, stepDone: [true, true], completed: true };
+    const merged = mergeWorkspace(
+      { tasks: [], goals: [unmarked], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 200 },
+      { tasks: [], goals: [marked], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 100 },
+    );
+    expect(merged.goals[0].completed).toBe(false);
+    expect(merged.goals[0].stepDone).toEqual([false, false]);
   });
 
   it('clamps impossible session numbers', async () => {

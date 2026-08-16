@@ -10,12 +10,11 @@ interface Props {
   tasks: Task[];
   onAddTask: (date: string) => void;
   onJumpToGoal: (goalNodeId: string | null | undefined) => void;
-  onViewStats?: (taskId: string, title: string) => void;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewStats }: Props) {
+export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) {
   const { goals, sessionHistory } = useStore();
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
@@ -257,10 +256,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal, onViewSta
               return (
                 <div
                   key={t.id}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    if (onViewStats) onViewStats(t.id, t.title);
-                  }}
                   className={`bg-surface border border-subtle rounded-2xl shadow-card p-4 transition-all select-none ${
                     complete ? 'opacity-60 bg-surface/50' : ''
                   }`}

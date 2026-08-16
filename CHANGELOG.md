@@ -4,6 +4,28 @@ All notable changes to the **YouDO** project will be documented in this file.
 
 ---
 
+## [v3.4.0] — 2026-08-16 ("Stable sync and honest calendar stats")
+
+Cloud sync and stats were rebuilt so goal edits stay put, two phones stop fighting over completion flags, and the calendar stays the single honest stats view.
+
+### 🚀 What you will notice
+- **Goal edits stay put** — unmarking a step no longer flips back a few seconds later when signed in.
+- **Calendar day stats only** — per-task and per-goal history sheets removed; Plan day stats remain the single stats view.
+- **Clearer goal progress** — folder percent reflects actual leaf work, not just sibling count.
+
+### ☁ Cloud
+- Sync now uses **document last-write-wins** for goals and daily tasks, **unions focus sittings by id**, and still honours **Recently Deleted**.
+- Login and cloud backup no longer block on clock checks; the clock warning is advisory only.
+
+### ⚙ Under the hood
+- Batch schedule replans like single schedule; batch delete restores to the correct parent.
+- Removed manual “stats rows” when checking a step without a focus session.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.4.0**, versionCode **12**. Same package id `com.mattedhairr.youdo` — install over 3.3.x.
+
+---
+
 ## [v3.3.0] — 2026-08-16 ("Guide, feel, and honest trends")
 
 The 3.2.1–3.2.3 ideas stay. The execution is rebuilt so they match the rest of YouDO.
