@@ -452,14 +452,15 @@ export default function TaskCard({
                 <Copy className="w-3.5 h-3.5 text-primary" />
                 Duplicate
               </button>
-              <button
-                onClick={() => { setExpanded(false); onDelete(task.id); }}
-                className="py-2.5 rounded-[12px] bg-error-soft text-error border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                {softRemove ? 'Remove' : 'Delete'}
-              </button>
             </div>
+
+            <button
+              onClick={() => { setExpanded(false); onDelete(task.id); }}
+              className="w-full py-2.5 rounded-[12px] bg-error-soft text-error border border-error/20 text-[12px] font-medium flex items-center justify-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {softRemove ? 'Remove' : 'Delete'}
+            </button>
           </div>
         </div>
       </Overlay>
