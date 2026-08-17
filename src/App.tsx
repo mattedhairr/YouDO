@@ -173,6 +173,7 @@ function AppInner() {
   const firstHelpRef = useRef(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const briefingPromptedRef = useRef(false);
+  const [briefingGateReady, setBriefingGateReady] = useState(false);
   const [cloudHint, setCloudHint] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -379,18 +380,30 @@ function AppInner() {
 
   useEffect(() => {
     if (!clockReady) return;
-    if (!activeSession) return;
-    const check = () => {
+
+    const offerRecoveryIfStale = () => {
       const session = activeSessionRef.current;
-      if (!session) return;
+      if (!session) {
+        setBriefingGateReady(true);
+        return;
+      }
       if (document.visibilityState !== 'visible') return;
       if (shouldOfferSessionRecovery(session, Date.now())) {
+        briefingPromptedRef.current = true;
+        setBriefingOpen(false);
         setRecoverySessionPrompt(true);
       }
+      setBriefingGateReady(true);
     };
-    check();
-    document.addEventListener('visibilitychange', check);
-    return () => document.removeEventListener('visibilitychange', check);
+
+    if (!activeSession) {
+      setBriefingGateReady(true);
+    } else {
+      offerRecoveryIfStale();
+    }
+
+    document.addEventListener('visibilitychange', offerRecoveryIfStale);
+    return () => document.removeEventListener('visibilitychange', offerRecoveryIfStale);
     // Heartbeat mutates activeSession; taskId is the sitting identity we care about.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clockReady, clockBlocked, activeSession?.taskId]);
@@ -699,11 +712,13 @@ function AppInner() {
   }, [hasSeenHelp, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
 
   useEffect(() => {
+    if (!briefingGateReady) return;
     if (!hasSeenHelp || helpOpen || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
     if (briefingPromptedRef.current) return;
+    if (activeSession) return;
     briefingPromptedRef.current = true;
     setBriefingOpen(true);
-  }, [hasSeenHelp, helpOpen, recoverySessionPrompt, reconstructOpen, briefingOpen]);
+  }, [briefingGateReady, hasSeenHelp, helpOpen, recoverySessionPrompt, reconstructOpen, briefingOpen, activeSession]);
 
   useEffect(() => {
     if (!cloudHint) return;
