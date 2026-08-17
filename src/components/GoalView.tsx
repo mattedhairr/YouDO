@@ -438,36 +438,28 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       {/* Current node header card */}
       {current && (
         <div className="bg-surface border border-subtle rounded-[16px] shadow-card p-4 mb-3.5 fade-in">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                {(() => { const Icon = kindMeta[current.kind].icon; return <Icon size={16} style={{ color: kindMeta[current.kind].tint }} />; })()}
-                <h2 className="text-base font-bold text-content-primary truncate">{current.title}</h2>
-              </div>
-              {current.description && <p className="mt-1 text-[12px] text-content-secondary">{current.description}</p>}
-              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-content-secondary ">
-                <span style={{ color: kindMeta[current.kind].tint }}>{kindMeta[current.kind].label}</span>
-                <span>{countCompletedDirectChildren(current)}/{countDirectChildren(current)} done</span>
-                {current.startDate && <span>· {fmtShort(current.startDate)}</span>}
-                {current.endDate && <span>→ {fmtShort(current.endDate)}</span>}
-              </div>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {(() => {
+                const Icon = kindMeta[current.kind].icon;
+                return <Icon size={16} style={{ color: kindMeta[current.kind].tint }} className="shrink-0" />;
+              })()}
+              <h2 className="text-base font-bold text-content-primary truncate leading-snug">{current.title}</h2>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <div className="text-right mr-1">
-                {(() => {
-                  const parentPct = rollupPct(current);
-                  const isParentDone = parentPct >= 100;
-                  return (
-                    <div
-                      className={`text-lg font-bold tabular-nums ${
-                        isParentDone ? 'text-secondary' : parentPct > 0 ? 'text-primary' : 'text-content-muted'
-                      }`}
-                    >
-                      {parentPct}%
-                    </div>
-                  );
-                })()}
-              </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {(() => {
+                const parentPct = rollupPct(current);
+                const isParentDone = parentPct >= 100;
+                return (
+                  <span
+                    className={`text-lg font-bold tabular-nums px-0.5 ${
+                      isParentDone ? 'text-secondary' : parentPct > 0 ? 'text-primary' : 'text-content-muted'
+                    }`}
+                  >
+                    {parentPct}%
+                  </span>
+                );
+              })()}
               <button
                 onClick={() => togglePin(current.id)}
                 className={`p-2 rounded-lg ${current.pinned ? 'text-primary bg-primary-soft' : 'text-content-secondary hover:text-primary'}`}
@@ -480,6 +472,27 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               </button>
             </div>
           </div>
+
+          {current.description && (
+            <p className="mt-2 text-[12px] text-content-secondary leading-relaxed">{current.description}</p>
+          )}
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-content-secondary">
+            <span className="shrink-0 whitespace-nowrap font-medium" style={{ color: kindMeta[current.kind].tint }}>
+              {kindMeta[current.kind].label}
+            </span>
+            <span className="shrink-0 whitespace-nowrap tabular-nums">
+              {countCompletedDirectChildren(current)}/{countDirectChildren(current)} done
+            </span>
+            {(current.startDate || current.endDate) && (
+              <span className="shrink-0 whitespace-nowrap tabular-nums text-content-muted">
+                {current.startDate && fmtShort(current.startDate)}
+                {current.startDate && current.endDate && ' → '}
+                {current.endDate && fmtShort(current.endDate)}
+              </span>
+            )}
+          </div>
+
           <div className="mt-3 h-2 rounded-full bg-border-subtle overflow-hidden">
             {(() => {
               const parentPct = rollupPct(current);
@@ -489,7 +502,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${parentPct}%`,
-                    background: isParentDone ? 'var(--secondary)' : 'var(--primary)'
+                    background: isParentDone ? 'var(--secondary)' : 'var(--primary)',
                   }}
                 />
               );
