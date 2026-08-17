@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Overlay from './Overlay';
-import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Task } from '../types';
 import { isTaskComplete, localISODate, pathTitles, useStore, isOpenBacklogTask } from '../store';
 import { formatDuration } from '../lib/format';
-import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
+import { buildSessionSummary, isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
 
 interface Props {
   tasks: Task[];
@@ -23,6 +23,11 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
   const [selectedDate, setSelectedDate] = useState<string | null>(localISODate(new Date()));
   const [dayStatsModalDate, setDayStatsModalDate] = useState<string | null>(null);
   const [showDayStatsHelp, setShowDayStatsHelp] = useState(false);
+  const [openSessionSummaryId, setOpenSessionSummaryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOpenSessionSummaryId(null);
+  }, [dayStatsModalDate]);
 
   const getOriginPath = (goalNodeId: string | undefined): string | null => {
     if (!goalNodeId) return null;
@@ -480,23 +485,52 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                   No focus sessions logged on this date.
                 </p>
               ) : (
-                <div className="space-y-1.5 max-h-40 overflow-y-auto no-scrollbar">
+                <div className="space-y-1.5 max-h-52 overflow-y-auto no-scrollbar">
                   {[...modalDateSessions]
                     .sort((a, b) => a.session.startTime - b.session.startTime)
                     .map(({ session: s, slice }, index) => {
                     const overnight = localISODate(new Date(s.startTime)) !== localISODate(new Date(s.endTime));
+                    const task = tasks.find((t) => t.id === s.taskId);
+                    const goalPath = getOriginPath(s.goalNodeId ?? task?.goalNodeId);
+                    const summary = buildSessionSummary(s, task, {
+                      goalPath,
+                      netFocusMs: slice.netFocusMs,
+                      durationMs: slice.durationMs,
+                    });
+                    const summaryOpen = openSessionSummaryId === s.id;
                     return (
-                      <div key={s.id} className="bg-elevated  p-2.5 rounded-xl border border-subtle dark:border-subtle flex items-center justify-between text-xs">
-                        <div className="min-w-0 pr-2">
-                          <p className="font-bold text-content-primary dark:text-content-primary truncate">Session {index + 1}</p>
-                          <p className="text-[10.5px] text-content-secondary font-mono">
-                            {s.wallClockStart} - {s.wallClockEnd}
-                            {overnight ? ' · split' : ''} ({formatDuration(slice.durationMs)})
-                          </p>
+                      <div key={s.id} className="bg-elevated p-2.5 rounded-xl border border-subtle dark:border-subtle text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-content-primary truncate">Session {index + 1}</p>
+                            <p className="text-[10.5px] text-content-secondary font-mono mt-0.5">
+                              {s.wallClockStart} - {s.wallClockEnd}
+                              {overnight ? ' · split' : ''} ({formatDuration(slice.durationMs)})
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-primary font-semibold bg-primary-soft px-2 py-0.5 rounded-lg text-[10.5px]">
+                              {formatDuration(slice.netFocusMs)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setOpenSessionSummaryId(summaryOpen ? null : s.id)}
+                              className="inline-flex items-center gap-0.5 py-1 px-2 rounded-lg bg-surface border border-subtle text-[10px] font-semibold text-primary hover:bg-primary-soft transition"
+                              aria-expanded={summaryOpen}
+                              aria-label={summaryOpen ? 'Hide session summary' : 'Show session summary'}
+                            >
+                              Summary
+                              {summaryOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
+                          </div>
                         </div>
-                        <span className="text-primary font-semibold bg-primary-soft px-2 py-0.5 rounded-lg text-[10.5px] shrink-0">
-                          {formatDuration(slice.netFocusMs)}
-                        </span>
+                        {summaryOpen && (
+                          <ul className="mt-2 pt-2 border-t border-subtle space-y-1 text-[10.5px] text-content-secondary leading-relaxed">
+                            {summary.detailLines.map((line) => (
+                              <li key={line}>{line}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     );
                   })}

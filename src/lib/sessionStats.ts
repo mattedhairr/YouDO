@@ -1,5 +1,5 @@
-import type { ActiveSession, SessionPause, TaskSession } from '../types';
-import { formatWallClock } from './format';
+import type { ActiveSession, SessionPause, Task, TaskSession } from '../types';
+import { formatDuration, formatWallClock } from './format';
 import { uid } from './ids';
 import { localISODate, nextLocalMidnight } from './dates';
 
@@ -332,4 +332,74 @@ export function aggregateSessions(sessions: { netFocusMs: number; startTime: num
     netFocusMs: counted.reduce((acc, s) => acc + s.netFocusMs, 0),
     durationMs: counted.reduce((acc, s) => acc + Math.max(0, s.endTime - s.startTime), 0),
   };
+}
+
+export interface SessionSummary {
+  short: string;
+  detailLines: string[];
+}
+
+function outcomeLabel(completed: TaskSession['completed'], stepCount: number, totalSteps: number): string {
+  if (completed === true) {
+    return stepCount > 0 && totalSteps > 0 ? 'All steps done' : 'Marked complete';
+  }
+  if (completed === 'partial' || stepCount > 0) return 'Partial progress';
+  return 'Focus only — no steps marked';
+}
+
+function stepNamesForSession(task: Task | undefined, indices: number[]): string[] {
+  if (!task?.steps.length) return [];
+  return [...new Set(indices)]
+    .filter((i) => i >= 0 && i < task.steps.length)
+    .sort((a, b) => a - b)
+    .map((i) => task.steps[i]);
+}
+
+/** One-line + expandable detail for calendar day stats session rows. */
+export function buildSessionSummary(
+  session: TaskSession,
+  task: Task | undefined,
+  opts?: { goalPath?: string | null; netFocusMs?: number; durationMs?: number },
+): SessionSummary {
+  const stepIndices = session.completedStepIndices ?? [];
+  const stepNames = stepNamesForSession(task, stepIndices);
+  const totalSteps = task?.steps.length ?? 0;
+  const netFocusMs = opts?.netFocusMs ?? session.netFocusMs;
+  const durationMs = opts?.durationMs ?? Math.max(0, session.endTime - session.startTime);
+  const taskTitle = task?.title ?? 'Unknown task';
+
+  let short: string;
+  if (!task) {
+    short = outcomeLabel(session.completed, stepNames.length, totalSteps);
+  } else if (session.completed === true && (totalSteps === 0 || stepNames.length >= totalSteps)) {
+    short = `${taskTitle} — finished`;
+  } else if (stepNames.length === 1) {
+    short = `${taskTitle} — ${stepNames[0]}`;
+  } else if (stepNames.length > 1) {
+    short = `${taskTitle} — ${stepNames.length} steps (${stepNames[0]}…)`;
+  } else if (session.completed === false) {
+    short = `${taskTitle} — focused, no steps logged`;
+  } else {
+    short = `${taskTitle} — ${outcomeLabel(session.completed, stepNames.length, totalSteps).toLowerCase()}`;
+  }
+
+  const detailLines: string[] = [
+    `Task: ${taskTitle}`,
+  ];
+  if (opts?.goalPath) detailLines.push(`Path: ${opts.goalPath}`);
+  detailLines.push(`Time: ${session.wallClockStart} – ${session.wallClockEnd}`);
+  detailLines.push(`Focus: ${formatDuration(netFocusMs)} net · ${formatDuration(durationMs)} total`);
+  if (totalSteps > 0) {
+    detailLines.push(
+      stepNames.length
+        ? `Steps this session: ${stepNames.join(', ')}`
+        : 'Steps this session: none marked',
+    );
+  }
+  detailLines.push(`Outcome: ${outcomeLabel(session.completed, stepNames.length, totalSteps)}`);
+  if (session.pauses.length > 0) {
+    detailLines.push(`Pauses: ${session.pauses.length}`);
+  }
+
+  return { short, detailLines };
 }

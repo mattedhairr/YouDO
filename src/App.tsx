@@ -13,6 +13,7 @@ import CommandBar from './components/CommandBar';
 import SettingsSheet from './components/SettingsSheet';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import HelpCenterSheet from './components/HelpCenterSheet';
+import TodayBriefingSheet from './components/TodayBriefingSheet';
 import UndoToast from './components/UndoToast';
 import { STORAGE_KEYS } from './lib/storageKeys';
 import { hapticTap } from './lib/haptics';
@@ -170,6 +171,8 @@ function AppInner() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [hasSeenHelp, setHasSeenHelp] = useLocalStorage(STORAGE_KEYS.helpSeen, false);
   const firstHelpRef = useRef(false);
+  const [briefingOpen, setBriefingOpen] = useState(false);
+  const briefingPromptedRef = useRef(false);
   const [cloudHint, setCloudHint] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -618,7 +621,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || reconstructOpen) return;
+      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -633,7 +636,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, reconstructOpen],
+    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, reconstructOpen, briefingOpen],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -694,6 +697,13 @@ function AppInner() {
     firstHelpRef.current = true;
     openHelp({ silent: true });
   }, [hasSeenHelp, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
+
+  useEffect(() => {
+    if (!hasSeenHelp || helpOpen || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
+    if (briefingPromptedRef.current) return;
+    briefingPromptedRef.current = true;
+    setBriefingOpen(true);
+  }, [hasSeenHelp, helpOpen, recoverySessionPrompt, reconstructOpen, briefingOpen]);
 
   useEffect(() => {
     if (!cloudHint) return;
@@ -1340,6 +1350,18 @@ function AppInner() {
         onClose={() => {
           setHasSeenHelp(true);
           setHelpOpen(false);
+        }}
+      />
+      <TodayBriefingSheet
+        open={briefingOpen}
+        todayTasks={todayTasks}
+        openTodayCount={openTodayCount}
+        todayDone={todayDone}
+        openBacklogCount={openBacklogCount}
+        openBacklogDateCount={openBacklogDateCount}
+        sessionHistory={sessionHistory}
+        onDismiss={() => {
+          setBriefingOpen(false);
         }}
       />
       {lastDeletedNotification && (

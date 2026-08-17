@@ -64,6 +64,24 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.4.2] — 2026-08-17 ("Today briefing and slide to dismiss")
+
+Daily open flow and calendar session details — plus a reliable APK upgrade path from 3.4.1.
+
+### 🚀 What you will notice
+- **Today at a glance** — Each time you open the app, a short summary covers scheduled work, backlog, done count, focus so far, and up next.
+- **Slide to Got it** — Dismiss the briefing with a classic slide-to-unlock control (drag to the end, release to close).
+- **Session details on tap** — Plan day stats list sessions by number; tap **Summary** for the full sitting breakdown (nothing shown until you ask).
+
+### ⚙ Under the hood
+- Session summary text built from task steps, path, and focus times.
+- Responsive grid fixes from 3.4.1 carried forward where not yet on your device.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.4.2**, versionCode **14**. Same package id `com.mattedhairr.youdo` — install over **3.4.1** (13), **3.4.0** (12), and **3.3.x** (11). **versionCode 14 is required** — sideload will fail if the APK was built with an older code.
+
+---
+
 ## [v3.4.1] — 2026-08-16 ("UI polish and layout fixes")
 
 Patch release after 3.4.0 — cleaner task actions, clearer calendar session log, and grids that stay aligned on every screen width.
