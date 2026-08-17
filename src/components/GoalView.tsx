@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ChevronLeft,
   ChevronRight,
   CircleDot,
   Copy,
@@ -13,9 +14,11 @@ import {
   Plus,
   Star,
   Target,
+  X,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
 import { countDirectChildren, countCompletedDirectChildren, findNode, formatDDMMYYYY, isBacklogTask, localISODate, rollupPct, useStore } from '../store';
+import Overlay from './Overlay';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
   if (!targetDate) return 'Scheduled';
@@ -92,6 +95,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [pathMapOpen, setPathMapOpen] = useState(false);
 
   // Register clearSelection so App can call it when batch actions complete
   useEffect(() => {
@@ -100,6 +104,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       onSelectionChange([], []);
     };
   }, [clearSelectionRef, onSelectionChange]);
+
+  useEffect(() => {
+    setPathMapOpen(false);
+  }, [pathIds]);
 
   const current = useMemo(() => {
     if (pathIds.length === 0) return null;
@@ -125,6 +133,22 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   }, [goals]);
 
   const children = current ? current.children : goals;
+
+  const siblings = useMemo(() => {
+    if (pathIds.length === 0) return [];
+    if (pathIds.length === 1) return goals;
+    const parent = path[path.length - 2];
+    return parent?.children ?? [];
+  }, [goals, path, pathIds.length]);
+
+  const collapsedTrail = useMemo(() => {
+    if (path.length === 0) return '';
+    const ancestors = path.slice(0, -1);
+    if (ancestors.length === 0) return 'All Goals';
+    if (ancestors.length === 1) return ancestors[0].title;
+    if (ancestors.length === 2) return `${ancestors[0].title} › ${ancestors[1].title}`;
+    return `${ancestors[0].title} › … › ${ancestors[ancestors.length - 1].title}`;
+  }, [path]);
 
   // Auto-scroll & center target node ONCE when explicitly jumped to via highlightNodeId
   const scrolledHighlightRef = useState<{ id: string | null }>({ id: null })[0];
@@ -181,6 +205,27 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
     setPathIds([]);
     setSelected(new Set());
     onSelectionChange([], []);
+    setPathMapOpen(false);
+  };
+
+  const goUp = () => {
+    if (pathIds.length === 0) return;
+    setPathIds(pathIds.slice(0, -1));
+    setSelected(new Set());
+    onSelectionChange([], []);
+  };
+
+  const jumpToPathIndex = (index: number) => {
+    if (index < 0) goRoot();
+    else goTo(index);
+    setPathMapOpen(false);
+  };
+
+  const jumpToSibling = (node: GoalNode) => {
+    if (node.id === current?.id) return;
+    setPathIds([...pathIds.slice(0, -1), node.id]);
+    setSelected(new Set());
+    onSelectionChange([], []);
   };
 
   const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
@@ -202,45 +247,137 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
   return (
     <div className="fade-in pb-20">
-      <div className="sticky top-0 z-30 no-swipe -mt-4 mb-5 pt-1 pb-3 bg-base/95">
+      <div className="sticky top-0 z-30 no-swipe -mt-4 mb-5 pt-1 pb-3 bg-base/95 space-y-2">
         <nav
           aria-label="Goal location"
-          className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-[12px] border border-subtle bg-surface px-1.5 py-1.5"
+          className="flex items-center gap-1 rounded-[12px] border border-subtle bg-surface p-1"
         >
+          {path.length > 0 ? (
+            <button
+              type="button"
+              onClick={goUp}
+              className="shrink-0 w-9 h-9 grid place-items-center rounded-lg text-content-secondary hover:bg-elevated hover:text-content-primary"
+              aria-label="Go to parent"
+              title="Up one level"
+            >
+              <ChevronLeft size={18} strokeWidth={2.25} />
+            </button>
+          ) : (
+            <div className="shrink-0 w-9 h-9 grid place-items-center rounded-lg text-primary bg-primary-soft">
+              <Target size={15} strokeWidth={2.25} />
+            </div>
+          )}
+
           <button
-            onClick={goRoot}
-            className={`shrink-0 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[12px] font-semibold transition-colors ${
-              path.length === 0
-                ? 'bg-primary-soft text-primary'
-                : 'text-content-secondary hover:bg-elevated hover:text-content-primary'
+            type="button"
+            onClick={() => path.length > 0 && setPathMapOpen(true)}
+            disabled={path.length === 0}
+            className={`flex-1 min-w-0 text-left px-1.5 py-1 rounded-lg ${
+              path.length > 0 ? 'hover:bg-elevated' : ''
             }`}
+            title={path.length > 0 ? 'Open path map' : undefined}
           >
-            <Target size={13} strokeWidth={2.25} />
-            Goals
+            <p className="text-[13px] font-bold text-content-primary truncate leading-tight">
+              {current?.title ?? 'Goals'}
+            </p>
+            {path.length > 0 && (
+              <p className="mt-0.5 text-[10px] font-medium text-content-muted truncate leading-tight">
+                {collapsedTrail}
+              </p>
+            )}
           </button>
-          {path.map((n, i) => {
-            const MetaIcon = kindMeta[n.kind].icon;
-            const isHere = i === path.length - 1;
-            return (
-              <div key={n.id} className="flex items-center gap-1 shrink-0 min-w-0">
-                <ChevronRight size={14} className="text-content-muted shrink-0" />
+
+          {path.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPathMapOpen(true)}
+              className="shrink-0 w-9 h-9 grid place-items-center rounded-lg text-primary bg-primary-soft hover:opacity-90"
+              aria-label="Open path map"
+              title="Jump to any level"
+            >
+              <ListTree size={15} strokeWidth={2.25} />
+            </button>
+          )}
+        </nav>
+
+        {siblings.length > 1 && current && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-0.5">
+            {siblings.map((node) => {
+              const here = node.id === current.id;
+              return (
                 <button
-                  onClick={() => goTo(i)}
-                  title={n.title}
-                  className={`inline-flex items-center gap-1.5 h-8 max-w-[168px] px-2.5 rounded-lg text-[12px] font-semibold truncate transition-colors ${
-                    isHere
-                      ? 'bg-primary-soft text-primary'
-                      : 'text-content-secondary hover:bg-elevated hover:text-content-primary'
+                  key={node.id}
+                  type="button"
+                  onClick={() => jumpToSibling(node)}
+                  title={node.title}
+                  className={`shrink-0 max-w-[9.5rem] h-7 px-2.5 rounded-full text-[11px] font-semibold truncate border transition-colors ${
+                    here
+                      ? 'bg-primary-soft text-primary border-primary/25'
+                      : 'bg-surface text-content-secondary border-subtle hover:text-content-primary hover:bg-elevated'
                   }`}
                 >
-                  <MetaIcon size={12} className="shrink-0" />
-                  <span className="truncate">{n.title}</span>
+                  {node.title}
                 </button>
-              </div>
-            );
-          })}
-        </nav>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      <Overlay open={pathMapOpen} onClose={() => setPathMapOpen(false)} align="bottom">
+        <div className="panel sheet-up p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Where you are</p>
+              <h3 className="text-sm font-bold text-content-primary">Jump to a level</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPathMapOpen(false)}
+              className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-elevated"
+              aria-label="Close path map"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="bg-elevated rounded-[12px] border border-subtle overflow-hidden max-h-[55vh] overflow-y-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={() => jumpToPathIndex(-1)}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface border-b border-subtle"
+            >
+              <Target size={14} className="text-primary shrink-0" />
+              <span className="text-[13px] font-semibold text-content-primary">All Goals</span>
+            </button>
+            {path.map((n, i) => {
+              const MetaIcon = kindMeta[n.kind].icon;
+              const isHere = i === path.length - 1;
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => jumpToPathIndex(i)}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface ${
+                    i < path.length - 1 ? 'border-b border-subtle' : ''
+                  } ${isHere ? 'bg-primary-soft' : ''}`}
+                  style={{ paddingLeft: `${14 + Math.min(i, 5) * 12}px` }}
+                >
+                  <MetaIcon size={14} style={{ color: kindMeta[n.kind].tint }} className="shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-[13px] font-semibold truncate ${isHere ? 'text-primary' : 'text-content-primary'}`}>
+                      {n.title}
+                    </span>
+                    <span className="block text-[10px] text-content-muted">{kindMeta[n.kind].label}</span>
+                  </span>
+                  {isHere && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary shrink-0">Here</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Overlay>
 
       {/* Pinned/Favorites section */}
       {pinned.length > 0 && pathIds.length === 0 && (
