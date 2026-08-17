@@ -334,9 +334,22 @@ export function aggregateSessions(sessions: { netFocusMs: number; startTime: num
   };
 }
 
+export type SessionOutcomeTone = 'success' | 'partial' | 'neutral';
+
 export interface SessionSummary {
   short: string;
-  detailLines: string[];
+  taskTitle: string;
+  goalPath: string | null;
+  pathSegments: string[];
+  wallClockRange: string;
+  netFocusLabel: string;
+  totalDurationLabel: string;
+  focusEfficiency: number;
+  stepNames: string[];
+  hasSteps: boolean;
+  outcome: string;
+  outcomeTone: SessionOutcomeTone;
+  pauseCount: number;
 }
 
 function outcomeLabel(completed: TaskSession['completed'], stepCount: number, totalSteps: number): string {
@@ -347,6 +360,12 @@ function outcomeLabel(completed: TaskSession['completed'], stepCount: number, to
   return 'Focus only — no steps marked';
 }
 
+function outcomeTone(completed: TaskSession['completed'], stepCount: number): SessionOutcomeTone {
+  if (completed === true) return 'success';
+  if (completed === 'partial' || stepCount > 0) return 'partial';
+  return 'neutral';
+}
+
 function stepNamesForSession(task: Task | undefined, indices: number[]): string[] {
   if (!task?.steps.length) return [];
   return [...new Set(indices)]
@@ -355,7 +374,7 @@ function stepNamesForSession(task: Task | undefined, indices: number[]): string[
     .map((i) => task.steps[i]);
 }
 
-/** One-line + expandable detail for calendar day stats session rows. */
+/** Structured summary for calendar day stats session rows. */
 export function buildSessionSummary(
   session: TaskSession,
   task: Task | undefined,
@@ -367,6 +386,12 @@ export function buildSessionSummary(
   const netFocusMs = opts?.netFocusMs ?? session.netFocusMs;
   const durationMs = opts?.durationMs ?? Math.max(0, session.endTime - session.startTime);
   const taskTitle = task?.title ?? 'Unknown task';
+  const goalPath = opts?.goalPath?.trim() || null;
+  const pathSegments = goalPath
+    ? goalPath.split('/').map((p) => p.trim()).filter(Boolean)
+    : [];
+  const focusEfficiency =
+    durationMs > 0 ? Math.min(100, Math.round((netFocusMs / durationMs) * 100)) : 0;
 
   let short: string;
   if (!task) {
@@ -383,23 +408,19 @@ export function buildSessionSummary(
     short = `${taskTitle} — ${outcomeLabel(session.completed, stepNames.length, totalSteps).toLowerCase()}`;
   }
 
-  const detailLines: string[] = [
-    `Task: ${taskTitle}`,
-  ];
-  if (opts?.goalPath) detailLines.push(`Path: ${opts.goalPath}`);
-  detailLines.push(`Time: ${session.wallClockStart} – ${session.wallClockEnd}`);
-  detailLines.push(`Focus: ${formatDuration(netFocusMs)} net · ${formatDuration(durationMs)} total`);
-  if (totalSteps > 0) {
-    detailLines.push(
-      stepNames.length
-        ? `Steps this session: ${stepNames.join(', ')}`
-        : 'Steps this session: none marked',
-    );
-  }
-  detailLines.push(`Outcome: ${outcomeLabel(session.completed, stepNames.length, totalSteps)}`);
-  if (session.pauses.length > 0) {
-    detailLines.push(`Pauses: ${session.pauses.length}`);
-  }
-
-  return { short, detailLines };
+  return {
+    short,
+    taskTitle,
+    goalPath,
+    pathSegments,
+    wallClockRange: `${session.wallClockStart} – ${session.wallClockEnd}`,
+    netFocusLabel: formatDuration(netFocusMs),
+    totalDurationLabel: formatDuration(durationMs),
+    focusEfficiency,
+    stepNames,
+    hasSteps: totalSteps > 0,
+    outcome: outcomeLabel(session.completed, stepNames.length, totalSteps),
+    outcomeTone: outcomeTone(session.completed, stepNames.length),
+    pauseCount: session.pauses.length,
+  };
 }

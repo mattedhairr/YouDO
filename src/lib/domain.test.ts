@@ -518,14 +518,17 @@ describe('session summary', () => {
       completed: 'partial',
       completedStepIndices: [0],
     };
-    const { short, detailLines } = buildSessionSummary(session, task, {
+    const summary = buildSessionSummary(session, task, {
       goalPath: 'GATE / Phase-2',
       netFocusMs: 45 * 60_000,
       durationMs: 50 * 60_000,
     });
-    expect(short).toBe('DPP-1 — Q 1-12');
-    expect(detailLines.some((l) => l.startsWith('Path: GATE'))).toBe(true);
-    expect(detailLines.some((l) => l.includes('Steps this session: Q 1-12'))).toBe(true);
+    expect(summary.short).toBe('DPP-1 — Q 1-12');
+    expect(summary.goalPath).toBe('GATE / Phase-2');
+    expect(summary.pathSegments).toEqual(['GATE', 'Phase-2']);
+    expect(summary.stepNames).toEqual(['Q 1-12']);
+    expect(summary.outcomeTone).toBe('partial');
+    expect(summary.focusEfficiency).toBe(90);
   });
 
   it('describes focus-only sessions without step marks', () => {

@@ -485,7 +485,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                   No focus sessions logged on this date.
                 </p>
               ) : (
-                <div className="space-y-1.5 max-h-52 overflow-y-auto no-scrollbar">
+                <div className="space-y-1.5 max-h-72 overflow-y-auto no-scrollbar">
                   {[...modalDateSessions]
                     .sort((a, b) => a.session.startTime - b.session.startTime)
                     .map(({ session: s, slice }, index) => {
@@ -498,6 +498,12 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                       durationMs: slice.durationMs,
                     });
                     const summaryOpen = openSessionSummaryId === s.id;
+                    const outcomeClass =
+                      summary.outcomeTone === 'success'
+                        ? 'bg-secondary/10 text-secondary border-secondary/20'
+                        : summary.outcomeTone === 'partial'
+                          ? 'bg-primary-soft text-primary border-primary/20'
+                          : 'bg-surface text-content-muted border-subtle';
                     return (
                       <div key={s.id} className="bg-elevated p-2.5 rounded-xl border border-subtle dark:border-subtle text-xs">
                         <div className="flex items-start justify-between gap-2">
@@ -525,11 +531,90 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                           </div>
                         </div>
                         {summaryOpen && (
-                          <ul className="mt-2 pt-2 border-t border-subtle space-y-1 text-[10.5px] text-content-secondary leading-relaxed">
-                            {summary.detailLines.map((line) => (
-                              <li key={line}>{line}</li>
-                            ))}
-                          </ul>
+                          <div className="mt-2.5 pt-2.5 border-t border-subtle space-y-2.5">
+                            <div className="min-w-0">
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-content-muted">Task</p>
+                              <p className="text-[13px] font-bold text-content-primary leading-snug mt-0.5 truncate">
+                                {summary.taskTitle}
+                              </p>
+                              {summary.pathSegments.length > 0 && (
+                                <p className="mt-1 text-[10px] text-content-muted leading-relaxed line-clamp-2">
+                                  {summary.pathSegments.map((seg, i) => (
+                                    <span key={`${seg}-${i}`}>
+                                      {i > 0 && (
+                                        <span className="text-content-secondary/40 mx-1" aria-hidden>
+                                          /
+                                        </span>
+                                      )}
+                                      <span className={i === summary.pathSegments.length - 1 ? 'text-content-secondary font-medium' : undefined}>
+                                        {seg}
+                                      </span>
+                                    </span>
+                                  ))}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <div className="bg-primary-soft p-2 rounded-xl text-center min-w-0">
+                                <p className="text-[9px] font-semibold uppercase text-primary leading-tight">Net Focus</p>
+                                <p className="text-sm font-semibold text-primary tabular-nums mt-0.5">{summary.netFocusLabel}</p>
+                              </div>
+                              <div className="bg-surface p-2 rounded-xl text-center min-w-0 border border-subtle">
+                                <p className="text-[9px] font-bold uppercase text-content-secondary leading-tight">Total</p>
+                                <p className="text-sm font-semibold text-content-primary tabular-nums mt-0.5">{summary.totalDurationLabel}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] font-bold text-content-muted shrink-0">Efficiency</span>
+                              <div className="flex-1 min-w-0 h-1.5 rounded-full bg-border-subtle overflow-hidden">
+                                <div
+                                  className="h-full bg-primary rounded-full transition-[width] duration-300"
+                                  style={{ width: `${summary.focusEfficiency}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-semibold text-primary w-8 shrink-0 text-right tabular-nums">
+                                {summary.focusEfficiency}%
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${outcomeClass}`}>
+                                {summary.outcome}
+                              </span>
+                              {summary.pauseCount > 0 && (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface text-content-secondary border border-subtle">
+                                  {summary.pauseCount} pause{summary.pauseCount === 1 ? '' : 's'}
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface text-content-muted border border-subtle font-mono">
+                                {summary.wallClockRange}
+                              </span>
+                            </div>
+
+                            {summary.hasSteps && (
+                              <div>
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-content-muted mb-1.5">
+                                  Steps this session
+                                </p>
+                                {summary.stepNames.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {summary.stepNames.map((step) => (
+                                      <span
+                                        key={step}
+                                        className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-secondary/10 text-secondary border border-secondary/20"
+                                      >
+                                        ✓ {step}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-[10.5px] text-content-muted italic">None marked</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     );
