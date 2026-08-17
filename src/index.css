@@ -373,6 +373,10 @@ button {
   transition: width 0.4s ease;
 }
 
+.briefing-slider-knob {
+  transition: none;
+}
+
 .task-sup {
   font-size: 0.62em;
   font-weight: 600;

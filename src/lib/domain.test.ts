@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
 import { currentFocusStreak, netFocusByLocalDate, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
-import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore } from './sessionStats';
+import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
 import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task, TaskSession } from '../types';
 
@@ -494,5 +494,43 @@ describe('cloud merge', () => {
       completedStepIndices: [],
     });
     expect(row?.netFocusMs).toBe(1_000);
+  });
+});
+
+describe('session summary', () => {
+  const task: Task = {
+    id: 't1',
+    title: 'DPP-1',
+    description: '',
+    priority: 'medium',
+    targetDate: '2026-08-16',
+    deadline: null,
+    progress: 0,
+    steps: ['Q 1-12', 'Q 13-24'],
+    createdAt: 1,
+    order: 0,
+    goalNodeId: 'g1',
+  };
+
+  it('builds a short line from steps completed in the session', () => {
+    const session: TaskSession = {
+      ...sessionAt('2026-08-16', 45 * 60_000),
+      completed: 'partial',
+      completedStepIndices: [0],
+    };
+    const { short, detailLines } = buildSessionSummary(session, task, {
+      goalPath: 'GATE / Phase-2',
+      netFocusMs: 45 * 60_000,
+      durationMs: 50 * 60_000,
+    });
+    expect(short).toBe('DPP-1 — Q 1-12');
+    expect(detailLines.some((l) => l.startsWith('Path: GATE'))).toBe(true);
+    expect(detailLines.some((l) => l.includes('Steps this session: Q 1-12'))).toBe(true);
+  });
+
+  it('describes focus-only sessions without step marks', () => {
+    const session: TaskSession = { ...sessionAt('2026-08-16', 30 * 60_000), completed: false };
+    const { short } = buildSessionSummary(session, task);
+    expect(short).toBe('DPP-1 — focused, no steps logged');
   });
 });
