@@ -47,26 +47,42 @@ export default function CommandBar({
   ];
 
   return (
-    <nav className="fixed bottom-3 inset-x-4 z-30 max-w-md mx-auto">
-      <div className="flex flex-nowrap items-center gap-0.5 rounded-[16px] glass-panel border border-subtle p-1 shadow-elevated">
+    <nav className="fixed bottom-3 inset-x-4 z-30 max-w-md mx-auto no-swipe">
+      <div className="command-dock flex flex-nowrap items-center gap-0.5 rounded-[14px] border border-subtle p-1">
         {batch ? (
           <>
             <span className="pl-2 text-[12px] font-semibold text-content-secondary shrink-0 tabular-nums">
               {batch.count} selected
             </span>
             <div className="flex-1" />
-            <button onClick={batch.onCopy} className="px-3 py-2 rounded-xl text-[12px] font-medium text-content-secondary hover:bg-surface" title="Copy selected">
-              <Copy size={14} className="inline mr-1" />Copy
+            <button
+              onClick={batch.onCopy}
+              className="px-3 py-2 rounded-xl text-[12px] font-medium text-content-secondary hover:bg-surface"
+              title="Copy selected"
+            >
+              <Copy size={14} className="inline mr-1" />
+              Copy
             </button>
             {batch.leafCount > 0 && (
-              <button onClick={batch.onSchedule} className="px-3 py-2 rounded-xl text-[12px] font-semibold bg-primary text-on-primary">
+              <button
+                onClick={batch.onSchedule}
+                className="px-3 py-2 rounded-xl text-[12px] font-semibold bg-primary text-on-primary"
+              >
                 Schedule {batch.leafCount > 1 ? batch.leafCount : ''}
               </button>
             )}
-            <button onClick={batch.onDelete} className="px-3 py-2 rounded-xl text-[12px] font-medium text-error hover:bg-error-soft">
-              <Trash2 size={14} className="inline mr-1" />Delete
+            <button
+              onClick={batch.onDelete}
+              className="px-3 py-2 rounded-xl text-[12px] font-medium text-error hover:bg-error-soft"
+            >
+              <Trash2 size={14} className="inline mr-1" />
+              Delete
             </button>
-            <button onClick={batch.onCancel} className="p-2 rounded-xl text-content-secondary hover:bg-surface" title="Clear selection">
+            <button
+              onClick={batch.onCancel}
+              className="p-2 rounded-xl text-content-secondary hover:bg-surface"
+              title="Clear selection"
+            >
               <X size={16} />
             </button>
           </>
@@ -82,7 +98,10 @@ export default function CommandBar({
             <button onClick={paste.onCancel} className="p-2 rounded-xl text-content-secondary hover:bg-surface">
               <X size={16} />
             </button>
-            <button onClick={paste.onPaste} className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-primary text-on-primary">
+            <button
+              onClick={paste.onPaste}
+              className="px-3.5 py-2 rounded-xl text-[12px] font-semibold bg-primary text-on-primary"
+            >
               Paste
             </button>
           </>
@@ -94,11 +113,12 @@ export default function CommandBar({
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => onNavigate(tab.id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[12px] text-[12px] ${
+                  className={`relative flex-1 h-9 flex items-center justify-center gap-1.5 rounded-[10px] text-[12px] transition-colors ${
                     active
-                      ? 'bg-primary text-on-primary font-semibold'
+                      ? 'bg-primary-soft text-primary font-semibold'
                       : 'text-content-muted font-medium [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated'
                   }`}
                 >
@@ -106,24 +126,24 @@ export default function CommandBar({
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && (
                     <span
-                      className={`min-w-[18px] text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none tabular-nums ${
-                        active
-                          ? 'bg-base text-primary'
-                          : 'bg-elevated text-content-secondary'
+                      className={`min-w-[16px] h-4 px-1 grid place-items-center rounded-full text-[10px] font-semibold leading-none tabular-nums ${
+                        active ? 'bg-primary/20 text-primary' : 'bg-elevated text-content-secondary'
                       }`}
                     >
-                      {tab.badge}
+                      {tab.badge > 99 ? '99+' : tab.badge}
                     </span>
                   )}
                 </button>
               );
             })}
             <button
+              type="button"
               onClick={onSettings}
-              className="shrink-0 grid place-items-center size-10 rounded-[12px] text-content-muted [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated"
+              className="shrink-0 grid place-items-center size-9 rounded-[10px] text-content-muted [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated"
               title="Settings"
+              aria-label="Settings"
             >
-              <Settings size={17} />
+              <Settings size={16} strokeWidth={2} />
             </button>
           </>
         )}

@@ -305,6 +305,74 @@ button {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+
+.app-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  gap: 10px;
+}
+
+.app-masthead-brand {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.app-masthead-brand:active {
+  transform: scale(0.98);
+}
+
+.app-masthead-sep {
+  width: 1px;
+  height: 14px;
+  flex-shrink: 0;
+  background: var(--border-subtle);
+}
+
+.app-masthead-meta {
+  margin: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.youdo-wordmark {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+}
+
+.youdo-wordmark-text {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  margin-left: -6px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.youdo-wordmark-ou {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--text-secondary);
+}
+
+.youdo-wordmark-do {
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
 .quote-ticker {
   --quote-bg: color-mix(in srgb, var(--bg-surface) 92%, transparent);
   position: relative;
@@ -351,6 +419,10 @@ button {
   line-height: 1;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+
+.today-progress-strip .progress-track {
+  height: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -626,5 +698,20 @@ input[type='datetime-local'] {
 @supports (backdrop-filter: blur(12px)) {
   .glass-panel {
     background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  }
+}
+
+.command-dock {
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 8px 22px color-mix(in srgb, black 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+@supports (backdrop-filter: blur(14px)) {
+  .command-dock {
+    background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
   }
 }
