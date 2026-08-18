@@ -39,6 +39,7 @@ export default function TodayBriefingSheet({
   const confirmedRef = useRef(false);
   const [progress, setProgress] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
+  const [exiting, setExiting] = useState(false);
   const [knobAnimating, setKnobAnimating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [trackWidth, setTrackWidth] = useState(280);
@@ -83,8 +84,9 @@ export default function TodayBriefingSheet({
     confirmedRef.current = true;
     setKnobProgress(1);
     setConfirmed(true);
+    setExiting(true);
     hapticSuccess();
-    window.setTimeout(() => onDismiss(), 320);
+    window.setTimeout(() => onDismiss(), 480);
   }, [onDismiss, setKnobProgress]);
 
   const resetSlider = useCallback(() => {
@@ -94,7 +96,16 @@ export default function TodayBriefingSheet({
     setKnobAnimating(false);
     setKnobProgress(0);
     setConfirmed(false);
+    setExiting(false);
   }, [setKnobProgress]);
+
+  useEffect(() => {
+    if (!exiting) return;
+    const layer = document.querySelector('#overlay-root .overlay-layer') as HTMLElement | null;
+    if (!layer) return;
+    layer.style.transition = 'opacity 420ms cubic-bezier(0.4, 0, 0.2, 1)';
+    layer.style.opacity = '0';
+  }, [exiting]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -156,7 +167,10 @@ export default function TodayBriefingSheet({
 
   return (
     <Overlay open={open} scrim align="center">
-      <div className="panel sheet-up p-5 space-y-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`panel sheet-up p-5 space-y-4 w-full max-w-sm briefing-sheet ${exiting ? 'briefing-sheet--exit' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{dateLabel}</p>
           <h3 className="text-[17px] font-semibold text-content-primary mt-1">Today at a glance</h3>
@@ -267,39 +281,21 @@ export default function TodayBriefingSheet({
                 !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-label--idle' : ''
               }`}
               style={{
-                color: confirmed
-                  ? 'var(--primary-glow)'
-                  : glow > 0.55
+                color:
+                  glow > 0.55
                     ? 'var(--primary-glow)'
                     : 'color-mix(in srgb, var(--text-secondary) 82%, var(--primary-glow) 18%)',
-                opacity: confirmed
-                  ? 1
-                  : Math.max(0.28, 0.82 - progress * 0.72 + glow * 0.18),
-                textShadow: confirmed
-                  ? '0 0 16px color-mix(in srgb, var(--primary) 50%, transparent)'
-                  : glow > 0.4
+                opacity: Math.max(0.22, 0.82 - progress * 0.85 + glow * 0.12),
+                textShadow:
+                  glow > 0.4
                     ? `0 0 ${6 + glow * 10}px color-mix(in srgb, var(--primary) 30%, transparent)`
                     : '0 1px 0 color-mix(in srgb, black 18%, transparent)',
-                transition: 'color 200ms ease, opacity 200ms ease, text-shadow 200ms ease',
+                transition: 'color 220ms ease, opacity 220ms ease, text-shadow 220ms ease',
               }}
               aria-hidden
             >
-              {confirmed ? 'Done' : 'Got it!'}
+              Got it!
             </p>
-
-            <span
-              className={`briefing-slider-hints absolute right-3.5 top-1/2 -translate-y-1/2 z-[1] pointer-events-none flex items-center gap-0.5 ${
-                !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-hints--idle' : ''
-              }`}
-              style={{
-                opacity: Math.max(0, 0.55 - progress * 0.75),
-              }}
-              aria-hidden
-            >
-              <ChevronRight size={12} strokeWidth={2.5} className="text-content-muted opacity-50" />
-              <ChevronRight size={12} strokeWidth={2.5} className="text-content-muted opacity-75" />
-              <ChevronRight size={12} strokeWidth={2.5} className="text-primary/80" />
-            </span>
 
             <button
               type="button"
@@ -348,8 +344,11 @@ export default function TodayBriefingSheet({
               )}
             </button>
           </div>
-          <p className="mt-2 text-center text-[11px] text-content-muted tracking-wide">
-            {confirmed ? 'Opening Today…' : 'Slide to continue'}
+          <p
+            className="mt-2 text-center text-[11px] text-content-muted tracking-wide transition-opacity duration-300"
+            style={{ opacity: exiting ? 0 : 1 }}
+          >
+            Slide to continue
           </p>
         </div>
       </div>

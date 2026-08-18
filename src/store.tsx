@@ -25,6 +25,7 @@ import {
   pruneSessionHistoryBefore,
   SESSION_HISTORY_KEEP_MS,
 } from './lib/sessionStats';
+import { attachSessionNotificationActions, syncSessionNotification } from './lib/sessionNotification';
 import {
   clearRollupCache,
   cloneNode,
@@ -864,6 +865,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (existing?.taskId === taskId) return;
     if (existing) return;
 
+    const task = tasksRef.current.find((t) => t.id === taskId);
+    if (!task || isTaskComplete(task)) return;
+
     const now = Date.now();
     const session: ActiveSession = {
       taskId,
@@ -966,6 +970,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return tickActiveSession(prev, Date.now());
     });
   }, [setActiveSession]);
+
+  const pauseSessionRef = useRef(pauseSession);
+  pauseSessionRef.current = pauseSession;
+  const resumeSessionRef = useRef(resumeSession);
+  resumeSessionRef.current = resumeSession;
+
+  useEffect(() => {
+    let handle: { remove: () => Promise<void> } | undefined;
+    let cancelled = false;
+    void attachSessionNotificationActions({
+      onPause: () => pauseSessionRef.current(),
+      onResume: () => resumeSessionRef.current(),
+    }).then((h) => {
+      if (cancelled) {
+        void h?.remove();
+        return;
+      }
+      handle = h;
+    });
+    return () => {
+      cancelled = true;
+      void handle?.remove();
+    };
+  }, []);
+
+  const sessionTaskTitle = activeSession
+    ? tasks.find((t) => t.id === activeSession.taskId)?.title
+    : undefined;
+  useEffect(() => {
+    void syncSessionNotification(activeSession, sessionTaskTitle);
+  }, [activeSession, sessionTaskTitle, activeSession?.isPaused, activeSession?.taskId]);
 
   const completeSessionSteps = useCallback(
     (taskId: string, stepIndices: number[]) => {

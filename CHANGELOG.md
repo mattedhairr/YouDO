@@ -64,6 +64,26 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.6.0] — 2026-08-18 ("Pause from the shade")
+
+Focus sittings are easier to control when the phone is locked or the app is closed — pause from the notification shade, keep paused sittings paused, and stop with clearer save-or-discard choices.
+
+### 🚀 What you will notice
+- **Shade controls** — While a sitting runs, pull down the notification and tap **Pause** or **Resume** without opening the app.
+- **Paused stays paused** — If you paused before closing the app, reopening no longer auto-resumes or shows “I kept working.”
+- **Stop choices** — **Save progress** keeps focus time (and any steps you checked); **Discard sitting** throws the sitting away.
+- **No sittings on done tasks** — Completed tasks no longer offer **Start focus session**.
+- **Smoother glance** — Today's slide-to-continue drops the trailing chevrons and fades out cleanly into Today.
+
+### ⚙ Under the hood
+- Stale session recovery appears immediately on reopen (no wait on the clock check).
+- `@capacitor/local-notifications` with a quiet ongoing Focus channel on Android.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.6.0**, versionCode **17**. Same package id `com.mattedhairr.youdo` — install over **3.5.0** (16), **3.4.2** (14), and earlier. **versionCode 17 is required** for sideload install-over.
+
+---
+
 ## [v3.5.0] — 2026-08-18 ("Faster goals and a clearer open")
 
 Moving through a deep Goal Blueprint is quicker, session details match the rest of Daily Focus Stats, and app open no longer stacks Today's glance on top of an unfinished sitting.

@@ -423,7 +423,7 @@ export default function TaskCard({
                 <Square className="w-4 h-4 fill-current" />
                 Stop session
               </button>
-            ) : (
+            ) : !complete ? (
               <button
                 onClick={() => { setExpanded(false); hapticSessionStart(); onStartSession?.(task.id); }}
                 className="w-full py-3 px-4 rounded-[12px] btn-primary text-[13px] flex items-center justify-center gap-2"
@@ -431,7 +431,7 @@ export default function TaskCard({
                 <Play className="w-4 h-4 fill-current" />
                 Start focus session
               </button>
-            )}
+            ) : null}
 
             <div className="grid grid-cols-2 gap-2">
               <button

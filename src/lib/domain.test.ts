@@ -207,6 +207,22 @@ describe('session math', () => {
     expect(next.isPaused).toBe(false);
     expect(next.lastHeartbeat).toBe(now);
   });
+
+  it('does not unpause a sitting that was already paused', () => {
+    const paused = {
+      ...base,
+      isPaused: true,
+      pauseStart: base.startTime + 60_000,
+      lastHeartbeat: base.startTime + 60_000,
+      pauses: [{ start: base.startTime + 60_000, wallClockStart: '10:01 AM' }],
+    };
+    const later = paused.lastHeartbeat + STALE_HEARTBEAT_MS + 1;
+    expect(shouldOfferSessionRecovery(paused, later)).toBe(false);
+    const next = continueAfterInterruption(paused, later);
+    expect(next.isPaused).toBe(true);
+    expect(next.pauseStart).toBe(paused.pauseStart);
+    expect(next.lastHeartbeat).toBe(later);
+  });
 });
 
 describe('goal tree', () => {

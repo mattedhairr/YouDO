@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, AlertCircle, X, Check, Clock } from 'lucide-react';
+import { X, Check, Clock, Trash2 } from 'lucide-react';
 import Overlay from './Overlay';
 import type { Task } from '../types';
 
@@ -7,11 +7,13 @@ interface Props {
   open: boolean;
   task: Task;
   onConfirm: (outcome: { completed: boolean | 'partial'; completedStepIndices: number[] }) => void;
+  onDiscard: () => void;
   onCancel: () => void;
 }
 
-export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
+export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }: Props) {
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
+  const [markTaskDone, setMarkTaskDone] = useState(false);
 
   if (!open) return null;
 
@@ -23,18 +25,15 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
     );
   };
 
-  const handleOutcome = (outcome: boolean | 'partial') => {
-    if (outcome === true && hasSteps) {
-      const allIndices = task.steps.map((_, i) => i);
-      onConfirm({ completed: true, completedStepIndices: allIndices });
-    } else if (outcome === false) {
-      onConfirm({ completed: false, completedStepIndices: [] });
-    } else {
-      onConfirm({ completed: outcome, completedStepIndices: selectedSteps });
+  const handleSaveProgress = () => {
+    if (!hasSteps) {
+      onConfirm({
+        completed: markTaskDone,
+        completedStepIndices: [],
+      });
+      return;
     }
-  };
 
-  const handleSaveStepsProgress = () => {
     const already = task.progress;
     const resulting = new Set<number>([
       ...Array.from({ length: already }, (_, i) => i),
@@ -49,15 +48,14 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
   return (
     <Overlay open={open} onClose={onCancel} align="bottom">
       <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[85vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-subtle">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-primary-soft border border-primary flex items-center justify-center text-primary">
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-content-primary">Session Completed</h3>
-              <p className="text-xs text-content-secondary">How did it go?</p>
+              <h3 className="text-sm font-bold text-content-primary">End sitting</h3>
+              <p className="text-xs text-content-secondary">Save focus time, or discard this sitting</p>
             </div>
           </div>
           <button
@@ -68,16 +66,14 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
           </button>
         </div>
 
-        {/* Task Title */}
         <p className="text-sm font-semibold text-content-primary mb-4 bg-surface p-3 rounded-xl border border-subtle">
           {task.title}
         </p>
 
-        {/* Micro-steps Checklist (if any exist) */}
-        {hasSteps && (
+        {hasSteps ? (
           <div className="mb-5">
             <label className="block text-xs font-semibold text-content-secondary mb-2">
-              Select steps completed during this session:
+              Steps done in this sitting (optional)
             </label>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {task.steps.map((step, idx) => {
@@ -110,36 +106,51 @@ export function SessionStopDialog({ open, task, onConfirm, onCancel }: Props) {
               })}
             </div>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMarkTaskDone((v) => !v)}
+            className={`w-full mb-5 flex items-center justify-between p-2.5 rounded-xl text-xs text-left transition border ${
+              markTaskDone
+                ? 'bg-primary-soft border-primary text-content-primary'
+                : 'bg-surface border-subtle text-content-secondary'
+            }`}
+          >
+            <span>Mark task done</span>
+            <div
+              className={`w-5 h-5 rounded-lg flex items-center justify-center border transition ${
+                markTaskDone ? 'bg-primary border-primary text-on-primary' : 'border-2 border-[color:var(--text-muted)]'
+              }`}
+            >
+              {markTaskDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+            </div>
+          </button>
         )}
 
-        {/* Outcome Action Buttons */}
-        {hasSteps ? (
+        <div className="flex flex-col gap-2">
           <button
-            onClick={handleSaveStepsProgress}
+            onClick={handleSaveProgress}
             className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
           >
-            <CheckCircle2 className="w-5 h-5" />
-            Save Progress
+            <Clock className="w-5 h-5" />
+            Save progress
           </button>
-        ) : (
-          <div className="grid grid-cols-2 gap-2.5 pt-2">
-            <button
-              onClick={() => handleOutcome(true)}
-              className="py-3 px-2 rounded-xl bg-secondary/10 border border-secondary/30 hover:bg-secondary/20 text-secondary text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
-            >
-              <CheckCircle2 className="w-4 h-4 text-secondary" />
-              Completed
-            </button>
+          <p className="text-[11px] text-content-muted text-center -mt-1 mb-1">
+            {hasSteps
+              ? 'Keeps focus time. Completes the task only if every step is done.'
+              : markTaskDone
+                ? 'Keeps focus time and marks the task done.'
+                : 'Keeps focus time. Task stays open.'}
+          </p>
 
-            <button
-              onClick={() => handleOutcome(false)}
-              className="py-3 px-2 rounded-xl bg-surface border border-subtle hover:bg-elevated text-content-secondary text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
-            >
-              <AlertCircle className="w-4 h-4 text-content-secondary" />
-              Not Done
-            </button>
-          </div>
-        )}
+          <button
+            onClick={onDiscard}
+            className="w-full py-3 rounded-xl text-content-secondary text-sm font-medium flex items-center justify-center gap-2 hover:text-error"
+          >
+            <Trash2 className="w-4 h-4" />
+            Discard sitting
+          </button>
+        </div>
       </div>
     </Overlay>
   );

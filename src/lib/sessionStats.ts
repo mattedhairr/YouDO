@@ -60,6 +60,7 @@ export function lastResumeAt(session: ActiveSession): number {
 }
 
 export function shouldOfferSessionRecovery(session: ActiveSession, now: number): boolean {
+  if (session.isPaused) return false;
   if (!session.lastHeartbeat) return false;
   return now - session.lastHeartbeat > STALE_HEARTBEAT_MS;
 }
@@ -104,31 +105,18 @@ export function tickActiveSession(session: ActiveSession, now: number): ActiveSe
   return { ...session, lastHeartbeat: now };
 }
 
-/** Phone aside / screen off — keep counting. Closes an open pause so lock time is not lost. */
+/**
+ * Phone aside / screen off — keep counting.
+ * If the sitting was already paused, stay paused (away time stays pause, not focus).
+ */
 export function continueAfterInterruption(session: ActiveSession, now: number): ActiveSession {
-  let pausedDuration = session.pausedDuration;
-  let pauses = session.pauses;
-  if (session.isPaused && session.pauseStart) {
-    const closeAt = Math.min(now, Math.max(session.pauseStart, session.lastHeartbeat || session.pauseStart));
-    const dur = Math.max(0, closeAt - session.pauseStart);
-    pausedDuration += dur;
-    pauses = session.pauses.map((p, i) =>
-      i === session.pauses.length - 1 && !p.end
-        ? {
-            ...p,
-            end: closeAt,
-            wallClockEnd: formatWallClock(closeAt),
-            durationMs: dur,
-          }
-        : p,
-    );
+  if (session.isPaused) {
+    return { ...session, lastHeartbeat: now };
   }
   return {
     ...session,
     isPaused: false,
     pauseStart: undefined,
-    pausedDuration,
-    pauses,
     lastHeartbeat: now,
     returnedAt: now,
   };
