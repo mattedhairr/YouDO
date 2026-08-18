@@ -387,14 +387,36 @@ function AppInner() {
       return MOTIVATIONAL_QUOTES[idx];
     });
 
-  // Open Today's glance before paint when there is no stored session (no clock wait).
+  // Open Today's glance before paint when there is no stored session.
+  // If a sitting is already paused, skip recovery — the user paused on purpose.
+  // If a running sitting is stale, show recovery immediately (do not wait on the clock check).
   useLayoutEffect(() => {
     if (briefingPromptedRef.current) return;
     if (!hasSeenHelp || helpOpen) return;
-    if (activeSession) return;
     if (recoverySessionPrompt || reconstructOpen) return;
+
+    if (!activeSession) {
+      briefingPromptedRef.current = true;
+      setBriefingOpen(true);
+      setSessionBootHold(false);
+      return;
+    }
+
+    if (activeSession.isPaused) {
+      briefingPromptedRef.current = true;
+      setSessionBootHold(false);
+      return;
+    }
+
+    if (shouldOfferSessionRecovery(activeSession, Date.now())) {
+      briefingPromptedRef.current = true;
+      setBriefingOpen(false);
+      setRecoverySessionPrompt(true);
+      setSessionBootHold(false);
+      return;
+    }
+
     briefingPromptedRef.current = true;
-    setBriefingOpen(true);
     setSessionBootHold(false);
   }, [hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt, reconstructOpen]);
 
@@ -412,12 +434,16 @@ function AppInner() {
         return;
       }
       if (document.visibilityState !== 'visible') return;
+      if (session.isPaused) {
+        briefingPromptedRef.current = true;
+        setSessionBootHold(false);
+        return;
+      }
       if (shouldOfferSessionRecovery(session, Date.now())) {
         briefingPromptedRef.current = true;
         setBriefingOpen(false);
         setRecoverySessionPrompt(true);
       } else if (!briefingPromptedRef.current && hasSeenHelp && !helpOpen) {
-        // Fresh/active sitting — skip glance for this open.
         briefingPromptedRef.current = true;
       }
       setSessionBootHold(false);
@@ -428,7 +454,7 @@ function AppInner() {
     return () => document.removeEventListener('visibilitychange', offerRecoveryIfStale);
     // Heartbeat mutates activeSession; taskId is the sitting identity we care about.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clockReady, clockBlocked, activeSession?.taskId, hasSeenHelp, helpOpen]);
+  }, [clockReady, clockBlocked, activeSession?.taskId, activeSession?.isPaused, hasSeenHelp, helpOpen]);
 
   useEffect(() => {
     if (!clockBlocked) return;
@@ -438,6 +464,12 @@ function AppInner() {
     setStopDialogTask(null);
     setSessionBootHold(false);
   }, [clockBlocked]);
+
+  useEffect(() => {
+    if (!activeSession?.isPaused) return;
+    setRecoverySessionPrompt(false);
+    setSessionBootHold(false);
+  }, [activeSession?.isPaused]);
 
   useEffect(() => {
     const initStatusBar = async () => {
@@ -1239,6 +1271,12 @@ function AppInner() {
           open={!!stopDialogTask}
           task={stopDialogTask}
           onCancel={() => setStopDialogTask(null)}
+          onDiscard={() => {
+            discardSession();
+            setStopDialogTask(null);
+            setRecoverySessionPrompt(false);
+            setReconstructOpen(false);
+          }}
           onConfirm={(outcome) => {
             stopSession(outcome);
             if (outcome.completed === true || (outcome.completedStepIndices?.length ?? 0) > 0) {
@@ -1315,7 +1353,7 @@ function AppInner() {
       <AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} />
 
       {/* ── Session Crash Recovery Dialog ── */}
-      {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && (
+      {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && !activeSession.isPaused && (
         <Overlay open align="center">
           <div className="panel sheet-up p-5 space-y-4">
             <div className="flex items-center gap-2 text-primary font-semibold text-sm">
