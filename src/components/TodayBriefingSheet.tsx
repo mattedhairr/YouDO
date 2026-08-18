@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, CheckCircle2, ListTodo, Flame, ChevronRight } from 'lucide-react';
+import { CalendarDays, Check, CheckCircle2, ListTodo, Flame, ChevronRight } from 'lucide-react';
 import Overlay from './Overlay';
 import type { Task, TaskSession } from '../types';
 import { isTaskComplete } from '../store';
@@ -25,6 +25,81 @@ const THUMB_PX = 40;
 const TRACK_PAD = 6;
 const TRACK_H = 52;
 
+/** One short, practical read of the day — numbers first, then what to do. */
+function buildDayRead(opts: {
+  remaining: number;
+  todayDone: number;
+  scheduledTotal: number;
+  openBacklogCount: number;
+  openBacklogDateCount: number;
+  todayFocusMs: number;
+  nextTitle: string | null;
+}): string {
+  const {
+    remaining,
+    todayDone,
+    scheduledTotal,
+    openBacklogCount,
+    openBacklogDateCount,
+    todayFocusMs,
+    nextTitle,
+  } = opts;
+  const focusLabel = formatDuration(todayFocusMs);
+  const hasFocus = todayFocusMs >= 60_000;
+  const backlogNote =
+    openBacklogCount === 0
+      ? null
+      : openBacklogDateCount > 1
+        ? `${openBacklogCount} backlog over ${openBacklogDateCount} days`
+        : `${openBacklogCount} backlog`;
+
+  if (scheduledTotal === 0 && openBacklogCount === 0) {
+    return 'Nothing scheduled and no backlog. Add something from Goals when you’re ready.';
+  }
+
+  if (scheduledTotal > 0 && todayDone >= scheduledTotal && openBacklogCount === 0) {
+    return hasFocus
+      ? `All ${scheduledTotal} scheduled done · ${focusLabel} focused. You’re clear for the rest of the day.`
+      : `All ${scheduledTotal} scheduled done. You’re clear — optionally plan tomorrow from Goals.`;
+  }
+
+  if (scheduledTotal > 0 && todayDone >= scheduledTotal && openBacklogCount > 0) {
+    return `Today’s list is finished (${todayDone}/${scheduledTotal}). ${backlogNote} still open — pull one onto today only if you have energy left.`;
+  }
+
+  if (remaining === 0 && openBacklogCount > 0) {
+    return `No tasks on today, but ${backlogNote}. Schedule one from Backlog so you have a clear first move.`;
+  }
+
+  if (remaining > 0 && todayDone === 0 && !hasFocus) {
+    const start = nextTitle ? `Start with “${nextTitle}”` : 'Start any open task';
+    return backlogNote
+      ? `${remaining} open of ${scheduledTotal} · 0 done · ${backlogNote}. ${start} — finish today’s list before backlog.`
+      : `${remaining} open of ${scheduledTotal} · nothing done yet. ${start} and run one focus session.`;
+  }
+
+  if (remaining > 0 && todayDone === 0 && hasFocus) {
+    const tip = nextTitle
+      ? `Turn that into a checkmark on “${nextTitle}”.`
+      : 'Turn that into a checkmark on an open task.';
+    return `${focusLabel} focused, still 0/${scheduledTotal} done (${remaining} open). ${tip}`;
+  }
+
+  if (remaining > 0 && todayDone > 0) {
+    const pct = Math.round((todayDone / scheduledTotal) * 100);
+    const tip = nextTitle ? `Next: “${nextTitle}”.` : 'Keep going on the next open task.';
+    const focusBit = hasFocus ? ` · ${focusLabel} focused` : '';
+    const backlogBit = backlogNote ? ` Leave ${backlogNote} for after.` : '';
+    return `${todayDone}/${scheduledTotal} done (${pct}%)${focusBit} · ${remaining} left. ${tip}${backlogBit}`;
+  }
+
+  if (hasFocus) {
+    return `${focusLabel} focused today. ${remaining > 0 ? `${remaining} still open — keep one more block going.` : 'Nice steady work.'}`;
+  }
+
+  return 'Check the numbers above, pick one open task, and start a focus session.';
+}
+
 export default function TodayBriefingSheet({
   open,
   todayTasks,
@@ -41,6 +116,7 @@ export default function TodayBriefingSheet({
   const [progress, setProgress] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
   const [knobAnimating, setKnobAnimating] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [trackWidth, setTrackWidth] = useState(280);
 
   const todayStr = localISODate(new Date());
@@ -72,10 +148,28 @@ export default function TodayBriefingSheet({
     return `${openTodayCount} on today · ${openBacklogCount} in backlog.`;
   }, [openTodayCount, openBacklogCount]);
 
-  const previewTitles = useMemo(
-    () => todayTasks.filter((t) => !isTaskComplete(t)).slice(0, 3).map((t) => t.title),
-    [todayTasks],
-  );
+  const dayRead = useMemo(() => {
+    const nextTitle = todayTasks.find((t) => !isTaskComplete(t))?.title ?? null;
+    return buildDayRead({
+      remaining: openTodayCount,
+      todayDone,
+      scheduledTotal: todayTasks.length,
+      openBacklogCount,
+      openBacklogDateCount,
+      todayFocusMs,
+      nextTitle,
+    });
+  }, [
+    openTodayCount,
+    todayDone,
+    todayTasks,
+    openBacklogCount,
+    openBacklogDateCount,
+    todayFocusMs,
+  ]);
+
+  const showDayRead =
+    openTodayCount > 0 || openBacklogCount > 0 || todayDone > 0 || todayFocusMs > 0 || todayTasks.length > 0;
 
   const maxTravel = Math.max(0, trackWidth - THUMB_PX - TRACK_PAD * 2);
 
@@ -95,6 +189,7 @@ export default function TodayBriefingSheet({
   const resetSlider = useCallback(() => {
     confirmedRef.current = false;
     dragging.current = false;
+    setIsDragging(false);
     setKnobAnimating(false);
     setKnobProgress(0);
     setConfirmed(false);
@@ -122,6 +217,7 @@ export default function TodayBriefingSheet({
   const onPointerDown = (e: React.PointerEvent) => {
     if (confirmedRef.current) return;
     dragging.current = true;
+    setIsDragging(true);
     setKnobAnimating(false);
     hapticTap();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -136,6 +232,7 @@ export default function TodayBriefingSheet({
   const onPointerUp = (e: React.PointerEvent) => {
     if (!dragging.current) return;
     dragging.current = false;
+    setIsDragging(false);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -208,27 +305,33 @@ export default function TodayBriefingSheet({
           </div>
         </div>
 
-        {previewTitles.length > 0 && (
-          <div className="bg-elevated border border-subtle rounded-[12px] p-3 space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Up next</p>
-            {previewTitles.map((title) => (
-              <p key={title} className="text-[12px] text-content-primary truncate">
-                · {title}
-              </p>
-            ))}
-            {openTodayCount > previewTitles.length && (
-              <p className="text-[11px] text-content-muted">
-                +{openTodayCount - previewTitles.length} more
-              </p>
-            )}
+        {showDayRead && (
+          <div className="bg-elevated border border-subtle rounded-[12px] p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted mb-1.5">
+              Takeaway
+            </p>
+            <p className="text-[13px] text-content-primary leading-relaxed">{dayRead}</p>
           </div>
         )}
 
         <div className="pt-3">
           <div
             ref={trackRef}
-            className="briefing-slider relative overflow-hidden rounded-[999px] border border-subtle select-none touch-none"
-            style={{ height: TRACK_H }}
+            className={`briefing-slider relative overflow-hidden rounded-[999px] border select-none touch-none ${
+              confirmed
+                ? 'border-primary/50 briefing-slider--done'
+                : isDragging
+                  ? 'border-primary/35'
+                  : 'border-subtle'
+            }`}
+            style={{
+              height: TRACK_H,
+              boxShadow: confirmed
+                ? '0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent), 0 8px 28px color-mix(in srgb, var(--primary) 18%, transparent)'
+                : isDragging
+                  ? '0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent), 0 6px 20px color-mix(in srgb, black 22%, transparent)'
+                  : 'inset 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent)',
+            }}
             role="slider"
             aria-valuemin={0}
             aria-valuemax={100}
@@ -240,55 +343,75 @@ export default function TodayBriefingSheet({
               className="absolute inset-0 pointer-events-none"
               style={{
                 background:
-                  'linear-gradient(180deg, color-mix(in srgb, var(--bg-base) 55%, var(--bg-surface)), color-mix(in srgb, var(--bg-surface) 92%, var(--bg-base)))',
+                  'linear-gradient(180deg, color-mix(in srgb, var(--bg-base) 58%, var(--bg-surface)), color-mix(in srgb, var(--bg-surface) 90%, var(--bg-base)))',
                 boxShadow:
-                  'inset 0 2px 5px color-mix(in srgb, black 28%, transparent), inset 0 1px 0 color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                  'inset 0 2px 6px color-mix(in srgb, black 30%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent)',
               }}
             />
+
+            {/* Soft idle sheen */}
+            {!isDragging && !confirmed && progress < 0.08 && (
+              <div className="briefing-slider-sheen pointer-events-none" aria-hidden />
+            )}
 
             {/* Progress wash */}
             <div
-              className="absolute inset-y-[5px] left-[5px] rounded-[999px] pointer-events-none transition-[width,opacity] duration-150"
+              className={`absolute inset-y-[5px] left-[5px] rounded-[999px] pointer-events-none ${
+                knobAnimating && !isDragging ? 'transition-[width,opacity,box-shadow] duration-300 ease-out' : ''
+              }`}
               style={{
                 width: `${THUMB_PX + TRACK_PAD + progress * maxTravel}px`,
                 maxWidth: `calc(100% - 10px)`,
-                background:
-                  'linear-gradient(90deg, color-mix(in srgb, var(--primary) 28%, transparent) 0%, color-mix(in srgb, var(--primary-glow) 14%, transparent) 70%, transparent 100%)',
-                opacity: 0.55 + glow * 0.4,
-                boxShadow: glow > 0.45 ? '0 0 20px color-mix(in srgb, var(--primary) 22%, transparent)' : undefined,
+                background: confirmed
+                  ? 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 42%, transparent), color-mix(in srgb, var(--primary-glow) 28%, transparent))'
+                  : 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 32%, transparent) 0%, color-mix(in srgb, var(--primary-glow) 16%, transparent) 72%, transparent 100%)',
+                opacity: 0.5 + glow * 0.5,
+                boxShadow:
+                  glow > 0.4
+                    ? `0 0 ${14 + glow * 16}px color-mix(in srgb, var(--primary) ${18 + glow * 18}%, transparent)`
+                    : undefined,
               }}
             />
 
-            {/* Label — true centre of track */}
+            {/* Label with shimmer mask when idle */}
             <p
-              className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 text-[18px] font-semibold tracking-[0.06em] leading-none pointer-events-none whitespace-nowrap transition-[color,opacity,text-shadow] duration-300"
+              className={`briefing-slider-label absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 text-[17px] font-semibold tracking-[0.07em] leading-none pointer-events-none whitespace-nowrap ${
+                !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-label--idle' : ''
+              }`}
               style={{
-                color:
-                  glow > 0.55
+                color: confirmed
+                  ? 'var(--primary-glow)'
+                  : glow > 0.55
                     ? 'var(--primary-glow)'
-                    : `color-mix(in srgb, var(--text-secondary) 88%, var(--primary-glow) 12%)`,
-                opacity: Math.max(0.35, 0.78 - progress * 0.55 + glow * 0.22),
+                    : 'color-mix(in srgb, var(--text-secondary) 82%, var(--primary-glow) 18%)',
+                opacity: confirmed
+                  ? 1
+                  : Math.max(0.28, 0.82 - progress * 0.72 + glow * 0.18),
                 textShadow: confirmed
-                  ? '0 0 14px color-mix(in srgb, var(--primary) 55%, transparent), 0 0 28px color-mix(in srgb, var(--primary-glow) 30%, transparent)'
-                  : glow > 0.35
-                    ? `0 0 ${8 + glow * 8}px color-mix(in srgb, var(--primary) 35%, transparent)`
-                    : '0 1px 0 color-mix(in srgb, black 20%, transparent)',
+                  ? '0 0 16px color-mix(in srgb, var(--primary) 50%, transparent)'
+                  : glow > 0.4
+                    ? `0 0 ${6 + glow * 10}px color-mix(in srgb, var(--primary) 30%, transparent)`
+                    : '0 1px 0 color-mix(in srgb, black 18%, transparent)',
+                transition: 'color 200ms ease, opacity 200ms ease, text-shadow 200ms ease',
               }}
               aria-hidden
             >
-              Got it!
+              {confirmed ? 'Done' : 'Got it!'}
             </p>
 
-            {/* Trailing hint */}
+            {/* Trailing chevron hints */}
             <span
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-[1] pointer-events-none text-[11px] font-bold tracking-widest transition-opacity duration-300"
+              className={`briefing-slider-hints absolute right-3.5 top-1/2 -translate-y-1/2 z-[1] pointer-events-none flex items-center gap-0.5 ${
+                !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-hints--idle' : ''
+              }`}
               style={{
-                color: 'color-mix(in srgb, var(--text-muted) 70%, var(--primary) 30%)',
-                opacity: Math.max(0.15, 0.45 - progress * 0.5),
+                opacity: Math.max(0, 0.55 - progress * 0.75),
               }}
               aria-hidden
             >
-              ››
+              <ChevronRight size={12} strokeWidth={2.5} className="text-content-muted opacity-50" />
+              <ChevronRight size={12} strokeWidth={2.5} className="text-content-muted opacity-75" />
+              <ChevronRight size={12} strokeWidth={2.5} className="text-primary/80" />
             </span>
 
             <button
@@ -297,34 +420,50 @@ export default function TodayBriefingSheet({
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
-              className={`briefing-slider-knob absolute top-1/2 z-[2] flex items-center justify-center rounded-full touch-none will-change-transform active:scale-[0.98] ${
-                knobAnimating && !dragging.current ? 'transition-transform duration-300 ease-out' : ''
-              }`}
+              className={`briefing-slider-knob absolute top-1/2 z-[2] flex items-center justify-center rounded-full touch-none will-change-transform ${
+                knobAnimating && !isDragging ? 'briefing-slider-knob--snap' : ''
+              } ${confirmed ? 'briefing-slider-knob--done' : ''} ${isDragging ? 'briefing-slider-knob--drag' : ''}`}
               style={{
                 width: THUMB_PX,
                 height: THUMB_PX,
                 left: TRACK_PAD,
-                transform: `translate(${progress * maxTravel}px, -50%)`,
+                transform: `translate3d(${progress * maxTravel}px, -50%, 0) scale(${
+                  confirmed ? 1.06 : isDragging ? 1.08 : 1
+                })`,
               }}
               aria-label="Got it"
             >
               <span
-                className="pointer-events-none absolute inset-0 rounded-full"
+                className="pointer-events-none absolute inset-0 rounded-full briefing-slider-knob-face"
                 style={{
-                  background:
-                    'linear-gradient(165deg, color-mix(in srgb, var(--primary-glow) 95%, white) 0%, var(--primary) 48%, color-mix(in srgb, var(--primary) 85%, black) 100%)',
+                  background: confirmed
+                    ? 'linear-gradient(165deg, color-mix(in srgb, var(--secondary) 70%, white) 0%, var(--secondary) 55%, color-mix(in srgb, var(--secondary) 80%, black) 100%)'
+                    : 'linear-gradient(165deg, color-mix(in srgb, var(--primary-glow) 95%, white) 0%, var(--primary) 48%, color-mix(in srgb, var(--primary) 85%, black) 100%)',
                   boxShadow: confirmed
-                    ? '0 0 0 1px color-mix(in srgb, var(--primary-glow) 70%, transparent), 0 4px 18px color-mix(in srgb, var(--primary) 45%, transparent), inset 0 1px 0 color-mix(in srgb, white 35%, transparent)'
-                    : '0 2px 8px color-mix(in srgb, black 32%, transparent), 0 0 0 1px color-mix(in srgb, var(--primary-glow) 35%, transparent), inset 0 1px 0 color-mix(in srgb, white 30%, transparent)',
+                    ? '0 0 0 1px color-mix(in srgb, var(--secondary) 55%, transparent), 0 6px 20px color-mix(in srgb, var(--secondary) 35%, transparent), inset 0 1px 0 color-mix(in srgb, white 35%, transparent)'
+                    : isDragging
+                      ? '0 0 0 1px color-mix(in srgb, var(--primary-glow) 55%, transparent), 0 6px 22px color-mix(in srgb, var(--primary) 40%, transparent), inset 0 1px 0 color-mix(in srgb, white 35%, transparent)'
+                      : '0 2px 10px color-mix(in srgb, black 34%, transparent), 0 0 0 1px color-mix(in srgb, var(--primary-glow) 35%, transparent), inset 0 1px 0 color-mix(in srgb, white 30%, transparent)',
                 }}
               />
-              <ChevronRight
-                size={20}
-                strokeWidth={2.5}
-                className="relative z-[1] text-on-primary drop-shadow-[0_1px_0_color-mix(in_srgb,black_25%,transparent)]"
-              />
+              {confirmed ? (
+                <Check
+                  size={18}
+                  strokeWidth={2.75}
+                  className="relative z-[1] text-on-primary drop-shadow-[0_1px_0_color-mix(in_srgb,black_25%,transparent)]"
+                />
+              ) : (
+                <ChevronRight
+                  size={20}
+                  strokeWidth={2.5}
+                  className="relative z-[1] text-on-primary drop-shadow-[0_1px_0_color-mix(in_srgb,black_25%,transparent)]"
+                />
+              )}
             </button>
           </div>
+          <p className="mt-2 text-center text-[11px] text-content-muted tracking-wide">
+            {confirmed ? 'Opening Today…' : 'Slide to continue'}
+          </p>
         </div>
       </div>
     </Overlay>
