@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clock, Cloud } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
@@ -181,7 +181,8 @@ function AppInner() {
   const firstHelpRef = useRef(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const briefingPromptedRef = useRef(false);
-  const [briefingGateReady, setBriefingGateReady] = useState(false);
+  /** Opaque hold while a stored session waits for the recovery check (avoids Today flash). */
+  const [sessionBootHold, setSessionBootHold] = useState(() => Boolean(activeSession));
   const [cloudHint, setCloudHint] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -386,13 +387,28 @@ function AppInner() {
       return MOTIVATIONAL_QUOTES[idx];
     });
 
+  // Open Today's glance before paint when there is no stored session (no clock wait).
+  useLayoutEffect(() => {
+    if (briefingPromptedRef.current) return;
+    if (!hasSeenHelp || helpOpen) return;
+    if (activeSession) return;
+    if (recoverySessionPrompt || reconstructOpen) return;
+    briefingPromptedRef.current = true;
+    setBriefingOpen(true);
+    setSessionBootHold(false);
+  }, [hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt, reconstructOpen]);
+
   useEffect(() => {
+    if (!activeSession) {
+      setSessionBootHold(false);
+      return;
+    }
     if (!clockReady) return;
 
     const offerRecoveryIfStale = () => {
       const session = activeSessionRef.current;
       if (!session) {
-        setBriefingGateReady(true);
+        setSessionBootHold(false);
         return;
       }
       if (document.visibilityState !== 'visible') return;
@@ -400,21 +416,19 @@ function AppInner() {
         briefingPromptedRef.current = true;
         setBriefingOpen(false);
         setRecoverySessionPrompt(true);
+      } else if (!briefingPromptedRef.current && hasSeenHelp && !helpOpen) {
+        // Fresh/active sitting — skip glance for this open.
+        briefingPromptedRef.current = true;
       }
-      setBriefingGateReady(true);
+      setSessionBootHold(false);
     };
 
-    if (!activeSession) {
-      setBriefingGateReady(true);
-    } else {
-      offerRecoveryIfStale();
-    }
-
+    offerRecoveryIfStale();
     document.addEventListener('visibilitychange', offerRecoveryIfStale);
     return () => document.removeEventListener('visibilitychange', offerRecoveryIfStale);
     // Heartbeat mutates activeSession; taskId is the sitting identity we care about.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clockReady, clockBlocked, activeSession?.taskId]);
+  }, [clockReady, clockBlocked, activeSession?.taskId, hasSeenHelp, helpOpen]);
 
   useEffect(() => {
     if (!clockBlocked) return;
@@ -422,6 +436,7 @@ function AppInner() {
     setRecoverySessionPrompt(false);
     setReconstructOpen(false);
     setStopDialogTask(null);
+    setSessionBootHold(false);
   }, [clockBlocked]);
 
   useEffect(() => {
@@ -720,15 +735,6 @@ function AppInner() {
   }, [hasSeenHelp, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
 
   useEffect(() => {
-    if (!briefingGateReady) return;
-    if (!hasSeenHelp || helpOpen || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
-    if (briefingPromptedRef.current) return;
-    if (activeSession) return;
-    briefingPromptedRef.current = true;
-    setBriefingOpen(true);
-  }, [briefingGateReady, hasSeenHelp, helpOpen, recoverySessionPrompt, reconstructOpen, briefingOpen, activeSession]);
-
-  useEffect(() => {
     if (!cloudHint) return;
     const id = window.setTimeout(() => setCloudHint(null), 4000);
     return () => window.clearTimeout(id);
@@ -736,6 +742,12 @@ function AppInner() {
 
   return (
     <div className="min-h-screen">
+      {sessionBootHold && (
+        <div
+          className="fixed inset-0 z-[2000] bg-base"
+          aria-hidden
+        />
+      )}
       <div
         className="app-frame relative min-h-screen w-full max-w-md mx-auto px-4 pb-28"
         onTouchStart={onTouchStart}

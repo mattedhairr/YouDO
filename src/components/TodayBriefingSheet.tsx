@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { CalendarDays, Check, CheckCircle2, ListTodo, Flame, ChevronRight } from 'lucide-react';
 import Overlay from './Overlay';
 import type { Task, TaskSession } from '../types';
-import { isTaskComplete } from '../store';
 import { formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
 import { hapticSuccess, hapticTap } from '../lib/haptics';
@@ -24,81 +23,6 @@ const UNLOCK_THRESHOLD = 0.92;
 const THUMB_PX = 40;
 const TRACK_PAD = 6;
 const TRACK_H = 52;
-
-/** One short, practical read of the day — numbers first, then what to do. */
-function buildDayRead(opts: {
-  remaining: number;
-  todayDone: number;
-  scheduledTotal: number;
-  openBacklogCount: number;
-  openBacklogDateCount: number;
-  todayFocusMs: number;
-  nextTitle: string | null;
-}): string {
-  const {
-    remaining,
-    todayDone,
-    scheduledTotal,
-    openBacklogCount,
-    openBacklogDateCount,
-    todayFocusMs,
-    nextTitle,
-  } = opts;
-  const focusLabel = formatDuration(todayFocusMs);
-  const hasFocus = todayFocusMs >= 60_000;
-  const backlogNote =
-    openBacklogCount === 0
-      ? null
-      : openBacklogDateCount > 1
-        ? `${openBacklogCount} backlog over ${openBacklogDateCount} days`
-        : `${openBacklogCount} backlog`;
-
-  if (scheduledTotal === 0 && openBacklogCount === 0) {
-    return 'Nothing scheduled and no backlog. Add something from Goals when you’re ready.';
-  }
-
-  if (scheduledTotal > 0 && todayDone >= scheduledTotal && openBacklogCount === 0) {
-    return hasFocus
-      ? `All ${scheduledTotal} scheduled done · ${focusLabel} focused. You’re clear for the rest of the day.`
-      : `All ${scheduledTotal} scheduled done. You’re clear — optionally plan tomorrow from Goals.`;
-  }
-
-  if (scheduledTotal > 0 && todayDone >= scheduledTotal && openBacklogCount > 0) {
-    return `Today’s list is finished (${todayDone}/${scheduledTotal}). ${backlogNote} still open — pull one onto today only if you have energy left.`;
-  }
-
-  if (remaining === 0 && openBacklogCount > 0) {
-    return `No tasks on today, but ${backlogNote}. Schedule one from Backlog so you have a clear first move.`;
-  }
-
-  if (remaining > 0 && todayDone === 0 && !hasFocus) {
-    const start = nextTitle ? `Start with “${nextTitle}”` : 'Start any open task';
-    return backlogNote
-      ? `${remaining} open of ${scheduledTotal} · 0 done · ${backlogNote}. ${start} — finish today’s list before backlog.`
-      : `${remaining} open of ${scheduledTotal} · nothing done yet. ${start} and run one focus session.`;
-  }
-
-  if (remaining > 0 && todayDone === 0 && hasFocus) {
-    const tip = nextTitle
-      ? `Turn that into a checkmark on “${nextTitle}”.`
-      : 'Turn that into a checkmark on an open task.';
-    return `${focusLabel} focused, still 0/${scheduledTotal} done (${remaining} open). ${tip}`;
-  }
-
-  if (remaining > 0 && todayDone > 0) {
-    const pct = Math.round((todayDone / scheduledTotal) * 100);
-    const tip = nextTitle ? `Next: “${nextTitle}”.` : 'Keep going on the next open task.';
-    const focusBit = hasFocus ? ` · ${focusLabel} focused` : '';
-    const backlogBit = backlogNote ? ` Leave ${backlogNote} for after.` : '';
-    return `${todayDone}/${scheduledTotal} done (${pct}%)${focusBit} · ${remaining} left. ${tip}${backlogBit}`;
-  }
-
-  if (hasFocus) {
-    return `${focusLabel} focused today. ${remaining > 0 ? `${remaining} still open — keep one more block going.` : 'Nice steady work.'}`;
-  }
-
-  return 'Check the numbers above, pick one open task, and start a focus session.';
-}
 
 export default function TodayBriefingSheet({
   open,
@@ -147,29 +71,6 @@ export default function TodayBriefingSheet({
     }
     return `${openTodayCount} on today · ${openBacklogCount} in backlog.`;
   }, [openTodayCount, openBacklogCount]);
-
-  const dayRead = useMemo(() => {
-    const nextTitle = todayTasks.find((t) => !isTaskComplete(t))?.title ?? null;
-    return buildDayRead({
-      remaining: openTodayCount,
-      todayDone,
-      scheduledTotal: todayTasks.length,
-      openBacklogCount,
-      openBacklogDateCount,
-      todayFocusMs,
-      nextTitle,
-    });
-  }, [
-    openTodayCount,
-    todayDone,
-    todayTasks,
-    openBacklogCount,
-    openBacklogDateCount,
-    todayFocusMs,
-  ]);
-
-  const showDayRead =
-    openTodayCount > 0 || openBacklogCount > 0 || todayDone > 0 || todayFocusMs > 0 || todayTasks.length > 0;
 
   const maxTravel = Math.max(0, trackWidth - THUMB_PX - TRACK_PAD * 2);
 
@@ -305,15 +206,6 @@ export default function TodayBriefingSheet({
           </div>
         </div>
 
-        {showDayRead && (
-          <div className="bg-elevated border border-subtle rounded-[12px] p-3.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted mb-1.5">
-              Takeaway
-            </p>
-            <p className="text-[13px] text-content-primary leading-relaxed">{dayRead}</p>
-          </div>
-        )}
-
         <div className="pt-3">
           <div
             ref={trackRef}
@@ -338,7 +230,6 @@ export default function TodayBriefingSheet({
             aria-valuenow={Math.round(progress * 100)}
             aria-label="Slide to Got it"
           >
-            {/* Recessed track well */}
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
@@ -349,12 +240,10 @@ export default function TodayBriefingSheet({
               }}
             />
 
-            {/* Soft idle sheen */}
             {!isDragging && !confirmed && progress < 0.08 && (
               <div className="briefing-slider-sheen pointer-events-none" aria-hidden />
             )}
 
-            {/* Progress wash */}
             <div
               className={`absolute inset-y-[5px] left-[5px] rounded-[999px] pointer-events-none ${
                 knobAnimating && !isDragging ? 'transition-[width,opacity,box-shadow] duration-300 ease-out' : ''
@@ -373,7 +262,6 @@ export default function TodayBriefingSheet({
               }}
             />
 
-            {/* Label with shimmer mask when idle */}
             <p
               className={`briefing-slider-label absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 text-[17px] font-semibold tracking-[0.07em] leading-none pointer-events-none whitespace-nowrap ${
                 !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-label--idle' : ''
@@ -399,7 +287,6 @@ export default function TodayBriefingSheet({
               {confirmed ? 'Done' : 'Got it!'}
             </p>
 
-            {/* Trailing chevron hints */}
             <span
               className={`briefing-slider-hints absolute right-3.5 top-1/2 -translate-y-1/2 z-[1] pointer-events-none flex items-center gap-0.5 ${
                 !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-hints--idle' : ''
