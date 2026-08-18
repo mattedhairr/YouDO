@@ -64,6 +64,26 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.5.0] — 2026-08-18 ("Faster goals and a clearer open")
+
+Moving through a deep Goal Blueprint is quicker, session details match the rest of Daily Focus Stats, and app open no longer stacks Today's glance on top of an unfinished sitting.
+
+### 🚀 What you will notice
+- **Goal location bar** — See where you are, go up one level, jump to any ancestor from the path map, and switch siblings with chips.
+- **Session summary** — Plan-day **Summary** uses cards, an efficiency bar, outcome badges, and step chips instead of a plain text dump.
+- **Today takeaway** — The briefing ends with a practical read of your numbers and what to do next, not a list of task titles.
+- **Slide to continue** — Got it has clearer idle motion, drag feedback, and a confirm state.
+- **Cleaner chrome** — YouDO and the date sit on one aligned row; Today progress is a slim strip under the quote; bottom tabs stay compact.
+
+### ⚙ Under the hood
+- If a focus session is still running when you reopen the app, only Resume / Discard is shown — Today's glance waits.
+- Goal header metadata (kind, done count, dates) wraps as whole labels at every drillable level.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.5.0**, versionCode **15**. Same package id `com.mattedhairr.youdo` — install over **3.4.2** (14), **3.4.1** (13), **3.4.0** (12), and **3.3.x** (11). **versionCode 15 is required** — sideload will fail if the APK was built with an older code.
+
+---
+
 ## [v3.4.2] — 2026-08-17 ("Today briefing and slide to dismiss")
 
 Daily open flow and calendar session details — plus a reliable APK upgrade path from 3.4.1.
