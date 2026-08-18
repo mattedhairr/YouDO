@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, CheckCircle2, ListTodo, Flame, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CalendarDays, Check, CheckCircle2, ListTodo, Flame, ChevronRight, Repeat } from 'lucide-react';
 import Overlay from './Overlay';
 import type { Task, TaskSession } from '../types';
 import { formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
 import { hapticSuccess, hapticTap } from '../lib/haptics';
-import { localISODate } from '../lib/dates';
+import { localISODate, shiftLocalISO } from '../lib/dates';
+import type { StreakView } from '../lib/focusTrends';
 
 interface Props {
   open: boolean;
@@ -13,7 +14,8 @@ interface Props {
   openTodayCount: number;
   todayDone: number;
   openBacklogCount: number;
-  openBacklogDateCount: number;
+  oldestBacklogDays: number | null;
+  streakStatus: StreakView;
   sessionHistory: Record<string, TaskSession[]>;
   onDismiss: () => void;
 }
@@ -24,13 +26,70 @@ const THUMB_PX = 40;
 const TRACK_PAD = 6;
 const TRACK_H = 52;
 
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+  valueClass,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string | number;
+  sub: string;
+  valueClass: string;
+}) {
+  return (
+    <div className="bg-surface border border-subtle rounded-[12px] p-3 min-w-0">
+      <div className="flex items-center gap-1.5 text-content-muted mb-1.5">
+        {icon}
+        <span className="text-[10px] font-semibold uppercase tracking-wider">{label}</span>
+      </div>
+      <p className={`text-[18px] font-semibold tabular-nums leading-none ${valueClass}`}>{value}</p>
+      <p className="text-[11px] text-content-secondary mt-1">{sub}</p>
+    </div>
+  );
+}
+
+function streakCardCopy(status: StreakView): { value: string | number; sub: string } {
+  if (status.current > 0) {
+    return {
+      value: status.current,
+      sub: status.current === 1 ? 'day with focus' : 'days with focus',
+    };
+  }
+  if (status.revive?.active) {
+    const tasks = status.revive.remainingTasks;
+    const days = status.revive.daysLeft;
+    const taskBit = `${tasks} left`;
+    const dayBit = days === 1 ? '1 day' : `${days} days`;
+    return { value: status.revive.previousStreak, sub: `${taskBit} · ${dayBit}` };
+  }
+  if (status.brokenDays > 0) {
+    return {
+      value: 0,
+      sub: status.brokenDays === 1 ? 'broken 1 day' : `broken ${status.brokenDays} days`,
+    };
+  }
+  return { value: 0, sub: 'start one' };
+}
+
+function backlogWaitSub(count: number, oldestDays: number | null): string {
+  if (count === 0) return 'none open';
+  if (oldestDays == null) return 'open';
+  if (oldestDays <= 0) return 'waiting today';
+  if (oldestDays === 1) return 'oldest 1 day';
+  return `oldest ${oldestDays} days`;
+}
+
 export default function TodayBriefingSheet({
   open,
   todayTasks,
   openTodayCount,
   todayDone,
   openBacklogCount,
-  openBacklogDateCount,
+  oldestBacklogDays,
+  streakStatus,
   sessionHistory,
   onDismiss,
 }: Props) {
@@ -60,18 +119,33 @@ export default function TodayBriefingSheet({
     }, 0);
   }, [sessionHistory, todayStr]);
 
+  const yesterdayStr = shiftLocalISO(todayStr, -1);
+  const yesterdayFocusMs = useMemo(() => {
+    const all = Object.values(sessionHistory).flat();
+    return all.reduce((acc, s) => {
+      if (!isCountableSession(s)) return acc;
+      const slice = sessionOverlapsLocalDate(s, yesterdayStr);
+      return acc + (slice?.netFocusMs ?? 0);
+    }, 0);
+  }, [sessionHistory, yesterdayStr]);
+
+  const scheduledTotal = todayTasks.length;
+  const remainingToday = openTodayCount;
+  const startedToday = todayDone > 0 || todayFocusMs > 0;
+  const streakCopy = streakCardCopy(streakStatus);
+
   const headline = useMemo(() => {
-    if (openTodayCount === 0 && openBacklogCount === 0) {
-      return 'Clear slate — schedule something from Goals, or add a quick task.';
+    if (!startedToday) {
+      if (scheduledTotal === 0 && openBacklogCount === 0) {
+        return 'Clear slate — schedule something from Goals, or add a quick task.';
+      }
+      if (scheduledTotal === 0) return 'Nothing scheduled. The backlog is the menu.';
+      if (openBacklogCount === 0) return 'Today is fully planned.';
+      return 'Here’s the day.';
     }
-    if (openTodayCount === 0 && openBacklogCount > 0) {
-      return `Nothing on today. ${openBacklogCount} backlog ${openBacklogCount === 1 ? 'item' : 'items'} waiting.`;
-    }
-    if (openTodayCount > 0 && openBacklogCount === 0) {
-      return `${openTodayCount} ${openTodayCount === 1 ? 'task' : 'tasks'} on today. No open backlog.`;
-    }
-    return `${openTodayCount} on today · ${openBacklogCount} in backlog.`;
-  }, [openTodayCount, openBacklogCount]);
+    if (remainingToday === 0) return 'Today’s board is clear.';
+    return 'Work in progress.';
+  }, [startedToday, scheduledTotal, openBacklogCount, remainingToday]);
 
   const maxTravel = Math.max(0, trackWidth - THUMB_PX - TRACK_PAD * 2);
 
@@ -178,46 +252,69 @@ export default function TodayBriefingSheet({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-surface border border-subtle rounded-[12px] p-3 min-w-0">
-            <div className="flex items-center gap-1.5 text-content-muted mb-1.5">
-              <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider">Scheduled</span>
-            </div>
-            <p className="text-[18px] font-semibold text-content-primary tabular-nums leading-none">{openTodayCount}</p>
-            <p className="text-[11px] text-content-secondary mt-1">
-              {todayDone}/{todayTasks.length} done
-            </p>
-          </div>
-          <div className="bg-surface border border-subtle rounded-[12px] p-3 min-w-0">
-            <div className="flex items-center gap-1.5 text-content-muted mb-1.5">
-              <ListTodo className="w-3.5 h-3.5 text-error shrink-0" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider">Backlog</span>
-            </div>
-            <p className="text-[18px] font-semibold text-error tabular-nums leading-none">{openBacklogCount}</p>
-            <p className="text-[11px] text-content-secondary mt-1">
-              {openBacklogCount === 0
-                ? 'None open'
-                : `${openBacklogDateCount} ${openBacklogDateCount === 1 ? 'day' : 'days'}`}
-            </p>
-          </div>
-          <div className="bg-surface border border-subtle rounded-[12px] p-3 min-w-0">
-            <div className="flex items-center gap-1.5 text-content-muted mb-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-secondary shrink-0" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider">Done today</span>
-            </div>
-            <p className="text-[18px] font-semibold text-secondary tabular-nums leading-none">{todayDone}</p>
-            <p className="text-[11px] text-content-secondary mt-1">of {todayTasks.length} scheduled</p>
-          </div>
-          <div className="bg-surface border border-subtle rounded-[12px] p-3 min-w-0">
-            <div className="flex items-center gap-1.5 text-content-muted mb-1.5">
-              <Flame className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider">Focus so far</span>
-            </div>
-            <p className="text-[18px] font-semibold text-primary tabular-nums leading-none">
-              {formatDuration(todayFocusMs)}
-            </p>
-            <p className="text-[11px] text-content-secondary mt-1">net focus today</p>
-          </div>
+          {startedToday ? (
+            <>
+              <StatCard
+                icon={<CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />}
+                label="Left"
+                value={remainingToday}
+                sub={scheduledTotal === 0 ? 'nothing planned' : remainingToday === 0 ? 'board clear' : 'still open'}
+                valueClass="text-content-primary"
+              />
+              <StatCard
+                icon={<CheckCircle2 className="w-3.5 h-3.5 text-secondary shrink-0" />}
+                label="Done"
+                value={todayDone}
+                sub="closed"
+                valueClass="text-secondary"
+              />
+              <StatCard
+                icon={<Flame className="w-3.5 h-3.5 text-primary shrink-0" />}
+                label="Focus"
+                value={formatDuration(todayFocusMs)}
+                sub="net today"
+                valueClass="text-primary"
+              />
+              <StatCard
+                icon={<ListTodo className="w-3.5 h-3.5 text-error shrink-0" />}
+                label="Backlog"
+                value={openBacklogCount}
+                sub={backlogWaitSub(openBacklogCount, oldestBacklogDays)}
+                valueClass="text-error"
+              />
+            </>
+          ) : (
+            <>
+              <StatCard
+                icon={<CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />}
+                label="Today"
+                value={scheduledTotal}
+                sub={scheduledTotal === 0 ? 'nothing planned' : 'on the board'}
+                valueClass="text-content-primary"
+              />
+              <StatCard
+                icon={<ListTodo className="w-3.5 h-3.5 text-error shrink-0" />}
+                label="Backlog"
+                value={openBacklogCount}
+                sub={backlogWaitSub(openBacklogCount, oldestBacklogDays)}
+                valueClass="text-error"
+              />
+              <StatCard
+                icon={<Flame className="w-3.5 h-3.5 text-primary shrink-0" />}
+                label="Yesterday"
+                value={yesterdayFocusMs > 0 ? formatDuration(yesterdayFocusMs) : '0'}
+                sub={yesterdayFocusMs > 0 ? 'yesterday' : 'no log yet'}
+                valueClass="text-primary"
+              />
+              <StatCard
+                icon={<Repeat className="w-3.5 h-3.5 text-primary shrink-0" />}
+                label="Streak"
+                value={streakCopy.value}
+                sub={streakCopy.sub}
+                valueClass="text-primary"
+              />
+            </>
+          )}
         </div>
 
         <div className="pt-3">

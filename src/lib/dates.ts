@@ -23,6 +23,22 @@ export function localISODate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function shiftLocalISO(iso: string, days: number): string {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return localISODate(dt);
+}
+
+/** Whole local calendar days from `fromISO` to `toISO` (can be negative). */
+export function daysBetweenLocalISO(fromISO: string, toISO: string): number {
+  const [y1, m1, d1] = fromISO.slice(0, 10).split('-').map(Number);
+  const [y2, m2, d2] = toISO.slice(0, 10).split('-').map(Number);
+  const a = new Date(y1, m1 - 1, d1).getTime();
+  const b = new Date(y2, m2 - 1, d2).getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
 /** First local midnight strictly after `ts`. */
 export function nextLocalMidnight(ts: number): number {
   const d = new Date(ts);

@@ -16,6 +16,8 @@ import {
   UserPlus,
   ShieldCheck,
   Smartphone,
+  Flame,
+  Info,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,11 +28,14 @@ import { useStore } from '../store';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import { hapticTick, setHapticsPreference } from '../lib/haptics';
+import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onOpenAuth?: (mode: 'signin' | 'signup') => void;
+  streakBarHours: number;
+  onStreakBarHoursChange: (hours: number) => void;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -41,7 +46,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
+export default function SettingsSheet({
+  open,
+  onClose,
+  onOpenAuth,
+  streakBarHours,
+  onStreakBarHoursChange,
+}: Props) {
   const {
     exportBackup,
     importBackup,
@@ -88,12 +99,14 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
   };
 
   const [trashOpen, setTrashOpen] = useState(false);
+  const [streakBarHelpOpen, setStreakBarHelpOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) {
       setEditProfileOpen(false);
       setTrashOpen(false);
+      setStreakBarHelpOpen(false);
     }
   }, [open]);
 
@@ -693,6 +706,90 @@ export default function SettingsSheet({ open, onClose, onOpenAuth }: Props) {
                 }`}
               />
             </button>
+          </div>
+        </section>
+
+        <section>
+          <SectionLabel>FOCUS STREAK</SectionLabel>
+          <div className="bg-elevated rounded-2xl border border-subtle p-4 shadow-lg">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                <Flame size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold text-content-primary">Daily streak bar</h3>
+                  <button
+                    type="button"
+                    onClick={() => setStreakBarHelpOpen((v) => !v)}
+                    className={`p-1.5 rounded-lg shrink-0 transition ${
+                      streakBarHelpOpen
+                        ? 'bg-primary-soft text-primary'
+                        : 'text-content-secondary hover:text-content-primary hover:bg-base'
+                    }`}
+                    title="How streaks work"
+                    aria-label="How streaks work"
+                    aria-expanded={streakBarHelpOpen}
+                  >
+                    <Info size={15} />
+                  </button>
+                </div>
+                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                  Minimum focus per day to keep your streak
+                </p>
+                {streakBarHelpOpen && (
+                  <div className="mt-2.5 bg-base border border-subtle rounded-[12px] p-3 space-y-2 text-[11.5px] text-content-secondary leading-relaxed">
+                    <p>
+                      <span className="font-semibold text-content-primary">Keep it:</span> Hit this much net focus
+                      each day. Paused time does not count.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">Miss a day:</span> Had overdue tasks in
+                      Backlog? Finish every task marked{' '}
+                      <span className="text-primary font-semibold">Save streak</span> within 2 days, then hit this bar
+                      once — your streak comes back.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">Range:</span> 30 minutes to 10 hours.
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[11px] font-semibold text-content-muted uppercase tracking-wider">
+                    Hours
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Decrease streak bar"
+                      className="w-8 h-8 rounded-lg border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      disabled={streakBarHours <= MIN_STREAK_BAR_HOURS}
+                      onClick={() => {
+                        hapticTick();
+                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours - 0.5));
+                      }}
+                    >
+                      −
+                    </button>
+                    <span className="tabular-nums text-sm font-semibold text-content-primary w-12 text-center">
+                      {streakBarHours}h
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase streak bar"
+                      className="w-8 h-8 rounded-lg border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      disabled={streakBarHours >= MAX_STREAK_BAR_HOURS}
+                      onClick={() => {
+                        hapticTick();
+                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours + 0.5));
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
