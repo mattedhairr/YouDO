@@ -305,6 +305,74 @@ button {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+
+.app-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  gap: 10px;
+}
+
+.app-masthead-brand {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.app-masthead-brand:active {
+  transform: scale(0.98);
+}
+
+.app-masthead-sep {
+  width: 1px;
+  height: 14px;
+  flex-shrink: 0;
+  background: var(--border-subtle);
+}
+
+.app-masthead-meta {
+  margin: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.youdo-wordmark {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+}
+
+.youdo-wordmark-text {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  margin-left: -6px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.youdo-wordmark-ou {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--text-secondary);
+}
+
+.youdo-wordmark-do {
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
 .quote-ticker {
   --quote-bg: color-mix(in srgb, var(--bg-surface) 92%, transparent);
   position: relative;
@@ -353,6 +421,10 @@ button {
   white-space: nowrap;
 }
 
+.today-progress-strip .progress-track {
+  height: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fade-in,
   .guide-stagger,
@@ -375,6 +447,120 @@ button {
 
 .briefing-slider-knob {
   transition: none;
+}
+
+.briefing-slider-knob--snap {
+  transition: transform 380ms cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+.briefing-slider-knob--drag {
+  cursor: grabbing;
+}
+
+.briefing-slider-knob--done {
+  transition: transform 320ms cubic-bezier(0.22, 1.15, 0.36, 1);
+}
+
+.briefing-slider-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in srgb, var(--primary-glow) 14%, transparent) 48%,
+    color-mix(in srgb, var(--text-primary) 8%, transparent) 52%,
+    transparent 65%
+  );
+  background-size: 220% 100%;
+  animation: briefing-sheen 2.8s ease-in-out infinite;
+}
+
+.briefing-slider-label--idle {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text-secondary) 75%, var(--primary-glow) 25%) 0%,
+    color-mix(in srgb, var(--primary-glow) 85%, white) 45%,
+    color-mix(in srgb, var(--text-secondary) 75%, var(--primary-glow) 25%) 90%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  animation: briefing-label-shimmer 2.6s ease-in-out infinite;
+}
+
+.briefing-slider-hints--idle {
+  animation: briefing-hint-nudge 1.6s ease-in-out infinite;
+}
+
+.briefing-slider--done {
+  animation: briefing-done-pulse 420ms ease-out;
+}
+
+@keyframes briefing-sheen {
+  0% {
+    background-position: 120% 0;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  55% {
+    background-position: -40% 0;
+    opacity: 0.85;
+  }
+  100% {
+    background-position: -40% 0;
+    opacity: 0;
+  }
+}
+
+@keyframes briefing-label-shimmer {
+  0%,
+  100% {
+    background-position: 100% 0;
+  }
+  50% {
+    background-position: 0% 0;
+  }
+}
+
+@keyframes briefing-hint-nudge {
+  0%,
+  100% {
+    transform: translate(-2px, -50%);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translate(2px, -50%);
+    opacity: 0.85;
+  }
+}
+
+@keyframes briefing-done-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.015);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .briefing-slider-sheen,
+  .briefing-slider-label--idle,
+  .briefing-slider-hints--idle,
+  .briefing-slider--done {
+    animation: none !important;
+  }
+
+  .briefing-slider-knob--snap,
+  .briefing-slider-knob--done {
+    transition-duration: 160ms !important;
+  }
 }
 
 .task-sup {
@@ -512,5 +698,20 @@ input[type='datetime-local'] {
 @supports (backdrop-filter: blur(12px)) {
   .glass-panel {
     background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  }
+}
+
+.command-dock {
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 8px 22px color-mix(in srgb, black 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+@supports (backdrop-filter: blur(14px)) {
+  .command-dock {
+    background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
   }
 }

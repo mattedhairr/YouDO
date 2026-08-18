@@ -7,8 +7,8 @@ android {
         applicationId "com.mattedhairr.youdo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 14
-        versionName "3.4.2"
+        versionCode 15
+        versionName "3.5.0"
         // versionCode MUST increase for every release APK (install-over / sideload).
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

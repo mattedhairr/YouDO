@@ -50,18 +50,26 @@ const MOTIVATIONAL_QUOTES = [
 
 function YouDoIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="3 3 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg
+      width={size}
+      height={size}
+      viewBox="4 3.5 16 17.5"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className="block shrink-0"
+    >
       <path
-        d="M4 4L11.5 13.5V20"
+        d="M5 4.5L12 13.25V19.5"
         style={{ stroke: 'var(--primary)' }}
-        strokeWidth="2.6"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M20 4L11.5 13.5L8.5 10"
+        d="M19 4.5L12 13.25L9.25 10"
         style={{ stroke: 'var(--secondary)' }}
-        strokeWidth="2.6"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -71,11 +79,11 @@ function YouDoIcon({ size = 18 }: { size?: number }) {
 
 function YouDoWordmark() {
   return (
-    <span className="inline-flex items-center gap-[1px]" aria-label="YouDO">
-      <YouDoIcon size={28} />
-      <span className="text-[22px] font-semibold leading-none tracking-[-0.045em] text-content-primary">
-        <span className="text-content-secondary font-medium tracking-[-0.03em]">ou</span>
-        DO
+    <span className="youdo-wordmark" aria-label="YouDO">
+      <YouDoIcon size={32} />
+      <span className="youdo-wordmark-text">
+        <span className="youdo-wordmark-ou">ou</span>
+        <span className="youdo-wordmark-do">DO</span>
       </span>
     </span>
   );
@@ -173,6 +181,7 @@ function AppInner() {
   const firstHelpRef = useRef(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const briefingPromptedRef = useRef(false);
+  const [briefingGateReady, setBriefingGateReady] = useState(false);
   const [cloudHint, setCloudHint] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -379,18 +388,30 @@ function AppInner() {
 
   useEffect(() => {
     if (!clockReady) return;
-    if (!activeSession) return;
-    const check = () => {
+
+    const offerRecoveryIfStale = () => {
       const session = activeSessionRef.current;
-      if (!session) return;
+      if (!session) {
+        setBriefingGateReady(true);
+        return;
+      }
       if (document.visibilityState !== 'visible') return;
       if (shouldOfferSessionRecovery(session, Date.now())) {
+        briefingPromptedRef.current = true;
+        setBriefingOpen(false);
         setRecoverySessionPrompt(true);
       }
+      setBriefingGateReady(true);
     };
-    check();
-    document.addEventListener('visibilitychange', check);
-    return () => document.removeEventListener('visibilitychange', check);
+
+    if (!activeSession) {
+      setBriefingGateReady(true);
+    } else {
+      offerRecoveryIfStale();
+    }
+
+    document.addEventListener('visibilitychange', offerRecoveryIfStale);
+    return () => document.removeEventListener('visibilitychange', offerRecoveryIfStale);
     // Heartbeat mutates activeSession; taskId is the sitting identity we care about.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clockReady, clockBlocked, activeSession?.taskId]);
@@ -699,11 +720,13 @@ function AppInner() {
   }, [hasSeenHelp, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
 
   useEffect(() => {
+    if (!briefingGateReady) return;
     if (!hasSeenHelp || helpOpen || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
     if (briefingPromptedRef.current) return;
+    if (activeSession) return;
     briefingPromptedRef.current = true;
     setBriefingOpen(true);
-  }, [hasSeenHelp, helpOpen, recoverySessionPrompt, reconstructOpen, briefingOpen]);
+  }, [briefingGateReady, hasSeenHelp, helpOpen, recoverySessionPrompt, reconstructOpen, briefingOpen, activeSession]);
 
   useEffect(() => {
     if (!cloudHint) return;
@@ -722,24 +745,28 @@ function AppInner() {
         {/* Header */}
         <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0">
           <div className="space-y-2 relative">
-            <div className="flex items-center justify-center gap-3">
+            <div className="app-masthead">
               <button
                 type="button"
                 onClick={() => openHelp()}
-                className="relative active:scale-[0.98] rounded-lg"
+                className="app-masthead-brand"
                 aria-label="Open YouDO guide"
                 title="Guide"
               >
                 <YouDoWordmark />
               </button>
-              <span className="w-px h-3.5 bg-border-subtle shrink-0" aria-hidden="true" />
-              <div className="text-[16px] tracking-tight font-bold text-content-primary leading-none shrink-0">
+              <span className="app-masthead-sep" aria-hidden="true" />
+              <p className="app-masthead-meta">
                 {view === 'goals'
                   ? 'Goals'
                   : view === 'calendar'
                     ? 'Calendar'
-                    : new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
-              </div>
+                    : new Date().toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+              </p>
             </div>
             <blockquote className="quote-ticker m-0">
               <div className="quote-ticker-track">
@@ -756,24 +783,28 @@ function AppInner() {
                 ))}
               </div>
             </blockquote>
-          </div>
 
-          {view === 'tasks' && (
-            <div className="bg-surface p-3 space-y-2 border border-subtle rounded-[12px] shadow-card">
-              <div className="flex items-center justify-between text-[12px] font-medium">
-                <span className="text-content-secondary">Today</span>
-                <span className="text-content-primary tabular-nums">
-                  {todayDone}/{todayCount} · {todayProgress}%
-                </span>
+            {view === 'tasks' && (
+              <div
+                className="today-progress-strip mx-auto w-[86%] space-y-1.5"
+                aria-label={`Today progress ${todayDone} of ${todayCount}, ${todayProgress} percent`}
+              >
+                <div className="flex items-center justify-between gap-2 px-0.5">
+                  <span className="text-[11px] font-semibold text-content-secondary">Today</span>
+                  <span className="text-[11px] font-semibold tabular-nums text-content-primary">
+                    {todayDone}/{todayCount}
+                    <span className="text-content-muted font-medium"> · {todayProgress}%</span>
+                  </span>
+                </div>
+                <div className="progress-track h-1 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary progress-bar-fill"
+                    style={{ width: `${todayProgress}%` }}
+                  />
+                </div>
               </div>
-              <div className="progress-track h-1.5">
-                <div
-                  className="h-full rounded-full bg-primary progress-bar-fill"
-                  style={{ width: `${todayProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </header>
 
         {/* Main View Area */}
