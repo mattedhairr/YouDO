@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, X, Check, Clock, Trash2 } from 'lucide-react';
+import { X, Check, Clock, Trash2 } from 'lucide-react';
 import Overlay from './Overlay';
 import type { Task } from '../types';
 
@@ -13,6 +13,7 @@ interface Props {
 
 export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }: Props) {
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
+  const [markTaskDone, setMarkTaskDone] = useState(false);
 
   if (!open) return null;
 
@@ -24,11 +25,15 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
     );
   };
 
-  const handleSaveSitting = () => {
+  const handleSaveProgress = () => {
     if (!hasSteps) {
-      onConfirm({ completed: false, completedStepIndices: [] });
+      onConfirm({
+        completed: markTaskDone,
+        completedStepIndices: [],
+      });
       return;
     }
+
     const already = task.progress;
     const resulting = new Set<number>([
       ...Array.from({ length: already }, (_, i) => i),
@@ -38,11 +43,6 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
     const isNone = selectedSteps.length === 0;
     const outcome = isAll ? true : isNone ? false : 'partial';
     onConfirm({ completed: outcome, completedStepIndices: selectedSteps });
-  };
-
-  const handleMarkDone = () => {
-    const allIndices = hasSteps ? task.steps.map((_, i) => i) : [];
-    onConfirm({ completed: true, completedStepIndices: allIndices });
   };
 
   return (
@@ -55,7 +55,7 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
             </div>
             <div>
               <h3 className="text-sm font-bold text-content-primary">End sitting</h3>
-              <p className="text-xs text-content-secondary">Keep the time, finish the task, or discard</p>
+              <p className="text-xs text-content-secondary">Save focus time, or discard this sitting</p>
             </div>
           </div>
           <button
@@ -70,7 +70,7 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
           {task.title}
         </p>
 
-        {hasSteps && (
+        {hasSteps ? (
           <div className="mb-5">
             <label className="block text-xs font-semibold text-content-secondary mb-2">
               Steps done in this sitting (optional)
@@ -106,27 +106,42 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
               })}
             </div>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMarkTaskDone((v) => !v)}
+            className={`w-full mb-5 flex items-center justify-between p-2.5 rounded-xl text-xs text-left transition border ${
+              markTaskDone
+                ? 'bg-primary-soft border-primary text-content-primary'
+                : 'bg-surface border-subtle text-content-secondary'
+            }`}
+          >
+            <span>Mark task done</span>
+            <div
+              className={`w-5 h-5 rounded-lg flex items-center justify-center border transition ${
+                markTaskDone ? 'bg-primary border-primary text-on-primary' : 'border-2 border-[color:var(--text-muted)]'
+              }`}
+            >
+              {markTaskDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+            </div>
+          </button>
         )}
 
         <div className="flex flex-col gap-2">
           <button
-            onClick={handleSaveSitting}
+            onClick={handleSaveProgress}
             className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
           >
             <Clock className="w-5 h-5" />
-            Save sitting
+            Save progress
           </button>
           <p className="text-[11px] text-content-muted text-center -mt-1 mb-1">
-            Keeps this focus time. Task stays open unless every step is done.
+            {hasSteps
+              ? 'Keeps focus time. Completes the task only if every step is done.'
+              : markTaskDone
+                ? 'Keeps focus time and marks the task done.'
+                : 'Keeps focus time. Task stays open.'}
           </p>
-
-          <button
-            onClick={handleMarkDone}
-            className="w-full py-3 rounded-xl bg-secondary/10 border border-secondary/30 text-secondary text-sm font-semibold flex items-center justify-center gap-2"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            Save and mark task done
-          </button>
 
           <button
             onClick={onDiscard}

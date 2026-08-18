@@ -865,6 +865,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (existing?.taskId === taskId) return;
     if (existing) return;
 
+    const task = tasksRef.current.find((t) => t.id === taskId);
+    if (!task || isTaskComplete(task)) return;
+
     const now = Date.now();
     const session: ActiveSession = {
       taskId,
