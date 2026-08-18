@@ -24,7 +24,9 @@
 
         </activity>
 
-        <provider
+        <receiver
+            android:name=".SessionNotificationReceiver"
+            android:exported="false" />
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
