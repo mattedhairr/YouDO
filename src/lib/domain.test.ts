@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
-import { currentFocusStreak, netFocusByLocalDate, weekHeatmap } from './focusTrends';
+import { currentFocusStreak, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
 import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
@@ -74,6 +74,134 @@ describe('focus trends', () => {
     expect(week[0].date).toBe('2026-08-10');
     expect(week[6].date).toBe('2026-08-16');
     expect(week[6].focusMs).toBe(30_000);
+  });
+});
+
+describe('streak bar and backlog revive', () => {
+  const hour = 3_600_000;
+  const baseMeta = {
+    bestStreak: 0,
+    barHours: 1,
+    barEffectiveFrom: '2026-01-01',
+    revive: null,
+  };
+
+  it('does not count a day below the bar', () => {
+    const byDate = new Map([
+      ['2026-08-14', hour],
+      ['2026-08-15', hour],
+      ['2026-08-16', 20_000],
+    ]);
+    expect(
+      currentFocusStreak(byDate, '2026-08-16', {
+        thresholdMs: hour,
+        barEffectiveFrom: '2026-01-01',
+      }),
+    ).toBe(2);
+  });
+
+  it('does not rewrite days before the bar effective date', () => {
+    const byDate = new Map([
+      ['2026-08-14', 20_000],
+      ['2026-08-15', 20_000],
+      ['2026-08-16', hour],
+    ]);
+    expect(
+      currentFocusStreak(byDate, '2026-08-16', {
+        thresholdMs: hour,
+        barEffectiveFrom: '2026-08-16',
+      }),
+    ).toBe(3);
+  });
+
+  it('does not offer revive when the miss snapshot has no backlog', () => {
+    const byDate = new Map([
+      ['2026-08-14', hour],
+      ['2026-08-15', hour],
+    ]);
+    const { meta, status } = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate,
+      meta: baseMeta,
+      openBacklogIds: [],
+      isTaskStillOpen: () => false,
+    });
+    expect(status.current).toBe(0);
+    expect(meta.revive?.brokenOn).toBe('2026-08-16');
+    expect(meta.revive?.backlogTaskIds).toEqual([]);
+    expect(status.revive?.active).toBe(false);
+    expect(status.brokenDays).toBe(1);
+  });
+
+  it('revives when snapshot backlog is done and a qualifying day lands in the window', () => {
+    const prior = new Map([
+      ['2026-08-13', hour],
+      ['2026-08-14', hour],
+      ['2026-08-15', hour],
+    ]);
+    const spotted = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: prior,
+      meta: baseMeta,
+      openBacklogIds: ['a', 'b'],
+      isTaskStillOpen: () => true,
+    });
+    expect(spotted.meta.revive?.backlogTaskIds).toEqual(['a', 'b']);
+    expect(spotted.status.current).toBe(0);
+
+    const withSit = new Map(prior);
+    withSit.set('2026-08-17', hour);
+    const { meta, status } = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: withSit,
+      meta: spotted.meta,
+      openBacklogIds: [],
+      isTaskStillOpen: () => false,
+    });
+    expect(meta.revive?.revivedOn).toBe('2026-08-17');
+    expect(status.current).toBe(4);
+    expect(status.revive?.active).toBe(false);
+  });
+
+  it('expires the window without restoring the previous streak', () => {
+    const byDate = new Map([
+      ['2026-08-10', hour],
+      ['2026-08-14', 20_000],
+    ]);
+    const { status } = reconcileStreakMeta({
+      todayISO: '2026-08-14',
+      byDate,
+      meta: baseMeta,
+      openBacklogIds: ['a'],
+      isTaskStillOpen: () => true,
+    });
+    expect(status.current).toBe(0);
+    expect(status.revive?.active).toBe(false);
+    expect(status.brokenDays).toBeGreaterThanOrEqual(2);
+  });
+
+  it('ignores backlog items added after the snapshot', () => {
+    const byDate = new Map([
+      ['2026-08-14', hour],
+      ['2026-08-15', hour],
+    ]);
+    const first = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate,
+      meta: baseMeta,
+      openBacklogIds: ['old'],
+      isTaskStillOpen: (id) => id === 'old',
+    });
+    expect(first.meta.revive?.backlogTaskIds).toEqual(['old']);
+    const second = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate,
+      meta: first.meta,
+      openBacklogIds: ['old', 'new'],
+      isTaskStillOpen: (id) => id === 'old' || id === 'new',
+    });
+    expect(second.meta.revive?.backlogTaskIds).toEqual(['old']);
+    expect(second.status.revive?.remainingTasks).toBe(1);
   });
 });
 

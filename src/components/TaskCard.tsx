@@ -23,6 +23,7 @@ interface Props {
   dark?: boolean;
   onCardClick?: () => void;
   backlogAction?: React.ReactNode;
+  streakSave?: boolean;
   onJumpToGoal?: () => void;
   onOpenDescription?: (title: string, description: string) => void;
   // Session callbacks
@@ -62,7 +63,8 @@ export default function TaskCard({
   task, activeSession, onAdvance, onDelete, onDuplicate,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove,
   onCardClick, onJumpToGoal, onOpenDescription,
-  onStartSession, onPauseSession, onResumeSession, onStopSession, onOpenAmbient, taskSessions
+  onStartSession, onPauseSession, onResumeSession, onStopSession, onOpenAmbient, taskSessions,
+  streakSave,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -331,6 +333,11 @@ export default function TaskCard({
               {isBacklogTask(task) && (
                 <span className="inline-flex items-center font-semibold text-[10px] text-error bg-error-soft px-2 py-0.5 rounded-lg">
                   Backlog
+                </span>
+              )}
+              {streakSave && (
+                <span className="inline-flex items-center font-semibold text-[10px] text-primary bg-primary-soft px-2 py-0.5 rounded-lg">
+                  Save streak
                 </span>
               )}
               {task.deadline && (

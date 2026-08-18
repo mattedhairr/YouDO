@@ -3,7 +3,7 @@ import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clo
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, useStore, useSessionStore, findGoal } from './store';
+import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
 import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
 import { useAuth } from './contexts/AuthContext';
@@ -17,6 +17,14 @@ import TodayBriefingSheet from './components/TodayBriefingSheet';
 import UndoToast from './components/UndoToast';
 import { STORAGE_KEYS } from './lib/storageKeys';
 import { hapticTap } from './lib/haptics';
+import { daysBetweenLocalISO } from './lib/dates';
+import {
+  applyStreakBarHours,
+  defaultStreakMeta,
+  netFocusByLocalDateOverlapping,
+  reconcileStreakMeta,
+  type StreakMeta,
+} from './lib/focusTrends';
 import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
 import StepSliceSheet from './components/StepSliceSheet';
@@ -178,6 +186,10 @@ function AppInner() {
   const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null); 
   const [helpOpen, setHelpOpen] = useState(false);
   const [hasSeenHelp, setHasSeenHelp] = useLocalStorage(STORAGE_KEYS.helpSeen, false);
+  const [streakMeta, setStreakMeta] = useLocalStorage<StreakMeta>(
+    STORAGE_KEYS.streakMeta,
+    defaultStreakMeta(todayISO()),
+  );
   const firstHelpRef = useRef(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const briefingPromptedRef = useRef(false);
@@ -501,6 +513,15 @@ function AppInner() {
     }
     return dates.size;
   }, [backlogTasks]);
+  const oldestBacklogDays = useMemo(() => {
+    let oldest: string | null = null;
+    for (const t of backlogTasks) {
+      if (!isOpenBacklogTask(t) || !t.targetDate) continue;
+      if (!oldest || t.targetDate < oldest) oldest = t.targetDate;
+    }
+    if (!oldest) return null;
+    return Math.max(0, daysBetweenLocalISO(oldest, todayISO()));
+  }, [backlogTasks]);
   const openTodayCount = useMemo(
     () => todayTasks.filter((t) => !isTaskComplete(t)).length,
     [todayTasks],
@@ -508,6 +529,56 @@ function AppInner() {
   const todayCount = todayTasks.length;
   const todayDone = todayTasks.filter(isTaskComplete).length;
   const todayProgress = todayCount > 0 ? Math.round((todayDone / todayCount) * 100) : 0;
+
+  const openBacklogIds = useMemo(
+    () => backlogTasks.filter((t) => isOpenBacklogTask(t)).map((t) => t.id),
+    [backlogTasks],
+  );
+  const isSnapshotTaskOpen = useCallback(
+    (id: string) => {
+      const t = tasks.find((x) => x.id === id);
+      return !!t && !isTaskComplete(t);
+    },
+    [tasks],
+  );
+  const streakByDate = useMemo(
+    () => netFocusByLocalDateOverlapping(Object.values(sessionHistory).flat()),
+    [sessionHistory],
+  );
+  const streakStatus = useMemo(
+    () =>
+      reconcileStreakMeta({
+        todayISO: todayISO(),
+        byDate: streakByDate,
+        meta: streakMeta,
+        openBacklogIds,
+        isTaskStillOpen: isSnapshotTaskOpen,
+      }).status,
+    [streakByDate, streakMeta, openBacklogIds, isSnapshotTaskOpen],
+  );
+
+  const reviveSaveIds = useMemo(
+    () => new Set(streakStatus.revive?.active ? streakStatus.revive.remainingIds : []),
+    [streakStatus],
+  );
+  const reviveSaveTasks = useMemo(
+    () =>
+      (streakStatus.revive?.active ? streakStatus.revive.remainingIds : [])
+        .map((id) => tasks.find((t) => t.id === id))
+        .filter((t): t is Task => !!t),
+    [streakStatus, tasks],
+  );
+
+  useEffect(() => {
+    const { meta } = reconcileStreakMeta({
+      todayISO: todayISO(),
+      byDate: streakByDate,
+      meta: streakMeta,
+      openBacklogIds,
+      isTaskStillOpen: isSnapshotTaskOpen,
+    });
+    if (JSON.stringify(meta) !== JSON.stringify(streakMeta)) setStreakMeta(meta);
+  }, [streakByDate, streakMeta, openBacklogIds, isSnapshotTaskOpen]);
 
   const activeTask = useMemo(() => {
     if (!activeSession) return null;
@@ -920,6 +991,31 @@ function AppInner() {
                   </button>
                 </div>
 
+                {streakStatus.revive?.active && (
+                  <button
+                    type="button"
+                    onClick={() => startTransition(() => setTodaySubTab('backlog'))}
+                    className="w-full text-left bg-surface border border-subtle rounded-[16px] px-3.5 py-2.5 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                        Restore streak
+                      </p>
+                      <p className="text-[12px] text-content-secondary mt-0.5">
+                        {streakStatus.revive.remainingTasks} to clear
+                        {' · '}
+                        {streakStatus.revive.daysLeft === 1
+                          ? '1 day left'
+                          : `${streakStatus.revive.daysLeft} days left`}
+                        {streakStatus.revive.previousStreak > 0
+                          ? ` · save ${streakStatus.revive.previousStreak}`
+                          : ''}
+                      </p>
+                    </div>
+                    <Flame size={16} className="text-primary shrink-0" />
+                  </button>
+                )}
+
                 {/* Smart Goal & Category Filter Chips */}
                 {categoryChips.length > 1 && (
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-[11px] fade-in">
@@ -985,6 +1081,7 @@ function AppInner() {
                               onStopSession={() => setStopDialogTask(t)}
                               onOpenAmbient={() => setShowAmbient(true)}
                               taskSessions={getTaskSessions(t.id)}
+                              streakSave={reviveSaveIds.has(t.id)}
                             />
                           </div>
                         );
@@ -1005,6 +1102,15 @@ function AppInner() {
                             <p className="text-[12px] text-content-muted">
                               Across {openBacklogDateCount} date{openBacklogDateCount > 1 ? 's' : ''}
                             </p>
+                            {streakStatus.revive?.active && (
+                              <p className="text-[12px] text-primary mt-1.5">
+                                {streakStatus.revive.remainingTasks} marked Save streak
+                                {' · '}
+                                {streakStatus.revive.daysLeft === 1
+                                  ? '1 day left'
+                                  : `${streakStatus.revive.daysLeft} days left`}
+                              </p>
+                            )}
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Oldest</p>
@@ -1056,10 +1162,74 @@ function AppInner() {
                                 onStopSession={() => setStopDialogTask(activeBacklogTask)}
                                 onOpenAmbient={() => setShowAmbient(true)}
                                 taskSessions={getTaskSessions(activeBacklogTask.id)}
+                                streakSave={reviveSaveIds.has(activeBacklogTask.id)}
                               />
                             </div>
                           )}
-                    {backlogByDate.map((group) => (
+                    {reviveSaveTasks.filter((t) => t.id !== activeSession?.taskId).length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 px-0.5">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-soft text-primary">
+                            <Flame size={11} />
+                            <span className="text-[11px] font-semibold">To restore streak</span>
+                          </div>
+                          <span className="text-[10px] font-semibold text-content-secondary">
+                            {streakStatus.revive?.daysLeft === 1
+                              ? '1 day left'
+                              : `${streakStatus.revive?.daysLeft ?? 0} days left`}
+                          </span>
+                          <div className="flex-1 h-px bg-border/60" />
+                        </div>
+                        <div className="space-y-2">
+                          {reviveSaveTasks
+                            .filter((t) => t.id !== activeSession?.taskId)
+                            .map((t) => (
+                              <TaskCard
+                                key={t.id}
+                                task={t}
+                                activeSession={activeSession}
+                                onAdvance={advance}
+                                onUndo={undo}
+                                onDelete={t.goalNodeId ? unlinkTask : removeTask}
+                                onDuplicate={duplicateTask}
+                                onDragStart={() => {}}
+                                onDragEnter={() => {}}
+                                onDragEnd={() => {}}
+                                isDragging={false}
+                                dragOver={false}
+                                originNodes={originNodesFor(t.id)}
+                                softRemove={!!t.goalNodeId}
+                                dark={darkMode}
+                                onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                                onOpenDescription={openDescriptionModal}
+                                onStartSession={startSession}
+                                onPauseSession={pauseSession}
+                                onResumeSession={resumeSession}
+                                onStopSession={() => setStopDialogTask(t)}
+                                onOpenAmbient={() => setShowAmbient(true)}
+                                taskSessions={getTaskSessions(t.id)}
+                                streakSave
+                                backlogAction={
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePushBacklogTask(t);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border border-subtle text-error hover:bg-error-soft shrink-0"
+                                    title="Reschedule task"
+                                  >
+                                    <Zap size={12} className="text-error" /> Reschedule
+                                  </button>
+                                }
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    {backlogByDate.map((group) => {
+                      const groupTasks = group.tasks.filter((t) => !reviveSaveIds.has(t.id));
+                      if (groupTasks.length === 0) return null;
+                      return (
                       <div key={group.date} className="space-y-2">
                         {/* Group header row */}
                         <div className="flex items-center gap-2 px-0.5">
@@ -1068,14 +1238,14 @@ function AppInner() {
                             <span className="text-[11px] font-semibold">{group.formattedDate}</span>
                           </div>
                           <span className="text-[10px] font-semibold text-content-secondary">
-                            {group.tasks.length} task{group.tasks.length > 1 ? 's' : ''}
+                            {groupTasks.length} task{groupTasks.length > 1 ? 's' : ''}
                           </span>
                           <div className="flex-1 h-px bg-border/60" />
                         </div>
 
                         {/* Task cards */}
                         <div className="space-y-2">
-                          {group.tasks.map((t) => {
+                          {groupTasks.map((t) => {
                             const isOtherTaskDimmed = activeSession !== null && activeSession.taskId !== t.id;
                             return (
                               <div key={t.id} className={isOtherTaskDimmed ? 'card-dimmed transition-all' : 'transition-all'}>
@@ -1102,6 +1272,7 @@ function AppInner() {
                               onStopSession={() => setStopDialogTask(t)}
                               onOpenAmbient={() => setShowAmbient(true)}
                                   taskSessions={getTaskSessions(t.id)}
+                                  streakSave={reviveSaveIds.has(t.id)}
                                   backlogAction={
                                     <button
                                       onClick={(e) => {
@@ -1120,7 +1291,8 @@ function AppInner() {
                           })}
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                         </>
                       );
                     })()}
@@ -1218,6 +1390,10 @@ function AppInner() {
       <SettingsSheet
         open={settingsOpen}
         onClose={closeSettings}
+        streakBarHours={streakMeta.barHours}
+        onStreakBarHoursChange={(hours) => {
+          setStreakMeta((prev) => applyStreakBarHours(prev, hours, todayISO()));
+        }}
         onOpenAuth={(mode) => {
           pushModalState();
           setAuthMode(mode || 'signin');
@@ -1439,7 +1615,8 @@ function AppInner() {
         openTodayCount={openTodayCount}
         todayDone={todayDone}
         openBacklogCount={openBacklogCount}
-        openBacklogDateCount={openBacklogDateCount}
+        oldestBacklogDays={oldestBacklogDays}
+        streakStatus={streakStatus}
         sessionHistory={sessionHistory}
         onDismiss={() => {
           setBriefingOpen(false);

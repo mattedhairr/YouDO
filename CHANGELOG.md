@@ -64,6 +64,25 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.7.0] — 2026-08-19 ("Glance and streak bar")
+
+Smarter Today briefing, a daily focus bar for streaks, and a backlog catch-up path to restore a broken streak — plus a reliable sideload upgrade from 3.6.x.
+
+### 🚀 What you will notice
+- **Today at a glance** — Morning briefing vs progress view; each card shows a different stat with no repeated numbers.
+- **Streak bar** — Set how much net focus counts as a day (30 min–10 h) in Settings.
+- **Save streak** — Miss a day with overdue backlog? Finish marked tasks within 2 days and hit the bar once to restore your streak.
+- **Restore streak** — Banner on Today and a dedicated backlog group show countdown and which tasks to clear.
+
+### ⚙ Under the hood
+- Threshold-aware streak math with frozen backlog snapshot and revive window.
+- **versionCode 19** for sideload install-over from 3.6.1 (18) and earlier.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.7.0**, versionCode **19**. Same package id `com.mattedhairr.youdo` — install over **3.6.1** (18), **3.6.0** (17), **3.5.0** (16), and earlier. **versionCode 19 is required** — sideload will fail if the APK was built with an older code.
+
+---
+
 ## [v3.6.1] — 2026-08-18 ("Shade pause polish")
 
 Reliable install-over from 3.6.0, plus a lockscreen-friendly Focus notification that pauses or resumes without opening the app.
