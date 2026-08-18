@@ -64,6 +64,24 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.6.1] — 2026-08-18 ("Shade pause polish")
+
+Reliable install-over from 3.6.0, plus a lockscreen-friendly Focus notification that pauses or resumes without opening the app.
+
+### 🚀 What you will notice
+- **Big Pause / Resume** — Gold or green round button on the Focus notification; easier to hit from the shade or lockscreen.
+- **No app jump** — Tapping Pause or Resume updates the sitting in the background; YouDO stays closed.
+- **Lockscreen** — Focus notification uses a live channel (not buried under Silent).
+
+### ⚙ Under the hood
+- Custom Capacitor notification plugin with background receiver and native session sync.
+- **versionCode 18** for sideload install-over (fixes failed upgrade from 3.6.0 builds).
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.6.1**, versionCode **18**. Same package id `com.mattedhairr.youdo` — install over **3.6.0** (17), **3.5.0** (16), and earlier. **versionCode 18 is required** — sideload will fail if the APK was built with an older code.
+
+---
+
 ## [v3.6.0] — 2026-08-18 ("Pause from the shade")
 
 Focus sittings are easier to control when the phone is locked or the app is closed — pause from the notification shade, keep paused sittings paused, and stop with clearer save-or-discard choices.
