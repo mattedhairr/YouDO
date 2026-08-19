@@ -64,6 +64,25 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.7.2] — 2026-08-19 ("Stable installs and streak sync")
+
+Sideload install-over should work across GitHub Actions builds, and the daily streak bar (plus revive state) now travels with cloud backup.
+
+### 🚀 What you will notice
+- **Streak bar syncs** — Your daily focus bar and revive progress stay with your account across phones.
+- **Reliable APK upgrades** — CI reuses one signing key so a higher `versionCode` can install over the previous YouDO build.
+
+### ⚙ Under the hood
+- Streak meta included in backup / cloud merge (last-write-wins with best-streak kept).
+- GitHub Actions caches a stable Android debug keystore (root cause of “App not installed” despite version bumps).
+- **versionCode 21** for sideload install-over from 3.7.1 (20).
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.7.2**, versionCode **21**. Same package id `com.mattedhairr.youdo` — install over **3.7.1** (20) and earlier. **versionCode 21 is required.**
+- **First install after this fix:** if an older CI APK used a different signing key, uninstall once, then install 3.7.2. Later upgrades should install over without uninstalling.
+
+---
+
 ## [v3.7.1] — 2026-08-19 ("Streak revive rules")
 
 Clearer streak recovery: one-day window, scheduled tasks required on backlog revive, and a 1.5× focus challenge when there was no backlog at the miss.

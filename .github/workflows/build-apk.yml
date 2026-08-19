@@ -20,6 +20,29 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # Same debug keystore across runs — without this, every CI APK is signed with a
+      # fresh key and Android refuses install-over even when versionCode increases.
+      - name: Restore Android debug keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: youdo-android-debug-keystore-v1
+
+      - name: Ensure Android debug keystore exists
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore ~/.android/debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
       - name: Clear Gradle Caches
         run: |
           rm -rf ~/.gradle

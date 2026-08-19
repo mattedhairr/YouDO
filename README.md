@@ -44,7 +44,7 @@ Goal: "UPSC / JEE / NEET Exam 2026"
 2. Download `YouDO.apk` from the latest release.
 3. Install on the device (allow unknown sources if Android asks).
 
-Current release: **v3.7.1**.
+Current release: **v3.7.2**.
 
 ### Web (PWA)
 

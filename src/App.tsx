@@ -19,11 +19,8 @@ import { STORAGE_KEYS } from './lib/storageKeys';
 import { hapticTap } from './lib/haptics';
 import { daysBetweenLocalISO } from './lib/dates';
 import {
-  applyStreakBarHours,
-  defaultStreakMeta,
   netFocusByLocalDateOverlapping,
   reconcileStreakMeta,
-  type StreakMeta,
 } from './lib/focusTrends';
 import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
@@ -149,6 +146,9 @@ function AppInner() {
     restoreFromCloud,
     sessionHistory,
     completeSessionSteps,
+    streakMeta,
+    setStreakMeta,
+    setStreakBarHours,
   } = useStore();
 
   const {
@@ -186,10 +186,6 @@ function AppInner() {
   const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null); 
   const [helpOpen, setHelpOpen] = useState(false);
   const [hasSeenHelp, setHasSeenHelp] = useLocalStorage(STORAGE_KEYS.helpSeen, false);
-  const [streakMeta, setStreakMeta] = useLocalStorage<StreakMeta>(
-    STORAGE_KEYS.streakMeta,
-    defaultStreakMeta(todayISO()),
-  );
   const firstHelpRef = useRef(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const briefingPromptedRef = useRef(false);
@@ -1420,9 +1416,7 @@ function AppInner() {
         open={settingsOpen}
         onClose={closeSettings}
         streakBarHours={streakMeta.barHours}
-        onStreakBarHoursChange={(hours) => {
-          setStreakMeta((prev) => applyStreakBarHours(prev, hours, todayISO()));
-        }}
+        onStreakBarHoursChange={setStreakBarHours}
         onOpenAuth={(mode) => {
           pushModalState();
           setAuthMode(mode || 'signin');

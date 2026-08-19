@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
-import { currentFocusStreak, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
+import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
 import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
@@ -256,6 +256,28 @@ describe('streak bar and backlog revive', () => {
     });
     expect(second.meta.revive?.backlogTaskIds).toEqual(['old']);
     expect(second.status.revive?.remainingTasks).toBe(1);
+  });
+});
+
+describe('streak meta merge', () => {
+  it('prefers the newer updatedAt and keeps the higher best streak', () => {
+    const older = {
+      bestStreak: 5,
+      barHours: 1,
+      barEffectiveFrom: '2026-01-01',
+      revive: null,
+      updatedAt: 100,
+    };
+    const newer = {
+      bestStreak: 3,
+      barHours: 2,
+      barEffectiveFrom: '2026-08-01',
+      revive: null,
+      updatedAt: 200,
+    };
+    const merged = mergeStreakMeta(older, newer);
+    expect(merged.barHours).toBe(2);
+    expect(merged.bestStreak).toBe(5);
   });
 });
 

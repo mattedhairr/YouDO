@@ -735,7 +735,7 @@ export default function SettingsSheet({
                   </button>
                 </div>
                 <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
-                  Minimum focus per day to keep your streak
+                  Minimum focus per day to keep your streak. Syncs with cloud.
                 </p>
                 {streakBarHelpOpen && (
                   <div className="mt-2.5 bg-base border border-subtle rounded-[12px] p-3 space-y-2 text-[11.5px] text-content-secondary leading-relaxed">

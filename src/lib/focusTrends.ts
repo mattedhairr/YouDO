@@ -40,6 +40,8 @@ export type StreakMeta = {
   barHours: number;
   barEffectiveFrom: string;
   revive: StreakReviveSnapshot | null;
+  /** For cloud last-write-wins merge */
+  updatedAt?: number;
 };
 
 export type StreakView = {
@@ -103,6 +105,7 @@ export function defaultStreakMeta(todayISO: string): StreakMeta {
     barHours: DEFAULT_STREAK_BAR_HOURS,
     barEffectiveFrom: todayISO,
     revive: null,
+    updatedAt: Date.now(),
   };
 }
 
@@ -360,7 +363,15 @@ export function reconcileStreakMeta(input: {
 
   const current = currentFocusStreak(input.byDate, input.todayISO, walkOptsFromMeta(meta));
   const bestStreak = Math.max(meta.bestStreak, current, meta.revive?.previousStreak ?? 0);
-  meta = { ...meta, bestStreak };
+  const changed =
+    bestStreak !== input.meta.bestStreak ||
+    JSON.stringify(meta.revive) !== JSON.stringify(input.meta.revive) ||
+    meta.barHours !== input.meta.barHours;
+  meta = {
+    ...meta,
+    bestStreak,
+    updatedAt: changed ? Date.now() : (meta.updatedAt ?? input.meta.updatedAt),
+  };
   return { meta, status: viewFrom(input.byDate, input.todayISO, meta, input.isTaskStillOpen) };
 }
 
@@ -371,5 +382,98 @@ export function applyStreakBarHours(meta: StreakMeta, hours: number, todayISO: s
     ...meta,
     barHours,
     barEffectiveFrom: todayISO,
+    updatedAt: Date.now(),
   };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asFiniteNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function sanitizeRevive(raw: unknown): StreakReviveSnapshot | null {
+  const r = asRecord(raw);
+  if (!r) return null;
+  const previousStreak = Math.max(0, Math.floor(asFiniteNumber(r.previousStreak, 0)));
+  const brokenOn = asString(r.brokenOn);
+  const windowEnds = asString(r.windowEnds);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(brokenOn) || !/^\d{4}-\d{2}-\d{2}$/.test(windowEnds)) return null;
+  const backlogTaskIds = Array.isArray(r.backlogTaskIds)
+    ? r.backlogTaskIds.filter((id): id is string => typeof id === 'string')
+    : [];
+  const scheduledTaskIds = Array.isArray(r.scheduledTaskIds)
+    ? r.scheduledTaskIds.filter((id): id is string => typeof id === 'string')
+    : undefined;
+  const challengeMultiplier =
+    typeof r.challengeMultiplier === 'number' && Number.isFinite(r.challengeMultiplier)
+      ? r.challengeMultiplier
+      : undefined;
+  const revivedOn =
+    r.revivedOn === null
+      ? null
+      : typeof r.revivedOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.revivedOn)
+        ? r.revivedOn
+        : null;
+  return {
+    previousStreak,
+    brokenOn,
+    windowEnds,
+    backlogTaskIds,
+    scheduledTaskIds,
+    challengeMultiplier,
+    revivedOn,
+  };
+}
+
+/** Normalize streak prefs from backup / cloud. Returns null if unusable. */
+export function sanitizeStreakMeta(raw: unknown, todayISO: string): StreakMeta | null {
+  const o = asRecord(raw);
+  if (!o) return null;
+  return {
+    bestStreak: Math.max(0, Math.floor(asFiniteNumber(o.bestStreak, 0))),
+    barHours: clampStreakBarHours(asFiniteNumber(o.barHours, DEFAULT_STREAK_BAR_HOURS)),
+    barEffectiveFrom: /^\d{4}-\d{2}-\d{2}$/.test(asString(o.barEffectiveFrom))
+      ? asString(o.barEffectiveFrom)
+      : todayISO,
+    revive: sanitizeRevive(o.revive),
+    updatedAt: asFiniteNumber(o.updatedAt, 0) || undefined,
+  };
+}
+
+/** Prefer newer updatedAt; otherwise keep the richer streak state. */
+export function mergeStreakMeta(local: StreakMeta, remote: StreakMeta | null | undefined): StreakMeta {
+  if (!remote) return local;
+  const localAt = local.updatedAt ?? 0;
+  const remoteAt = remote.updatedAt ?? 0;
+  if (remoteAt > localAt) {
+    return {
+      ...remote,
+      bestStreak: Math.max(local.bestStreak, remote.bestStreak),
+    };
+  }
+  if (localAt > remoteAt) {
+    return {
+      ...local,
+      bestStreak: Math.max(local.bestStreak, remote.bestStreak),
+    };
+  }
+  return {
+    ...local,
+    bestStreak: Math.max(local.bestStreak, remote.bestStreak),
+    barHours: remote.barHours !== local.barHours ? local.barHours : local.barHours,
+    revive: local.revive ?? remote.revive,
+    updatedAt: Math.max(localAt, remoteAt) || Date.now(),
+  };
+}
+
+/** Stamp meta after local reconcile so cloud sync picks up revive progress. */
+export function touchStreakMeta(meta: StreakMeta): StreakMeta {
+  return { ...meta, updatedAt: Date.now() };
 }
