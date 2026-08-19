@@ -744,10 +744,18 @@ export default function SettingsSheet({
                       each day. Paused time does not count.
                     </p>
                     <p>
-                      <span className="font-semibold text-content-primary">Miss a day:</span> Had overdue tasks in
-                      Backlog? Finish every task marked{' '}
-                      <span className="text-primary font-semibold">Save streak</span> within 2 days, then hit this bar
-                      once — your streak comes back.
+                      <span className="font-semibold text-content-primary">Miss a day:</span> You have{' '}
+                      <span className="font-semibold text-content-primary">1 day</span> to restore.
+                    </p>
+                    <p>
+                      Had overdue tasks in Backlog? Finish every task marked{' '}
+                      <span className="text-primary font-semibold">Save streak</span> (backlog and today’s scheduled),
+                      then hit this bar once.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">No backlog?</span> Hit{' '}
+                      <span className="font-semibold text-content-primary">1.5×</span> this bar once that day (6h bar
+                      → 9h). That restores the streak.
                     </p>
                     <p>
                       <span className="font-semibold text-content-primary">Range:</span> 30 minutes to 10 hours.

@@ -59,11 +59,15 @@ function streakCardCopy(status: StreakView): { value: string | number; sub: stri
     };
   }
   if (status.revive?.active) {
-    const tasks = status.revive.remainingTasks;
-    const days = status.revive.daysLeft;
-    const taskBit = `${tasks} left`;
-    const dayBit = days === 1 ? '1 day' : `${days} days`;
-    return { value: status.revive.previousStreak, sub: `${taskBit} · ${dayBit}` };
+    const days = status.revive.daysLeft === 1 ? '1 day' : `${status.revive.daysLeft} days`;
+    if (status.revive.mode === 'challenge' && status.revive.challengeBarHours != null) {
+      const bar = Number.isInteger(status.revive.challengeBarHours)
+        ? `${status.revive.challengeBarHours}h`
+        : `${status.revive.challengeBarHours}h`;
+      return { value: status.revive.previousStreak, sub: `${bar} challenge · ${days}` };
+    }
+    const left = status.revive.remainingTasks + status.revive.remainingScheduled;
+    return { value: status.revive.previousStreak, sub: `${left} left · ${days}` };
   }
   if (status.brokenDays > 0) {
     return {

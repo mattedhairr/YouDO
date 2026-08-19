@@ -114,7 +114,7 @@ describe('streak bar and backlog revive', () => {
     ).toBe(3);
   });
 
-  it('does not offer revive when the miss snapshot has no backlog', () => {
+  it('offers a 1.5× focus challenge when the miss snapshot has no backlog', () => {
     const byDate = new Map([
       ['2026-08-14', hour],
       ['2026-08-15', hour],
@@ -128,12 +128,54 @@ describe('streak bar and backlog revive', () => {
     });
     expect(status.current).toBe(0);
     expect(meta.revive?.brokenOn).toBe('2026-08-16');
+    expect(meta.revive?.windowEnds).toBe('2026-08-17');
     expect(meta.revive?.backlogTaskIds).toEqual([]);
-    expect(status.revive?.active).toBe(false);
-    expect(status.brokenDays).toBe(1);
+    expect(meta.revive?.challengeMultiplier).toBe(1.5);
+    expect(status.revive?.active).toBe(true);
+    expect(status.revive?.mode).toBe('challenge');
+    expect(status.revive?.challengeBarHours).toBe(1.5);
   });
 
-  it('revives when snapshot backlog is done and a qualifying day lands in the window', () => {
+  it('revives with a 1.5× challenge day when there was no backlog', () => {
+    const six = 6 * hour;
+    const prior = new Map([
+      ['2026-08-14', six],
+      ['2026-08-15', six],
+    ]);
+    const spotted = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: prior,
+      meta: { ...baseMeta, barHours: 6 },
+      openBacklogIds: [],
+      isTaskStillOpen: () => false,
+    });
+    expect(spotted.status.revive?.challengeBarHours).toBe(9);
+
+    const short = new Map(prior);
+    short.set('2026-08-17', 6 * hour);
+    const notYet = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: short,
+      meta: spotted.meta,
+      openBacklogIds: [],
+      isTaskStillOpen: () => false,
+    });
+    expect(notYet.meta.revive?.revivedOn).toBeFalsy();
+
+    const long = new Map(prior);
+    long.set('2026-08-17', 9 * hour);
+    const { meta, status } = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: long,
+      meta: spotted.meta,
+      openBacklogIds: [],
+      isTaskStillOpen: () => false,
+    });
+    expect(meta.revive?.revivedOn).toBe('2026-08-17');
+    expect(status.current).toBe(3);
+  });
+
+  it('does not revive on backlog path until scheduled snapshot tasks are also done', () => {
     const prior = new Map([
       ['2026-08-13', hour],
       ['2026-08-14', hour],
@@ -144,23 +186,35 @@ describe('streak bar and backlog revive', () => {
       byDate: prior,
       meta: baseMeta,
       openBacklogIds: ['a', 'b'],
+      openTodayIds: ['today-1'],
       isTaskStillOpen: () => true,
     });
-    expect(spotted.meta.revive?.backlogTaskIds).toEqual(['a', 'b']);
-    expect(spotted.status.current).toBe(0);
+    expect(spotted.meta.revive?.scheduledTaskIds).toEqual(['today-1']);
+    expect(spotted.meta.revive?.windowEnds).toBe('2026-08-17');
 
     const withSit = new Map(prior);
     withSit.set('2026-08-17', hour);
+    const backlogOnly = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: withSit,
+      meta: spotted.meta,
+      openBacklogIds: [],
+      openTodayIds: ['today-1'],
+      isTaskStillOpen: (id) => id === 'today-1',
+    });
+    expect(backlogOnly.meta.revive?.revivedOn).toBeFalsy();
+    expect(backlogOnly.status.revive?.remainingScheduled).toBe(1);
+
     const { meta, status } = reconcileStreakMeta({
       todayISO: '2026-08-17',
       byDate: withSit,
       meta: spotted.meta,
       openBacklogIds: [],
+      openTodayIds: [],
       isTaskStillOpen: () => false,
     });
     expect(meta.revive?.revivedOn).toBe('2026-08-17');
     expect(status.current).toBe(4);
-    expect(status.revive?.active).toBe(false);
   });
 
   it('expires the window without restoring the previous streak', () => {

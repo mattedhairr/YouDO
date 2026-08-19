@@ -534,6 +534,10 @@ function AppInner() {
     () => backlogTasks.filter((t) => isOpenBacklogTask(t)).map((t) => t.id),
     [backlogTasks],
   );
+  const openTodayIds = useMemo(
+    () => todayTasks.filter((t) => !isTaskComplete(t)).map((t) => t.id),
+    [todayTasks],
+  );
   const isSnapshotTaskOpen = useCallback(
     (id: string) => {
       const t = tasks.find((x) => x.id === id);
@@ -545,40 +549,50 @@ function AppInner() {
     () => netFocusByLocalDateOverlapping(Object.values(sessionHistory).flat()),
     [sessionHistory],
   );
+  const streakReconcileInput = useMemo(
+    () => ({
+      todayISO: todayISO(),
+      byDate: streakByDate,
+      meta: streakMeta,
+      openBacklogIds,
+      openTodayIds,
+      isTaskStillOpen: isSnapshotTaskOpen,
+    }),
+    [streakByDate, streakMeta, openBacklogIds, openTodayIds, isSnapshotTaskOpen],
+  );
   const streakStatus = useMemo(
-    () =>
-      reconcileStreakMeta({
-        todayISO: todayISO(),
-        byDate: streakByDate,
-        meta: streakMeta,
-        openBacklogIds,
-        isTaskStillOpen: isSnapshotTaskOpen,
-      }).status,
-    [streakByDate, streakMeta, openBacklogIds, isSnapshotTaskOpen],
+    () => reconcileStreakMeta(streakReconcileInput).status,
+    [streakReconcileInput],
   );
 
   const reviveSaveIds = useMemo(
-    () => new Set(streakStatus.revive?.active ? streakStatus.revive.remainingIds : []),
+    () => new Set(streakStatus.revive?.active && streakStatus.revive.mode === 'backlog' ? streakStatus.revive.remainingIds : []),
+    [streakStatus],
+  );
+  const reviveScheduledIds = useMemo(
+    () =>
+      new Set(
+        streakStatus.revive?.active && streakStatus.revive.mode === 'backlog'
+          ? streakStatus.revive.remainingScheduledIds
+          : [],
+      ),
     [streakStatus],
   );
   const reviveSaveTasks = useMemo(
     () =>
-      (streakStatus.revive?.active ? streakStatus.revive.remainingIds : [])
+      (streakStatus.revive?.active && streakStatus.revive.mode === 'backlog'
+        ? streakStatus.revive.remainingIds
+        : []
+      )
         .map((id) => tasks.find((t) => t.id === id))
         .filter((t): t is Task => !!t),
     [streakStatus, tasks],
   );
 
   useEffect(() => {
-    const { meta } = reconcileStreakMeta({
-      todayISO: todayISO(),
-      byDate: streakByDate,
-      meta: streakMeta,
-      openBacklogIds,
-      isTaskStillOpen: isSnapshotTaskOpen,
-    });
+    const { meta } = reconcileStreakMeta(streakReconcileInput);
     if (JSON.stringify(meta) !== JSON.stringify(streakMeta)) setStreakMeta(meta);
-  }, [streakByDate, streakMeta, openBacklogIds, isSnapshotTaskOpen]);
+  }, [streakReconcileInput, streakMeta]);
 
   const activeTask = useMemo(() => {
     if (!activeSession) return null;
@@ -994,7 +1008,11 @@ function AppInner() {
                 {streakStatus.revive?.active && (
                   <button
                     type="button"
-                    onClick={() => startTransition(() => setTodaySubTab('backlog'))}
+                    onClick={() => {
+                      if (streakStatus.revive?.mode === 'backlog') {
+                        startTransition(() => setTodaySubTab('backlog'));
+                      }
+                    }}
                     className="w-full text-left bg-surface border border-subtle rounded-[16px] px-3.5 py-2.5 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
@@ -1002,7 +1020,9 @@ function AppInner() {
                         Restore streak
                       </p>
                       <p className="text-[12px] text-content-secondary mt-0.5">
-                        {streakStatus.revive.remainingTasks} to clear
+                        {streakStatus.revive.mode === 'challenge' && streakStatus.revive.challengeBarHours != null
+                          ? `${streakStatus.revive.challengeBarHours}h challenge`
+                          : `${streakStatus.revive.remainingTasks} backlog · ${streakStatus.revive.remainingScheduled} scheduled`}
                         {' · '}
                         {streakStatus.revive.daysLeft === 1
                           ? '1 day left'
@@ -1081,7 +1101,7 @@ function AppInner() {
                               onStopSession={() => setStopDialogTask(t)}
                               onOpenAmbient={() => setShowAmbient(true)}
                               taskSessions={getTaskSessions(t.id)}
-                              streakSave={reviveSaveIds.has(t.id)}
+                              streakSave={reviveScheduledIds.has(t.id)}
                             />
                           </div>
                         );
@@ -1102,9 +1122,18 @@ function AppInner() {
                             <p className="text-[12px] text-content-muted">
                               Across {openBacklogDateCount} date{openBacklogDateCount > 1 ? 's' : ''}
                             </p>
-                            {streakStatus.revive?.active && (
+                            {streakStatus.revive?.active && streakStatus.revive.mode === 'backlog' && (
                               <p className="text-[12px] text-primary mt-1.5">
                                 {streakStatus.revive.remainingTasks} marked Save streak
+                                {' · '}
+                                {streakStatus.revive.daysLeft === 1
+                                  ? '1 day left'
+                                  : `${streakStatus.revive.daysLeft} days left`}
+                              </p>
+                            )}
+                            {streakStatus.revive?.active && streakStatus.revive.mode === 'challenge' && (
+                              <p className="text-[12px] text-primary mt-1.5">
+                                Focus challenge: {streakStatus.revive.challengeBarHours}h to restore
                                 {' · '}
                                 {streakStatus.revive.daysLeft === 1
                                   ? '1 day left'

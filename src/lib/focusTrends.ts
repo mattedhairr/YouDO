@@ -5,7 +5,11 @@ import { isCountableSession, MIN_COUNTABLE_MS, splitSessionByLocalDate } from '.
 export const DEFAULT_STREAK_BAR_HOURS = 1;
 export const MIN_STREAK_BAR_HOURS = 0.5;
 export const MAX_STREAK_BAR_HOURS = 10;
-export const REVIVE_WINDOW_DAYS = 2;
+/** Calendar days after the missed day that revive is still open (1 = next day only). */
+export const REVIVE_WINDOW_DAYS = 1;
+export const CHALLENGE_REVIVE_MULTIPLIER = 1.5;
+
+export type StreakReviveMode = 'backlog' | 'challenge';
 
 export type HeatmapDay = {
   date: string;
@@ -24,6 +28,10 @@ export type StreakReviveSnapshot = {
   brokenOn: string;
   windowEnds: string;
   backlogTaskIds: string[];
+  /** Open scheduled-today task ids frozen at miss detection (backlog revive only). */
+  scheduledTaskIds?: string[];
+  /** Set when there was no open backlog — restore by hitting bar × this once. */
+  challengeMultiplier?: number;
   revivedOn?: string | null;
 };
 
@@ -41,10 +49,14 @@ export type StreakView = {
   revive: {
     active: boolean;
     eligible: boolean;
+    mode: StreakReviveMode;
     remainingTasks: number;
     remainingIds: string[];
+    remainingScheduled: number;
+    remainingScheduledIds: string[];
     daysLeft: number;
     previousStreak: number;
+    challengeBarHours: number | null;
   } | null;
 };
 
@@ -159,20 +171,40 @@ function firstQualifyingInWindow(
   revive: StreakReviveSnapshot,
   todayISO: string,
   opts?: StreakWalkOpts,
+  thresholdMs?: number,
 ): string | null {
   let cursor = shiftLocalISO(revive.brokenOn, 1);
   while (cursor <= revive.windowEnds && cursor <= todayISO) {
-    if (dayQualifies(byDate.get(cursor) ?? 0, cursor, opts)) return cursor;
+    const ms = byDate.get(cursor) ?? 0;
+    if (thresholdMs != null) {
+      if (ms >= thresholdMs) return cursor;
+    } else if (dayQualifies(ms, cursor, opts)) {
+      return cursor;
+    }
     cursor = shiftLocalISO(cursor, 1);
   }
   return null;
 }
 
 function remainingSnapshotTasks(
-  ids: string[],
+  ids: string[] | undefined,
   isTaskStillOpen: (id: string) => boolean,
-): number {
-  return ids.filter((id) => isTaskStillOpen(id)).length;
+): string[] {
+  return (ids ?? []).filter((id) => isTaskStillOpen(id));
+}
+
+export function challengeBarHours(barHours: number, multiplier = CHALLENGE_REVIVE_MULTIPLIER): number {
+  return Math.round(clampStreakBarHours(barHours) * multiplier * 100) / 100;
+}
+
+export function formatStreakHours(hours: number): string {
+  const h = Math.round(hours * 100) / 100;
+  if (h < 1) return `${Math.round(h * 60)} min`;
+  return Number.isInteger(h) ? `${h}h` : `${h}h`;
+}
+
+function reviveMode(revive: StreakReviveSnapshot | null): StreakReviveMode {
+  return revive?.challengeMultiplier ? 'challenge' : 'backlog';
 }
 
 export function weekHeatmap(byDate: Map<string, number>, todayISO: string): HeatmapDay[] {
@@ -208,18 +240,26 @@ function viewFrom(
   const current = currentFocusStreak(byDate, todayISO, opts);
   const revive = meta.revive;
   const inWindow = !!revive && todayISO <= revive.windowEnds && !revive.revivedOn;
-  const eligible = !!revive && revive.backlogTaskIds.length > 0;
-  const remainingIds = revive ? revive.backlogTaskIds.filter((id) => isTaskStillOpen(id)) : [];
+  const mode = reviveMode(revive);
+  const eligible = !!revive && (mode === 'challenge' || revive.backlogTaskIds.length > 0);
+  const remainingIds = remainingSnapshotTasks(revive?.backlogTaskIds, isTaskStillOpen);
+  const remainingScheduledIds = remainingSnapshotTasks(revive?.scheduledTaskIds, isTaskStillOpen);
   const daysLeft = revive && inWindow ? Math.max(1, daysBetweenLocalISO(todayISO, revive.windowEnds) + 1) : 0;
   const brokenDays =
     current > 0 || !revive?.brokenOn ? 0 : Math.max(1, daysBetweenLocalISO(revive.brokenOn, todayISO));
+  const challengeHrs =
+    mode === 'challenge' ? challengeBarHours(meta.barHours, revive?.challengeMultiplier) : null;
 
-  const reviveView = (
-    remainingIds: string[],
-    extra: { active: boolean; eligible: boolean; daysLeft: number; previousStreak: number },
-  ) => ({
+  const pack = (
+    extra: Partial<NonNullable<StreakView['revive']>> & { active: boolean; eligible: boolean; previousStreak: number },
+  ): NonNullable<StreakView['revive']> => ({
+    mode,
     remainingTasks: remainingIds.length,
     remainingIds,
+    remainingScheduled: remainingScheduledIds.length,
+    remainingScheduledIds,
+    daysLeft,
+    challengeBarHours: challengeHrs,
     ...extra,
   });
 
@@ -229,17 +269,15 @@ function viewFrom(
     brokenDays,
     revive:
       revive && (inWindow || !!revive.revivedOn)
-        ? reviveView(remainingIds, {
+        ? pack({
             active: inWindow && eligible,
             eligible,
-            daysLeft,
             previousStreak: revive.previousStreak,
           })
         : current === 0 && brokenDays > 0
-          ? reviveView([], {
+          ? pack({
               active: false,
               eligible: false,
-              daysLeft: 0,
               previousStreak: revive?.previousStreak ?? 0,
             })
           : null,
@@ -255,6 +293,7 @@ export function reconcileStreakMeta(input: {
   byDate: Map<string, number>;
   meta: StreakMeta;
   openBacklogIds: string[];
+  openTodayIds?: string[];
   isTaskStillOpen: (id: string) => boolean;
 }): { meta: StreakMeta; status: StreakView } {
   const barHours = clampStreakBarHours(input.meta.barHours);
@@ -267,6 +306,7 @@ export function reconcileStreakMeta(input: {
   const yesterday = shiftLocalISO(input.todayISO, -1);
   const optsNow = () => walkOptsFromMeta(meta);
   const yesterdayMissed = !dayQualifies(input.byDate.get(yesterday) ?? 0, yesterday, optsNow());
+  const openTodayIds = input.openTodayIds ?? [];
 
   if (yesterdayMissed) {
     const lastQ = lastQualifyingDate(input.byDate, shiftLocalISO(yesterday, -1), optsNow());
@@ -280,28 +320,41 @@ export function reconcileStreakMeta(input: {
           bridgeDates: [],
         });
         const stillInWindow = input.todayISO <= windowEnds;
+        const hadBacklog = input.openBacklogIds.length > 0;
         meta = {
           ...meta,
           revive: {
             previousStreak,
             brokenOn,
             windowEnds,
-            backlogTaskIds: stillInWindow ? [...input.openBacklogIds] : [],
+            backlogTaskIds: stillInWindow && hadBacklog ? [...input.openBacklogIds] : [],
+            scheduledTaskIds: stillInWindow && hadBacklog ? [...openTodayIds] : [],
+            challengeMultiplier: stillInWindow && !hadBacklog ? CHALLENGE_REVIVE_MULTIPLIER : undefined,
             revivedOn: null,
           },
         };
       }
     } else if (meta.revive && !meta.revive.revivedOn && input.todayISO > meta.revive.windowEnds) {
-      meta = { ...meta, revive: { ...meta.revive, backlogTaskIds: [] } };
+      meta = { ...meta, revive: { ...meta.revive, backlogTaskIds: [], scheduledTaskIds: [] } };
     }
   }
 
   const revive = meta.revive;
-  if (revive && !revive.revivedOn && revive.backlogTaskIds.length > 0 && input.todayISO <= revive.windowEnds) {
-    const remaining = remainingSnapshotTasks(revive.backlogTaskIds, input.isTaskStillOpen);
-    const qual = firstQualifyingInWindow(input.byDate, revive, input.todayISO, walkOptsFromMeta(meta));
-    if (remaining === 0 && qual) {
-      meta = { ...meta, revive: { ...revive, revivedOn: qual } };
+  if (revive && !revive.revivedOn && input.todayISO <= revive.windowEnds) {
+    const remainingBacklog = remainingSnapshotTasks(revive.backlogTaskIds, input.isTaskStillOpen);
+    const remainingScheduled = remainingSnapshotTasks(revive.scheduledTaskIds, input.isTaskStillOpen);
+    const opts = walkOptsFromMeta(meta);
+    if (revive.challengeMultiplier) {
+      const challengeMs = streakBarMs(meta.barHours) * revive.challengeMultiplier;
+      const qual = firstQualifyingInWindow(input.byDate, revive, input.todayISO, opts, challengeMs);
+      if (qual) {
+        meta = { ...meta, revive: { ...revive, revivedOn: qual } };
+      }
+    } else if (revive.backlogTaskIds.length > 0) {
+      const qual = firstQualifyingInWindow(input.byDate, revive, input.todayISO, opts);
+      if (remainingBacklog.length === 0 && remainingScheduled.length === 0 && qual) {
+        meta = { ...meta, revive: { ...revive, revivedOn: qual } };
+      }
     }
   }
 
