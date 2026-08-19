@@ -91,6 +91,7 @@ export function parseBackupPayload(jsonData: string): {
   goals: GoalNode[];
   sessionHistory?: unknown;
   recentlyDeletedGoals?: unknown;
+  streakMeta?: unknown;
   updatedAt?: number;
 } | null {
   try {
@@ -119,6 +120,7 @@ export function parseBackupPayload(jsonData: string): {
       goals: importedGoals,
       sessionHistory: obj.sessionHistory,
       recentlyDeletedGoals: obj.recentlyDeletedGoals,
+      streakMeta: obj.streakMeta,
       updatedAt: updatedAt > 0 ? updatedAt : undefined,
     };
   } catch {

@@ -54,6 +54,13 @@ import { APP_VERSION } from './lib/version';
 import { STORAGE_KEYS, readWorkspaceUpdatedAt, writeWorkspaceUpdatedAt } from './lib/storageKeys';
 import { mergeWorkspace, workspaceSignature, type TrashRecord } from './lib/syncMerge';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
+import {
+  applyStreakBarHours,
+  defaultStreakMeta,
+  sanitizeStreakMeta,
+  type StreakMeta,
+} from './lib/focusTrends';
+import { todayISO } from './lib/dates';
 
 export {
   todayISO,
@@ -162,6 +169,10 @@ interface Store {
   }>;
   /** Drop sittings older than 90 days from this device. */
   pruneOldSessions: () => number;
+  /** Daily streak bar + revive snapshot (synced to cloud). */
+  streakMeta: StreakMeta;
+  setStreakMeta: (next: StreakMeta | ((prev: StreakMeta) => StreakMeta)) => void;
+  setStreakBarHours: (hours: number) => void;
 
   /* ── Session Timer ─────────────────────────────────────────────────────── */
   /** The currently live session (null if none active) */
@@ -238,6 +249,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [lastDeletedNotification, setLastDeletedNotification] = useState<{ id: string; title: string } | null>(null);
   const [activeSession, setActiveSession] = useLocalStorage<ActiveSession | null>(STORAGE_KEYS.activeSession, null);
   const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>(STORAGE_KEYS.sessionHistory, {});
+  const [streakMeta, setStreakMeta] = useLocalStorage<StreakMeta>(
+    STORAGE_KEYS.streakMeta,
+    defaultStreakMeta(todayISO()),
+  );
 
   // Invalidate rollup cache whenever goals tree changes
   useEffect(() => {
@@ -271,6 +286,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   goalsRef.current = goals;
   const sessionHistoryRef = useRef(sessionHistory);
   sessionHistoryRef.current = sessionHistory;
+  const streakMetaRef = useRef(streakMeta);
+  streakMetaRef.current = streakMeta;
   const recentlyDeletedRef = useRef(recentlyDeletedGoals);
   recentlyDeletedRef.current = recentlyDeletedGoals;
   const activeSessionRef = useRef(activeSession);
@@ -1083,6 +1100,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tasks: tasksRef.current,
       goals: goalsRef.current,
       sessionHistory: sessionHistoryRef.current,
+      streakMeta: streakMetaRef.current,
     };
     const jsonStr = JSON.stringify(data, null, 2);
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -1155,6 +1173,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(parsed.recentlyDeletedGoals)) {
         setRecentlyDeletedGoals(parsed.recentlyDeletedGoals as DeletedGoalRecord[]);
       }
+      const importedStreak = sanitizeStreakMeta(parsed.streakMeta, todayISO());
+      if (importedStreak) setStreakMeta(importedStreak);
 
       const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(parsed.goals, parsed.tasks);
       setTasks(cleanedTasks);
@@ -1165,7 +1185,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       clearRollupCache();
       return true;
     },
-    [setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals],
+    [setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta],
+  );
+
+  const setStreakBarHours = useCallback(
+    (hours: number) => {
+      setStreakMeta((prev) => applyStreakBarHours(prev, hours, todayISO()));
+    },
+    [setStreakMeta],
   );
 
   const { user, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot } = useAuth();
@@ -1178,6 +1205,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         goals: goalsRef.current,
         sessionHistory: sessionHistoryRef.current,
         recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
+        streakMeta: streakMetaRef.current,
       });
       if (currentSig === lastCloudPayloadRef.current) return { ok: true };
     }
@@ -1196,6 +1224,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             goals: goalsRef.current,
             sessionHistory: sessionHistoryRef.current,
             recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
+            streakMeta: streakMetaRef.current,
             updatedAt: workspaceUpdatedAtRef.current,
           };
           const remoteSlice = {
@@ -1205,6 +1234,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
               ? (parsed.recentlyDeletedGoals as TrashRecord[])
               : [],
+            streakMeta: sanitizeStreakMeta(parsed.streakMeta, todayISO()),
             updatedAt: parsed.updatedAt ?? 0,
           };
           const merged = mergeWorkspace(localSlice, remoteSlice);
@@ -1213,6 +1243,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             goalsRef.current = merged.goals;
             sessionHistoryRef.current = merged.sessionHistory;
             recentlyDeletedRef.current = merged.recentlyDeletedGoals as typeof recentlyDeletedRef.current;
+            if (merged.streakMeta) {
+              streakMetaRef.current = merged.streakMeta;
+              setStreakMeta(merged.streakMeta);
+            }
             if (merged.updatedAt) {
               workspaceUpdatedAtRef.current = merged.updatedAt;
               writeWorkspaceUpdatedAt(merged.updatedAt);
@@ -1235,18 +1269,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       goals: goalsRef.current,
       sessionHistory: sessionHistoryRef.current,
       recentlyDeletedGoals: recentlyDeletedRef.current,
+      streakMeta: streakMetaRef.current,
     };
     const signature = workspaceSignature({
       tasks: payload.tasks,
       goals: payload.goals,
       sessionHistory: payload.sessionHistory,
       recentlyDeletedGoals: payload.recentlyDeletedGoals as TrashRecord[],
+      streakMeta: payload.streakMeta,
     });
     if (signature === lastCloudPayloadRef.current) return { ok: true };
     const result = await updateCloudBackup(payload);
     if (result.ok) lastCloudPayloadRef.current = signature;
     return result;
-  }, [updateCloudBackup, fetchCloudBackup, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals]);
+  }, [updateCloudBackup, fetchCloudBackup, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
     const jsonStr = await fetchCloudBackup();
@@ -1314,7 +1350,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const timer = setTimeout(() => { syncToCloud(); }, 2000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tasks, goals, sessionHistory, recentlyDeletedGoals]);
+  }, [user, tasks, goals, sessionHistory, recentlyDeletedGoals, streakMeta]);
 
   const dataValue = useMemo<DataStore>(
     () => ({
@@ -1328,6 +1364,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pruneOldSessions,
       sessionHistory,
       completeSessionSteps,
+      streakMeta,
+      setStreakMeta,
+      setStreakBarHours,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
@@ -1337,7 +1376,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
       exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       pruneOldSessions,
-      sessionHistory, completeSessionSteps],
+      sessionHistory, completeSessionSteps, streakMeta, setStreakMeta, setStreakBarHours],
   );
 
   const sessionValue = useMemo<SessionStore>(
