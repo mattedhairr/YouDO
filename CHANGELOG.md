@@ -64,6 +64,24 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.7.1] — 2026-08-19 ("Streak revive rules")
+
+Clearer streak recovery: one-day window, scheduled tasks required on backlog revive, and a 1.5× focus challenge when there was no backlog at the miss.
+
+### 🚀 What you will notice
+- **1-day revive window** — One calendar day after a miss to restore your streak (not two).
+- **Backlog revive** — Clear marked backlog **and** today’s scheduled Save streak tasks, then hit the daily bar.
+- **Challenge revive** — No backlog at the miss? Hit **1.5×** your bar that day (6h bar → 9h) to restore.
+
+### ⚙ Under the hood
+- Frozen scheduled-today snapshot on backlog revive; challenge path when backlog snapshot is empty.
+- **versionCode 20** for sideload install-over from 3.7.0 (19) and earlier.
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.7.1**, versionCode **20**. Same package id `com.mattedhairr.youdo` — install over **3.7.0** (19), **3.6.1** (18), and earlier. **versionCode 20 is required** — sideload will fail if the APK was built with an older code.
+
+---
+
 ## [v3.7.0] — 2026-08-19 ("Glance and streak bar")
 
 Smarter Today briefing, a daily focus bar for streaks, and a backlog catch-up path to restore a broken streak — plus a reliable sideload upgrade from 3.6.x.
