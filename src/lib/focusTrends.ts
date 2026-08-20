@@ -57,6 +57,7 @@ export type StreakView = {
     remainingScheduled: number;
     remainingScheduledIds: string[];
     daysLeft: number;
+    windowEnds: string;
     previousStreak: number;
     challengeBarHours: number | null;
   } | null;
@@ -196,6 +197,17 @@ function remainingSnapshotTasks(
   return (ids ?? []).filter((id) => isTaskStillOpen(id));
 }
 
+function unionIds(existing: string[] | undefined, incoming: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of [...(existing ?? []), ...incoming]) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 export function challengeBarHours(barHours: number, multiplier = CHALLENGE_REVIVE_MULTIPLIER): number {
   return Math.round(clampStreakBarHours(barHours) * multiplier * 100) / 100;
 }
@@ -262,6 +274,7 @@ function viewFrom(
     remainingScheduled: remainingScheduledIds.length,
     remainingScheduledIds,
     daysLeft,
+    windowEnds: revive?.windowEnds ?? '',
     challengeBarHours: challengeHrs,
     ...extra,
   });
@@ -339,6 +352,18 @@ export function reconcileStreakMeta(input: {
       }
     } else if (meta.revive && !meta.revive.revivedOn && input.todayISO > meta.revive.windowEnds) {
       meta = { ...meta, revive: { ...meta.revive, backlogTaskIds: [], scheduledTaskIds: [] } };
+    }
+  }
+
+  if (
+    meta.revive &&
+    !meta.revive.revivedOn &&
+    !meta.revive.challengeMultiplier &&
+    input.todayISO <= meta.revive.windowEnds
+  ) {
+    const scheduledTaskIds = unionIds(meta.revive.scheduledTaskIds, openTodayIds);
+    if (JSON.stringify(scheduledTaskIds) !== JSON.stringify(meta.revive.scheduledTaskIds ?? [])) {
+      meta = { ...meta, revive: { ...meta.revive, scheduledTaskIds } };
     }
   }
 

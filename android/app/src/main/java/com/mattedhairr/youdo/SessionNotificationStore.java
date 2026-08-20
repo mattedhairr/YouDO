@@ -5,14 +5,11 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.SystemClock;
 import android.widget.RemoteViews;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.core.content.ContextCompat;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -101,11 +98,51 @@ final class SessionNotificationStore {
     static void show(Context ctx, boolean paused, String title) {
         ensureChannel(ctx);
         String safeTitle = title == null || title.trim().isEmpty() ? "Sitting in progress" : title.trim();
-        String status = paused ? "Paused" : "Focus · tap to pause";
+        String status = paused ? "Paused" : "Focusing";
+        String hint = paused ? "Tap to open · Resume here" : "Tap to open · Pause here";
+        long elapsedMs = elapsedFocusMs(sessionObject(ctx), paused);
+        long chronometerBase = SystemClock.elapsedRealtime() - elapsedMs;
 
-        RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.notification_session);
-        views.setTextViewText(R.id.notif_status, status);
-        views.setTextViewText(R.id.notif_title, safeTitle);
+        RemoteViews compact = new RemoteViews(ctx.getPackageName(), R.layout.notification_session);
+        bindAction(ctx, compact, paused);
+        compact.setTextViewText(R.id.notif_status, status);
+        compact.setTextViewText(R.id.notif_title, safeTitle);
+
+        RemoteViews expanded = new RemoteViews(ctx.getPackageName(), R.layout.notification_session_expanded);
+        bindAction(ctx, expanded, paused);
+        expanded.setTextViewText(R.id.notif_status, status);
+        expanded.setTextViewText(R.id.notif_title, safeTitle);
+        expanded.setTextViewText(R.id.notif_hint, hint);
+        expanded.setChronometer(R.id.notif_elapsed, chronometerBase, paused ? "Paused · %s" : "%s", !paused);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_youdo)
+            .setColor(paused ? 0xFF8FA68E : 0xFFC4A574)
+            .setColorized(false)
+            .setContentTitle(safeTitle)
+            .setContentText(status)
+            .setSubText(paused ? "Paused" : "Focus sitting")
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(openAppIntent(ctx))
+            .setCustomContentView(compact)
+            .setCustomHeadsUpContentView(compact)
+            .setCustomBigContentView(expanded);
+
+        try {
+            NotificationManagerCompat.from(ctx).notify(NOTIF_ID, builder.build());
+        } catch (SecurityException ignored) {
+            /* permission denied */
+        }
+    }
+
+    private static void bindAction(Context ctx, RemoteViews views, boolean paused) {
         views.setInt(
             R.id.notif_action,
             "setBackgroundResource",
@@ -113,29 +150,28 @@ final class SessionNotificationStore {
         );
         views.setImageViewResource(R.id.notif_action, paused ? R.drawable.ic_notify_play : R.drawable.ic_notify_pause);
         views.setOnClickPendingIntent(R.id.notif_action, actionIntent(ctx, paused ? ACTION_RESUME : ACTION_PAUSE));
+    }
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_youdo)
-            .setColor(0xFFC4A574)
-            .setContentTitle(paused ? "Paused" : "Focus")
-            .setContentText(safeTitle)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(openAppIntent(ctx))
-            .setCustomContentView(views)
-            .setCustomBigContentView(views)
-            .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
-            .setLargeIcon(bitmapFromDrawable(ctx, R.mipmap.ic_launcher));
-
+    private static JSONObject sessionObject(Context ctx) {
+        String raw = sessionJson(ctx);
+        if (raw == null) return null;
         try {
-            NotificationManagerCompat.from(ctx).notify(NOTIF_ID, builder.build());
-        } catch (SecurityException ignored) {
-            /* permission denied */
+            return new JSONObject(raw);
+        } catch (Exception e) {
+            return null;
         }
+    }
+
+    private static long elapsedFocusMs(JSONObject session, boolean paused) {
+        if (session == null) return 0;
+        long now = System.currentTimeMillis();
+        long start = session.optLong("startTime", now);
+        long pausedDuration = Math.max(0, session.optLong("pausedDuration", 0));
+        if (paused) {
+            long pauseStart = session.optLong("pauseStart", now);
+            pausedDuration += Math.max(0, now - pauseStart);
+        }
+        return Math.max(0, now - start - pausedDuration);
     }
 
     private static void ensureChannel(Context ctx) {
@@ -177,18 +213,6 @@ final class SessionNotificationStore {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
         return PendingIntent.getActivity(ctx, 35010, intent, flags);
-    }
-
-    private static Bitmap bitmapFromDrawable(Context ctx, int resId) {
-        Drawable d = ContextCompat.getDrawable(ctx, resId);
-        if (d == null) return null;
-        int w = Math.max(1, d.getIntrinsicWidth());
-        int h = Math.max(1, d.getIntrinsicHeight());
-        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bmp);
-        d.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        d.draw(canvas);
-        return bmp;
     }
 
     private static String wallClock(long ts) {

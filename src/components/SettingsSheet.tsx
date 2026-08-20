@@ -749,8 +749,8 @@ export default function SettingsSheet({
                     </p>
                     <p>
                       Had overdue tasks in Backlog? Finish every task marked{' '}
-                      <span className="text-primary font-semibold">Save streak</span> (backlog and today’s scheduled),
-                      then hit this bar once.
+                      <span className="text-primary font-semibold">Save streak</span> (frozen backlog plus today’s
+                      scheduled work, including tasks you add today), then hit this bar once.
                     </p>
                     <p>
                       <span className="font-semibold text-content-primary">No backlog?</span> Hit{' '}
