@@ -1,3 +1,12 @@
+export function formatCountdownHm(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0m';
+  const totalMin = Math.ceil(ms / 60_000);
+  const hrs = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  if (hrs > 0) return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+  return `${mins}m`;
+}
+
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 500) return '0s';
   const totalSec = Math.round(ms / 1000);

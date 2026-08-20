@@ -12,6 +12,7 @@ import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
 import SettingsSheet from './components/SettingsSheet';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useReviveDeadlineLabel } from './hooks/useReviveCountdown';
 import HelpCenterSheet from './components/HelpCenterSheet';
 import TodayBriefingSheet from './components/TodayBriefingSheet';
 import UndoToast from './components/UndoToast';
@@ -560,6 +561,11 @@ function AppInner() {
     () => reconcileStreakMeta(streakReconcileInput).status,
     [streakReconcileInput],
   );
+  const reviveDeadlineLabel = useReviveDeadlineLabel(
+    streakStatus.revive?.windowEnds,
+    streakStatus.revive?.previousStreak ?? 0,
+    !!streakStatus.revive?.active,
+  );
 
   const reviveSaveIds = useMemo(
     () => new Set(streakStatus.revive?.active && streakStatus.revive.mode === 'backlog' ? streakStatus.revive.remainingIds : []),
@@ -1019,13 +1025,7 @@ function AppInner() {
                         {streakStatus.revive.mode === 'challenge' && streakStatus.revive.challengeBarHours != null
                           ? `${streakStatus.revive.challengeBarHours}h challenge`
                           : `${streakStatus.revive.remainingTasks} backlog · ${streakStatus.revive.remainingScheduled} scheduled`}
-                        {' · '}
-                        {streakStatus.revive.daysLeft === 1
-                          ? '1 day left'
-                          : `${streakStatus.revive.daysLeft} days left`}
-                        {streakStatus.revive.previousStreak > 0
-                          ? ` · save ${streakStatus.revive.previousStreak}`
-                          : ''}
+                        {reviveDeadlineLabel ? ` · ${reviveDeadlineLabel}` : ''}
                       </p>
                     </div>
                     <Flame size={16} className="text-primary shrink-0" />

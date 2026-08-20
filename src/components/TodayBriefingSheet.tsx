@@ -6,6 +6,7 @@ import { formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
 import { hapticSuccess, hapticTap } from '../lib/haptics';
 import { localISODate, shiftLocalISO } from '../lib/dates';
+import { useReviveTimeLeftSub } from '../hooks/useReviveCountdown';
 import type { StreakView } from '../lib/focusTrends';
 
 interface Props {
@@ -22,9 +23,10 @@ interface Props {
 
 /** Classic slide-to-unlock: must drag near the end, then release. */
 const UNLOCK_THRESHOLD = 0.92;
-const THUMB_PX = 40;
+const THUMB_W = 56;
+const THUMB_H = 36;
 const TRACK_PAD = 6;
-const TRACK_H = 52;
+const TRACK_H = 48;
 
 function StatCard({
   icon,
@@ -32,12 +34,14 @@ function StatCard({
   value,
   sub,
   valueClass,
+  valueBroken,
 }: {
   icon: ReactNode;
   label: string;
   value: string | number;
   sub: string;
   valueClass: string;
+  valueBroken?: boolean;
 }) {
   return (
     <div className="bg-surface border border-subtle rounded-[12px] p-3 min-w-0">
@@ -45,29 +49,38 @@ function StatCard({
         {icon}
         <span className="text-[10px] font-semibold uppercase tracking-wider">{label}</span>
       </div>
-      <p className={`text-[18px] font-semibold tabular-nums leading-none ${valueClass}`}>{value}</p>
+      <p className={`text-[18px] font-semibold tabular-nums leading-none ${valueClass}`}>
+        {valueBroken ? (
+          <span className="relative inline-block opacity-75">
+            {value}
+            <span
+              className="pointer-events-none absolute left-[-2px] right-[-2px] top-1/2 h-[2px] -translate-y-1/2 rotate-[-8deg] rounded-full bg-current opacity-70"
+              aria-hidden
+            />
+          </span>
+        ) : (
+          value
+        )}
+      </p>
       <p className="text-[11px] text-content-secondary mt-1">{sub}</p>
     </div>
   );
 }
 
-function streakCardCopy(status: StreakView): { value: string | number; sub: string } {
+function streakCardCopy(
+  status: StreakView,
+  reviveSub: string | null,
+): { value: string | number; sub: string; valueBroken?: boolean } {
   if (status.current > 0) {
     return {
       value: status.current,
       sub: status.current === 1 ? 'day with focus' : 'days with focus',
     };
   }
-  if (status.revive?.active) {
-    const days = status.revive.daysLeft === 1 ? '1 day' : `${status.revive.daysLeft} days`;
-    if (status.revive.mode === 'challenge' && status.revive.challengeBarHours != null) {
-      const bar = Number.isInteger(status.revive.challengeBarHours)
-        ? `${status.revive.challengeBarHours}h`
-        : `${status.revive.challengeBarHours}h`;
-      return { value: status.revive.previousStreak, sub: `${bar} challenge · ${days}` };
-    }
-    const left = status.revive.remainingTasks + status.revive.remainingScheduled;
-    return { value: status.revive.previousStreak, sub: `${left} left · ${days}` };
+  if (status.revive?.active && reviveSub) {
+    const streak =
+      status.revive.previousStreak === 1 ? '1 day' : `${status.revive.previousStreak} days`;
+    return { value: streak, sub: reviveSub, valueBroken: true };
   }
   if (status.brokenDays > 0) {
     return {
@@ -136,7 +149,14 @@ export default function TodayBriefingSheet({
   const scheduledTotal = todayTasks.length;
   const remainingToday = openTodayCount;
   const startedToday = todayDone > 0 || todayFocusMs > 0;
-  const streakCopy = streakCardCopy(streakStatus);
+  const reviveTimeSub = useReviveTimeLeftSub(
+    streakStatus.revive?.windowEnds,
+    !!streakStatus.revive?.active,
+  );
+  const streakCopy = useMemo(
+    () => streakCardCopy(streakStatus, reviveTimeSub),
+    [streakStatus, reviveTimeSub],
+  );
 
   const headline = useMemo(() => {
     if (!startedToday) {
@@ -151,7 +171,7 @@ export default function TodayBriefingSheet({
     return 'Work in progress.';
   }, [startedToday, scheduledTotal, openBacklogCount, remainingToday]);
 
-  const maxTravel = Math.max(0, trackWidth - THUMB_PX - TRACK_PAD * 2);
+  const maxTravel = Math.max(0, trackWidth - THUMB_W - TRACK_PAD * 2);
 
   const setKnobProgress = useCallback((next: number) => {
     setProgress(Math.min(1, Math.max(0, next)));
@@ -200,8 +220,8 @@ export default function TodayBriefingSheet({
     const el = trackRef.current;
     if (!el) return 0;
     const rect = el.getBoundingClientRect();
-    const travel = Math.max(1, rect.width - THUMB_PX - TRACK_PAD * 2);
-    return Math.min(1, Math.max(0, (clientX - rect.left - TRACK_PAD - THUMB_PX / 2) / travel));
+    const travel = Math.max(1, rect.width - THUMB_W - TRACK_PAD * 2);
+    return Math.min(1, Math.max(0, (clientX - rect.left - TRACK_PAD - THUMB_W / 2) / travel));
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -316,6 +336,7 @@ export default function TodayBriefingSheet({
                 value={streakCopy.value}
                 sub={streakCopy.sub}
                 valueClass="text-primary"
+                valueBroken={streakCopy.valueBroken}
               />
             </>
           )}
@@ -360,12 +381,14 @@ export default function TodayBriefingSheet({
             )}
 
             <div
-              className={`absolute inset-y-[5px] left-[5px] rounded-[999px] pointer-events-none ${
+              className={`absolute left-[6px] rounded-[999px] pointer-events-none ${
                 knobAnimating && !isDragging ? 'transition-[width,opacity,box-shadow] duration-300 ease-out' : ''
               }`}
               style={{
-                width: `${THUMB_PX + TRACK_PAD + progress * maxTravel}px`,
-                maxWidth: `calc(100% - 10px)`,
+                top: TRACK_PAD,
+                bottom: TRACK_PAD,
+                width: `${THUMB_W + TRACK_PAD + progress * maxTravel}px`,
+                maxWidth: `calc(100% - ${TRACK_PAD * 2}px)`,
                 background: confirmed
                   ? 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 42%, transparent), color-mix(in srgb, var(--primary-glow) 28%, transparent))'
                   : 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 32%, transparent) 0%, color-mix(in srgb, var(--primary-glow) 16%, transparent) 72%, transparent 100%)',
@@ -378,7 +401,7 @@ export default function TodayBriefingSheet({
             />
 
             <p
-              className={`briefing-slider-label absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 text-[17px] font-semibold tracking-[0.07em] leading-none pointer-events-none whitespace-nowrap ${
+              className={`briefing-slider-label absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 text-[16px] font-semibold tracking-[0.07em] leading-none pointer-events-none whitespace-nowrap ${
                 !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-label--idle' : ''
               }`}
               style={{
@@ -408,11 +431,11 @@ export default function TodayBriefingSheet({
                 knobAnimating && !isDragging ? 'briefing-slider-knob--snap' : ''
               } ${confirmed ? 'briefing-slider-knob--done' : ''} ${isDragging ? 'briefing-slider-knob--drag' : ''}`}
               style={{
-                width: THUMB_PX,
-                height: THUMB_PX,
+                width: THUMB_W,
+                height: THUMB_H,
                 left: TRACK_PAD,
                 transform: `translate3d(${progress * maxTravel}px, -50%, 0) scale(${
-                  confirmed ? 1.06 : isDragging ? 1.08 : 1
+                  confirmed ? 1.04 : isDragging ? 1.05 : 1
                 })`,
               }}
               aria-label="Got it"
@@ -432,14 +455,14 @@ export default function TodayBriefingSheet({
               />
               {confirmed ? (
                 <Check
-                  size={18}
+                  size={16}
                   strokeWidth={2.75}
                   className="relative z-[1] text-on-primary drop-shadow-[0_1px_0_color-mix(in_srgb,black_25%,transparent)]"
                 />
               ) : (
                 <ChevronRight
-                  size={20}
-                  strokeWidth={2.5}
+                  size={17}
+                  strokeWidth={2.35}
                   className="relative z-[1] text-on-primary drop-shadow-[0_1px_0_color-mix(in_srgb,black_25%,transparent)]"
                 />
               )}

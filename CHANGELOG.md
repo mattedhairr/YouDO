@@ -64,6 +64,25 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v3.8.0] — 2026-08-20 ("Polish and revive fixes")
+
+Cleaner focus notifications, clearer streak revive UI, and scheduled-today tasks added after a miss now count toward saving your streak.
+
+### 🚀 What you will notice
+- **Focus notification** — Single app icon, compact shade layout, expanded view with elapsed time, and a cleaner pause/resume control on lock screen and notification shade.
+- **Streak revive clarity** — Glance and Today banner show hours/minutes left to restore your streak; broken streak value is struck through.
+- **Scheduled tasks after midnight** — Tasks you add to today during the revive window are included in the save-streak list (backlog snapshot stays frozen).
+
+### ⚙ Under the hood
+- Briefing slider thumb resized to a pill for better proportions on wide bars.
+- Shared revive countdown hook for consistent deadline copy across Glance and Today.
+- **versionCode 22** for sideload install-over from 3.7.2 (21).
+
+### 💾 Data Safety
+- **Android APK**: versionName **3.8.0**, versionCode **22**. Same package id `com.mattedhairr.youdo` — install over **3.7.2** (21) and earlier. **versionCode 22 is required.**
+
+---
+
 ## [v3.7.2] — 2026-08-19 ("Stable installs and streak sync")
 
 Sideload install-over should work across GitHub Actions builds, and the daily streak bar (plus revive state) now travels with cloud backup.

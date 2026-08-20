@@ -46,6 +46,13 @@ export function nextLocalMidnight(ts: number): number {
   return d.getTime();
 }
 
+/** Milliseconds until local midnight after `iso` (exclusive end of that calendar day). */
+export function msUntilEndOfLocalISODate(iso: string, now = Date.now()): number {
+  const [y, m, d] = shiftLocalISO(iso, 1).split('-').map(Number);
+  const deadline = new Date(y, m - 1, d).getTime();
+  return Math.max(0, deadline - now);
+}
+
 export function formatDDMMYYYY(isoStr: string | null | undefined): string {
   if (!isoStr) return '';
   const parts = isoStr.slice(0, 10).split('-');

@@ -234,6 +234,57 @@ describe('streak bar and backlog revive', () => {
     expect(status.brokenDays).toBeGreaterThanOrEqual(2);
   });
 
+  it('counts scheduled-today tasks added after the miss snapshot', () => {
+    const byDate = new Map([
+      ['2026-08-14', hour],
+      ['2026-08-15', hour],
+    ]);
+    const first = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate,
+      meta: baseMeta,
+      openBacklogIds: ['old'],
+      openTodayIds: ['today-1'],
+      isTaskStillOpen: (id) => id === 'old' || id === 'today-1',
+    });
+    expect(first.meta.revive?.scheduledTaskIds).toEqual(['today-1']);
+
+    const withSit = new Map(byDate);
+    withSit.set('2026-08-17', hour);
+    const second = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: withSit,
+      meta: first.meta,
+      openBacklogIds: ['old'],
+      openTodayIds: ['today-1', 'today-2'],
+      isTaskStillOpen: (id) => id === 'old' || id === 'today-1' || id === 'today-2',
+    });
+    expect(second.meta.revive?.scheduledTaskIds).toEqual(['today-1', 'today-2']);
+    expect(second.status.revive?.remainingScheduled).toBe(2);
+    expect(second.meta.revive?.revivedOn).toBeFalsy();
+
+    const stillOpenNew = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: withSit,
+      meta: second.meta,
+      openBacklogIds: [],
+      openTodayIds: ['today-2'],
+      isTaskStillOpen: (id) => id === 'today-2',
+    });
+    expect(stillOpenNew.meta.revive?.revivedOn).toBeFalsy();
+    expect(stillOpenNew.status.revive?.remainingScheduled).toBe(1);
+
+    const cleared = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: withSit,
+      meta: stillOpenNew.meta,
+      openBacklogIds: [],
+      openTodayIds: [],
+      isTaskStillOpen: () => false,
+    });
+    expect(cleared.meta.revive?.revivedOn).toBe('2026-08-17');
+  });
+
   it('ignores backlog items added after the snapshot', () => {
     const byDate = new Map([
       ['2026-08-14', hour],
