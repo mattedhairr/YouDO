@@ -17,7 +17,17 @@ import {
   X,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
-import { countDirectChildren, countCompletedDirectChildren, findNode, formatDDMMYYYY, isBacklogTask, localISODate, rollupPct, useStore } from '../store';
+import {
+  countDirectChildren,
+  countCompletedDirectChildren,
+  findNode,
+  formatDDMMYYYY,
+  isBacklogTask,
+  isTaskComplete,
+  localISODate,
+  rollupPct,
+  useStore,
+} from '../store';
 import Overlay from './Overlay';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
@@ -529,7 +539,9 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
           const isDone = child.completed || pct === 100;
           const linkedTask = child.todayTaskId ? tasks.find((t) => t.id === child.todayTaskId) : null;
           const isBacklogged = linkedTask ? isBacklogTask(linkedTask) : false;
-          const isScheduled = linkedTask && !isBacklogged;
+          // Completed today-slices stay on the calendar, but Goals should offer Schedule
+          // for remaining micro-steps — not look like open work for today.
+          const isActivelyScheduled = !!linkedTask && !isBacklogged && !isTaskComplete(linkedTask);
 
           const isHighlighted = child.id === highlightNodeId;
           const isLast = index === children.length - 1;
@@ -610,7 +622,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   {!isLeafLike && ` · ${countCompletedDirectChildren(child)}/${countDirectChildren(child)} done`}
                   {isLeafLike && hasSteps && ` · ${stepDone.filter(Boolean).length}/${child.steps!.length} steps`}
                 </p>
-                {isScheduled && (
+                {isActivelyScheduled && (
                   <span
                     className="shrink-0 text-[10px] font-semibold text-secondary bg-secondary-soft px-2 py-0.5 rounded-md"
                     title={`Scheduled for ${linkedTask?.targetDate ? formatDDMMYYYY(linkedTask.targetDate) : ''}`}
@@ -715,7 +727,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 )}
 
                 {isLeafLike && !child.completed && (
-                  isScheduled ? (
+                  isActivelyScheduled ? (
                     <>
                       <button
                         onClick={(e) => {

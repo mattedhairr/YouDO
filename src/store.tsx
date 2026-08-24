@@ -526,9 +526,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
 
       setTasks((prev) => {
-        // Filter out the old planned task (replan) inside the updater so the order
-        // is derived from prev.length, which is always accurate (no stale ref reads).
-        const filtered = target.todayTaskId ? prev.filter((t) => t.id !== target.todayTaskId) : prev;
+        // Replace an incomplete open plan; keep completed day cards for Plan/history.
+        let filtered = prev;
+        if (target.todayTaskId) {
+          const old = prev.find((t) => t.id === target.todayTaskId);
+          if (old && !isTaskComplete(old)) {
+            filtered = prev.filter((t) => t.id !== target.todayTaskId);
+          }
+        }
         return [...filtered, { ...taskBase, order: filtered.length }];
       });
       setGoals((prev) =>
@@ -554,7 +559,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const slicedDoneCount = countSlicedDone(target, undefined);
 
         const taskId = uid('task');
-        if (target.todayTaskId) replaceIds.add(target.todayTaskId);
+        if (target.todayTaskId) {
+          const old = tasksRef.current.find((t) => t.id === target.todayTaskId);
+          if (old && !isTaskComplete(old)) replaceIds.add(target.todayTaskId);
+        }
         newTasks.push({
           id: taskId,
           title: target.title,
