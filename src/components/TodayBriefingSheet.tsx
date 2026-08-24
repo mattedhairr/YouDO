@@ -4,7 +4,7 @@ import Overlay from './Overlay';
 import type { Task, TaskSession } from '../types';
 import { formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
-import { hapticSuccess, hapticTap } from '../lib/haptics';
+import { hapticSuccess, hapticTap, hapticTick } from '../lib/haptics';
 import { localISODate, shiftLocalISO } from '../lib/dates';
 import { useReviveTimeLeftSub } from '../hooks/useReviveCountdown';
 import type { StreakView } from '../lib/focusTrends';
@@ -22,11 +22,13 @@ interface Props {
 }
 
 /** Classic slide-to-unlock: must drag near the end, then release. */
-const UNLOCK_THRESHOLD = 0.92;
+const UNLOCK_THRESHOLD = 0.88;
+const FLICK_VELOCITY = 0.0022; // progress units per ms
 const THUMB_W = 56;
 const THUMB_H = 36;
 const TRACK_PAD = 6;
 const TRACK_H = 48;
+const FOLLOW_EASE = 0.28;
 
 function StatCard({
   icon,
@@ -111,8 +113,17 @@ export default function TodayBriefingSheet({
   onDismiss,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const knobRef = useRef<HTMLButtonElement>(null);
+  const fillRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLParagraphElement>(null);
   const dragging = useRef(false);
   const confirmedRef = useRef(false);
+  const progressRef = useRef(0);
+  const targetProgressRef = useRef(0);
+  const rafRef = useRef(0);
+  const lastSampleRef = useRef<{ x: number; t: number; p: number } | null>(null);
+  const velocityRef = useRef(0);
+  const hapticBucketRef = useRef(0);
   const [progress, setProgress] = useState(0);
   const [confirmed, setConfirmed] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -173,23 +184,52 @@ export default function TodayBriefingSheet({
 
   const maxTravel = Math.max(0, trackWidth - THUMB_W - TRACK_PAD * 2);
 
+  const paintSlider = useCallback((p: number, draggingNow: boolean) => {
+    const travel = Math.max(0, (trackRef.current?.clientWidth ?? trackWidth) - THUMB_W - TRACK_PAD * 2);
+    const glow = Math.min(1, p / UNLOCK_THRESHOLD);
+    const scale = confirmedRef.current ? 1.04 : draggingNow ? 1.06 : 1;
+    if (knobRef.current) {
+      knobRef.current.style.transform = `translate3d(${p * travel}px, -50%, 0) scale(${scale})`;
+    }
+    if (fillRef.current) {
+      fillRef.current.style.width = `${THUMB_W + TRACK_PAD + p * travel}px`;
+      fillRef.current.style.opacity = String(0.45 + glow * 0.55);
+    }
+    if (labelRef.current) {
+      labelRef.current.style.opacity = String(Math.max(0.18, 0.82 - p * 0.9 + glow * 0.1));
+    }
+  }, [trackWidth]);
+
   const setKnobProgress = useCallback((next: number) => {
-    setProgress(Math.min(1, Math.max(0, next)));
-  }, []);
+    const clamped = Math.min(1, Math.max(0, next));
+    progressRef.current = clamped;
+    targetProgressRef.current = clamped;
+    setProgress(clamped);
+    paintSlider(clamped, dragging.current);
+  }, [paintSlider]);
 
   const finish = useCallback(() => {
     if (confirmedRef.current) return;
     confirmedRef.current = true;
+    dragging.current = false;
+    setIsDragging(false);
+    setKnobAnimating(true);
     setKnobProgress(1);
     setConfirmed(true);
     setExiting(true);
     hapticSuccess();
-    window.setTimeout(() => onDismiss(), 480);
+    window.setTimeout(() => onDismiss(), 520);
   }, [onDismiss, setKnobProgress]);
 
   const resetSlider = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
     confirmedRef.current = false;
     dragging.current = false;
+    progressRef.current = 0;
+    targetProgressRef.current = 0;
+    velocityRef.current = 0;
+    hapticBucketRef.current = 0;
+    lastSampleRef.current = null;
     setIsDragging(false);
     setKnobAnimating(false);
     setKnobProgress(0);
@@ -216,6 +256,12 @@ export default function TodayBriefingSheet({
     if (open) resetSlider();
   }, [open, resetSlider]);
 
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
   const progressFromClientX = (clientX: number) => {
     const el = trackRef.current;
     if (!el) return 0;
@@ -224,19 +270,59 @@ export default function TodayBriefingSheet({
     return Math.min(1, Math.max(0, (clientX - rect.left - TRACK_PAD - THUMB_W / 2) / travel));
   };
 
+  const tickDrag = useCallback(() => {
+    if (!dragging.current || confirmedRef.current) {
+      rafRef.current = 0;
+      return;
+    }
+    const current = progressRef.current;
+    const target = targetProgressRef.current;
+    const next = current + (target - current) * FOLLOW_EASE;
+    progressRef.current = Math.abs(target - next) < 0.001 ? target : next;
+    paintSlider(progressRef.current, true);
+
+    const bucket = Math.floor(progressRef.current * 6);
+    if (bucket > hapticBucketRef.current && progressRef.current > 0.08) {
+      hapticBucketRef.current = bucket;
+      hapticTick();
+    }
+
+    if (Math.abs(target - progressRef.current) > 0.001) {
+      rafRef.current = requestAnimationFrame(tickDrag);
+    } else {
+      rafRef.current = 0;
+      setProgress(progressRef.current);
+    }
+  }, [paintSlider]);
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (confirmedRef.current) return;
     dragging.current = true;
     setIsDragging(true);
     setKnobAnimating(false);
     hapticTap();
+    hapticBucketRef.current = 0;
+    const p = progressFromClientX(e.clientX);
+    targetProgressRef.current = p;
+    progressRef.current = p;
+    lastSampleRef.current = { x: e.clientX, t: performance.now(), p };
+    velocityRef.current = 0;
+    paintSlider(p, true);
     e.currentTarget.setPointerCapture(e.pointerId);
-    setKnobProgress(progressFromClientX(e.clientX));
+    if (!rafRef.current) rafRef.current = requestAnimationFrame(tickDrag);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging.current || confirmedRef.current) return;
-    setKnobProgress(progressFromClientX(e.clientX));
+    const p = progressFromClientX(e.clientX);
+    const now = performance.now();
+    const prev = lastSampleRef.current;
+    if (prev && now > prev.t) {
+      velocityRef.current = (p - prev.p) / (now - prev.t);
+    }
+    lastSampleRef.current = { x: e.clientX, t: now, p };
+    targetProgressRef.current = p;
+    if (!rafRef.current) rafRef.current = requestAnimationFrame(tickDrag);
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -250,9 +336,10 @@ export default function TodayBriefingSheet({
     }
     if (confirmedRef.current) return;
 
+    const releaseProgress = Math.max(progressRef.current, progressFromClientX(e.clientX));
+    const flicked = velocityRef.current >= FLICK_VELOCITY && releaseProgress >= 0.55;
     setKnobAnimating(true);
-    const releaseProgress = progressFromClientX(e.clientX);
-    if (releaseProgress >= UNLOCK_THRESHOLD) {
+    if (releaseProgress >= UNLOCK_THRESHOLD || flicked) {
       finish();
       return;
     }
@@ -381,8 +468,9 @@ export default function TodayBriefingSheet({
             )}
 
             <div
+              ref={fillRef}
               className={`absolute left-[6px] rounded-[999px] pointer-events-none ${
-                knobAnimating && !isDragging ? 'transition-[width,opacity,box-shadow] duration-300 ease-out' : ''
+                knobAnimating && !isDragging ? 'briefing-slider-fill--snap' : ''
               }`}
               style={{
                 top: TRACK_PAD,
@@ -401,6 +489,7 @@ export default function TodayBriefingSheet({
             />
 
             <p
+              ref={labelRef}
               className={`briefing-slider-label absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 text-[16px] font-semibold tracking-[0.07em] leading-none pointer-events-none whitespace-nowrap ${
                 !isDragging && !confirmed && progress < 0.08 ? 'briefing-slider-label--idle' : ''
               }`}
@@ -414,7 +503,6 @@ export default function TodayBriefingSheet({
                   glow > 0.4
                     ? `0 0 ${6 + glow * 10}px color-mix(in srgb, var(--primary) 30%, transparent)`
                     : '0 1px 0 color-mix(in srgb, black 18%, transparent)',
-                transition: 'color 220ms ease, opacity 220ms ease, text-shadow 220ms ease',
               }}
               aria-hidden
             >
@@ -422,6 +510,7 @@ export default function TodayBriefingSheet({
             </p>
 
             <button
+              ref={knobRef}
               type="button"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -435,7 +524,7 @@ export default function TodayBriefingSheet({
                 height: THUMB_H,
                 left: TRACK_PAD,
                 transform: `translate3d(${progress * maxTravel}px, -50%, 0) scale(${
-                  confirmed ? 1.04 : isDragging ? 1.05 : 1
+                  confirmed ? 1.04 : isDragging ? 1.06 : 1
                 })`,
               }}
               aria-label="Got it"
