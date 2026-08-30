@@ -768,6 +768,53 @@ describe('cloud merge', () => {
   });
 });
 
+describe('pace board', () => {
+  it('uses local Monday as the week start', async () => {
+    const { mondayOfLocalISO, monthStartLocalISO } = await import('./paceBoard');
+    expect(mondayOfLocalISO('2026-08-30')).toBe('2026-08-24');
+    expect(mondayOfLocalISO('2026-08-31')).toBe('2026-08-31');
+    expect(monthStartLocalISO('2026-08-30')).toBe('2026-08-01');
+  });
+
+  it('sums net focus from Monday through today, not a rolling 7 days', async () => {
+    const { paceWindowTotals } = await import('./paceBoard');
+    const sessions = [
+      sessionAt('2026-08-23', 60_000),
+      sessionAt('2026-08-24', 120_000),
+      sessionAt('2026-08-30', 45_000),
+    ];
+    const totals = paceWindowTotals(sessions, '2026-08-30');
+    expect(totals.todayMs).toBe(45_000);
+    expect(totals.weekMs).toBe(165_000);
+    expect(totals.monthMs).toBe(225_000);
+  });
+
+  it('ranks by total window hours and marks up/down vs the last snapshot', async () => {
+    const { rankedIds, rankDeltas } = await import('./paceBoard');
+    const rows = [
+      { userId: 'a', displayName: 'A', examLabel: '', todayMs: 10, weekMs: 10, monthMs: 10, streak: 1, barHours: 1, updatedAt: '' },
+      { userId: 'b', displayName: 'B', examLabel: '', todayMs: 30, weekMs: 30, monthMs: 30, streak: 1, barHours: 1, updatedAt: '' },
+      { userId: 'c', displayName: 'C', examLabel: '', todayMs: 20, weekMs: 20, monthMs: 20, streak: 1, barHours: 1, updatedAt: '' },
+    ];
+    expect(rankedIds(rows, 'today')).toEqual(['b', 'c', 'a']);
+    expect(rankDeltas(['b', 'a', 'c'], ['a', 'b', 'c'])).toEqual({
+      b: 'up',
+      a: 'down',
+      c: null,
+    });
+  });
+
+  it('keeps newer pace prefs when merging devices', async () => {
+    const { mergePacePrefs } = await import('./paceBoard');
+    const merged = mergePacePrefs(
+      { optedIn: false, displayName: 'Local', examLabel: '', updatedAt: 10 },
+      { optedIn: true, displayName: 'Cloud', examLabel: 'GATE', updatedAt: 20 },
+    );
+    expect(merged.optedIn).toBe(true);
+    expect(merged.displayName).toBe('Cloud');
+  });
+});
+
 describe('session summary', () => {
   const task: Task = {
     id: 't1',

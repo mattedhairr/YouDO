@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
   helpSeen: 'youdo-help-seen-v1',
   haptics: 'youdo-haptics-v1',
   streakMeta: 'youdo-streak-meta-v1',
+  pacePrefs: 'youdo-pace-prefs-v1',
+  paceRankSnapshot: 'youdo-pace-rank-snapshot-v1',
   workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
 } as const;
 

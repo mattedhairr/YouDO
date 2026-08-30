@@ -92,6 +92,7 @@ export function parseBackupPayload(jsonData: string): {
   sessionHistory?: unknown;
   recentlyDeletedGoals?: unknown;
   streakMeta?: unknown;
+  pacePrefs?: unknown;
   updatedAt?: number;
 } | null {
   try {
@@ -121,6 +122,7 @@ export function parseBackupPayload(jsonData: string): {
       sessionHistory: obj.sessionHistory,
       recentlyDeletedGoals: obj.recentlyDeletedGoals,
       streakMeta: obj.streakMeta,
+      pacePrefs: obj.pacePrefs,
       updatedAt: updatedAt > 0 ? updatedAt : undefined,
     };
   } catch {

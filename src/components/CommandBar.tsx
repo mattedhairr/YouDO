@@ -1,4 +1,4 @@
-import { Calendar, Check, Copy, Settings, Target, Trash2, X } from 'lucide-react';
+import { Calendar, Check, Copy, Settings, Target, Trash2, TrendingUp, X } from 'lucide-react';
 import type { View } from '../types';
 
 interface BatchMode {
@@ -44,6 +44,7 @@ export default function CommandBar({
     { id: 'tasks', label: 'Today', icon: Check, badge: remainingToday > 0 ? remainingToday : undefined },
     { id: 'goals', label: 'Goals', icon: Target, badge: goalsCount > 0 ? goalsCount : undefined },
     { id: 'calendar', label: 'Plan', icon: Calendar },
+    { id: 'board', label: 'Board', icon: TrendingUp },
   ];
 
   return (
@@ -116,14 +117,14 @@ export default function CommandBar({
                   type="button"
                   onClick={() => onNavigate(tab.id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex-1 h-9 flex items-center justify-center gap-1.5 rounded-[10px] text-[12px] transition-colors ${
+                  className={`relative flex-1 min-w-0 h-9 flex items-center justify-center gap-1 rounded-[10px] text-[11px] transition-colors ${
                     active
                       ? 'bg-primary-soft text-primary font-semibold'
                       : 'text-content-muted font-medium [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated'
                   }`}
                 >
                   <Icon size={15} strokeWidth={active ? 2.4 : 2} />
-                  <span>{tab.label}</span>
+                  <span className="truncate max-[22rem]:hidden">{tab.label}</span>
                   {tab.badge !== undefined && (
                     <span
                       className={`min-w-[16px] h-4 px-1 grid place-items-center rounded-full text-[10px] font-semibold leading-none tabular-nums ${

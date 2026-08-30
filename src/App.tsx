@@ -27,6 +27,7 @@ import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
 import StepSliceSheet from './components/StepSliceSheet';
 import CalendarView from './components/CalendarView';
+import BoardView from './components/BoardView';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
 import { SessionReconstructSheet } from './components/SessionReconstructSheet';
@@ -150,6 +151,7 @@ function AppInner() {
     streakMeta,
     setStreakMeta,
     setStreakBarHours,
+    publishPublicPace,
   } = useStore();
 
   const {
@@ -289,7 +291,7 @@ function AppInner() {
 
   const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab, navigateToGoalPath } =
     useNavigationSync(handleModalPopState);
-  const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar'], []);
+  const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar', 'board'], []);
 
   const pushModalState = useCallback(() => {
     try {
@@ -596,6 +598,11 @@ function AppInner() {
     if (JSON.stringify(meta) !== JSON.stringify(streakMeta)) setStreakMeta(meta);
   }, [streakReconcileInput, streakMeta]);
 
+  useEffect(() => {
+    if (!user) return;
+    void publishPublicPace();
+  }, [user, publishPublicPace]);
+
   const activeTask = useMemo(() => {
     if (!activeSession) return null;
     return tasks.find((t) => t.id === activeSession.taskId) ?? null;
@@ -892,11 +899,13 @@ function AppInner() {
                   ? 'Goals'
                   : view === 'calendar'
                     ? 'Calendar'
-                    : new Date().toLocaleDateString(undefined, {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
+                    : view === 'board'
+                      ? 'Board'
+                      : new Date().toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                        })}
               </p>
             </div>
             <blockquote className="quote-ticker m-0">
@@ -1329,6 +1338,14 @@ function AppInner() {
                 tasks={tasks}
                 onAddTask={(date) => openAddTask(date)}
                 onJumpToGoal={jumpToGoalTask}
+              />
+            ) : view === 'board' ? (
+              <BoardView
+                onSignIn={() => {
+                  pushModalState();
+                  setAuthMode('signin');
+                  setAuthOpen(true);
+                }}
               />
             ) : (
               <GoalView

@@ -2,6 +2,7 @@ import type { GoalNode, Task, TaskSession } from '../types';
 import { collectDescendantIds } from './goalTree';
 import { sanitizeSessionHistory } from './sessionStats';
 import { mergeStreakMeta, type StreakMeta } from './focusTrends';
+import { mergePacePrefs, type PacePrefs } from './paceBoard';
 
 export type TrashRecord = {
   id: string;
@@ -18,6 +19,7 @@ export type WorkspaceSlice = {
   sessionHistory: Record<string, TaskSession[]>;
   recentlyDeletedGoals: TrashRecord[];
   streakMeta?: StreakMeta | null;
+  pacePrefs?: PacePrefs | null;
   updatedAt?: number;
 };
 
@@ -131,12 +133,16 @@ export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): W
       },
       remote.streakMeta,
     ),
+    pacePrefs: mergePacePrefs(
+      local.pacePrefs ?? { optedIn: false, displayName: '', examLabel: '', updatedAt: 0 },
+      remote.pacePrefs,
+    ),
     updatedAt: Math.max(localAt, remoteAt),
   };
 }
 
 export function workspaceSignature(
-  slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta'>,
+  slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta' | 'pacePrefs'>,
 ): string {
   return JSON.stringify({
     tasks: slice.tasks,
@@ -144,5 +150,6 @@ export function workspaceSignature(
     sessionHistory: slice.sessionHistory,
     recentlyDeletedGoals: slice.recentlyDeletedGoals,
     streakMeta: slice.streakMeta ?? null,
+    pacePrefs: slice.pacePrefs ?? null,
   });
 }

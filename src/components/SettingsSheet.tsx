@@ -17,18 +17,21 @@ import {
   ShieldCheck,
   Smartphone,
   Flame,
+  TrendingUp,
   Info,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
-import { formatBackupStamp } from '../lib/format';
+import { formatBackupStamp, formatDuration } from '../lib/format';
 import { useStore } from '../store';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import { hapticTick, setHapticsPreference } from '../lib/haptics';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
+import { PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
+import { todayISO } from '../lib/dates';
 
 interface Props {
   open: boolean;
@@ -66,6 +69,9 @@ export default function SettingsSheet({
     pruneOldSessions,
     tasks,
     goals,
+    sessionHistory,
+    pacePrefs,
+    updatePacePrefs,
   } = useStore();
   const { user, signOut, updateProfile } = useAuth();
   const [theme, setTheme] = useTheme();
@@ -798,6 +804,91 @@ export default function SettingsSheet({
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section>
+          <SectionLabel>PUBLIC BOARD</SectionLabel>
+          <div className="bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                <TrendingUp size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
+                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
+                  Off by default. Turning this on publishes your net focus hours, name, streak, and bar. Turning it off removes your row.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={pacePrefs.optedIn}
+                onClick={() => {
+                  if (!user) {
+                    setMsg({ text: 'Sign in to join the public board.', error: true });
+                    return;
+                  }
+                  if (!pacePrefs.optedIn && !pacePrefs.displayName.trim()) {
+                    setMsg({ text: 'Add a display name first.', error: true });
+                    return;
+                  }
+                  hapticTick();
+                  updatePacePrefs({ optedIn: !pacePrefs.optedIn });
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
+                  pacePrefs.optedIn ? 'bg-primary border-primary' : 'bg-surface border-subtle'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    pacePrefs.optedIn ? 'translate-x-2' : '-translate-x-2'
+                  }`}
+                />
+              </button>
+            </div>
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Display name</span>
+              <input
+                value={pacePrefs.displayName}
+                maxLength={40}
+                placeholder={user?.user_metadata?.full_name || 'Your name on the board'}
+                onChange={(e) => updatePacePrefs({ displayName: e.target.value })}
+                className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Preparing for (optional)</span>
+              <input
+                value={pacePrefs.examLabel}
+                maxLength={40}
+                placeholder="GATE 2027, UPSC, …"
+                onChange={(e) => updatePacePrefs({ examLabel: e.target.value })}
+                className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
+              />
+            </label>
+            {(() => {
+              const preview = paceWindowTotals(Object.values(sessionHistory).flat(), todayISO());
+              const name = pacePrefs.displayName.trim() || 'Your name';
+              return (
+                <div className="rounded-[12px] border border-subtle bg-base p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Preview</p>
+                  <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-content-primary truncate">{name}</p>
+                      {pacePrefs.examLabel.trim() ? (
+                        <p className="text-[11px] text-content-muted truncate">{pacePrefs.examLabel.trim()}</p>
+                      ) : null}
+                    </div>
+                    <p className="text-[13px] font-semibold tabular-nums text-content-primary shrink-0">
+                      {formatDuration(preview.todayMs)} today
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+            <p className="text-[12px] leading-relaxed text-content-secondary">{PACE_HONEST_QUOTE}</p>
           </div>
         </section>
 

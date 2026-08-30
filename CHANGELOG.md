@@ -64,6 +64,31 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v4.0.0] — 2026-08-30 ("Board and day countdown")
+
+Opt-in public Board ranks net focus among signed-in aspirants, and Today at a glance now shows how much of the day is left.
+
+### 🚀 What you will notice
+- **Board tab** — Fourth dock tab (Today · Goals · Plan · Board). Rank total net focus for Today, Week (Monday–today), or Month (1st–today). Streak, bar hours, and exam label are context only — rank is hours.
+- **Opt-in public board** — Settings → Public board: off by default. Add a display name and optional “Preparing for” label; preview before you join. Turn off and your public row is deleted.
+- **Waiting room** — Rankings stay hidden until 10 people opt in; you can still join so the count can grow.
+- **End-of-day countdown** — Today at a glance shows **Xh Ym left today** under the headline (gold under 3h, muted red under 1h; **Day ended** at midnight). Separate from streak revive copy.
+
+### ☁ Cloud
+- Board prefs (`pacePrefs`) sync with your workspace backup like streak meta.
+- Hours publish after you stop a sitting and when you open the app or Board (honor system — not verified).
+
+### ⚙ Under the hood
+- Supabase table + RLS in `supabase/public_pace.sql` (run once in SQL editor).
+- Rank up/down arrows compare to the last snapshot for that tab, not live twitch.
+- Help guide updated for the Board tab.
+- **versionCode 23** for sideload install-over from 3.8.0 (22).
+
+### 💾 Data Safety
+- **Android APK**: versionName **4.0.0**, versionCode **23**. Same package id `com.mattedhairr.youdo` — install over **3.8.0** (22) and earlier. **versionCode 23 is required.**
+
+---
+
 ## [v3.8.0] — 2026-08-20 ("Polish and revive fixes")
 
 Cleaner focus notifications, clearer streak revive UI, and scheduled-today tasks added after a miss now count toward saving your streak.
