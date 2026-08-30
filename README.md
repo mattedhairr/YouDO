@@ -4,10 +4,10 @@
 
 # YouDO
 
-### Your syllabus is huge. Your next step should not be.
+### Your exam plan is a tree. Not a to-do list.
 
-**A goal-driven execution system and Android app for competitive-exam aspirants.**<br />
-Turn a long syllabus into a clear blueprint, bring the right work into Today, focus without padding the clock, and see progress return to the goal it came from.
+**Plan the whole journey. Execute only today.**<br />
+YouDO connects every syllabus layer to the exact work you should finish now, then tracks what moved, what remains, and how much focused work you actually did.
 
 UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every serious preparation journey in between.
 
@@ -25,7 +25,7 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 ---
 
 <p align="center">
-  <img src="docs/media/youdo-promo-poster.png" width="680" alt="YouDO helps aspirants turn a large syllabus into clear daily work and honest focus statistics" />
+  <img src="docs/media/youdo-promo-poster.png" width="680" alt="YouDO turns a six-level exam plan into one clear next step for today" />
 </p>
 
 ---
