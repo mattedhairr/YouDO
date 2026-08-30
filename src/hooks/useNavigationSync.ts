@@ -4,7 +4,11 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import type { View } from '../types';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 
-const TABS: View[] = ['tasks', 'goals', 'calendar'];
+const TABS: View[] = ['tasks', 'goals', 'calendar', 'board'];
+
+function isView(value: unknown): value is View {
+  return value === 'tasks' || value === 'goals' || value === 'calendar' || value === 'board';
+}
 
 function parseNavigationState(): { initialView: View; initialPathIds: string[] } {
   try {
@@ -13,19 +17,19 @@ function parseNavigationState(): { initialView: View; initialPathIds: string[] }
     const pathParam = params.get('path');
 
     let initialView: View = 'tasks';
-    if (viewParam === 'tasks' || viewParam === 'goals' || viewParam === 'calendar') {
-      initialView = viewParam as View;
+    if (isView(viewParam)) {
+      initialView = viewParam;
     } else {
       const savedView = localStorage.getItem(STORAGE_KEYS.view);
       if (savedView) {
         try {
           const parsed = JSON.parse(savedView);
-          if (parsed === 'tasks' || parsed === 'goals' || parsed === 'calendar') {
-            initialView = parsed as View;
+          if (isView(parsed)) {
+            initialView = parsed;
           }
         } catch {
-          if (savedView === 'tasks' || savedView === 'goals' || savedView === 'calendar') {
-            initialView = savedView as View;
+          if (isView(savedView)) {
+            initialView = savedView;
           }
         }
       }

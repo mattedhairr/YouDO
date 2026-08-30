@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Calendar, Check, Cloud, GripVertical, Link2, Pause, Sparkles, Target, User, X, Zap } from 'lucide-react';
+import { Calendar, Check, Cloud, GripVertical, Link2, Pause, Sparkles, Target, TrendingUp, User, X, Zap } from 'lucide-react';
 import Overlay from './Overlay';
 import { hapticTap } from '../lib/haptics';
 
@@ -45,6 +45,20 @@ const HOW_IT_WORKS_TABS = [
     notFor: 'Plan is not a second Today list. It is the calendar around Today.',
     after: 'If you scheduled a task for the 18th, it lives on the 18th in Plan. It appears on Today only when that date is today.',
     mock: 'plan' as const,
+  },
+  {
+    icon: TrendingUp,
+    name: 'Board',
+    role: 'Optional ranking',
+    oneLiner: 'Net focus hours among people who opted in. Rankings stay hidden until ten have joined.',
+    uses: [
+      'Compare today, this week (Monday–today), or this month',
+      'Opt in from Settings with a display name',
+      'See streak and bar as context — rank is hours only',
+    ],
+    notFor: 'The board does not verify hours. Padding time only cheats you.',
+    after: 'Off by default. Turn it off and your public row is deleted.',
+    mock: 'board' as const,
   },
 ];
 
@@ -181,6 +195,30 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
       </div>
     );
   }
+  if (kind === 'board') {
+    return (
+      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2" aria-hidden>
+        <div className="flex gap-1">
+          {['Today', 'Week', 'Month'].map((d, i) => (
+            <div
+              key={d}
+              className={`flex-1 h-7 rounded-[8px] grid place-items-center text-[10px] font-semibold ${
+                i === 0 ? 'bg-primary-soft text-primary' : 'text-content-muted'
+              }`}
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+        {['Asha · 3h 10m', 'Rohan · 2h 40m'].map((line, i) => (
+          <div key={line} className="flex items-center justify-between rounded-[10px] border border-subtle bg-elevated px-2.5 py-2">
+            <span className="text-[11px] font-medium text-content-primary">{i + 1}. {line.split(' · ')[0]}</span>
+            <span className="text-[11px] font-semibold tabular-nums text-content-secondary">{line.split(' · ')[1]}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (kind === 'schedule') {
     return (
       <div className="rounded-[12px] border border-subtle bg-base p-3" aria-hidden>
@@ -279,7 +317,7 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
                   tab === id ? 'bg-primary text-on-primary' : 'text-content-secondary'
                 }`}
               >
-                {id === 'guide' ? 'Getting started' : 'The three tabs'}
+                {id === 'guide' ? 'Getting started' : 'The tabs'}
               </button>
             ))}
           </div>
@@ -367,7 +405,7 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
             <p className="text-[13px] text-content-secondary leading-relaxed">
               Tap a tab to see what it is for — and what it is not.
             </p>
-            <div className="flex items-center gap-1 rounded-[12px] bg-elevated border border-subtle p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-elevated border border-subtle p-1">
               {HOW_IT_WORKS_TABS.map((t) => {
                 const Icon = t.icon;
                 const active = howTab === t.name;

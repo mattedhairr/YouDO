@@ -47,7 +47,7 @@ export interface GoalNode {
   createdAt: number;
 }
 
-export type View = 'tasks' | 'goals' | 'calendar';
+export type View = 'tasks' | 'goals' | 'calendar' | 'board';
 
 /* ─── Session Timer Types ─────────────────────────────────────────────────── */
 

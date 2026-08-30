@@ -2,10 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { CalendarDays, Check, CheckCircle2, ListTodo, Flame, ChevronRight, Repeat } from 'lucide-react';
 import Overlay from './Overlay';
 import type { Task, TaskSession } from '../types';
-import { formatDuration } from '../lib/format';
+import { formatCountdownHm, formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
 import { hapticSuccess, hapticTap, hapticTick } from '../lib/haptics';
-import { localISODate, shiftLocalISO } from '../lib/dates';
+import { localISODate, msUntilEndOfLocalISODate, shiftLocalISO } from '../lib/dates';
 import { useReviveTimeLeftSub } from '../hooks/useReviveCountdown';
 import type { StreakView } from '../lib/focusTrends';
 
@@ -130,8 +130,24 @@ export default function TodayBriefingSheet({
   const [knobAnimating, setKnobAnimating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [trackWidth, setTrackWidth] = useState(280);
+  const [now, setNow] = useState(() => Date.now());
 
   const todayStr = localISODate(new Date());
+  useEffect(() => {
+    if (!open) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [open]);
+  const dayLeftMs = msUntilEndOfLocalISODate(todayStr, now);
+  const dayLeftClass =
+    dayLeftMs <= 0
+      ? 'text-content-muted'
+      : dayLeftMs < 3_600_000
+        ? 'text-error/80'
+        : dayLeftMs < 10_800_000
+          ? 'text-warning'
+          : 'text-content-muted';
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'short',
@@ -359,6 +375,9 @@ export default function TodayBriefingSheet({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{dateLabel}</p>
           <h3 className="text-[17px] font-semibold text-content-primary mt-1">Today at a glance</h3>
+          <p className={`text-[12px] font-semibold tabular-nums mt-1 ${dayLeftClass}`}>
+            {dayLeftMs <= 0 ? 'Day ended' : `${formatCountdownHm(dayLeftMs)} left today`}
+          </p>
           <p className="text-[13px] text-content-secondary leading-relaxed mt-1.5">{headline}</p>
         </div>
 
