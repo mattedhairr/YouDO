@@ -64,6 +64,26 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v4.1.0] — 2026-08-30 ("Board and settings polish")
+
+A focused visual refinement makes the public Board, bottom navigation, and Settings easier to scan and more comfortable to use without changing their behavior.
+
+### 🚀 What you will notice
+- **Compact Board introduction** — The honesty reminder and ranking context now fit in a concise header, leaving more room for the leaderboard.
+- **Premium navigation dock** — Today, Goals, Plan, and Board have clearer icon-and-label states, balanced spacing, compact badges, and a separate Settings action.
+- **Refined Settings** — Stronger section hierarchy, consistent cards and controls, larger reliable toggles, and cleaner data-management rows.
+- **Compact guest account card** — Sign in and account creation remain prominent without taking unnecessary vertical space.
+
+### ⚙ Under the hood
+- Shared, responsive styling keeps the updated dock and Settings controls aligned across narrow phone widths and safe-area insets.
+- Rejected masthead experiments were removed before release; the existing Today header remains unchanged.
+- **versionCode 24** for sideload install-over from 4.0.0 (23).
+
+### 💾 Data Safety
+- **Android APK**: versionName **4.1.0**, versionCode **24**. Same package id `com.mattedhairr.youdo` and existing signing workflow — install over **4.0.0** (23) and earlier. **versionCode 24 is required.**
+
+---
+
 ## [v4.0.0] — 2026-08-30 ("Board and day countdown")
 
 Opt-in public Board ranks net focus among signed-in aspirants, and Today at a glance now shows how much of the day is left.
