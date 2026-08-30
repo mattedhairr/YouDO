@@ -1,105 +1,211 @@
-# YouDO — Aspirant Execution Companion
+<div align="center">
+
+<img src="public/icon-512.png" width="96" height="96" alt="YouDO logo" />
+
+# YouDO
+
+### Your syllabus is huge. Your next step should not be.
+
+**A goal-driven execution system and Android app for competitive-exam aspirants.**<br />
+Turn a long syllabus into a clear blueprint, bring the right work into Today, focus without padding the clock, and see progress return to the goal it came from.
+
+UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every serious preparation journey in between.
+
+[**Download the latest Android APK**](https://github.com/mattedhairr/YouDO/releases) &nbsp; | &nbsp; [**Updates**](https://t.me/YouDO_Updates) &nbsp; | &nbsp; [**Join the discussion**](https://t.me/+-manVNAPhThkMzRl)
+
+<br />
+
+[![Latest release](https://img.shields.io/github/v/release/mattedhairr/YouDO?style=flat-square&color=C4A574&label=release)](https://github.com/mattedhairr/YouDO/releases)
+[![Android](https://img.shields.io/badge/platform-Android-86A588?style=flat-square&logo=android&logoColor=white)](https://github.com/mattedhairr/YouDO/releases)
+[![License](https://img.shields.io/badge/license-MIT-C4A574?style=flat-square)](LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-community-26A5E4?style=flat-square&logo=telegram&logoColor=white)](https://t.me/+-manVNAPhThkMzRl)
+
+</div>
+
+---
 
 <p align="center">
-  <img src="public/icon-512.png" width="112" height="112" alt="YouDO" />
-</p>
-
-<p align="center">
-  <strong>Break a huge syllabus into today's work. Then actually do it.</strong><br />
-  Built for students and competitive exam aspirants who need structure, focus time, and honest stats.
-</p>
-
-<p align="center">
-  <a href="https://github.com/mattedhairr/YouDO/releases"><img src="https://img.shields.io/github/v/release/mattedhairr/YouDO?color=C4A574&label=Release" alt="Latest Release" /></a>
-  <a href="https://github.com/mattedhairr/YouDO/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-86A588.svg" alt="MIT License" /></a>
-  <a href="https://github.com/mattedhairr/YouDO/actions"><img src="https://img.shields.io/badge/Build-Android%20APK-11100E.svg" alt="Android Build" /></a>
-  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-18-61dafb.svg" alt="React 18" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178c6.svg" alt="TypeScript" /></a>
+  <img src="docs/media/youdo-promo-poster.png" width="680" alt="YouDO helps aspirants turn a large syllabus into clear daily work and honest focus statistics" />
 </p>
 
 ---
 
-## Purpose
+## Preparation fails between the plan and the day
 
-Large exams are difficult because the syllabus, practice, revision, and daily execution all compete for attention. A flat task such as "study this subject" does not show what to do next.
+Most aspirants already know the destination. The difficulty is turning hundreds of chapters, lectures, practice sets, revisions, and tests into work that can be finished today.
 
-YouDO turns that workload into a **6-tier Goal Blueprint** (`Goal` → `Phase` → `Section` → `Task` → `Sub-task` → `Leaf Task`) tied to a daily execution list, timed focus sessions, streaks, and calendar stats that count completed work and net focus.
+A normal to-do list flattens that structure. A normal timer rewards keeping the clock running. YouDO connects the two:
+
+- every daily task remembers where it belongs in the larger goal;
+- every completed step updates the original blueprint;
+- every paused minute stays out of net focus;
+- every unfinished task remains visible as backlog instead of disappearing;
+- every day ends with evidence, not a vague feeling of being busy.
+
+> YouDO is not another place to write what you should do. It is a system for deciding what matters now, doing it, and carrying the result forward.
+
+## One preparation system, four clear stages
+
+| 1. Build | 2. Schedule | 3. Focus | 4. Review |
+|---|---|---|---|
+| Map the complete syllabus without forcing every branch to be finished immediately. | Send a full task or only selected steps to the day they belong. | Run pause-aware sessions that separate elapsed time from real focus. | See execution, net focus, backlog movement, streaks, and goal progress together. |
+
+## What makes YouDO different
+
+### A blueprint deep enough for a real syllabus
+
+YouDO keeps preparation organised through six connected levels:
 
 ```text
-Goal: "Prepare for my target exam"
- └── Phase: "Build the foundation"
-      └── Section: "Core subject"
-           └── Task: "Complete Topic 1"
-                └── Sub-task: "Learn the concept"
-                     └── Leaf Task: "Study Lesson 1"
+Goal
+└── Phase
+    └── Section
+        └── Task
+            └── Sub-task
+                └── Leaf Task
 ```
 
----
+Use only the depth your plan needs. A goal can remain simple, or grow into a detailed blueprint covering subjects, chapters, lessons, practice, notes, and revision.
 
-## Download
+### Blueprint Studio: structure without repetitive entry
 
-### Android APK
+Blueprint Studio helps create or reshape large plans without showing the whole hierarchy at once.
 
-1. Open [Releases](https://github.com/mattedhairr/YouDO/releases).
-2. Download `YouDO.apk` from the latest release.
-3. Install on the device (allow unknown sources if Android asks).
+- Build a new goal through one useful question at a time.
+- Add named items or numbered ranges in bulk.
+- Fully develop one phase while leaving later phases as clean shells.
+- Select nodes across different branches and update them together.
+- Preview the complete result before applying it.
+- Undo the entire bulk operation in one tap.
 
-Current release: **v5.0.0**.
+The regular goal editor remains available whenever direct manual control is faster.
 
-### Web (PWA)
+### Step-slice scheduling
 
-Open YouDO in a browser and use **Add to Home Screen** for a standalone install.
+A task does not have to move into Today as one oversized block. Schedule only the steps you intend to finish, then return for the next slice later.
 
----
+You can schedule, replan, or unplan multiple eligible tasks together. Their daily progress continues to write back to the original goal tree.
 
-## Features
+### Today and Backlog stay honest
 
-- **Blueprint Studio** — create or edit a deep goal plan through one focused question at a time instead of facing the whole hierarchy at once.
-- **Bulk blueprint building** — add named lists or numbered ranges, repeat the same structure under several branches, and leave unfinished branches as clean shells for later.
-- **Cross-branch editing** — keep items selected while moving between phases or sections, then rename, extend, add shared steps, or remove them together.
-- **Preview and undo** — review the complete tree change before applying it and undo the entire operation in one tap.
-- **6-tier syllabus tree** — split an exam into goals, phases, sections, and micro-tasks.
-- **Flexible planning** — schedule, replan, or unplan multiple leaf tasks and send only selected micro-steps to Today.
-- **Backlog** — overdue work stays on its original date until you finish it. Starting a focus session does not move it to Today. Progress still writes back to the blueprint.
-- **Focus sessions** — net focus versus elapsed time, pause logs, notification controls, and automatic return to the running task's Scheduled or Backlog location.
-- **Ambient mode** — full-screen desk timer (long-press the play control). Screen stays awake.
-- **Today at a Glance** — a daily briefing with unique progress metrics, focus time, streak context, backlog pressure, and time left today.
-- **Public Board** — optional Today, Week, and Month rankings based on net focus, with private-by-default participation.
-- **Honest analytics** — overnight sessions split at midnight and short accidental sessions are excluded.
-- **Crash recovery** — resume after a close, or reconstruct a session you forgot to stop.
-- **Cloud + local backup** — optional account sync, plus JSON export/import.
-- **Fast navigation** — tap the current bottom destination again to return to its root in one step.
-- **In-app guide** — an aspirant-focused walkthrough inside Settings.
+Today contains the work chosen for the current date. Work left unfinished keeps its original planning context and appears in Backlog until it is resolved.
 
----
+Starting a session does not silently move overdue work to Today, and completing a scheduled slice does not hide the unfinished remainder of its parent task.
 
-## Blueprint Studio
+### Focus measured as work, not presence
 
-Open **Goals → Blueprint Studio** and choose one of two paths:
+YouDO records both total session duration and net focus.
 
-- **Create** starts with the outcome, then asks only whether the current branch needs the next hierarchy level. Add real names or generate numbered sequences, choose which branches to develop now, and leave the rest for later.
-- **Edit existing** lets you browse the current tree, preserve selections across different branches, and apply one safe bulk operation to all selected items.
+- Pause and resume from the app or Android notification.
+- Keep the session accessible from the lock screen.
+- Return directly to the running task after reopening the app.
+- Use Ambient mode as a full-screen desk timer.
+- Recover an interrupted or forgotten session safely.
+- Split overnight sessions correctly at midnight.
 
-The manual Goal editor remains available. Blueprint Studio is an additional planning tool, not a replacement for existing workflows.
+### A daily briefing that changes with the day
 
----
+**Today at a Glance** starts as a morning briefing and becomes a progress view once work begins. Its cards avoid repeating the same statistic and can show planning load, backlog pressure, focus, streak context, and time left before midnight.
 
-## Stack
+**Daily Focus Stats** separates task execution from focus quality, so completed work, failed work, net focus, elapsed duration, efficiency, momentum, and individual sessions remain understandable.
 
-- React 18, TypeScript, Vite
-- Capacitor 8 (Android)
-- Tailwind CSS with a brass / sage theme (dark + dusky light)
-- Figtree + IBM Plex Mono
-- GitHub Actions → debug APK artifact
+### Motivation without forced publicity
 
----
+- Set a personal daily focus threshold for your streak.
+- Recover a recently broken streak through the required real work.
+- Join the public Board only if you choose.
+- Compare Today, Week, or Month using net focus as the ranking measure.
+- Turn Board participation off to remove your public row.
+
+The Board is private by default and runs on an honour system. Padded hours only cheat the person who still has to sit the exam.
+
+## Your data remains yours
+
+YouDO works locally without requiring an account.
+
+- **Guest mode:** goals, plans, and sessions stay on the device.
+- **Optional account sync:** carry the same workspace between devices.
+- **Local backup:** export and import a JSON snapshot at any time.
+- **Private by default:** public Board participation is a separate opt-in.
+- **No paid tier or advertising:** the current project is free and open source.
+
+## Get YouDO
+
+### Install the Android APK
+
+1. Open the [latest GitHub Release](https://github.com/mattedhairr/YouDO/releases).
+2. Download `YouDO.apk` from the release assets.
+3. Allow installation from the browser or file manager if Android asks.
+4. Install the APK.
+
+New releases use the same package id and a higher Android `versionCode`. They can install over compatible previous builds when both APKs use the same signing certificate. If Android rejects an older build signed with a different key, uninstall that build once and install the latest release cleanly.
+
+## Community
+
+- [Telegram updates channel](https://t.me/YouDO_Updates) - releases, improvements, known issues, and upcoming work.
+- [Telegram discussion group](https://t.me/+-manVNAPhThkMzRl) - questions, feedback, bug reports, and feature ideas.
+- [GitHub Issues](https://github.com/mattedhairr/YouDO/issues) - reproducible bugs and technical requests.
+
+Thoughtful feedback from real preparation routines is especially valuable. Explain what you were trying to do, where the workflow slowed you down, and what outcome you expected.
+
+<details>
+<summary><strong>Development and technical details</strong></summary>
+
+### Stack
+
+- React 18 and TypeScript
+- Vite and Tailwind CSS
+- Capacitor 8 for Android
+- Supabase for optional authentication, sync, and Board data
+- Vitest and ESLint
+- GitHub Actions for Android APK builds
+
+### Run locally
+
+Requirements: a current Node.js installation and npm.
+
+```bash
+git clone https://github.com/mattedhairr/YouDO.git
+cd YouDO
+npm install
+cp .env.example .env
+npm run dev
+```
+
+For your own Supabase project, add its URL and anonymous key to `.env`:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### Validate a change
+
+```bash
+npm run test
+npm run typecheck
+npm run lint
+npm run build
+```
+
+### Android project
+
+After building the web app, sync it into the native project:
+
+```bash
+npx cap sync android
+```
+
+Open the `android` directory in Android Studio or use the repository's GitHub Actions workflow to produce the APK.
+
+</details>
 
 ## Maintainer
 
-**Jatin Parmar** ([@mattedhairr](https://github.com/mattedhairr))
+Built and maintained by **Jatin Parmar** ([@mattedhairr](https://github.com/mattedhairr)).
 
-- GitHub: [@mattedhairr](https://github.com/mattedhairr)
-- LinkedIn: [Jatin Parmar](https://www.linkedin.com/in/jatin-parmar-9b1b962ba)
-- Instagram: [@mattedhairr](https://instagram.com/mattedhairr)
+[GitHub](https://github.com/mattedhairr) &nbsp; | &nbsp; [LinkedIn](https://www.linkedin.com/in/jatin-parmar-9b1b962ba) &nbsp; | &nbsp; [Instagram](https://instagram.com/mattedhairr)
 
-License: [MIT](LICENSE)
+## License
+
+YouDO is released under the [MIT License](LICENSE).
