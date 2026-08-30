@@ -836,14 +836,14 @@ export default function SettingsSheet({
                   hapticTick();
                   updatePacePrefs({ optedIn: !pacePrefs.optedIn });
                 }}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
+                className={`relative inline-flex h-6 w-11 shrink-0 appearance-none items-center rounded-full border p-0 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                   pacePrefs.optedIn ? 'bg-primary border-primary' : 'bg-surface border-subtle'
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    pacePrefs.optedIn ? 'translate-x-2' : '-translate-x-2'
+                  className={`pointer-events-none absolute left-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
+                    pacePrefs.optedIn ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
@@ -863,7 +863,7 @@ export default function SettingsSheet({
               <input
                 value={pacePrefs.examLabel}
                 maxLength={40}
-                placeholder="GATE 2027, UPSC, …"
+                placeholder="Your goal or focus area"
                 onChange={(e) => updatePacePrefs({ examLabel: e.target.value })}
                 className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
               />

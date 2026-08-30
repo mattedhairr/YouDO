@@ -122,7 +122,6 @@ export default function BoardView({ onSignIn }: Props) {
 
       <div className="flex gap-1 rounded-[12px] border border-subtle bg-elevated p-1">
         {WINDOWS.map((tab) => {
-          const active = paceWindow === tab.id;
           return (
             <button
               key={tab.id}
