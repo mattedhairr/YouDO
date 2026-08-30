@@ -48,8 +48,8 @@ export default function CommandBar({
   ];
 
   return (
-    <nav className="fixed bottom-3 inset-x-4 z-30 max-w-md mx-auto no-swipe">
-      <div className="command-dock flex flex-nowrap items-center gap-0.5 rounded-[14px] border border-subtle p-1">
+    <nav className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] inset-x-4 z-30 max-w-md mx-auto no-swipe" aria-label="Primary navigation">
+      <div className="command-dock command-dock-premium flex flex-nowrap items-center rounded-[16px] border border-subtle p-1.5">
         {batch ? (
           <>
             <span className="pl-2 text-[12px] font-semibold text-content-secondary shrink-0 tabular-nums">
@@ -108,39 +108,38 @@ export default function CommandBar({
           </>
         ) : (
           <>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const active = view === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => onNavigate(tab.id)}
-                  aria-current={active ? 'page' : undefined}
-                  className={`relative flex-1 min-w-0 h-9 flex items-center justify-center gap-1 rounded-[10px] text-[11px] transition-colors ${
-                    active
-                      ? 'bg-primary-soft text-primary font-semibold'
-                      : 'text-content-muted font-medium [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated'
-                  }`}
-                >
-                  <Icon size={15} strokeWidth={active ? 2.4 : 2} />
-                  <span className="truncate max-[22rem]:hidden">{tab.label}</span>
-                  {tab.badge !== undefined && (
-                    <span
-                      className={`min-w-[16px] h-4 px-1 grid place-items-center rounded-full text-[10px] font-semibold leading-none tabular-nums ${
-                        active ? 'bg-primary/20 text-primary' : 'bg-elevated text-content-secondary'
-                      }`}
-                    >
-                      {tab.badge > 99 ? '99+' : tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            <div className="flex flex-1 min-w-0 items-center gap-0.5">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const active = view === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => onNavigate(tab.id)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`command-tab relative flex-1 min-w-0 h-11 flex flex-col items-center justify-center gap-0.5 rounded-[11px] text-[10.5px] transition-all active:scale-[0.96] ${
+                      active
+                        ? 'is-active text-primary font-semibold'
+                        : 'text-content-muted font-medium [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated/60'
+                    }`}
+                  >
+                    <Icon size={16} strokeWidth={active ? 2.45 : 2} />
+                    <span className="command-tab-label truncate leading-none">{tab.label}</span>
+                    {tab.badge !== undefined && (
+                      <span className={`command-tab-badge ${active ? 'is-active' : ''}`}>
+                        {tab.badge > 99 ? '99+' : tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="command-dock-divider" aria-hidden />
             <button
               type="button"
               onClick={onSettings}
-              className="shrink-0 grid place-items-center size-9 rounded-[10px] text-content-muted [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated"
+              className="command-settings shrink-0 grid place-items-center size-11 rounded-[11px] text-content-muted active:scale-[0.94] [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated"
               title="Settings"
               aria-label="Settings"
             >

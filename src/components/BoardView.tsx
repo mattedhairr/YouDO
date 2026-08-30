@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../store';
 import {
   PACE_BOARD_MIN_OPT_IN,
-  PACE_HONEST_QUOTE,
   rankDeltas,
   rankedIds,
   windowMs,
@@ -98,8 +97,8 @@ export default function BoardView({ onSignIn }: Props) {
   const ready = count >= PACE_BOARD_MIN_OPT_IN;
 
   return (
-    <div className="space-y-4 pb-4">
-      <div className="relative overflow-hidden rounded-[16px] border border-subtle bg-elevated p-4">
+    <div className="space-y-3.5 pb-4">
+      <section className="board-intro relative overflow-hidden rounded-[14px] border border-subtle bg-elevated px-3.5 py-3">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -107,18 +106,21 @@ export default function BoardView({ onSignIn }: Props) {
               'radial-gradient(120% 80% at 8% -20%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 52%), radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--secondary) 16%, transparent), transparent 50%)',
           }}
         />
-        <div className="relative">
-          <div className="flex items-center gap-2 text-primary">
-            <TrendingUp size={16} strokeWidth={2.4} />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em]">Public board</p>
+        <div className="relative flex items-center gap-3 min-w-0">
+          <div className="board-intro-mark shrink-0 grid size-10 place-items-center rounded-[12px] bg-primary-soft text-primary">
+            <TrendingUp size={18} strokeWidth={2.35} />
           </div>
-          <h2 className="mt-1.5 text-[18px] font-semibold text-content-primary tracking-tight">Net focus, ranked</h2>
-          <p className="mt-2 text-[13px] leading-relaxed text-content-secondary">{PACE_HONEST_QUOTE}</p>
-          <p className="mt-2 text-[11px] text-content-muted">
-            Honor system. Numbers are what each person published after a sitting — not verified.
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <h2 className="text-[15px] font-semibold text-content-primary tracking-tight shrink-0">Net focus, ranked</h2>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary truncate">Public board</span>
+            </div>
+            <p className="mt-0.5 text-[11.5px] leading-4 text-content-secondary line-clamp-2">
+              Be honest—padded hours only cheat the person doing the work.
+            </p>
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="flex gap-1 rounded-[12px] border border-subtle bg-elevated p-1">
         {WINDOWS.map((tab) => {
