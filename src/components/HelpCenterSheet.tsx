@@ -129,7 +129,7 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
   if (kind === 'goals') {
     return (
       <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2" aria-hidden>
-        {['UPSC', 'Phase 1', 'Polity notes'].map((label, i) => (
+        {['Target exam', 'Foundation phase', 'Core subject notes'].map((label, i) => (
           <div key={label} className="flex items-center gap-2" style={{ paddingLeft: i * 14 }}>
             <div className={`size-1.5 rounded-full ${i === 2 ? 'bg-primary' : 'bg-border'}`} />
             <div className={`h-7 flex-1 rounded-[8px] border border-subtle px-2.5 flex items-center text-[11px] font-medium ${i === 2 ? 'bg-primary-soft text-primary' : 'bg-elevated text-content-secondary'}`}>
@@ -152,9 +152,9 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
           <div className="flex-1 min-w-0">
             <div className="inline-flex items-center gap-1 text-[10px] font-semibold bg-base border border-subtle rounded-lg px-2 py-0.5 mb-1.5">
               <Link2 size={10} className="text-primary shrink-0" />
-              <span className="text-primary">UPSC</span>
+              <span className="text-primary">Target exam</span>
               <span className="text-content-muted">•</span>
-              <span className="text-primary">Phase 1</span>
+              <span className="text-primary">Foundation</span>
             </div>
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-2 min-w-0">

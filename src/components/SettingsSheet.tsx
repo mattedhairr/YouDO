@@ -425,7 +425,7 @@ export default function SettingsSheet({
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Aspirant's name"
+                        placeholder="Your name"
                         className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
                       />
                     </div>
@@ -849,7 +849,7 @@ export default function SettingsSheet({
               <input
                 value={pacePrefs.displayName}
                 maxLength={40}
-                placeholder={user?.user_metadata?.full_name || 'Your name on the board'}
+                placeholder={user?.user_metadata?.full_name || 'Name shown on the board'}
                 onChange={(e) => updatePacePrefs({ displayName: e.target.value })}
                 className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
               />
@@ -859,7 +859,7 @@ export default function SettingsSheet({
               <input
                 value={pacePrefs.examLabel}
                 maxLength={40}
-                placeholder="Your goal or focus area"
+                placeholder="Exam, course, or focus area"
                 onChange={(e) => updatePacePrefs({ examLabel: e.target.value })}
                 className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
               />

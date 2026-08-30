@@ -225,7 +225,19 @@ export function useNavigationSync(onPopState?: () => boolean) {
   // Tab navigation handler with URL push
   const handleNavigateTab = useCallback((targetView: View) => {
     const currentView = viewRef.current;
-    if (targetView === currentView) return;
+    if (targetView === currentView) {
+      jumpOriginRef.current = null;
+      if (targetView === 'goals' && pathIdsRef.current.length > 0) {
+        setSlideDirection('left');
+        setGoalPathIdsState([]);
+        syncUrlAndStorage('goals', [], false);
+      }
+      const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+      });
+      return;
+    }
     jumpOriginRef.current = null; // Clear jump origin on manual tab switch
     const currentIdx = TABS.indexOf(currentView);
     const targetIdx = TABS.indexOf(targetView);

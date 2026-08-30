@@ -148,7 +148,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
                   required={mode === 'signup'}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Aspirant's Name"
+                  placeholder="Your name"
                   className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-3 py-2.5 text-xs text-content-primary placeholder:text-content-secondary focus:outline-none focus:border-primary transition font-medium"
                 />
               </div>
@@ -166,7 +166,7 @@ export function AuthModal({ open, initialMode = 'signin', onClose }: Props) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="aspirant@example.com"
+                placeholder="you@example.com"
                 className="w-full bg-surface border border-subtle rounded-2xl pl-9 pr-3 py-2.5 text-xs text-content-primary placeholder:text-content-secondary focus:outline-none focus:border-primary transition font-medium"
               />
             </div>

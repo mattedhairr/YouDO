@@ -14,6 +14,7 @@ import {
   Plus,
   Star,
   Target,
+  Wand2,
   X,
 } from 'lucide-react';
 import type { GoalKind, GoalNode } from '../types';
@@ -89,6 +90,7 @@ interface Props {
   /** Optional direct navigation handler for recording jump origin for 1-step back navigation */
   onNavigateToPath?: (pathIds: string[]) => void;
   onOpenDescription?: (title: string, description: string) => void;
+  onOpenStudio: () => void;
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
@@ -100,7 +102,7 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf:    { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Leaf' },
 };
 
-export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription }: Props) {
+export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onOpenStudio }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
@@ -193,7 +195,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       const allIds = [...next];
       const leafIds = allIds.filter((lid) => {
         const n = findGoalInTree(lid, children);
-        return n && n.children.length === 0 && !n.todayTaskId;
+        return n && n.children.length === 0;
       });
       onSelectionChange(allIds, leafIds);
       return next;
@@ -308,6 +310,15 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               <ListTree size={15} strokeWidth={2.25} />
             </button>
           )}
+          <button
+            type="button"
+            onClick={onOpenStudio}
+            className="shrink-0 w-9 h-9 grid place-items-center rounded-lg text-primary bg-primary-soft hover:opacity-90"
+            aria-label="Open Blueprint Studio"
+            title="Blueprint Studio"
+          >
+            <Wand2 size={15} strokeWidth={2.25} />
+          </button>
         </nav>
 
         {siblings.length > 1 && current && (
@@ -521,8 +532,27 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
         </div>
       )}
 
+      {/* First-use Studio invitation */}
+      {goals.length === 0 && pathIds.length === 0 && (
+        <section className="relative overflow-hidden rounded-[16px] border border-primary/20 bg-elevated p-3.5 shadow-card mb-3">
+          <div className="absolute -right-8 -top-10 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+          <button type="button" onClick={onOpenStudio} className="relative w-full min-h-[58px] flex items-center gap-3 text-left active:scale-[0.99]">
+            <span className="w-10 h-10 rounded-[12px] grid place-items-center bg-primary-soft text-primary border border-primary/20 shrink-0">
+              <Wand2 size={18} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[14px] font-bold tracking-[-0.01em] text-content-primary">Build with Blueprint Studio</span>
+              <span className="block mt-1 text-[11.5px] leading-snug text-content-secondary">Create your preparation plan one clear step at a time.</span>
+            </span>
+            <span className="w-8 h-8 rounded-full grid place-items-center bg-primary text-on-primary shrink-0">
+              <ChevronRight size={15} />
+            </span>
+          </button>
+        </section>
+      )}
+
       {/* Children list */}
-      <div className="bg-surface rounded-[12px] border border-subtle overflow-hidden">
+      {children.length > 0 && <div className="bg-surface rounded-[12px] border border-subtle overflow-hidden">
         {children.map((child, index) => {
           const meta = kindMeta[child.kind];
           const Icon = meta.icon;
@@ -767,7 +797,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             </div>
           );
         })}
-      </div>
+      </div>}
 
       <button
         onClick={() => onAddChild(current?.id ?? null, current?.kind)}
@@ -777,16 +807,6 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
         {current ? `Add to ${current.title}` : 'Create Goal'}
       </button>
 
-      {/* Floating Batch Selection Bar */}
-      {goals.length === 0 && (
-        <div className="bg-surface border border-subtle rounded-2xl shadow-card p-10 text-center fade-in mt-4">
-          <div className="mx-auto w-14 h-14 grid place-items-center rounded-2xl bg-elevated animate-float">
-            <Target size={26} className="text-content-secondary" />
-          </div>
-          <h3 className="mt-4 text-base font-semibold text-content-primary">No goals yet</h3>
-          <p className="mt-1 text-sm text-content-secondary ">Map your big ambitions into daily action.</p>
-        </div>
-      )}
     </div>
   );
 }
