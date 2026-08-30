@@ -276,6 +276,21 @@ button {
 .page-slide-in {
   animation: page-slide-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+.blueprint-studio-shell {
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 24rem),
+    var(--bg-base);
+}
+
+.blueprint-step-in {
+  animation: blueprint-step-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes blueprint-step-in {
+  from { opacity: 0; transform: translate3d(10px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
 @keyframes page-slide-in {
   from { transform: translateX(10%); opacity: 0.7; }
   to { transform: translateX(0); opacity: 1; }
@@ -433,6 +448,7 @@ button {
   .slide-in-right,
   .view-fade,
   .page-slide-in,
+  .blueprint-step-in,
   .animate-ambient-clock,
   .animate-session-pulse,
   .ambient-orb,

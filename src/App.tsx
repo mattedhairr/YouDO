@@ -26,6 +26,7 @@ import {
 import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
 import StepSliceSheet from './components/StepSliceSheet';
+import BlueprintStudio from './components/BlueprintStudio';
 import CalendarView from './components/CalendarView';
 import BoardView from './components/BoardView';
 import { AmbientScreen } from './components/AmbientScreen';
@@ -135,6 +136,8 @@ function AppInner() {
     addChildNode,
     updateGoalNode,
     deleteGoalNode,
+    applyGoalTreeChange,
+    undoGoalTreeChange,
     planTask,
     copyGoalNode,
     copyGoalNodes,
@@ -176,6 +179,8 @@ function AppInner() {
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [goalSheetOpen, setGoalSheetOpen] = useState(false);
+  const [blueprintStudioOpen, setBlueprintStudioOpen] = useState(false);
+  const [blueprintUndo, setBlueprintUndo] = useState<{ token: string; title: string } | null>(null);
   const [goalParentId, setGoalParentId] = useState<string | null>(null);
   const [goalParentKind, setGoalParentKind] = useState<GoalKind | undefined>(undefined);
   const [editingNode, setEditingNode] = useState<GoalNode | null>(null);
@@ -240,6 +245,33 @@ function AppInner() {
     setBatchLeafIds(leafIds);
   }, []);
 
+  const batchLeafGroups = useMemo(() => {
+    const allNodes: GoalNode[] = [];
+    const flatten = (node: GoalNode) => {
+      allNodes.push(node);
+      node.children.forEach(flatten);
+    };
+    goals.forEach(flatten);
+    const selected = allNodes.filter((node) => batchLeafIds.includes(node.id) && node.children.length === 0 && !node.completed);
+    const schedule: GoalNode[] = [];
+    const replan: GoalNode[] = [];
+    const unplan: GoalNode[] = [];
+    for (const node of selected) {
+      const linked = node.todayTaskId ? tasks.find((task) => task.id === node.todayTaskId) : null;
+      const activelyPlanned = Boolean(linked && !isBacklogTask(linked) && !isTaskComplete(linked));
+      const focusRunning = Boolean(linked && activeSession?.taskId === linked.id);
+      if (activelyPlanned) {
+        if (!focusRunning) {
+          replan.push(node);
+          unplan.push(node);
+        }
+      } else {
+        schedule.push(node);
+      }
+    }
+    return { schedule, replan, unplan };
+  }, [activeSession?.taskId, batchLeafIds, goals, tasks]);
+
   const handleBatchCancel = useCallback(() => {
     clearSelectionRef.current();
     setBatchSelectedIds([]);
@@ -267,6 +299,10 @@ function AppInner() {
     }
     if (goalSheetOpen) {
       setGoalSheetOpen(false);
+      return true;
+    }
+    if (blueprintStudioOpen) {
+      setBlueprintStudioOpen(false);
       return true;
     }
     if (settingsOpen) {
@@ -322,6 +358,16 @@ function AppInner() {
     setGoalSheetOpen(true);
   };
 
+  const openBlueprintStudio = () => {
+    pushModalState();
+    setBlueprintStudioOpen(true);
+  };
+
+  const closeBlueprintStudio = useCallback(() => {
+    setBlueprintStudioOpen(false);
+    if (window.history.state?.modal) window.history.back();
+  }, []);
+
   const openSettings = () => {
     pushModalState();
     setSettingsOpen(true);
@@ -346,19 +392,32 @@ function AppInner() {
     setBatchLeafIds([]);
   }, [deleteGoalNodes, batchSelectedIds]);
 
-  const handleBatchSchedule = useCallback(() => {
-    if (batchLeafIds.length === 0) return;
-    const allNodes: GoalNode[] = [];
-    const flatten = (n: GoalNode) => { allNodes.push(n); n.children.forEach(flatten); };
-    goals.forEach(flatten);
-    const selectedNodes = allNodes.filter((n) => batchLeafIds.includes(n.id));
+  const openBatchPlanner = useCallback((selectedNodes: GoalNode[]) => {
     if (selectedNodes.length === 0) return;
     pushModalState();
     setSliceNodes(selectedNodes);
     clearSelectionRef.current();
     setBatchSelectedIds([]);
     setBatchLeafIds([]);
-  }, [batchLeafIds, goals, pushModalState]);
+  }, [pushModalState]);
+
+  const handleBatchSchedule = useCallback(() => {
+    openBatchPlanner(batchLeafGroups.schedule);
+  }, [batchLeafGroups.schedule, openBatchPlanner]);
+
+  const handleBatchReplan = useCallback(() => {
+    openBatchPlanner(batchLeafGroups.replan);
+  }, [batchLeafGroups.replan, openBatchPlanner]);
+
+  const handleBatchUnplan = useCallback(() => {
+    if (batchLeafGroups.unplan.length === 0) return;
+    for (const node of batchLeafGroups.unplan) {
+      if (node.todayTaskId) unlinkTask(node.todayTaskId);
+    }
+    clearSelectionRef.current();
+    setBatchSelectedIds([]);
+    setBatchLeafIds([]);
+  }, [batchLeafGroups.unplan, unlinkTask]);
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
@@ -495,6 +554,7 @@ function AppInner() {
   }, [darkMode]);
 
   const [todaySubTab, setTodaySubTab] = useState<'today' | 'backlog'>('today');
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
 
   const todayTasks = useMemo(
     () => tasks.filter((t) => isToday(t.targetDate) && !isBacklogTask(t)),
@@ -608,6 +668,30 @@ function AppInner() {
     return tasks.find((t) => t.id === activeSession.taskId) ?? null;
   }, [activeSession, tasks]);
 
+  useEffect(() => {
+    if (!activeSession?.taskId || !activeTask) return;
+
+    const openRunningTaskLocation = () => {
+      if (document.visibilityState !== 'visible') return;
+      setBriefingOpen(false);
+      setActiveCategoryFilter('all');
+      setTodaySubTab(isBacklogTask(activeTask) ? 'backlog' : 'today');
+      handleNavigateTab('tasks');
+    };
+
+    openRunningTaskLocation();
+    document.addEventListener('visibilitychange', openRunningTaskLocation);
+    return () => document.removeEventListener('visibilitychange', openRunningTaskLocation);
+  }, [activeSession?.taskId, activeTask, handleNavigateTab]);
+
+  const handlePrimaryNavigate = useCallback((targetView: View) => {
+    if (targetView === 'tasks') {
+      setTodaySubTab('today');
+      setActiveCategoryFilter('all');
+    }
+    handleNavigateTab(targetView);
+  }, [handleNavigateTab]);
+
   const backlogByDate = useMemo(() => {
     const groups: Record<string, Task[]> = {};
     for (const t of backlogTasks) {
@@ -702,8 +786,6 @@ function AppInner() {
     setOverId(null);
   };
 
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
-
   const categoryChips = useMemo(() => {
     const activeTasksList = todaySubTab === 'today' ? todayTasks : backlogTasks;
     const map = new Map<string, { id: string; label: string; count: number }>();
@@ -783,7 +865,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
+      if (sheetOpen || goalSheetOpen || blueprintStudioOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -798,7 +880,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, reconstructOpen, briefingOpen],
+    [sheetOpen, goalSheetOpen, blueprintStudioOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, reconstructOpen, briefingOpen],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -1363,6 +1445,7 @@ function AppInner() {
                 clearSelectionRef={clearSelectionRef}
                 onNavigateToPath={navigateToGoalPath}
                 onOpenDescription={openDescriptionModal}
+                onOpenStudio={openBlueprintStudio}
               />
             )}
           </div>
@@ -1381,19 +1464,23 @@ function AppInner() {
         )}
 
         {/* Bottom Command Bar */}
-        <CommandBar
-          view={view}
-          onNavigate={handleNavigateTab}
+      <CommandBar
+        view={view}
+        onNavigate={handlePrimaryNavigate}
           onSettings={openSettings}
           todayCount={todayCount}
           todayDone={todayDone}
           goalsCount={goals.length}
           batch={batchSelectedIds.length > 0 ? {
             count: batchSelectedIds.length,
-            leafCount: batchLeafIds.length,
+            scheduleCount: batchLeafGroups.schedule.length,
+            replanCount: batchLeafGroups.replan.length,
+            unplanCount: batchLeafGroups.unplan.length,
             onCopy: handleBatchCopy,
             onDelete: handleBatchDelete,
             onSchedule: handleBatchSchedule,
+            onReplan: handleBatchReplan,
+            onUnplan: handleBatchUnplan,
             onCancel: handleBatchCancel,
           } : undefined}
           paste={clipboard.length > 0 && view === 'goals' ? {
@@ -1421,6 +1508,16 @@ function AppInner() {
         onUpdateNode={updateGoalNode}
         onDeleteNode={(id) => { for (const root of goals) deleteGoalNode(root.id, id); }}
       />
+      {blueprintStudioOpen && <BlueprintStudio
+        open={blueprintStudioOpen}
+        goals={goals}
+        onClose={closeBlueprintStudio}
+        onCommit={(base, next, title) => {
+          const result = applyGoalTreeChange(base, next);
+          if (result.ok && result.token) setBlueprintUndo({ token: result.token, title });
+          return result;
+        }}
+      />}
       <StepSliceSheet
         open={sliceNodes.length > 0}
         nodes={sliceNodes}
@@ -1662,7 +1759,19 @@ function AppInner() {
           setBriefingOpen(false);
         }}
       />
-      {lastDeletedNotification && (
+      {blueprintUndo && (
+        <UndoToast
+          key={blueprintUndo.token}
+          title={blueprintUndo.title}
+          verb="Applied"
+          onUndo={() => {
+            undoGoalTreeChange(blueprintUndo.token);
+            setBlueprintUndo(null);
+          }}
+          onGone={() => setBlueprintUndo(null)}
+        />
+      )}
+      {!blueprintUndo && lastDeletedNotification && (
         <UndoToast
           key={lastDeletedNotification.id}
           title={lastDeletedNotification.title}

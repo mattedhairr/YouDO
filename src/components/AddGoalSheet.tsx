@@ -138,7 +138,7 @@ export default function AddGoalSheet({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
-              placeholder={isRootGoal ? 'e.g. Competitive Exam Prep' : 'e.g. Core Syllabus Module'}
+              placeholder={isRootGoal ? 'Name the outcome you want' : 'Name this part of your plan'}
               className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder:text-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors"
             />
           </div>

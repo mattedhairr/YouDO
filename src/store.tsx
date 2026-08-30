@@ -63,6 +63,7 @@ import {
 import { todayISO } from './lib/dates';
 import { defaultPacePrefs, sanitizePacePrefs, type PacePrefs } from './lib/paceBoard';
 import { syncPublicPaceRow, withdrawPublicPace } from './lib/pacePublish';
+import { reconcileBlueprintTasks } from './lib/blueprintStudio';
 
 export {
   todayISO,
@@ -107,6 +108,12 @@ export interface DeletedGoalRecord {
   tasks: Task[];
 }
 
+export interface GoalTreeChangeResult {
+  ok: boolean;
+  token?: string;
+  error?: 'stale' | 'unchanged' | 'active-session';
+}
+
 interface Store {
   tasks: Task[];
   goals: GoalNode[];
@@ -121,6 +128,10 @@ interface Store {
   addChildNode: (parentId: string, node: GoalNode) => void;
   updateGoalNode: (id: string, patch: (n: GoalNode) => GoalNode) => void;
   deleteGoalNode: (rootId: string, nodeId: string) => void;
+  /** Atomically apply a previewed Blueprint Studio tree, refusing stale drafts. */
+  applyGoalTreeChange: (baseGoals: GoalNode[], nextGoals: GoalNode[]) => GoalTreeChangeResult;
+  /** Undo a Blueprint Studio transaction only while it is still the latest tree state. */
+  undoGoalTreeChange: (token: string) => boolean;
   /** Delete multiple goal nodes at once */
   deleteGoalNodes: (nodeIds: string[]) => void;
   /** Recently deleted goals safety bin */
@@ -305,6 +316,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   recentlyDeletedRef.current = recentlyDeletedGoals;
   const activeSessionRef = useRef(activeSession);
   activeSessionRef.current = activeSession;
+  const goalTreeTransactionsRef = useRef(new Map<string, {
+    beforeGoals: GoalNode[];
+    beforeTasks: Task[];
+    afterGoals: GoalNode[];
+    afterTasks: Task[];
+  }>());
   const workspaceUpdatedAtRef = useRef(readWorkspaceUpdatedAt());
   const workspaceHydratedRef = useRef(false);
 
@@ -453,6 +470,68 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
     },
     [setGoals],
+  );
+
+  const applyGoalTreeChange = useCallback(
+    (baseGoals: GoalNode[], proposedGoals: GoalNode[]): GoalTreeChangeResult => {
+      const currentGoals = goalsRef.current;
+      const currentTasks = tasksRef.current;
+      if (!sameTree(currentGoals, baseGoals)) return { ok: false, error: 'stale' };
+
+      const nextGoals = proposedGoals.map(recomputeCompleted);
+      if (sameTree(currentGoals, nextGoals)) return { ok: false, error: 'unchanged' };
+
+      const nextTasks = reconcileBlueprintTasks(currentTasks, nextGoals);
+
+      if (activeSessionRef.current && !nextTasks.some((task) => task.id === activeSessionRef.current?.taskId)) {
+        return { ok: false, error: 'active-session' };
+      }
+
+      const token = uid('blueprint');
+      goalTreeTransactionsRef.current.set(token, {
+        beforeGoals: currentGoals,
+        beforeTasks: currentTasks,
+        afterGoals: nextGoals,
+        afterTasks: nextTasks,
+      });
+      while (goalTreeTransactionsRef.current.size > 8) {
+        const oldest = goalTreeTransactionsRef.current.keys().next().value as string | undefined;
+        if (!oldest) break;
+        goalTreeTransactionsRef.current.delete(oldest);
+      }
+
+      goalsRef.current = nextGoals;
+      tasksRef.current = nextTasks;
+      clearRollupCache();
+      setGoals(nextGoals);
+      setTasks(nextTasks);
+      hapticSuccess();
+      return { ok: true, token };
+    },
+    [setGoals, setTasks],
+  );
+
+  const undoGoalTreeChange = useCallback(
+    (token: string): boolean => {
+      const transaction = goalTreeTransactionsRef.current.get(token);
+      if (!transaction) return false;
+      if (
+        !sameTree(goalsRef.current, transaction.afterGoals) ||
+        !sameTasks(tasksRef.current, transaction.afterTasks)
+      ) {
+        goalTreeTransactionsRef.current.delete(token);
+        return false;
+      }
+      goalsRef.current = transaction.beforeGoals;
+      tasksRef.current = transaction.beforeTasks;
+      clearRollupCache();
+      setGoals(transaction.beforeGoals);
+      setTasks(transaction.beforeTasks);
+      goalTreeTransactionsRef.current.delete(token);
+      hapticTick();
+      return true;
+    },
+    [setGoals, setTasks],
   );
 
   const updateGoalNode = useCallback(
@@ -1428,7 +1507,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const dataValue = useMemo<DataStore>(
     () => ({
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
-      addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode,
+      addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, applyGoalTreeChange, undoGoalTreeChange,
       recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
@@ -1445,7 +1524,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       publishPublicPace,
     }),
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
-      addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, deleteGoalNodes,
+      addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, applyGoalTreeChange, undoGoalTreeChange, deleteGoalNodes,
       recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
