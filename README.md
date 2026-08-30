@@ -21,17 +21,17 @@
 
 ## Purpose
 
-Competitive exams (UPSC, JEE, NEET, GATE, CAT, and similar) fail people on volume, not intelligence. A flat to-do list of "study physics" is how days disappear.
+Large exams are difficult because the syllabus, practice, revision, and daily execution all compete for attention. A flat task such as "study this subject" does not show what to do next.
 
-YouDO is a **6-tier Goal Blueprint** (`Goal` → `Phase` → `Section` → `Task` → `Sub-task` → `Leaf Task`) tied to a **daily execution list**, timed focus sessions, and calendar stats that count only real work.
+YouDO turns that workload into a **6-tier Goal Blueprint** (`Goal` → `Phase` → `Section` → `Task` → `Sub-task` → `Leaf Task`) tied to a daily execution list, timed focus sessions, streaks, and calendar stats that count completed work and net focus.
 
 ```text
-Goal: "UPSC / JEE / NEET Exam 2026"
- └── Phase: "Phase 1: Core Physics & Chemistry"
-      └── Section: "Mechanics Module"
-           └── Task: "Rotational Motion"
-                └── Sub-task: "Video Lectures"
-                     └── Leaf Task: "Watch Lecture 1 & Take Notes"
+Goal: "Prepare for my target exam"
+ └── Phase: "Build the foundation"
+      └── Section: "Core subject"
+           └── Task: "Complete Topic 1"
+                └── Sub-task: "Learn the concept"
+                     └── Leaf Task: "Study Lesson 1"
 ```
 
 ---
@@ -44,7 +44,7 @@ Goal: "UPSC / JEE / NEET Exam 2026"
 2. Download `YouDO.apk` from the latest release.
 3. Install on the device (allow unknown sources if Android asks).
 
-Current release: **v4.0.0**.
+Current release: **v5.0.0**.
 
 ### Web (PWA)
 
@@ -54,15 +54,33 @@ Open YouDO in a browser and use **Add to Home Screen** for a standalone install.
 
 ## Features
 
+- **Blueprint Studio** — create or edit a deep goal plan through one focused question at a time instead of facing the whole hierarchy at once.
+- **Bulk blueprint building** — add named lists or numbered ranges, repeat the same structure under several branches, and leave unfinished branches as clean shells for later.
+- **Cross-branch editing** — keep items selected while moving between phases or sections, then rename, extend, add shared steps, or remove them together.
+- **Preview and undo** — review the complete tree change before applying it and undo the entire operation in one tap.
 - **6-tier syllabus tree** — split an exam into goals, phases, sections, and micro-tasks.
-- **Step-slice scheduling** — send specific steps from any goal node onto Today.
+- **Flexible planning** — schedule, replan, or unplan multiple leaf tasks and send only selected micro-steps to Today.
 - **Backlog** — overdue work stays on its original date until you finish it. Starting a focus session does not move it to Today. Progress still writes back to the blueprint.
-- **Focus sessions** — net focus vs elapsed time, pause logs, live `start – ∞` while running.
+- **Focus sessions** — net focus versus elapsed time, pause logs, notification controls, and automatic return to the running task's Scheduled or Backlog location.
 - **Ambient mode** — full-screen desk timer (long-press the play control). Screen stays awake.
-- **Honest analytics** — overnight sessions split at midnight, short accidental sessions dropped, goal stats roll up descendants.
+- **Today at a Glance** — a daily briefing with unique progress metrics, focus time, streak context, backlog pressure, and time left today.
+- **Public Board** — optional Today, Week, and Month rankings based on net focus, with private-by-default participation.
+- **Honest analytics** — overnight sessions split at midnight and short accidental sessions are excluded.
 - **Crash recovery** — resume after a close, or reconstruct a session you forgot to stop.
 - **Cloud + local backup** — optional account sync, plus JSON export/import.
-- **In-app guide** — six-step workflow inside Settings.
+- **Fast navigation** — tap the current bottom destination again to return to its root in one step.
+- **In-app guide** — an aspirant-focused walkthrough inside Settings.
+
+---
+
+## Blueprint Studio
+
+Open **Goals → Blueprint Studio** and choose one of two paths:
+
+- **Create** starts with the outcome, then asks only whether the current branch needs the next hierarchy level. Add real names or generate numbered sequences, choose which branches to develop now, and leave the rest for later.
+- **Edit existing** lets you browse the current tree, preserve selections across different branches, and apply one safe bulk operation to all selected items.
+
+The manual Goal editor remains available. Blueprint Studio is an additional planning tool, not a replacement for existing workflows.
 
 ---
 

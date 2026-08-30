@@ -64,7 +64,35 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
-## [v4.1.0] — 2026-08-30 ("Board and settings polish")
+## [v5.0.0] — 2026-08-30 ("Blueprint Studio")
+
+YouDO can now help you construct and reshape a large exam plan without making you manage the entire hierarchy at once. This major release also includes the Board, navigation, and Settings polish prepared for v4.1.0 but never published separately.
+
+### 🚀 What you will notice
+- **Blueprint Studio** — Create a new goal blueprint through one focused question at a time, or open an existing tree and choose exactly where to work.
+- **Bulk structure without repetition** — Add named lists or numbered ranges at any hierarchy level and repeat the same structure or steps across several selected branches.
+- **Partial blueprints** — Build one phase completely now while keeping later phases as clean shells that are ready when you return.
+- **Cross-branch selection** — Select items under different phases or sections without losing earlier selections, review the selected paths, and update them together.
+- **Safe preview and undo** — See the complete result before applying a bulk operation, then undo the entire tree change with one tap.
+- **Batch planning controls** — Schedule, replan, or unplan multiple eligible leaf tasks; an active focus task stays protected.
+- **Session-aware reopening** — Returning to YouDO during a focus session opens the running task's Scheduled or Backlog location automatically, including after midnight.
+- **One-tap destination home** — Tap Goals while deep in the hierarchy to return to Goals home; tapping Today returns to Scheduled with filters cleared.
+- **Clearer guidance** — Goal examples, placeholders, account fields, and Help content now use concise aspirant-focused language without assuming a particular exam.
+- **v4.1.0 polish included** — Compact Board introduction, premium bottom navigation, refined Settings groups and toggles, and a smaller guest account card are included in this release.
+
+### ⚙ Under the hood
+- Blueprint edits apply atomically, reject stale drafts, preserve linked Today-task progress, skip duplicate names and steps, and block removal of the task used by an active session.
+- Goal-tree operations are covered by dedicated tests; the complete suite now contains 66 passing tests.
+- Navigation distinguishes automatic active-session routing from intentional bottom-tab taps, so both behaviors remain predictable.
+- **versionCode 25** is higher than v4.0.0 (23) and the unpublished v4.1.0 build (24).
+
+### 💾 Data Safety
+- **Android APK**: versionName **5.0.0**, versionCode **25**. Same package id `com.mattedhairr.youdo` and existing stable signing workflow — install over **4.0.0** (23), an internal **4.1.0** build (24), and earlier compatible builds.
+- Android also requires the same signing certificate. If the installed APK came from an older or different signing key, uninstall it once before installing v5.0.0; future APKs produced by the current workflow can then install over it.
+
+---
+
+## [v4.1.0] — 2026-08-30 ("Board and settings polish") *not published as a GitHub Release*
 
 A focused visual refinement makes the public Board, bottom navigation, and Settings easier to scan and more comfortable to use without changing their behavior.
 
