@@ -43,7 +43,7 @@ interface Props {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2 px-1">
+    <h2 className="settings-section-label text-[10px] font-semibold uppercase tracking-[0.16em] text-content-muted mb-2.5 px-1">
       {children}
     </h2>
   );
@@ -166,11 +166,11 @@ export default function SettingsSheet({
   return (
     <Overlay open={open} onClose={onClose} align="full">
     <div
-      className="app-frame h-full w-full max-w-md mx-auto bg-base page-slide-in flex flex-col overflow-hidden border-x border-subtle"
+      className="settings-shell app-frame h-full w-full max-w-md mx-auto bg-base page-slide-in flex flex-col overflow-hidden border-x border-subtle"
     >
       {/* ── 1. Clean Top Bar ── */}
       <div
-        className="flex items-center gap-3 px-4 border-b border-subtle shrink-0 bg-elevated"
+        className="settings-header flex items-center gap-3 px-4 border-b border-subtle shrink-0 bg-elevated"
         style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: '0.875rem' }}
       >
         <button
@@ -184,11 +184,13 @@ export default function SettingsSheet({
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-[18px] font-bold text-content-primary tracking-tight">
-          {trashOpen
-            ? 'Recently Deleted'
-            : 'Settings'}
-        </h1>
+        <div className="min-w-0">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-primary">YouDO</p>
+          <h1 className="text-[18px] leading-5 font-bold text-content-primary tracking-tight">
+            {trashOpen ? 'Recently Deleted' : 'Settings'}
+          </h1>
+          {!trashOpen && <p className="mt-0.5 text-[11px] text-content-muted">Your workspace, focus rules and privacy</p>}
+        </div>
       </div>
 
       {trashOpen ? (
@@ -249,7 +251,7 @@ export default function SettingsSheet({
         )}
       </div>
       ) : (
-      <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-12 space-y-4">
+      <div className="settings-content flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-5 pb-12 space-y-5">
         {/* Status Messages */}
         {msg && (
           <div
@@ -269,7 +271,7 @@ export default function SettingsSheet({
         {/* ── SECTION 1: ACCOUNT & SYNC ── */}
         <section>
           <SectionLabel>ACCOUNT &amp; SYNC</SectionLabel>
-          <div className="bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
+          <div className="settings-card settings-account-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
             {user ? (
               <div className="relative overflow-hidden">
                 <div className="pointer-events-none absolute -top-16 right-[-36px] w-52 h-52 rounded-full bg-secondary/20 blur-3xl ambient-orb" />
@@ -599,47 +601,39 @@ export default function SettingsSheet({
                       'radial-gradient(120% 80% at 82% -8%, rgba(196, 165, 116, 0.22), transparent 58%)',
                   }}
                 />
-                <div className="relative p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="size-12 rounded-[14px] bg-primary-soft border border-primary/30 grid place-items-center shrink-0 shadow-elevated">
-                      <Cloud size={20} className="text-primary" strokeWidth={2.1} />
+                <div className="settings-guest-card relative p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-[12px] bg-primary-soft border border-primary/25 grid place-items-center shrink-0">
+                      <Cloud size={18} className="text-primary" strokeWidth={2.1} />
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">This device only</p>
-                      <h3 className="text-[17px] font-semibold text-content-primary leading-tight mt-0.5">
+                      <h3 className="text-[16px] font-semibold text-content-primary leading-tight mt-0.5">
                         Guest mode
                       </h3>
                     </div>
                   </div>
-                  <p className="text-[13px] text-content-secondary leading-relaxed">
-                    Your goals and sessions stay on this phone. Sign in to use the same plan on another device.
+                  <p className="mt-3 text-[12px] text-content-secondary leading-[1.55]">
+                    Your work stays on this phone. Sign in to keep the same plan available on your other devices.
                   </p>
-                  <div className="mt-3.5 flex flex-wrap gap-1.5">
-                    {['Goals', 'Today', 'Focus stats'].map((label) => (
-                      <span
-                        key={label}
-                        className="text-[10px] font-semibold tracking-wide text-primary bg-primary-soft border border-primary/20 px-2.5 py-1 rounded-full"
-                      >
-                        {label}
-                      </span>
-                    ))}
+                  <div className="mt-3.5 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onOpenAuth?.('signin')}
+                      className="h-11 rounded-[11px] bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.97]"
+                    >
+                      <LogIn size={15} strokeWidth={2.25} />
+                      Sign in
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenAuth?.('signup')}
+                      className="h-11 rounded-[11px] border border-subtle bg-base/50 text-[12px] font-medium text-content-secondary hover:text-content-primary hover:border-primary/30 flex items-center justify-center gap-1.5 active:scale-[0.97]"
+                    >
+                      <UserPlus size={14} className="text-primary" />
+                      Create account
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onOpenAuth?.('signin')}
-                    className="mt-5 w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
-                  >
-                    <LogIn size={15} strokeWidth={2.25} />
-                    Sign in
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onOpenAuth?.('signup')}
-                    className="mt-2 w-full h-10 rounded-[12px] text-[13px] font-medium text-content-secondary hover:text-content-primary hover:bg-surface/80 flex items-center justify-center gap-1.5"
-                  >
-                    <UserPlus size={14} className="text-primary" />
-                    Create an account
-                  </button>
                 </div>
               </div>
             )}
@@ -649,7 +643,7 @@ export default function SettingsSheet({
         {/* ── SECTION 2: APPEARANCE ── */}
         <section>
           <SectionLabel>APPEARANCE</SectionLabel>
-          <div className="bg-elevated rounded-2xl border border-subtle p-4 flex items-center justify-between shadow-lg">
+          <div className="settings-card settings-row bg-elevated rounded-2xl border border-subtle p-4 flex items-center justify-between shadow-lg">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
                 {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
@@ -661,7 +655,7 @@ export default function SettingsSheet({
             </div>
 
             {/* Segmented Switch Control */}
-            <div className="flex bg-base p-1 rounded-xl border border-subtle shrink-0">
+            <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle shrink-0">
               <button
                 type="button"
                 onClick={() => setTheme({ darkMode: true })}
@@ -687,7 +681,7 @@ export default function SettingsSheet({
             </div>
           </div>
 
-          <div className="bg-elevated rounded-2xl border border-subtle p-4 flex items-center justify-between shadow-lg mt-2">
+          <div className="settings-card settings-row bg-elevated rounded-2xl border border-subtle p-4 flex items-center justify-between shadow-lg mt-2">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
                 <Smartphone size={16} />
@@ -701,14 +695,16 @@ export default function SettingsSheet({
             <button
               type="button"
               onClick={toggleHaptics}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+              role="switch"
+              aria-checked={hapticsEnabled}
+              className={`settings-toggle relative inline-flex shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
                 hapticsEnabled ? 'bg-primary' : 'bg-surface border border-subtle'
               }`}
             >
               <span
                 aria-hidden="true"
-                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  hapticsEnabled ? 'translate-x-2' : '-translate-x-2'
+                className={`settings-toggle-knob pointer-events-none absolute left-1 inline-block transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  hapticsEnabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
@@ -717,7 +713,7 @@ export default function SettingsSheet({
 
         <section>
           <SectionLabel>FOCUS STREAK</SectionLabel>
-          <div className="bg-elevated rounded-2xl border border-subtle p-4 shadow-lg">
+          <div className="settings-card settings-focus-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
                 <Flame size={16} />
@@ -776,7 +772,7 @@ export default function SettingsSheet({
                     <button
                       type="button"
                       aria-label="Decrease streak bar"
-                      className="w-8 h-8 rounded-lg border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
                       disabled={streakBarHours <= MIN_STREAK_BAR_HOURS}
                       onClick={() => {
                         hapticTick();
@@ -791,7 +787,7 @@ export default function SettingsSheet({
                     <button
                       type="button"
                       aria-label="Increase streak bar"
-                      className="w-8 h-8 rounded-lg border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
                       disabled={streakBarHours >= MAX_STREAK_BAR_HOURS}
                       onClick={() => {
                         hapticTick();
@@ -809,7 +805,7 @@ export default function SettingsSheet({
 
         <section>
           <SectionLabel>PUBLIC BOARD</SectionLabel>
-          <div className="bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
+          <div className="settings-card settings-board-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
                 <TrendingUp size={16} />
@@ -836,14 +832,14 @@ export default function SettingsSheet({
                   hapticTick();
                   updatePacePrefs({ optedIn: !pacePrefs.optedIn });
                 }}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition ${
+                className={`settings-toggle relative inline-flex shrink-0 appearance-none items-center rounded-full border p-0 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                   pacePrefs.optedIn ? 'bg-primary border-primary' : 'bg-surface border-subtle'
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    pacePrefs.optedIn ? 'translate-x-2' : '-translate-x-2'
+                  className={`settings-toggle-knob pointer-events-none absolute left-1 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
+                    pacePrefs.optedIn ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
@@ -863,7 +859,7 @@ export default function SettingsSheet({
               <input
                 value={pacePrefs.examLabel}
                 maxLength={40}
-                placeholder="GATE 2027, UPSC, …"
+                placeholder="Your goal or focus area"
                 onChange={(e) => updatePacePrefs({ examLabel: e.target.value })}
                 className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
               />
@@ -895,11 +891,11 @@ export default function SettingsSheet({
         {/* ── SECTION 3: DATA & STORAGE ── */}
         <section>
           <SectionLabel>DATA &amp; STORAGE</SectionLabel>
-          <div className="bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
+          <div className="settings-card settings-data-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
             <button
               type="button"
               onClick={() => setTrashOpen(true)}
-              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/2 transition"
+              className="settings-data-row w-full p-4 flex items-center justify-between text-left hover:bg-white/2 transition"
             >
               <div className="flex items-center gap-3">
                 <Trash2 size={16} className="text-primary shrink-0" />
@@ -914,7 +910,7 @@ export default function SettingsSheet({
             </button>
 
             {/* Row 2: Export JSON */}
-            <div className="p-4 flex items-center justify-between">
+            <div className="settings-data-row p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Download size={16} className="text-primary shrink-0" />
                 <div>
@@ -931,7 +927,7 @@ export default function SettingsSheet({
             </div>
 
             {/* Row 3: Import JSON */}
-            <div className="p-4 flex items-center justify-between">
+            <div className="settings-data-row p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Upload size={16} className="text-secondary shrink-0" />
                 <div>
@@ -950,7 +946,7 @@ export default function SettingsSheet({
               </button>
             </div>
 
-            <div className="p-4 flex items-center justify-between">
+            <div className="settings-data-row p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <History size={16} className="text-primary shrink-0" />
                 <div>
