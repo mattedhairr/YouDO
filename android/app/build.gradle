@@ -3,6 +3,19 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.mattedhairr.youdo"
     compileSdk = rootProject.ext.compileSdkVersion
+    signingConfigs {
+        durableRelease {
+            def signingPath = System.getenv("YOUDO_SIGNING_KEYSTORE")
+            def signingPassword = System.getenv("YOUDO_SIGNING_PASSWORD")
+            if (signingPath && signingPassword) {
+                storeFile file(signingPath)
+                storePassword signingPassword
+                keyAlias "youdo"
+                keyPassword signingPassword
+                storeType "PKCS12"
+            }
+        }
+    }
     defaultConfig {
         applicationId "com.mattedhairr.youdo"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -22,6 +35,11 @@ android {
         targetCompatibility JavaVersion.VERSION_21
     }
     buildTypes {
+        debug {
+            if (System.getenv("YOUDO_SIGNING_KEYSTORE") && System.getenv("YOUDO_SIGNING_PASSWORD")) {
+                signingConfig signingConfigs.durableRelease
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

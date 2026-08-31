@@ -22,28 +22,14 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # Same debug keystore across runs — without this, every CI APK is signed with a
-      # fresh key and Android refuses install-over even when versionCode increases.
-      - name: Restore Android debug keystore
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: youdo-android-debug-keystore-v1
-
-      - name: Ensure Android debug keystore exists
+      # Repository secrets hold the durable v6+ signing identity. Never fall
+      # back to an ephemeral debug key for a distributable APK.
+      - name: Prepare permanent Android signing key
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.YOUDO_SIGNING_KEYSTORE_BASE64 }}
         run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkeypair -v \
-              -keystore ~/.android/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          test -n "$SIGNING_KEYSTORE_BASE64"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/youdo-release.p12"
 
       - name: Clear Gradle Caches
         run: |
@@ -84,6 +70,8 @@ jobs:
       - name: Build Android Debug APK
         env:
           GRADLE_OPTS: "-Xmx6144m -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.unsafe.build-cache=false"
+          YOUDO_SIGNING_KEYSTORE: ${{ runner.temp }}/youdo-release.p12
+          YOUDO_SIGNING_PASSWORD: ${{ secrets.YOUDO_SIGNING_PASSWORD }}
         run: |
           cd android
           ./gradlew clean assembleDebug --no-daemon --no-build-cache --stacktrace -x lint
@@ -94,24 +82,16 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
           sha256sum android/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Verify install-over compatibility with v5.0.0
+      - name: Verify permanent v6 signing baseline
         run: |
           CURRENT_APK="android/app/build/outputs/apk/debug/app-debug.apk"
-          PREVIOUS_APK="$RUNNER_TEMP/youdo-v5.0.0.apk"
-          curl --fail --location --silent --show-error \
-            --output "$PREVIOUS_APK" \
-            "https://github.com/mattedhairr/YouDO/releases/download/v5.0.0/YouDO.apk"
-
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           CURRENT_CERT="$("$APKSIGNER" verify --print-certs "$CURRENT_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
-          PREVIOUS_CERT="$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
-          test -n "$CURRENT_CERT" && test "$CURRENT_CERT" = "$PREVIOUS_CERT"
-
           CURRENT_CODE="$("$AAPT" dump badging "$CURRENT_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
-          PREVIOUS_CODE="$("$AAPT" dump badging "$PREVIOUS_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
-          test -n "$CURRENT_CODE" && test -n "$PREVIOUS_CODE" && test "$CURRENT_CODE" -gt "$PREVIOUS_CODE"
-          echo "Install-over verified: matching certificate; versionCode $PREVIOUS_CODE -> $CURRENT_CODE"
+          test "$CURRENT_CERT" = "12c3ac6ccaa7850986223bbbbebedc860afdf8a44a9bbde542adfb5cc6dafb38"
+          test "$CURRENT_CODE" = "26"
+          echo "Permanent v6 signing baseline verified: certificate pinned; versionCode $CURRENT_CODE"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

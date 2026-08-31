@@ -141,7 +141,7 @@ YouDO requires an account for a real workspace so signed-out and cross-account d
 3. Allow installation from the browser or file manager if Android asks.
 4. Install the APK.
 
-New releases use the same package id and a higher Android `versionCode`. They can install over compatible previous builds when both APKs use the same signing certificate. If Android rejects an older build signed with a different key, uninstall that build once and install the latest release cleanly.
+v6 establishes YouDO's permanent Android signing identity. Because the private key used for the published v5 APK is no longer available, moving from v5 or an older differently signed build requires one clean reinstall: sync or export your workspace, uninstall the old app, install v6, then sign in and restore. Releases after v6 use the same protected signing key and a higher Android `versionCode`, so they can install over v6 normally.
 
 Only the latest GitHub Release is supported. From v6 onward, YouDO checks once per day for a newer stable release and shows a dismissible notice with brief highlights; updates are always opened from the official GitHub Release page and are never installed silently.
 

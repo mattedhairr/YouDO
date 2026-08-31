@@ -88,11 +88,12 @@ YouDO now treats each signed-in account as the owner of one local-first workspac
 ### 🔧 Under the hood
 - Date-specific task occurrences now come from one tested timeline model shared by Plan cards, day totals, failure counts, backlog recovery, and focus statistics.
 - Manual step completion records its own evidence so partial manual work and timed work can coexist without corrupting historical status.
-- Android builds print the APK signing certificate and SHA-256 checksum so install-over compatibility can be verified before publishing.
+- Android builds use a repository-secret signing identity, pin its certificate fingerprint in CI, and print the APK checksum before publishing.
 - Stale guest-mode documentation and the obsolete authentication modal were removed; the Help Center, README, Settings, and Supabase function source now describe the same account model.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **6.0.0**, versionCode **26**. Same package id `com.mattedhairr.youdo` and existing signing workflow — install over **5.0.0** (25) and earlier compatible builds after the release APK passes certificate and real-device install-over verification.
+- **Android APK**: versionName **6.0.0**, versionCode **26**, same package id `com.mattedhairr.youdo`.
+- **One-time signing reset**: the private key used for the published v5 APK is no longer available, so Android cannot install v6 over v5. Sync or export first, uninstall v5 once, then install v6 and restore/sign in. v6 establishes the permanent signing baseline used by future updates.
 - On first opening v6 with an existing device plan, choose **Keep this device plan** to secure that local copy to the signed-in account, or **Restore cloud workspace** only when the cloud copy is the one you intend to keep.
 - Historical manual completions created before v6 may not contain enough timestamp evidence to reconstruct every old date perfectly; v6 records that evidence for future work instead of guessing and rewriting history.
 
