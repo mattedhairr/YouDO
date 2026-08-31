@@ -64,6 +64,40 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v6.0.0] — 2026-08-31 ("Account-safe execution")
+
+YouDO now treats each signed-in account as the owner of one local-first workspace, while rebuilding task history around what actually happened on each date. This release prioritizes protecting preparation progress before adding anything decorative.
+
+### ✨ What you will notice
+- **Your workspace belongs to you** — Sign in or create an account before doing real work; YouDO never silently mixes plans from different accounts on one phone.
+- **An honest Plan timeline** — Scheduled, failed, and later-completed backlog appearances are shown on their correct dates without turning one task into dozens of completed cards.
+- **Offline work reconnects safely** — Changes save on the phone immediately and automatically retry cloud sync when internet access returns.
+- **Manual and session work stay distinct** — Plan identifies manual, timed-session, and mixed completion without rewriting older failed appearances incorrectly.
+- **Completed cards read as completed** — Scheduled and backlog cards gain a consistent strike-through and restrained fade after completion.
+- **Cleaner Goals** — Goal rows keep the blueprint hierarchy readable while operational metadata remains in Plan, where it belongs.
+- **Safer destructive actions** — Running tasks cannot be removed by bulk edits, imports, replanning, or goal deletion; account deletion requires a server-confirmed request.
+- **Future update notices** — From v6 onward, YouDO checks once daily for a newer stable GitHub Release and presents three brief highlights without interrupting a focus session.
+
+### ☁️ Cloud
+- **Account-first start** — Existing device data is identified before the workspace opens. Keep the device plan, restore the signed-in cloud copy, or intentionally start empty.
+- **Safe sign-out** — YouDO syncs first and refuses to clear the device workspace when unsynced changes cannot reach Supabase.
+- **Restore points** — The live cloud workspace and up to three visit snapshots remain available from Settings.
+- **Permanent deletion** — Delete Account removes the Auth user, cloud backups, restore points, and public Board row through the authenticated `delete-account` Edge Function.
+- **Multi-device merge protection** — Session records merge by identity; newer goal/task structure wins without OR-merging stale completion flags, and an active sitting blocks unsafe replacement.
+
+### 🔧 Under the hood
+- Date-specific task occurrences now come from one tested timeline model shared by Plan cards, day totals, failure counts, backlog recovery, and focus statistics.
+- Manual step completion records its own evidence so partial manual work and timed work can coexist without corrupting historical status.
+- Android builds print the APK signing certificate and SHA-256 checksum so install-over compatibility can be verified before publishing.
+- Stale guest-mode documentation and the obsolete authentication modal were removed; the Help Center, README, Settings, and Supabase function source now describe the same account model.
+
+### 💾 Data Safety
+- **Android APK**: versionName **6.0.0**, versionCode **26**. Same package id `com.mattedhairr.youdo` and existing signing workflow — install over **5.0.0** (25) and earlier compatible builds after the release APK passes certificate and real-device install-over verification.
+- On first opening v6 with an existing device plan, choose **Keep this device plan** to secure that local copy to the signed-in account, or **Restore cloud workspace** only when the cloud copy is the one you intend to keep.
+- Historical manual completions created before v6 may not contain enough timestamp evidence to reconstruct every old date perfectly; v6 records that evidence for future work instead of guessing and rewriting history.
+
+---
+
 ## [v5.0.0] — 2026-08-30 ("Blueprint Studio")
 
 YouDO can now help you construct and reshape a large exam plan without making you manage the entire hierarchy at once. This major release also includes the Board, navigation, and Settings polish prepared for v4.1.0 but never published separately.

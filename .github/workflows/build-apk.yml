@@ -2,7 +2,9 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'codex/release-*'
   workflow_dispatch:
 
 jobs:
@@ -85,6 +87,12 @@ jobs:
         run: |
           cd android
           ./gradlew clean assembleDebug --no-daemon --no-build-cache --stacktrace -x lint
+
+      - name: Verify APK signature and checksum
+        run: |
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
+          sha256sum android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
