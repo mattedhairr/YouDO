@@ -94,6 +94,25 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
           sha256sum android/app/build/outputs/apk/debug/app-debug.apk
 
+      - name: Verify install-over compatibility with v5.0.0
+        run: |
+          CURRENT_APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          PREVIOUS_APK="$RUNNER_TEMP/youdo-v5.0.0.apk"
+          curl --fail --location --silent --show-error \
+            --output "$PREVIOUS_APK" \
+            "https://github.com/mattedhairr/YouDO/releases/download/v5.0.0/YouDO.apk"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          CURRENT_CERT="$("$APKSIGNER" verify --print-certs "$CURRENT_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
+          PREVIOUS_CERT="$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
+          test -n "$CURRENT_CERT" && test "$CURRENT_CERT" = "$PREVIOUS_CERT"
+
+          CURRENT_CODE="$("$AAPT" dump badging "$CURRENT_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
+          PREVIOUS_CODE="$("$AAPT" dump badging "$PREVIOUS_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
+          test -n "$CURRENT_CODE" && test -n "$PREVIOUS_CODE" && test "$CURRENT_CODE" -gt "$PREVIOUS_CODE"
+          echo "Install-over verified: matching certificate; versionCode $PREVIOUS_CODE -> $CURRENT_CODE"
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
