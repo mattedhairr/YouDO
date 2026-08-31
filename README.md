@@ -24,12 +24,6 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 
 ---
 
-<p align="center">
-  <img src="docs/media/youdo-promo-poster.png" width="680" alt="YouDO turns a six-level exam plan into one clear next step for today" />
-</p>
-
----
-
 ## Preparation fails between the plan and the day
 
 Most aspirants already know the destination. The difficulty is turning hundreds of chapters, lectures, practice sets, revisions, and tests into work that can be finished today.
