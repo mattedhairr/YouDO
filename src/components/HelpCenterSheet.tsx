@@ -113,13 +113,13 @@ const USER_GUIDE_STEPS = [
   },
   {
     icon: User,
-    title: 'Keep your data',
+    title: 'Keep your workspace safe',
     where: 'Settings',
-    desc: 'Sign in so another device sees the same plan. Deleted goals can come back.',
+    desc: 'Your signed-in workspace saves locally first, then syncs to your cloud copy.',
     do: [
-      'Without an account, everything stays on this phone.',
-      'Sign in to share goals, Today, and session stats.',
-      'Deleted goals: Settings → Recently Deleted → Restore.',
+      'YouDO requires an account so one person’s plan is never mixed with another account.',
+      'Temporary internet loss is safe: keep working, then tap Sync now after reconnecting.',
+      'Before signing out or changing phones, wait for sync or export a JSON backup.',
     ],
     mock: 'sync' as const,
   },
@@ -260,8 +260,8 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
         <Cloud size={18} />
       </div>
       <div>
-        <div className="text-[12px] font-semibold text-content-primary">This phone ↔ other devices</div>
-        <div className="text-[11px] text-content-secondary mt-0.5">Sign in to copy goals, Today, and stats.</div>
+        <div className="text-[12px] font-semibold text-content-primary">This phone ↔ your cloud copy</div>
+        <div className="text-[11px] text-content-secondary mt-0.5">Local first. Sync after reconnecting.</div>
       </div>
     </div>
   );

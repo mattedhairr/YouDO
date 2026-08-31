@@ -1,6 +1,6 @@
 import type { GoalKind, GoalNode, Task } from '../types';
 import { uid } from './ids';
-import { findGoal, mirrorGoalContentToTask, removeNodes, updateNode } from './goalTree';
+import { findGoal, isMutableGoalPlan, mirrorGoalContentToTask, removeNodes, updateNode } from './goalTree';
 
 export const BLUEPRINT_LEVELS: GoalKind[] = ['goal', 'phase', 'section', 'task', 'sub', 'leaf'];
 
@@ -210,13 +210,30 @@ export function blueprintChildrenAt(goals: GoalNode[], parentId: string | null):
   return parentId ? findGoal(goals, parentId)?.children ?? [] : goals;
 }
 
-/** Keep linked Today copies valid after an atomic blueprint edit; removed branches lose their mirrors. */
-export function reconcileBlueprintTasks(tasks: Task[], goals: GoalNode[]): Task[] {
+/**
+ * Keep only current plan mirrors in sync after an atomic blueprint edit.
+ * Historical dated cards are immutable snapshots: renaming, completing, or
+ * removing a Goal branch must never rewrite or erase past execution records.
+ */
+export function reconcileBlueprintTasks(
+  tasks: Task[],
+  goals: GoalNode[],
+  previousGoals: GoalNode[] = goals,
+): Task[] {
+  const removedCurrentTaskIds = new Set<string>();
+  for (const node of flattenBlueprint(previousGoals)) {
+    if (findGoal(goals, node.id) || !node.todayTaskId) continue;
+    const currentPlan = tasks.find((task) => task.id === node.todayTaskId);
+    if (currentPlan && isMutableGoalPlan(currentPlan, node)) {
+      removedCurrentTaskIds.add(currentPlan.id);
+    }
+  }
+
   return tasks
-    .filter((task) => !task.goalNodeId || Boolean(findGoal(goals, task.goalNodeId)))
+    .filter((task) => !removedCurrentTaskIds.has(task.id))
     .map((task) => {
       if (!task.goalNodeId) return task;
       const node = findGoal(goals, task.goalNodeId);
-      return node ? mirrorGoalContentToTask(task, node) : task;
+      return node && isMutableGoalPlan(task, node) ? mirrorGoalContentToTask(task, node) : task;
     });
 }

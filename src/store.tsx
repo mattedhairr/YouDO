@@ -20,7 +20,9 @@ import {
   finalizeSession,
   tickActiveSession,
   continueAfterInterruption,
+  createManualStepSession,
   resolvePersistEndAt,
+  isManualSession,
   sanitizeSessionHistory,
   pruneSessionHistoryBefore,
   SESSION_HISTORY_KEEP_MS,
@@ -31,10 +33,14 @@ import {
   cloneNode,
   collectDescendantTaskIds,
   countSlicedDone,
+  duplicateTaskAsFresh,
   findGoal,
   findNode,
+  goalBranchContainsTask,
+  isMutableGoalPlan,
   isTaskComplete,
   clearBacklogIfComplete,
+  rescheduleOpenBacklogTask,
   restoreBacklogIfIncomplete,
   moveNodeInArray,
   removeNode,
@@ -344,6 +350,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /* ---------- Daily task ops ---------- */
 
+  const updateSessionHistory = useCallback(
+    (updater: (current: Record<string, TaskSession[]>) => Record<string, TaskSession[]>) => {
+      const next = updater(sessionHistoryRef.current);
+      if (next === sessionHistoryRef.current) return;
+      sessionHistoryRef.current = next;
+      setSessionHistory(next);
+    },
+    [setSessionHistory],
+  );
+
+  const recordManualSteps = useCallback(
+    (task: Task, stepIndices: number[], completed: boolean) => {
+      const indices = [...new Set(stepIndices)].filter((index) => index >= 0);
+      if (indices.length === 0) return;
+      const row = createManualStepSession(task.id, indices, {
+        goalNodeId: task.goalNodeId,
+        completed: completed ? true : 'partial',
+      });
+      updateSessionHistory((current) => ({
+        ...current,
+        [task.id]: [...(current[task.id] ?? []), row],
+      }));
+    },
+    [updateSessionHistory],
+  );
+
+  const removeManualStepEvidence = useCallback(
+    (taskId: string, stepIndices?: number[]) => {
+      const remove = stepIndices ? new Set(stepIndices) : null;
+      updateSessionHistory((current) => {
+        const rows = current[taskId] ?? [];
+        let changed = false;
+        const nextRows = rows.flatMap((row) => {
+          if (!isManualSession(row)) return [row];
+          if (!remove) {
+            changed = true;
+            return [];
+          }
+          const kept = row.completedStepIndices.filter((index) => !remove.has(index));
+          if (kept.length === row.completedStepIndices.length) return [row];
+          changed = true;
+          return kept.length > 0
+            ? [{ ...row, completedStepIndices: kept, completed: 'partial' as const }]
+            : [];
+        });
+        if (!changed) return current;
+        const next = { ...current };
+        if (nextRows.length > 0) next[taskId] = nextRows;
+        else delete next[taskId];
+        return next;
+      });
+    },
+    [updateSessionHistory],
+  );
+
   const advance = useCallback(
     (id: string) => {
       const t = tasksRef.current.find((x) => x.id === id);
@@ -375,6 +436,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
       const completed = nextProgress >= totalSteps;
+      recordManualSteps(t, [nextProgress - 1], completed);
 
       let finishingGoal = false;
       if (t.goalNodeId) {
@@ -388,7 +450,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       else if (completed) hapticSuccess();
       else hapticTick();
     },
-    [setTasks, setGoals],
+    [setTasks, setGoals, recordManualSteps],
   );
 
   const undo = useCallback(
@@ -418,8 +480,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
         );
       }
+      removeManualStepEvidence(t.id, [Math.max(0, t.progress - 1)]);
     },
-    [setTasks, setGoals],
+    [setTasks, setGoals, removeManualStepEvidence],
   );
 
   const addTask = useCallback((t: Task) => {
@@ -432,12 +495,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!src) return prev;
       return [
         ...prev,
-        { ...src, id: uid('task'), title: `${src.title} (copy)`, progress: 0, createdAt: Date.now(), order: prev.length, goalNodeId: undefined, stepSlice: undefined },
+        duplicateTaskAsFresh(src, uid('task'), Date.now(), prev.length),
       ];
     });
   }, [setTasks]);
 
   const removeTask = useCallback((id: string) => {
+    if (activeSessionRef.current?.taskId === id) return;
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, [setTasks]);
 
@@ -481,7 +545,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const nextGoals = proposedGoals.map(recomputeCompleted);
       if (sameTree(currentGoals, nextGoals)) return { ok: false, error: 'unchanged' };
 
-      const nextTasks = reconcileBlueprintTasks(currentTasks, nextGoals);
+      const nextTasks = reconcileBlueprintTasks(currentTasks, nextGoals, currentGoals);
 
       if (activeSessionRef.current && !nextTasks.some((task) => task.id === activeSessionRef.current?.taskId)) {
         return { ok: false, error: 'active-session' };
@@ -563,6 +627,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       const descendantTaskIds = collectDescendantTaskIds(node);
+      const activeTask = activeSessionRef.current
+        ? tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId)
+        : undefined;
+      if (activeTask && goalBranchContainsTask(node, activeTask)) return;
       const associatedTasks = tasksRef.current.filter((t) => descendantTaskIds.includes(t.id));
 
       const record: DeletedGoalRecord = {
@@ -597,13 +665,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (nodeId: string, targetDate: string, stepSlice?: number[]) => {
       const target = findGoal(goalsRef.current, nodeId);
       if (!target) return;
+      const activeTask = activeSessionRef.current
+        ? tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId)
+        : undefined;
+      if (activeTask && (target.todayTaskId === activeTask.id || activeTask.goalNodeId === target.id)) return;
 
       const masterSteps = target.steps ?? [];
       const slice = stepSlice ?? masterSteps.map((_, i) => i);
       const slicedStepLabels = slice.map((idx) => masterSteps[idx] ?? `Step ${idx + 1}`);
       const slicedDoneCount = countSlicedDone(target, slice.length === masterSteps.length ? undefined : slice);
-      const taskId = uid('task');
+      const existing = target.todayTaskId
+        ? tasksRef.current.find((task) => task.id === target.todayTaskId)
+        : undefined;
+      const rescheduled = existing
+        ? rescheduleOpenBacklogTask(existing, targetDate)
+        : null;
+      const taskId = rescheduled?.id ?? uid('task');
       const taskBase = {
+        ...(rescheduled ?? {}),
         id: taskId,
         title: target.title,
         description: target.description ?? '',
@@ -612,12 +691,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deadline: null,
         steps: slicedStepLabels,
         progress: slicedDoneCount,
-        createdAt: Date.now(),
+        createdAt: rescheduled?.createdAt ?? Date.now(),
         goalNodeId: target.id,
         stepSlice: slice.length === masterSteps.length ? undefined : slice,
       };
 
       setTasks((prev) => {
+        if (rescheduled) {
+          const next = prev.map((task) => (task.id === rescheduled.id ? { ...taskBase, order: task.order } : task));
+          return next.some((task) => task.id === rescheduled.id)
+            ? next
+            : [...prev, { ...taskBase, order: prev.length }];
+        }
         // Replace an incomplete open plan; keep completed day cards for Plan/history.
         let filtered = prev;
         if (target.todayTaskId) {
@@ -638,24 +723,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const planBatch = useCallback(
     (nodeIds: string[], targetDate: string) => {
       const newTasks: Task[] = [];
+      const rescheduledTasks = new Map<string, Task>();
       const patches: { id: string; taskId: string }[] = [];
       let orderBase = tasksRef.current.length;
       const replaceIds = new Set<string>();
       for (const id of nodeIds) {
         const target = findGoal(goalsRef.current, id);
         if (!target) continue;
+        const activeTask = activeSessionRef.current
+          ? tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId)
+          : undefined;
+        if (activeTask && (target.todayTaskId === activeTask.id || activeTask.goalNodeId === target.id)) continue;
 
         const masterSteps = target.steps ?? [];
         const slice = masterSteps.map((_, i) => i);
         const slicedStepLabels = slice.map((idx) => masterSteps[idx] ?? `Step ${idx + 1}`);
         const slicedDoneCount = countSlicedDone(target, undefined);
 
-        const taskId = uid('task');
+        const existing = target.todayTaskId
+          ? tasksRef.current.find((task) => task.id === target.todayTaskId)
+          : undefined;
+        const rescheduled = existing
+          ? rescheduleOpenBacklogTask(existing, targetDate)
+          : null;
+        const taskId = rescheduled?.id ?? uid('task');
         if (target.todayTaskId) {
-          const old = tasksRef.current.find((t) => t.id === target.todayTaskId);
+          const old = existing;
           if (old && !isTaskComplete(old)) replaceIds.add(target.todayTaskId);
         }
-        newTasks.push({
+        const plannedTask: Task = {
+          ...(rescheduled ?? {}),
           id: taskId,
           title: target.title,
           description: target.description ?? '',
@@ -664,14 +761,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           deadline: null,
           steps: slicedStepLabels,
           progress: slicedDoneCount,
-          createdAt: Date.now(),
-          order: orderBase++,
+          createdAt: rescheduled?.createdAt ?? Date.now(),
+          order: rescheduled?.order ?? orderBase++,
           goalNodeId: target.id,
-        });
+        };
+        if (rescheduled) rescheduledTasks.set(rescheduled.id, plannedTask);
+        else newTasks.push(plannedTask);
         patches.push({ id: target.id, taskId });
       }
-      if (newTasks.length === 0) return;
-      setTasks((prev) => [...prev.filter((t) => !replaceIds.has(t.id)), ...newTasks]);
+      if (newTasks.length === 0 && rescheduledTasks.size === 0) return;
+      setTasks((prev) => [
+        ...prev
+          .filter((task) => !replaceIds.has(task.id) || rescheduledTasks.has(task.id))
+          .map((task) => rescheduledTasks.get(task.id) ?? task),
+        ...newTasks,
+      ]);
       setGoals((prev) =>
         prev.map((root) => {
           let working = root;
@@ -687,6 +791,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const unlinkTask = useCallback(
     (taskId: string) => {
+      if (activeSessionRef.current?.taskId === taskId) return;
       const task = tasksRef.current.find((t) => t.id === taskId);
       const goalNodeId = task?.goalNodeId;
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -705,6 +810,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (nodeId: string, stepIdx: number) => {
       const node = findGoal(goalsRef.current, nodeId);
       if (!node || !node.steps) return;
+      const linkedTask = node.todayTaskId
+        ? tasksRef.current.find((task) => task.id === node.todayTaskId)
+        : undefined;
       const existing = node.stepDone ?? node.steps.map(() => false);
       const newStepDone = [...existing];
       const markingDone = !newStepDone[stepIdx];
@@ -718,12 +826,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const patched: GoalNode = { ...node, stepDone: newStepDone, completed: allDone };
       setTasks((prev) => syncLinkedTasksFromGoal(prev, patched));
 
+      if (linkedTask && isMutableGoalPlan(linkedTask, patched)) {
+        const localStepIndex = linkedTask.stepSlice
+          ? linkedTask.stepSlice.indexOf(stepIdx)
+          : stepIdx;
+        if (localStepIndex >= 0) {
+          const projectedProgress = linkedTask.stepSlice
+            ? linkedTask.stepSlice.filter((index) => newStepDone[index]).length
+            : newStepDone.filter(Boolean).length;
+          if (markingDone) {
+            recordManualSteps(
+              linkedTask,
+              [localStepIndex],
+              projectedProgress >= (linkedTask.steps.length || 1),
+            );
+          } else {
+            removeManualStepEvidence(linkedTask.id, [localStepIndex]);
+          }
+        }
+      }
+
       if (markingDone) {
         if (allDone) hapticGoalComplete();
         else hapticTick();
       }
     },
-    [setGoals, setTasks],
+    [setGoals, setTasks, recordManualSteps, removeManualStepEvidence],
   );
 
   const togglePin = useCallback(
@@ -794,8 +922,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         for (const n of patchedNodes) next = syncLinkedTasksFromGoal(next, n);
         return next;
       });
+
+      for (const patchedNode of patchedNodes) {
+        if (!patchedNode.todayTaskId) continue;
+        const linkedTask = tasksRef.current.find((task) => task.id === patchedNode.todayTaskId);
+        if (!linkedTask || !isMutableGoalPlan(linkedTask, patchedNode)) continue;
+        if (!nextCompleted) {
+          removeManualStepEvidence(linkedTask.id);
+          continue;
+        }
+        const remainingIndices = linkedTask.steps.length > 0
+          ? linkedTask.steps.map((_, index) => index).filter((index) => index >= linkedTask.progress)
+          : [0];
+        recordManualSteps(linkedTask, remainingIndices, true);
+      }
     },
-    [setGoals, setTasks],
+    [setGoals, setTasks, recordManualSteps, removeManualStepEvidence],
   );
 
   const [clipboard, setClipboard] = useState<GoalNode[]>([]);
@@ -842,11 +984,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (nodeIds: string[]) => {
       const idSet = new Set(nodeIds);
       const taskIdsToRemove: string[] = [];
+      const selectedBranches: GoalNode[] = [];
       const recordsToStore: DeletedGoalRecord[] = [];
 
       for (const id of nodeIds) {
         const node = findGoal(goalsRef.current, id);
         if (!node) continue;
+        selectedBranches.push(node);
         const subTaskIds = collectDescendantTaskIds(node);
         taskIdsToRemove.push(...subTaskIds);
         const associated = tasksRef.current.filter((t) => subTaskIds.includes(t.id));
@@ -870,6 +1014,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           tasks: associated,
         });
       }
+
+      const activeTask = activeSessionRef.current
+        ? tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId)
+        : undefined;
+      if (activeTask && selectedBranches.some((branch) => goalBranchContainsTask(branch, activeTask))) return;
 
       if (recordsToStore.length > 0) {
         setRecentlyDeletedGoals((prev) => [...recordsToStore, ...prev].slice(0, 20));
@@ -1309,6 +1458,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (jsonData: string): boolean => {
       const parsed = parseBackupPayload(jsonData);
       if (!parsed) return false;
+      if (activeSessionRef.current) return false;
 
       if (parsed.sessionHistory && typeof parsed.sessionHistory === 'object') {
         setSessionHistory(sanitizeSessionHistory(parsed.sessionHistory));
@@ -1384,6 +1534,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             updatedAt: parsed.updatedAt ?? 0,
           };
           const merged = mergeWorkspace(localSlice, remoteSlice);
+          const runningTaskId = activeSessionRef.current?.taskId;
+          if (runningTaskId) {
+            const localRunningTask = localSlice.tasks.find((task) => task.id === runningTaskId);
+            const mergedRunningTask = merged.tasks.find((task) => task.id === runningTaskId);
+            if (!localRunningTask || !mergedRunningTask || !sameTasks([localRunningTask], [mergedRunningTask])) {
+              return { ok: false, error: 'End the current sitting before merging workspace changes to its task.' };
+            }
+          }
           if (workspaceSignature(merged) !== workspaceSignature(localSlice)) {
             tasksRef.current = merged.tasks;
             goalsRef.current = merged.goals;
@@ -1503,6 +1661,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, tasks, goals, sessionHistory, recentlyDeletedGoals, streakMeta, pacePrefs]);
+
+  // Retry the local-first workspace as soon as connectivity returns. A failed
+  // attempt never clears local data; normal merge safeguards still apply.
+  useEffect(() => {
+    if (!user) return;
+    const handleOnline = () => { void syncToCloud(); };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [user, syncToCloud]);
 
   const dataValue = useMemo<DataStore>(
     () => ({

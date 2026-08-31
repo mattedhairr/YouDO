@@ -72,13 +72,24 @@ describe('Blueprint Studio tree operations', () => {
     expect(new Set(result.createdIds).size).toBe(6);
   });
 
-  it('updates linked task content and removes mirrors of deleted branches', () => {
-    const leaf = { ...node('l', 'leaf', 'Leaf'), steps: ['One'], stepDone: [false] };
+  it('updates only the current plan and preserves historical cards when branches change', () => {
+    const leaf = { ...node('l', 'leaf', 'Leaf'), todayTaskId: 't', steps: ['One'], stepDone: [false] };
     const task = {
       id: 't', title: 'Old', description: '', priority: 'medium' as const, targetDate: null,
       deadline: null, steps: [], progress: 0, createdAt: 1, order: 0, goalNodeId: 'l',
     };
+    const history = {
+      ...task,
+      id: 'history',
+      title: 'Historical title',
+      targetDate: '2000-01-01',
+      progress: 1,
+    };
     expect(reconcileBlueprintTasks([task], [leaf])[0].title).toBe('Leaf');
-    expect(reconcileBlueprintTasks([task], [])).toEqual([]);
+    expect(reconcileBlueprintTasks([history, task], [leaf])[0]).toEqual(history);
+    expect(reconcileBlueprintTasks([history, task], [], [leaf])).toEqual([history]);
+
+    const stalePointer = { ...leaf, todayTaskId: 'history' };
+    expect(reconcileBlueprintTasks([history], [], [stalePointer])).toEqual([history]);
   });
 });

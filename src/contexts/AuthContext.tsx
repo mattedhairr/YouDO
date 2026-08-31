@@ -10,11 +10,18 @@ import {
   type VisitSnapshotMeta,
 } from '../lib/cloudBackup';
 import { supabase } from '../lib/supabase';
+import { clearWorkspaceStorage, clearYouDoStorage } from '../lib/storageKeys';
+
+interface AuthActionResult {
+  ok: boolean;
+  error?: string;
+}
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  signOut: (options?: { clearWorkspace?: boolean }) => Promise<AuthActionResult>;
+  deleteAccount: () => Promise<AuthActionResult>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
   updateCloudBackup: (backupData: unknown) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
@@ -26,7 +33,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: false,
-  signOut: async () => {},
+  signOut: async () => ({ ok: false, error: 'Not initialized' }),
+  deleteAccount: async () => ({ ok: false, error: 'Not initialized' }),
   updateProfile: async () => false,
   updateCloudBackup: async () => ({ ok: false, error: 'Not initialized' }),
   fetchCloudBackup: async () => null,
@@ -61,10 +69,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signOut = async () => {
-    resetVisitSnapshotFreeze();
-    await supabase.auth.signOut();
-    setUser(null);
+  const signOut = async (options?: { clearWorkspace?: boolean }): Promise<AuthActionResult> => {
+    try {
+      resetVisitSnapshotFreeze();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setUser(null);
+      if (options?.clearWorkspace) clearWorkspaceStorage();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Unable to sign out.' };
+    }
+  };
+
+  const deleteAccount = async (): Promise<AuthActionResult> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { confirmation: 'DELETE' },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Account deletion was not confirmed by the server.');
+
+      resetVisitSnapshotFreeze();
+      await supabase.auth.signOut().catch(() => undefined);
+      clearYouDoStorage();
+      setUser(null);
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Unable to delete the account.',
+      };
+    }
   };
 
   const updateProfile = async ({ fullName, avatarUrl }: { fullName?: string; avatarUrl?: string }): Promise<boolean> => {
@@ -130,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         signOut,
+        deleteAccount,
         updateProfile,
         updateCloudBackup,
         fetchCloudBackup,

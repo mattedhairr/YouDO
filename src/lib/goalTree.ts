@@ -143,6 +143,12 @@ export function collectDescendantTaskIds(node: GoalNode): string[] {
   return ids;
 }
 
+/** True even when a stale/missing todayTaskId no longer points at the linked task. */
+export function goalBranchContainsTask(node: GoalNode, task: Task): boolean {
+  if (collectDescendantTaskIds(node).includes(task.id)) return true;
+  return !!task.goalNodeId && collectDescendantIds(node).includes(task.goalNodeId);
+}
+
 export function sanitizeTreeAndTasks(goals: GoalNode[], tasks: Task[]): { cleanedGoals: GoalNode[]; cleanedTasks: Task[] } {
   const existingTaskIds = new Set(tasks.map((t) => t.id));
   const seenNodeIds = new Set<string>();
@@ -251,12 +257,36 @@ export function mirrorGoalContentToTask(task: Task, node: GoalNode): Task {
 }
 
 export function syncLinkedTasksFromGoal(tasks: Task[], node: GoalNode): Task[] {
-  return tasks.map((t) => (t.goalNodeId === node.id ? mirrorGoalContentToTask(t, node) : t));
+  return tasks.map((task) =>
+    isMutableGoalPlan(task, node) ? mirrorGoalContentToTask(task, node) : task,
+  );
 }
 
 export function isTaskComplete(task: { steps: string[]; progress: number }): boolean {
   const total = task.steps.length > 0 ? task.steps.length : 1;
   return task.progress >= total;
+}
+
+/** Duplicate content and scheduling, but never copy execution history or Goal linkage. */
+export function duplicateTaskAsFresh(
+  task: Task,
+  id: string,
+  createdAt: number,
+  order: number,
+): Task {
+  return {
+    ...task,
+    id,
+    title: `${task.title} (copy)`,
+    progress: 0,
+    createdAt,
+    order,
+    goalNodeId: undefined,
+    stepSlice: undefined,
+    originalTargetDate: undefined,
+    pastFailedNativeDates: undefined,
+    pastFailedBacklogDates: undefined,
+  };
 }
 
 /**
@@ -275,6 +305,44 @@ export function isBacklogTask(task: Task, today = todayISO()): boolean {
 /** Open (incomplete) backlog — use for badges and “N overdue”, not for the list itself. */
 export function isOpenBacklogTask(task: Task, today = todayISO()): boolean {
   return isBacklogTask(task, today) && !isTaskComplete(task);
+}
+
+/**
+ * Move open overdue work back into the normal schedule without erasing the miss.
+ * The same task id is retained so its later completion can resolve (fade) every
+ * historical FAILED occurrence while daily completion stats remain unchanged.
+ */
+export function rescheduleOpenBacklogTask(
+  task: Task,
+  targetDate: string,
+  today = todayISO(),
+): Task | null {
+  if (!isOpenBacklogTask(task, today)) return null;
+
+  const missedDate = task.originalTargetDate || task.targetDate;
+  if (!missedDate) return null;
+  const failedDates = task.pastFailedNativeDates ?? [];
+
+  return {
+    ...task,
+    targetDate,
+    originalTargetDate: undefined,
+    pastFailedNativeDates: failedDates.includes(missedDate)
+      ? failedDates
+      : [...failedDates, missedDate],
+  };
+}
+
+/**
+ * Only the node's current plan may mirror live Goal progress. Completed cards
+ * from earlier dates are immutable history even if an old todayTaskId pointer
+ * still references them.
+ */
+export function isMutableGoalPlan(task: Task, node: GoalNode, today = todayISO()): boolean {
+  if (task.goalNodeId !== node.id || node.todayTaskId !== task.id) return false;
+  if (!isTaskComplete(task)) return true;
+  if (!task.targetDate) return true;
+  return task.targetDate >= today;
 }
 
 /** When overdue work is finished today, stamp today as the clear date and keep the miss for calendar/stats. */

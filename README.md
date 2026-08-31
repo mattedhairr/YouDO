@@ -24,12 +24,6 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 
 ---
 
-<p align="center">
-  <img src="docs/media/youdo-promo-poster.png" width="680" alt="YouDO turns a six-level exam plan into one clear next step for today" />
-</p>
-
----
-
 ## Preparation fails between the plan and the day
 
 Most aspirants already know the destination. The difficulty is turning hundreds of chapters, lectures, practice sets, revisions, and tests into work that can be finished today.
@@ -121,10 +115,13 @@ The Board is private by default and runs on an honour system. Padded hours only 
 
 ## Your data remains yours
 
-YouDO works locally without requiring an account.
+YouDO requires an account for a real workspace so signed-out and cross-account data can never be mixed accidentally.
 
-- **Guest mode:** goals, plans, and sessions stay on the device.
-- **Optional account sync:** carry the same workspace between devices.
+- **Local-first workspace:** your phone saves each change immediately; the signed-in cloud copy provides backup and multi-device continuity.
+- **Offline continuity:** after signing in, keep working through temporary network loss. YouDO retries when connectivity returns, and **Sync now** remains available before signing out or changing phones.
+- **Explicit migration:** existing device data is never merged into an account without asking first.
+- **Safe sign-out:** YouDO refuses to clear the phone workspace when unsynced changes cannot reach the cloud.
+- **Account deletion:** permanently remove the Auth user, cloud backups, restore points, and Board profile.
 - **Local backup:** export and import a JSON snapshot at any time.
 - **Private by default:** public Board participation is a separate opt-in.
 - **No paid tier or advertising:** the current project is free and open source.
@@ -138,7 +135,9 @@ YouDO works locally without requiring an account.
 3. Allow installation from the browser or file manager if Android asks.
 4. Install the APK.
 
-New releases use the same package id and a higher Android `versionCode`. They can install over compatible previous builds when both APKs use the same signing certificate. If Android rejects an older build signed with a different key, uninstall that build once and install the latest release cleanly.
+v6 establishes YouDO's permanent Android signing identity. Because the private key used for the published v5 APK is no longer available, moving from v5 or an older differently signed build requires one clean reinstall: sync or export your workspace, uninstall the old app, install v6, then sign in and restore. Releases after v6 use the same protected signing key and a higher Android `versionCode`, so they can install over v6 normally.
+
+Only the latest GitHub Release is supported. From v6 onward, YouDO checks once per day for a newer stable release and shows a dismissible notice with brief highlights; updates are always opened from the official GitHub Release page and are never installed silently.
 
 ## Community
 
@@ -156,7 +155,7 @@ Thoughtful feedback from real preparation routines is especially valuable. Expla
 - React 18 and TypeScript
 - Vite and Tailwind CSS
 - Capacitor 8 for Android
-- Supabase for optional authentication, sync, and Board data
+- Supabase for authentication, sync, account deletion, and Board data
 - Vitest and ESLint
 - GitHub Actions for Android APK builds
 
@@ -178,6 +177,8 @@ For your own Supabase project, add its URL and anonymous key to `.env`:
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
+
+Apply the SQL files in `supabase/`, then deploy `supabase/functions/delete-account` with JWT verification enabled. Its service-role key remains server-side in the Edge Function environment and must never be added to the app.
 
 ### Validate a change
 
