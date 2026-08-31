@@ -47,7 +47,7 @@ export default function CommandBar({
   const tabs: { id: View; label: string; icon: typeof Check; badge?: number }[] = [
     { id: 'tasks', label: 'Today', icon: Check, badge: remainingToday > 0 ? remainingToday : undefined },
     { id: 'goals', label: 'Goals', icon: Target, badge: goalsCount > 0 ? goalsCount : undefined },
-    { id: 'calendar', label: 'Plan', icon: Calendar },
+    { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'board', label: 'Board', icon: TrendingUp },
   ];
 

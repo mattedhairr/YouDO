@@ -15,7 +15,7 @@ const HOW_IT_WORKS_TABS = [
       'Finish a card or tap it to start a session and edit',
     ],
     notFor: 'Do not build your whole syllabus here. Build that in Goals, then schedule pieces onto a date.',
-    after: 'If a day ends and a card is not done, YouDO moves it to Backlog by itself. Plan still shows the original date and the stats.',
+    after: 'If a day ends and a card is not done, YouDO moves it to Backlog by itself. Calendar still shows the original date and the stats.',
     mock: 'today' as const,
   },
   {
@@ -29,12 +29,12 @@ const HOW_IT_WORKS_TABS = [
       'Tap Schedule on a task and pick any date',
     ],
     notFor: 'You do not “work the Goals list” each morning. Schedule a task onto a date, then work from Today.',
-    after: 'Edits in Goals update the linked Today and Plan cards. Delete a goal and it goes to Recently Deleted, not into thin air.',
+    after: 'Edits in Goals update the linked Today and Calendar cards. Delete a goal and it goes to Recently Deleted, not into thin air.',
     mock: 'goals' as const,
   },
   {
     icon: Calendar,
-    name: 'Plan',
+    name: 'Calendar',
     role: 'Any date',
     oneLiner: 'The calendar. Past, today, and future — plus time stats for each day.',
     uses: [
@@ -42,8 +42,8 @@ const HOW_IT_WORKS_TABS = [
       'Check completed, missed, and backlog on that day',
       'Read net focus and session stats for the date',
     ],
-    notFor: 'Plan is not a second Today list. It is the calendar around Today.',
-    after: 'If you scheduled a task for the 18th, it lives on the 18th in Plan. It appears on Today only when that date is today.',
+    notFor: 'Calendar is not a second Today list. It is the date-by-date record around Today.',
+    after: 'If you scheduled a task for the 18th, it lives on the 18th in Calendar. It appears on Today only when that date is today.',
     mock: 'plan' as const,
   },
   {
@@ -83,7 +83,7 @@ const USER_GUIDE_STEPS = [
     do: [
       'Open the task in Goals.',
       'Tap Schedule. Pick today, or any other day.',
-      'That date’s work shows on Today when it arrives, and in Plan on the calendar.',
+      'That date’s work shows on Today when it arrives, and remains visible in Calendar.',
     ],
     mock: 'schedule' as const,
   },
@@ -235,7 +235,7 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-content-secondary">17th is not today — it will sit in Plan until then.</p>
+        <p className="mt-2 text-[11px] text-content-secondary">17th is not today — it will remain in Calendar until then.</p>
       </div>
     );
   }
