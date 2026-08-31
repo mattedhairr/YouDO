@@ -69,8 +69,8 @@ jobs:
 
       - name: Align AGP versions and Java compatibility
         run: |
-          sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.7.0'/g" android/build.gradle
-          sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.7.0'/g" android/capacitor-cordova-android-plugins/build.gradle
+          sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.13.0'/g" android/build.gradle
+          sed -i "s/classpath 'com.android.tools.build:gradle:.*/classpath 'com.android.tools.build:gradle:8.13.0'/g" android/capacitor-cordova-android-plugins/build.gradle
           sed -i "s/sourceCompatibility JavaVersion.VERSION_.*/sourceCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
           sed -i "s/targetCompatibility JavaVersion.VERSION_.*/targetCompatibility JavaVersion.VERSION_21/g" android/app/build.gradle
 
