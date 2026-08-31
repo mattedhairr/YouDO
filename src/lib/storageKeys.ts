@@ -13,7 +13,20 @@ export const STORAGE_KEYS = {
   pacePrefs: 'youdo-pace-prefs-v1',
   paceRankSnapshot: 'youdo-pace-rank-snapshot-v1',
   workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
+  workspaceOwner: 'youdo-workspace-owner-v1',
 } as const;
+
+const WORKSPACE_KEYS = [
+  STORAGE_KEYS.tasks,
+  STORAGE_KEYS.goals,
+  STORAGE_KEYS.deletedGoals,
+  STORAGE_KEYS.activeSession,
+  STORAGE_KEYS.sessionHistory,
+  STORAGE_KEYS.streakMeta,
+  STORAGE_KEYS.pacePrefs,
+  STORAGE_KEYS.paceRankSnapshot,
+  STORAGE_KEYS.workspaceUpdatedAt,
+] as const;
 
 const LEGACY_ALIASES: Record<string, string[]> = {
   [STORAGE_KEYS.tasks]: ['tudo-tasks-v3'],
@@ -57,6 +70,85 @@ export function readStorageRaw(key: string): string | null {
     /* ignore */
   }
   return null;
+}
+
+function readArrayCount(key: string): number {
+  try {
+    const raw = readStorageRaw(key);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function readObjectCount(key: string): number {
+  try {
+    const raw = readStorageRaw(key);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? Object.keys(parsed).length
+      : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export interface LocalWorkspaceSummary {
+  tasks: number;
+  goals: number;
+  sessions: number;
+  activeSession: boolean;
+  hasData: boolean;
+}
+
+export function readLocalWorkspaceSummary(): LocalWorkspaceSummary {
+  const tasks = readArrayCount(STORAGE_KEYS.tasks);
+  const goals = readArrayCount(STORAGE_KEYS.goals);
+  let sessions = 0;
+  try {
+    const raw = readStorageRaw(STORAGE_KEYS.sessionHistory);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      sessions = Object.values(parsed as Record<string, unknown>).reduce<number>(
+        (total, rows) => total + (Array.isArray(rows) ? rows.length : 0),
+        0,
+      );
+    }
+  } catch {
+    sessions = 0;
+  }
+  const deleted = readArrayCount(STORAGE_KEYS.deletedGoals);
+  const activeSession = readObjectCount(STORAGE_KEYS.activeSession) > 0;
+  return { tasks, goals, sessions, activeSession, hasData: tasks + goals + sessions + deleted > 0 || activeSession };
+}
+
+export function readWorkspaceOwner(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.workspaceOwner);
+  } catch {
+    return null;
+  }
+}
+
+export function writeWorkspaceOwner(userId: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.workspaceOwner, userId);
+  } catch {
+    /* storage health is reported by the caller's normal persistence flow */
+  }
+}
+
+/** Remove account-owned work while preserving device preferences such as theme and haptics. */
+export function clearWorkspaceStorage(options?: { keepOwner?: boolean }): void {
+  try {
+    WORKSPACE_KEYS.forEach((key) => localStorage.removeItem(key));
+    if (!options?.keepOwner) localStorage.removeItem(STORAGE_KEYS.workspaceOwner);
+  } catch {
+    /* caller handles the signed-out gate even if storage is unavailable */
+  }
 }
 
 export function clearYouDoStorage(): void {

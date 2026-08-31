@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, LogIn, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../store';
 import {
@@ -15,10 +15,6 @@ import { fetchPaceRows } from '../lib/paceCloud';
 import { formatDuration } from '../lib/format';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import { formatStreakHours } from '../lib/focusTrends';
-
-interface Props {
-  onSignIn: () => void;
-}
 
 const WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -47,7 +43,7 @@ function saveSnapshot(window: PaceWindow, ids: string[]) {
   }
 }
 
-export default function BoardView({ onSignIn }: Props) {
+export default function BoardView() {
   const { user } = useAuth();
   const { publishPublicPace, pacePrefs } = useStore();
   const [paceWindow, setPaceWindow] = useState<PaceWindow>('today');
@@ -146,22 +142,7 @@ export default function BoardView({ onSignIn }: Props) {
             : 'Today is this local calendar day.'}
       </p>
 
-      {!user ? (
-        <div className="rounded-[16px] border border-subtle bg-surface p-5 text-center">
-          <p className="text-[14px] font-semibold text-content-primary">Sign in to see the board</p>
-          <p className="mt-1 text-[12px] text-content-secondary">
-            Rankings are only visible when you are signed in. Opt in from Settings when you are ready.
-          </p>
-          <button
-            type="button"
-            onClick={onSignIn}
-            className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-[12px] bg-primary px-4 text-[13px] font-semibold text-on-primary"
-          >
-            <LogIn size={15} />
-            Sign in
-          </button>
-        </div>
-      ) : missingTable ? (
+      {missingTable ? (
         <div className="rounded-[16px] border border-subtle bg-surface p-5">
           <p className="text-[14px] font-semibold text-content-primary">Board is not set up yet</p>
           <p className="mt-1.5 text-[12px] leading-relaxed text-content-secondary">
@@ -191,7 +172,7 @@ export default function BoardView({ onSignIn }: Props) {
           {order.map((id, index) => {
             const row = byId.get(id);
             if (!row) return null;
-            const mine = user.id === row.userId;
+            const mine = user?.id === row.userId;
             const delta = deltas[id];
             return (
               <li

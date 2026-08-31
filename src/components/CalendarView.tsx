@@ -2,9 +2,10 @@ import { useMemo, useState, useEffect } from 'react';
 import Overlay from './Overlay';
 import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Task } from '../types';
-import { isTaskComplete, localISODate, pathTitles, useStore, isOpenBacklogTask } from '../store';
+import { localISODate, pathTitles, useStore, isOpenBacklogTask } from '../store';
 import { formatDuration } from '../lib/format';
 import { buildSessionSummary, isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
+import { taskCompletionModeOnDate, taskOccurrenceOnDate, taskTimelineDates } from '../lib/taskTimeline';
 
 interface Props {
   tasks: Task[];
@@ -45,9 +46,9 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
       if (!map[d].some(x => x.id === t.id)) map[d].push(t);
     };
     for (const t of tasks) {
-      if (t.targetDate) add(t.targetDate, t);
-      t.pastFailedNativeDates?.forEach(d => add(d, t));
-      if (t.originalTargetDate) add(t.originalTargetDate, t);
+      for (const date of taskTimelineDates(t)) {
+        if (taskOccurrenceOnDate(t, date)) add(date, t);
+      }
     }
     return map;
   }, [tasks]);
@@ -69,7 +70,9 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
   const nextMonth = () => setCursor(new Date(year, month + 1, 1));
 
   const selectedTasks = selectedDate ? (tasksByDate[selectedDate] ?? []) : [];
-  const selectedDone = selectedTasks.filter(isTaskComplete).length;
+  const selectedDone = selectedDate
+    ? selectedTasks.filter((task) => taskOccurrenceOnDate(task, selectedDate)?.completedOnDate).length
+    : 0;
 
   // Gather sessions for modal date
   const modalDateSessions = useMemo(() => {
@@ -95,23 +98,24 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
   };
 
   // Group 1: Task Execution (Native)
-  const nativeTasks = modalDateTasks.filter(t => 
-    (!t.originalTargetDate && t.targetDate === dayStatsModalDate!) || 
-    t.pastFailedNativeDates?.includes(dayStatsModalDate!) ||
-    t.originalTargetDate === dayStatsModalDate!
-  );
+  const nativeTasks = modalDateTasks.filter((task) => {
+    const kind = taskOccurrenceOnDate(task, dayStatsModalDate!)?.kind;
+    return kind === 'scheduled' || kind === 'failed';
+  });
   
   // Filter out manual completions from stats calculation
-  const processNativeTasks = nativeTasks.filter(t =>
-    !isTaskComplete(t) ||
-    hasSessionProcess(t.id, dayStatsModalDate!) ||
-    t.pastFailedNativeDates?.includes(dayStatsModalDate!) ||
-    t.originalTargetDate === dayStatsModalDate!
-  );
+  const processNativeTasks = nativeTasks.filter((task) => {
+    const occurrence = taskOccurrenceOnDate(task, dayStatsModalDate!);
+    return occurrence?.kind === 'failed' || !occurrence?.completedOnDate || hasSessionProcess(task.id, dayStatsModalDate!);
+  });
   
   const nativeScheduledCount = processNativeTasks.length;
-  const nativeCompletedCount = processNativeTasks.filter(t => isTaskComplete(t) && t.targetDate === dayStatsModalDate!).length;
-  const nativeFailedCount = processNativeTasks.filter(t => t.pastFailedNativeDates?.includes(dayStatsModalDate!) || t.originalTargetDate === dayStatsModalDate! || (t.targetDate === dayStatsModalDate! && !isTaskComplete(t) && dayStatsModalDate! < todayStr)).length;
+  const nativeCompletedCount = processNativeTasks.filter(
+    (task) => taskOccurrenceOnDate(task, dayStatsModalDate!)?.completedOnDate,
+  ).length;
+  const nativeFailedCount = processNativeTasks.filter(
+    (task) => taskOccurrenceOnDate(task, dayStatsModalDate!)?.kind === 'failed',
+  ).length;
   
   const taskEfficiency = nativeScheduledCount > 0 ? Math.round((nativeCompletedCount / nativeScheduledCount) * 100) : 0;
 
@@ -128,7 +132,9 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
 
   // Group 3: Momentum
   const globalBacklogsCount = tasks.filter((t) => isOpenBacklogTask(t)).length;
-  const backlogsCleared = modalDateTasks.filter(t => !!t.originalTargetDate && t.targetDate === dayStatsModalDate! && isTaskComplete(t) && hasSessionProcess(t.id, dayStatsModalDate!)).length;
+  const backlogsCleared = modalDateTasks.filter(
+    (task) => taskOccurrenceOnDate(task, dayStatsModalDate!)?.kind === 'backlog-completed' && hasSessionProcess(task.id, dayStatsModalDate!),
+  ).length;
   const totalRelevantBacklogs = globalBacklogsCount + backlogsCleared;
 
   let momentumStr = "";
@@ -170,7 +176,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selectedDate;
             const hasTasks = dayTasks.length > 0;
-            const allDone = hasTasks && dayTasks.every((t) => t.steps.length > 0 ? t.progress >= t.steps.length : t.progress >= 1);
+            const allDone = hasTasks && dayTasks.every((task) => taskOccurrenceOnDate(task, dateStr)?.completedOnDate);
 
             return (
               <button
@@ -248,21 +254,18 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
         ) : (
           <div className="space-y-2">
             {selectedTasks.map((t) => {
-              const complete = isTaskComplete(t);
+              const occurrence = taskOccurrenceOnDate(t, selectedDate!);
+              if (!occurrence) return null;
+              const resolved = occurrence.resolved;
               const hasSteps = t.steps.length > 0;
               const originPath = getOriginPath(t.goalNodeId);
-              
-              const isNativeToSelected = !t.originalTargetDate && t.targetDate === selectedDate!;
-              const hasFailedNativelyHere = t.pastFailedNativeDates?.includes(selectedDate!) || t.originalTargetDate === selectedDate! || (isNativeToSelected && !complete && selectedDate! < todayStr);
-              const isBacklogCompletedHere = !!t.originalTargetDate && t.targetDate === selectedDate! && complete;
-              
-              const isManualCompletion = complete && t.targetDate === selectedDate! && !sessionHistory[t.id]?.some(isCountableSession);
+              const completionMode = taskCompletionModeOnDate(t, selectedDate!, sessionHistory[t.id] ?? []);
 
               return (
                 <div
                   key={t.id}
                   className={`bg-surface border border-subtle rounded-2xl shadow-card p-4 transition-all select-none ${
-                    complete ? 'opacity-60 bg-surface/50' : ''
+                    resolved ? 'opacity-60 bg-surface/50' : ''
                   }`}
                 >
                   <div className="flex flex-col gap-1.5 mb-2">
@@ -291,25 +294,30 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                     {/* Title Row */}
                     <div className="flex items-start justify-between gap-3 pr-1">
                       <div className="flex items-start gap-2 flex-1">
-                        <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${complete ? 'bg-secondary/30' : 'bg-primary'} shadow-sm`} />
+                        <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${resolved ? 'bg-secondary/30' : 'bg-primary'} shadow-sm`} />
                         <div className="flex flex-col gap-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className={`text-[14.5px] font-bold leading-snug tracking-tight ${complete ? 'line-through text-content-muted' : 'text-content-primary'}`}>
+                            <h3 className={`text-[14.5px] font-bold leading-snug tracking-tight ${resolved ? 'line-through text-content-muted' : 'text-content-primary'}`}>
                               {t.title}
                             </h3>
-                            {hasFailedNativelyHere && (
+                            {occurrence.kind === 'failed' && (
                               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-error-soft text-error border border-error/20">
                                 FAILED
                               </span>
                             )}
-                            {isBacklogCompletedHere && (
+                            {occurrence.kind === 'backlog-completed' && (
                               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-error-soft text-error border border-error/20">
                                 BACKLOG
                               </span>
                             )}
-                            {isManualCompletion && (
+                            {completionMode === 'manual' && (
                               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-surface text-content-muted border border-subtle">
                                 MANUAL
+                              </span>
+                            )}
+                            {completionMode === 'mixed' && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary-soft text-primary border border-primary/20">
+                                MIXED
                               </span>
                             )}
                           </div>
@@ -328,22 +336,24 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                           )}
                         </div>
                       </div>
-                      <span className="text-[12px] font-bold tabular-nums text-content-secondary shrink-0 mt-0.5">
-                        {t.progress}/{hasSteps ? t.steps.length : 1}
+                      <span className={`text-[12px] font-bold shrink-0 mt-0.5 ${occurrence.kind === 'failed' ? 'text-error' : 'tabular-nums text-content-secondary'}`}>
+                        {occurrence.kind === 'failed' ? 'Missed' : `${t.progress}/${hasSteps ? t.steps.length : 1}`}
                       </span>
                     </div>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="mt-1 h-1.5 rounded-full bg-border-subtle overflow-hidden mb-2.5">
-                    <div
-                      className="h-full bg-secondary progress-bar-fill rounded-full"
-                      style={{ width: `${(t.progress / (hasSteps ? t.steps.length : 1)) * 100}%` }}
-                    />
-                  </div>
+                  {occurrence.kind !== 'failed' && (
+                    <div className="mt-1 h-1.5 rounded-full bg-border-subtle overflow-hidden mb-2.5">
+                      <div
+                        className="h-full bg-secondary progress-bar-fill rounded-full"
+                        style={{ width: `${(t.progress / (hasSteps ? t.steps.length : 1)) * 100}%` }}
+                      />
+                    </div>
+                  )}
 
                   {/* Step chips */}
-                  {hasSteps && (
+                  {hasSteps && occurrence.kind !== 'failed' && (
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {t.steps.map((s, idx) => {
                         const stepDone = idx < t.progress;

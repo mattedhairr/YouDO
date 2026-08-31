@@ -145,7 +145,7 @@ export default function TaskCard({
           ${isDragging ? 'dragging-card' : ''}
           ${dragOver  ? 'drag-over-card ring-2 ring-primary' : ''}
           ${isSessionTask ? 'card-session-active' : ''}
-          ${complete ? 'opacity-50 grayscale-[0.2]' : ''}
+          ${complete ? 'opacity-[0.68] saturate-[0.82]' : ''}
         `}
         onClick={handleCardClick}
         draggable
@@ -232,7 +232,9 @@ export default function TaskCard({
                 <span className={`mt-[6px] w-1.5 h-1.5 rounded-full shrink-0 ${ps.dot}`} />
                 <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
                   <h3 className={`text-[15px] font-semibold leading-snug transition-colors duration-200 ${
-                    complete ? 'animate-strike text-content-muted' : 'text-content-primary'
+                    complete
+                      ? 'line-through decoration-[1px] animate-strike text-content-muted'
+                      : 'text-content-primary'
                   }`}>
                     {task.title}
                   </h3>
@@ -461,13 +463,15 @@ export default function TaskCard({
               </button>
             </div>
 
-            <button
-              onClick={() => { setExpanded(false); onDelete(task.id); }}
-              className="w-full py-2.5 rounded-[12px] bg-error-soft text-error border border-error/20 text-[12px] font-medium flex items-center justify-center gap-1.5"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {softRemove ? 'Remove' : 'Delete'}
-            </button>
+            {!isSessionTask && (
+              <button
+                onClick={() => { setExpanded(false); onDelete(task.id); }}
+                className="w-full py-2.5 rounded-[12px] bg-error-soft text-error border border-error/20 text-[12px] font-medium flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {softRemove ? 'Remove' : 'Delete'}
+              </button>
+            )}
           </div>
         </div>
       </Overlay>

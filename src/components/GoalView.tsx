@@ -4,7 +4,6 @@ import {
   ChevronRight,
   CircleDot,
   Copy,
-  FileText,
   Flag,
   Layers,
   ListTree,
@@ -42,7 +41,6 @@ function getScheduledDateLabel(targetDate: string | null | undefined): string {
   if (targetDate === tomStr) return 'Tomorrow';
   return formatDDMMYYYY(targetDate);
 }
-
 function findGoalInTree(id: string, nodes: GoalNode[]): GoalNode | undefined {
   for (const n of nodes) {
     if (n.id === id) return n;
@@ -89,7 +87,6 @@ interface Props {
   clearSelectionRef: React.MutableRefObject<() => void>;
   /** Optional direct navigation handler for recording jump origin for 1-step back navigation */
   onNavigateToPath?: (pathIds: string[]) => void;
-  onOpenDescription?: (title: string, description: string) => void;
   onOpenStudio: () => void;
 }
 
@@ -102,7 +99,7 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf:    { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Leaf' },
 };
 
-export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenDescription, onOpenStudio }: Props) {
+export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenStudio }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
@@ -494,10 +491,6 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             </div>
           </div>
 
-          {current.description && (
-            <p className="mt-2 text-[12px] text-content-secondary leading-relaxed">{current.description}</p>
-          )}
-
           <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-content-secondary">
             <span className="shrink-0 whitespace-nowrap font-medium" style={{ color: kindMeta[current.kind].tint }}>
               {kindMeta[current.kind].label}
@@ -505,13 +498,6 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             <span className="shrink-0 whitespace-nowrap tabular-nums">
               {countCompletedDirectChildren(current)}/{countDirectChildren(current)} done
             </span>
-            {(current.startDate || current.endDate) && (
-              <span className="shrink-0 whitespace-nowrap tabular-nums text-content-muted">
-                {current.startDate && fmtShort(current.startDate)}
-                {current.startDate && current.endDate && ' → '}
-                {current.endDate && fmtShort(current.endDate)}
-              </span>
-            )}
           </div>
 
           <div className="mt-3 h-2 rounded-full bg-border-subtle overflow-hidden">
@@ -724,19 +710,6 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 >
                   <Copy size={14} />
                 </button>
-                {child.description && onOpenDescription && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenDescription(child.title, child.description!);
-                    }}
-                    className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
-                    title="Description"
-                  >
-                    <FileText size={14} />
-                  </button>
-                )}
-
                 <div className="flex-1" />
 
                 {isTaskKind && (
@@ -809,10 +782,4 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
     </div>
   );
-}
-
-function fmtShort(date: string): string {
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return date;
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }

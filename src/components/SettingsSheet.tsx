@@ -3,17 +3,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   ChevronRight,
-  Cloud,
   Download,
   Edit2,
   History,
-  LogIn,
   LogOut,
   Moon,
   Sun,
   Trash2,
   Upload,
-  UserPlus,
   ShieldCheck,
   Smartphone,
   Flame,
@@ -25,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
 import { formatBackupStamp, formatDuration } from '../lib/format';
-import { useStore } from '../store';
+import { useSessionStore, useStore } from '../store';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import { hapticTick, setHapticsPreference } from '../lib/haptics';
@@ -36,7 +33,6 @@ import { todayISO } from '../lib/dates';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onOpenAuth?: (mode: 'signin' | 'signup') => void;
   streakBarHours: number;
   onStreakBarHoursChange: (hours: number) => void;
 }
@@ -52,7 +48,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function SettingsSheet({
   open,
   onClose,
-  onOpenAuth,
   streakBarHours,
   onStreakBarHoursChange,
 }: Props) {
@@ -73,7 +68,8 @@ export default function SettingsSheet({
     pacePrefs,
     updatePacePrefs,
   } = useStore();
-  const { user, signOut, updateProfile } = useAuth();
+  const { user, signOut, deleteAccount, updateProfile } = useAuth();
+  const { activeSession } = useSessionStore();
   const [theme, setTheme] = useTheme();
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
@@ -88,6 +84,8 @@ export default function SettingsSheet({
     { kind: 'live' } | { kind: 'visit'; id: string; label: string; when: string } | null
   >(null);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [confirmWipeCloud, setConfirmWipeCloud] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
@@ -272,7 +270,7 @@ export default function SettingsSheet({
         <section>
           <SectionLabel>ACCOUNT &amp; SYNC</SectionLabel>
           <div className="settings-card settings-account-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
-            {user ? (
+            {user && (
               <div className="relative overflow-hidden">
                 <div className="pointer-events-none absolute -top-16 right-[-36px] w-52 h-52 rounded-full bg-secondary/20 blur-3xl ambient-orb" />
                 <div className="pointer-events-none absolute -bottom-20 left-[-40px] w-44 h-44 rounded-full bg-primary/18 blur-3xl ambient-orb ambient-orb-delay" />
@@ -406,7 +404,18 @@ export default function SettingsSheet({
                     </button>
                     <button
                       type="button"
-                      onClick={() => signOut()}
+                      onClick={async () => {
+                        const synced = await syncToCloud();
+                        if (!synced.ok) {
+                          setMsg({
+                            text: `Could not sign out safely: ${synced.error || 'sync failed'}. Export a backup or reconnect first.`,
+                            error: true,
+                          });
+                          return;
+                        }
+                        const result = await signOut({ clearWorkspace: true });
+                        if (!result.ok) setMsg({ text: result.error || 'Could not sign out.', error: true });
+                      }}
                       className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
                     >
                       <LogOut size={13} />
@@ -556,31 +565,60 @@ export default function SettingsSheet({
                   {!confirmDeleteAccount ? (
                     <button
                       type="button"
-                      onClick={() => setConfirmDeleteAccount(true)}
+                      onClick={() => {
+                        setDeleteConfirmation('');
+                        setConfirmDeleteAccount(true);
+                      }}
                       className="text-[11px] font-medium text-content-muted hover:text-error flex items-center gap-1.5 py-1"
                     >
                       <Trash2 size={12} /> Delete account
                     </button>
                   ) : (
-                    <div className="w-full rounded-xl bg-error-soft p-3 space-y-2">
+                    <div className="w-full rounded-xl bg-error-soft p-3 space-y-2.5">
                       <div className="flex items-center gap-2 text-error font-semibold text-[11px]">
-                        <AlertTriangle size={13} /> Delete account and reset data?
+                        <AlertTriangle size={13} /> Permanently delete this account?
                       </div>
+                      <p className="text-[10.5px] leading-relaxed text-content-secondary">
+                        This removes your login, cloud backup, restore points and public Board profile. Export a backup first if you may need it later.
+                      </p>
+                      {activeSession && (
+                        <p className="rounded-lg bg-error/10 px-2.5 py-2 text-[10.5px] font-medium text-error">
+                          Stop the active focus session before deleting your account.
+                        </p>
+                      )}
+                      <input
+                        type="text"
+                        value={deleteConfirmation}
+                        onChange={(event) => setDeleteConfirmation(event.target.value)}
+                        placeholder="Type DELETE to confirm"
+                        autoCapitalize="characters"
+                        className="w-full h-9 rounded-lg border border-error/25 bg-base px-2.5 text-[11px] text-content-primary outline-none focus:border-error"
+                      />
                       <div className="flex gap-2">
                         <button
                           type="button"
+                          disabled={deleteConfirmation !== 'DELETE' || deleteBusy || Boolean(activeSession)}
                           onClick={async () => {
+                            setDeleteBusy(true);
+                            const result = await deleteAccount();
+                            setDeleteBusy(false);
+                            if (!result.ok) {
+                              setMsg({ text: result.error || 'Account deletion failed.', error: true });
+                              return;
+                            }
                             setConfirmDeleteAccount(false);
-                            await signOut();
-                            setMsg({ text: '✓ Signed out & data reset.' });
                           }}
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-error"
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-error disabled:opacity-40"
                         >
-                          Yes, delete
+                          {deleteBusy ? 'Deleting…' : 'Delete forever'}
                         </button>
                         <button
                           type="button"
-                          onClick={() => setConfirmDeleteAccount(false)}
+                          disabled={deleteBusy}
+                          onClick={() => {
+                            setConfirmDeleteAccount(false);
+                            setDeleteConfirmation('');
+                          }}
                           className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-content-secondary bg-surface"
                         >
                           Cancel
@@ -588,52 +626,6 @@ export default function SettingsSheet({
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
-            ) : (
-              <div className="relative overflow-hidden">
-                <div className="pointer-events-none absolute -top-20 right-[-40px] w-52 h-52 rounded-full bg-primary/20 blur-3xl ambient-orb" />
-                <div className="pointer-events-none absolute -bottom-24 left-[-48px] w-48 h-48 rounded-full bg-secondary/15 blur-3xl ambient-orb ambient-orb-delay" />
-                <div
-                  className="pointer-events-none absolute inset-0"
-                  style={{
-                    background:
-                      'radial-gradient(120% 80% at 82% -8%, rgba(196, 165, 116, 0.22), transparent 58%)',
-                  }}
-                />
-                <div className="settings-guest-card relative p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 rounded-[12px] bg-primary-soft border border-primary/25 grid place-items-center shrink-0">
-                      <Cloud size={18} className="text-primary" strokeWidth={2.1} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">This device only</p>
-                      <h3 className="text-[16px] font-semibold text-content-primary leading-tight mt-0.5">
-                        Guest mode
-                      </h3>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-[12px] text-content-secondary leading-[1.55]">
-                    Your work stays on this phone. Sign in to keep the same plan available on your other devices.
-                  </p>
-                  <div className="mt-3.5 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onOpenAuth?.('signin')}
-                      className="h-11 rounded-[11px] bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.97]"
-                    >
-                      <LogIn size={15} strokeWidth={2.25} />
-                      Sign in
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenAuth?.('signup')}
-                      className="h-11 rounded-[11px] border border-subtle bg-base/50 text-[12px] font-medium text-content-secondary hover:text-content-primary hover:border-primary/30 flex items-center justify-center gap-1.5 active:scale-[0.97]"
-                    >
-                      <UserPlus size={14} className="text-primary" />
-                      Create account
-                    </button>
-                  </div>
                 </div>
               </div>
             )}

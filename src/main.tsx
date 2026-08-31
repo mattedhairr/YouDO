@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import App from './App.tsx';
 import { StoreProvider } from './store';
 import { AuthProvider } from './contexts/AuthContext';
+import AuthGate from './components/AuthGate';
 import { clearYouDoStorage } from './lib/storageKeys';
 import './index.css';
 
@@ -68,9 +69,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <GlobalErrorBoundary>
       <AuthProvider>
-        <StoreProvider>
-          <App />
-        </StoreProvider>
+        <AuthGate>
+          <StoreProvider>
+            <App />
+          </StoreProvider>
+        </AuthGate>
       </AuthProvider>
     </GlobalErrorBoundary>
   </StrictMode>

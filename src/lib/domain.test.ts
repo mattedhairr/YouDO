@@ -3,7 +3,7 @@ import { formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
 import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, isBacklogTask, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rollupPct, sanitizeTreeAndTasks, updateNode, removeNode } from './goalTree';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, isBacklogTask, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task, TaskSession } from '../types';
 
 describe('dates', () => {
@@ -581,6 +581,120 @@ describe('goal tree', () => {
     expect(isBacklogTask(cleared, today)).toBe(true);
     expect(isOpenBacklogTask(cleared, today)).toBe(false);
     expect(isBacklogTask(cleared, '2000-01-15')).toBe(false);
+  });
+
+  it('reschedules open backlog as normal work while retaining its failed date', () => {
+    const overdue: Task = {
+      id: 'overdue',
+      title: 'Read',
+      description: '',
+      priority: 'medium',
+      targetDate: '2026-08-20',
+      deadline: null,
+      steps: ['Read', 'Revise'],
+      progress: 1,
+      createdAt: 1,
+      order: 4,
+      goalNodeId: 'leaf-1',
+    };
+
+    const replanned = rescheduleOpenBacklogTask(overdue, '2026-09-02', '2026-08-31');
+    expect(replanned).toEqual({
+      ...overdue,
+      targetDate: '2026-09-02',
+      originalTargetDate: undefined,
+      pastFailedNativeDates: ['2026-08-20'],
+    });
+    expect(isBacklogTask(replanned!, '2026-08-31')).toBe(false);
+    expect(rescheduleOpenBacklogTask({ ...overdue, progress: 2 }, '2026-09-02', '2026-08-31')).toBeNull();
+  });
+
+  it('never rewrites a completed historical card when its Goal node changes', () => {
+    const today = todayISO();
+    const node = leaf({
+      id: 'leaf-history',
+      title: 'Renamed current node',
+      todayTaskId: 'old-card',
+      steps: ['Watch', 'Notes'],
+      stepDone: [true, true],
+      completed: true,
+    });
+    const historical: Task = {
+      id: 'old-card',
+      title: 'Title on the study day',
+      description: '',
+      priority: 'medium',
+      targetDate: '2000-01-12',
+      deadline: null,
+      steps: ['Watch', 'Notes'],
+      progress: 2,
+      createdAt: 1,
+      order: 0,
+      goalNodeId: node.id,
+    };
+    expect(isMutableGoalPlan(historical, node, today)).toBe(false);
+    expect(syncLinkedTasksFromGoal([historical], node)).toEqual([historical]);
+  });
+
+  it('duplicates backlog content without copying failure history or Goal linkage', () => {
+    const backlog: Task = {
+      id: 'backlog-source',
+      title: 'Revise topic',
+      description: '',
+      priority: 'medium',
+      targetDate: '2026-08-31',
+      deadline: null,
+      steps: ['Watch', 'Notes'],
+      progress: 2,
+      createdAt: 1,
+      order: 0,
+      goalNodeId: 'leaf-1',
+      stepSlice: [0, 1],
+      originalTargetDate: '2026-08-20',
+      pastFailedNativeDates: ['2026-08-20'],
+      pastFailedBacklogDates: ['2026-08-21'],
+    };
+
+    expect(duplicateTaskAsFresh(backlog, 'copy', 2, 4)).toEqual({
+      ...backlog,
+      id: 'copy',
+      title: 'Revise topic (copy)',
+      progress: 0,
+      createdAt: 2,
+      order: 4,
+      goalNodeId: undefined,
+      stepSlice: undefined,
+      originalTargetDate: undefined,
+      pastFailedNativeDates: undefined,
+      pastFailedBacklogDates: undefined,
+    });
+  });
+
+  it('recognizes an active task inside a Goal branch even when todayTaskId is stale', () => {
+    const child = leaf({ id: 'leaf-active', todayTaskId: null });
+    const branch: GoalNode = {
+      id: 'phase-active',
+      kind: 'phase',
+      title: 'Phase',
+      children: [child],
+      createdAt: 1,
+    };
+    const activeTask: Task = {
+      id: 'active-task',
+      title: 'Active',
+      description: '',
+      priority: 'medium',
+      targetDate: '2026-08-31',
+      deadline: null,
+      steps: [],
+      progress: 0,
+      createdAt: 1,
+      order: 0,
+      goalNodeId: child.id,
+    };
+
+    expect(goalBranchContainsTask(branch, activeTask)).toBe(true);
+    expect(goalBranchContainsTask(leaf({ id: 'other' }), activeTask)).toBe(false);
   });
 
   it('clears stale todayTaskId pointers and duplicate ids', () => {

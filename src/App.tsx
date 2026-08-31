@@ -6,7 +6,6 @@ import { useNavigationSync } from './hooks/useNavigationSync';
 import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
 import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
-import { useAuth } from './contexts/AuthContext';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
@@ -32,10 +31,10 @@ import BoardView from './components/BoardView';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
 import { SessionReconstructSheet } from './components/SessionReconstructSheet';
-import { AuthModal } from './components/AuthModal';
 import { useTheme } from './hooks/useTheme';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { assertDeviceClock, clearClockIncident } from './lib/deviceClock';
+import UpdateNotice from './components/UpdateNotice';
 
 const MOTIVATIONAL_QUOTES = [
   { text: 'Giving up is not in the blood sir..... not in the blood', author: 'Nimsdai Purja' },
@@ -168,7 +167,6 @@ function AppInner() {
     heartbeatSession,
   } = useSessionStore();
 
-  const { user } = useAuth();
   const [{ darkMode }] = useTheme();
   const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity();
   const [clockVerifyBusy, setClockVerifyBusy] = useState(false);
@@ -200,11 +198,10 @@ function AppInner() {
   /** Opaque hold while a stored session waits for the recovery check (avoids Today flash). */
   const [sessionBootHold, setSessionBootHold] = useState(() => Boolean(activeSession));
   const [cloudHint, setCloudHint] = useState<string | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
   const [reconstructOpen, setReconstructOpen] = useState(false);
   const activeSessionRef = useRef(activeSession);
+  const routedSessionTaskRef = useRef<string | null>(null);
   activeSessionRef.current = activeSession;
 
   const openHelp = useCallback((opts?: { silent?: boolean }) => {
@@ -287,10 +284,6 @@ function AppInner() {
     }
     if (stopDialogTask) {
       setStopDialogTask(null);
-      return true;
-    }
-    if (authOpen) {
-      setAuthOpen(false);
       return true;
     }
     if (sheetOpen) {
@@ -656,12 +649,11 @@ function AppInner() {
   useEffect(() => {
     const { meta } = reconcileStreakMeta(streakReconcileInput);
     if (JSON.stringify(meta) !== JSON.stringify(streakMeta)) setStreakMeta(meta);
-  }, [streakReconcileInput, streakMeta]);
+  }, [setStreakMeta, streakReconcileInput, streakMeta]);
 
   useEffect(() => {
-    if (!user) return;
     void publishPublicPace();
-  }, [user, publishPublicPace]);
+  }, [publishPublicPace]);
 
   const activeTask = useMemo(() => {
     if (!activeSession) return null;
@@ -669,7 +661,10 @@ function AppInner() {
   }, [activeSession, tasks]);
 
   useEffect(() => {
-    if (!activeSession?.taskId || !activeTask) return;
+    if (!activeSession?.taskId || !activeTask) {
+      routedSessionTaskRef.current = null;
+      return;
+    }
 
     const openRunningTaskLocation = () => {
       if (document.visibilityState !== 'visible') return;
@@ -679,7 +674,13 @@ function AppInner() {
       handleNavigateTab('tasks');
     };
 
-    openRunningTaskLocation();
+    // Route once when a sitting starts or is restored at boot. While the app
+    // stays open, Goal/Plan browsing remains possible. Returning from the
+    // background routes back to the running card again.
+    if (routedSessionTaskRef.current !== activeSession.taskId) {
+      routedSessionTaskRef.current = activeSession.taskId;
+      openRunningTaskLocation();
+    }
     document.addEventListener('visibilitychange', openRunningTaskLocation);
     return () => document.removeEventListener('visibilitychange', openRunningTaskLocation);
   }, [activeSession?.taskId, activeTask, handleNavigateTab]);
@@ -1043,7 +1044,7 @@ function AppInner() {
           >
             {view === 'tasks' ? (
               <div className="space-y-3">
-                {user && tasks.length === 0 && goals.length === 0 && (
+                {tasks.length === 0 && goals.length === 0 && (
                   <div className="p-3.5 bg-primary-soft border border-subtle flex items-center justify-between gap-3 rounded-[16px]">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Cloud className="w-4 h-4 text-primary shrink-0" />
@@ -1422,13 +1423,7 @@ function AppInner() {
                 onJumpToGoal={jumpToGoalTask}
               />
             ) : view === 'board' ? (
-              <BoardView
-                onSignIn={() => {
-                  pushModalState();
-                  setAuthMode('signin');
-                  setAuthOpen(true);
-                }}
-              />
+              <BoardView />
             ) : (
               <GoalView
                 pathIds={goalPathIds}
@@ -1444,7 +1439,6 @@ function AppInner() {
                 onSelectionChange={handleSelectionChange}
                 clearSelectionRef={clearSelectionRef}
                 onNavigateToPath={navigateToGoalPath}
-                onOpenDescription={openDescriptionModal}
                 onOpenStudio={openBlueprintStudio}
               />
             )}
@@ -1531,11 +1525,6 @@ function AppInner() {
         onClose={closeSettings}
         streakBarHours={streakMeta.barHours}
         onStreakBarHoursChange={setStreakBarHours}
-        onOpenAuth={(mode) => {
-          pushModalState();
-          setAuthMode(mode || 'signin');
-          setAuthOpen(true);
-        }}
       />
 
       {/* Description Viewer Modal */}
@@ -1631,10 +1620,6 @@ function AppInner() {
                   }
                   clearClockIncident();
                   setClockBlocked(false);
-                  if (!user) {
-                    setAuthMode('signin');
-                    setAuthOpen(true);
-                  }
                 }}
                 className="w-full py-2.5 px-3 rounded-xl border border-subtle text-content-primary font-semibold text-xs disabled:opacity-60"
               >
@@ -1646,24 +1631,10 @@ function AppInner() {
               >
                 Continue anyway
               </button>
-              {!user && (
-              <button
-                onClick={() => {
-                  setAuthMode('signin');
-                  setAuthOpen(true);
-                }}
-                className="w-full py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
-              >
-                Sign in
-              </button>
-              )}
             </div>
           </div>
         </Overlay>
       )}
-
-      {/* ── Auth Modal ── */}
-      <AuthModal open={authOpen} initialMode={authMode} onClose={() => setAuthOpen(false)} />
 
       {/* ── Session Crash Recovery Dialog ── */}
       {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && !activeSession.isPaused && (
@@ -1782,6 +1753,24 @@ function AppInner() {
           onGone={clearDeletedNotification}
         />
       )}
+      <UpdateNotice
+        suppressed={Boolean(
+          activeSession ||
+          sessionBootHold ||
+          sheetOpen ||
+          goalSheetOpen ||
+          blueprintStudioOpen ||
+          settingsOpen ||
+          sliceNodes.length > 0 ||
+          showAmbient ||
+          stopDialogTask ||
+          recoverySessionPrompt ||
+          reconstructOpen ||
+          briefingOpen ||
+          helpOpen ||
+          clockBlocked
+        )}
+      />
     </div>
   );
 }
