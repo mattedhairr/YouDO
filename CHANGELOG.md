@@ -64,6 +64,32 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v6.1.0] — 2026-09-01 ("Blueprints without friction")
+
+Blueprint Studio now behaves like a real working surface rather than a sequence of disconnected forms. You can move through a large preparation tree, build several different branches, review exactly what changed, and save the complete blueprint only when it feels right.
+
+### 🚀 What you will notice
+- **One Studio workspace** — Create and edit from the same clean tree instead of choosing between two overlapping modes.
+- **Work freely before saving** — Apply several operations to a Studio draft, move anywhere in the hierarchy, inspect the ordered history, and undo the newest change without leaving.
+- **Start where you are** — Opening Studio from deep inside a goal takes you directly to that phase, section, task, or subtask instead of making you navigate again from the beginning.
+- **Faster bulk building** — Named lists and numbered ranges open directly from the relevant branch, with empty editable fields, reliable number entry, duplicate protection, and a live preview.
+- **Cross-branch editing** — Keep selections while moving between phases or sections, see every selected item in one place, then rename, remove, or add the same inner structure across them.
+- **Focused final review** — Only paths changed in the current sitting open automatically; new nodes, edited nodes, and newly added leaf-task steps are visibly identified before the final save.
+- **Less interface noise** — Redundant Build/Edit actions and repeated confirmation screens are removed, while contextual breadcrumbs, sibling navigation, swipe-back, and compact mobile controls keep orientation clear.
+
+### ⚙ Under the hood
+- Studio changes remain isolated from the saved workspace until one atomic final commit; stale goal data and active-session branch removal are still rejected safely.
+- Existing goal completion, scheduling links, Today-task progress, and historical Plan records remain intact unless their branch is intentionally removed.
+- Review-path detection covers additions, edits, steps, and removals so unrelated branches remain collapsed even in a large blueprint.
+- Android CI now verifies versionName **6.1.0**, versionCode **27**, and the permanent v6+ signing certificate before uploading the APK.
+
+### 💾 Data Safety
+- **Android APK**: versionName **6.1.0**, versionCode **27**. Same package id `com.mattedhairr.youdo` and the permanent v6+ signing identity — install directly over **6.0.0** (26) without uninstalling or clearing app data.
+- The v6.0.0 in-app updater can discover this stable GitHub Release, show its first three highlights, and open the official download page; YouDO never installs an APK silently.
+- A Studio draft changes no saved goal data until **Save blueprint** succeeds. Leaving with unapplied work requires explicit discard confirmation, and the latest draft operation remains undoable before saving.
+
+---
+
 ## [v6.0.0] — 2026-08-31 ("Account-safe execution")
 
 YouDO now treats each signed-in account as the owner of one local-first workspace, while rebuilding task history around what actually happened on each date. This release prioritizes protecting preparation progress before adding anything decorative.

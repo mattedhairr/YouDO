@@ -63,14 +63,15 @@ Use only the depth your plan needs. A goal can remain simple, or grow into a det
 
 ### Blueprint Studio: structure without repetitive entry
 
-Blueprint Studio helps create or reshape large plans without showing the whole hierarchy at once.
+Blueprint Studio is one focused workspace for creating and reshaping large plans without repeatedly opening and closing individual branches.
 
-- Build a new goal through one useful question at a time.
-- Add named items or numbered ranges in bulk.
+- Open Studio at the exact goal level you are already viewing.
+- Move freely through the hierarchy while applied changes remain in one unsaved draft.
+- Add named items or numbered ranges directly, without repetitive confirmation screens.
 - Fully develop one phase while leaving later phases as clean shells.
-- Select nodes across different branches and update them together.
-- Preview the complete result before applying it.
-- Undo the entire bulk operation in one tap.
+- Keep selections across different branches and update them together.
+- Review a visible history and undo the newest applied change at any time.
+- Save the whole blueprint once, with only changed paths expanded and clearly marked in the final review.
 
 The regular goal editor remains available whenever direct manual control is faster.
 

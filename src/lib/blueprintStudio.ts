@@ -206,6 +206,79 @@ export function findBlueprintPath(goals: GoalNode[], id: string): GoalNode[] {
   return [];
 }
 
+/** Resolve a requested Studio location, falling back to the nearest surviving ancestor. */
+export function closestBlueprintPathIds(goals: GoalNode[], requestedPath: string[]): string[] {
+  for (let index = requestedPath.length - 1; index >= 0; index -= 1) {
+    const path = findBlueprintPath(goals, requestedPath[index]);
+    if (path.length > 0) return path.map((node) => node.id);
+  }
+  return [];
+}
+
+export interface BlueprintReviewState {
+  addedIds: string[];
+  changedIds: string[];
+  expandedIds: string[];
+  addedStepsByNode: Record<string, string[]>;
+}
+
+/** Identify the smallest set of review paths that exposes every Studio change. */
+export function blueprintReviewState(previousGoals: GoalNode[], nextGoals: GoalNode[]): BlueprintReviewState {
+  type IndexedNode = { node: GoalNode; pathIds: string[] };
+  const indexTree = (roots: GoalNode[]) => {
+    const index = new Map<string, IndexedNode>();
+    const visit = (node: GoalNode, parentPath: string[]) => {
+      const pathIds = [...parentPath, node.id];
+      index.set(node.id, { node, pathIds });
+      node.children.forEach((child) => visit(child, pathIds));
+    };
+    roots.forEach((root) => visit(root, []));
+    return index;
+  };
+  const ownSignature = (node: GoalNode) => JSON.stringify({ ...node, children: undefined });
+
+  const previous = indexTree(previousGoals);
+  const next = indexTree(nextGoals);
+  const addedIds = new Set<string>();
+  const changedIds = new Set<string>();
+  const expandedIds = new Set<string>();
+  const addedStepsByNode: Record<string, string[]> = {};
+
+  const exposePath = (pathIds: string[]) => pathIds.forEach((id) => expandedIds.add(id));
+
+  for (const [id, entry] of next) {
+    const before = previous.get(id)?.node;
+    if (!before) {
+      addedIds.add(id);
+      changedIds.add(id);
+      exposePath(entry.pathIds);
+      continue;
+    }
+    if (ownSignature(before) !== ownSignature(entry.node)) {
+      changedIds.add(id);
+      exposePath(entry.pathIds);
+      const oldSteps = new Set((before.steps ?? []).map((step) => step.trim().toLocaleLowerCase()));
+      const addedSteps = (entry.node.steps ?? []).filter((step) => !oldSteps.has(step.trim().toLocaleLowerCase()));
+      if (addedSteps.length > 0) addedStepsByNode[id] = addedSteps;
+    }
+  }
+
+  for (const [id, entry] of previous) {
+    if (next.has(id)) continue;
+    const survivingPath = entry.pathIds.filter((pathId) => next.has(pathId));
+    exposePath(survivingPath);
+    const survivingParent = survivingPath[survivingPath.length - 1];
+    if (survivingParent) changedIds.add(survivingParent);
+  }
+
+  return {
+    addedIds: [...addedIds],
+    changedIds: [...changedIds],
+    expandedIds: [...expandedIds],
+    addedStepsByNode,
+  };
+}
+
 export function blueprintChildrenAt(goals: GoalNode[], parentId: string | null): GoalNode[] {
   return parentId ? findGoal(goals, parentId)?.children ?? [] : goals;
 }

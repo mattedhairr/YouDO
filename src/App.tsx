@@ -1505,6 +1505,7 @@ function AppInner() {
       {blueprintStudioOpen && <BlueprintStudio
         open={blueprintStudioOpen}
         goals={goals}
+        initialPathIds={goalPathIds}
         onClose={closeBlueprintStudio}
         onCommit={(base, next, title) => {
           const result = applyGoalTreeChange(base, next);

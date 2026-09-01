@@ -82,16 +82,22 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs android/app/build/outputs/apk/debug/app-debug.apk
           sha256sum android/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Verify permanent v6 signing baseline
+      - name: Verify permanent signing and release identity
         run: |
           CURRENT_APK="android/app/build/outputs/apk/debug/app-debug.apk"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
           CURRENT_CERT="$("$APKSIGNER" verify --print-certs "$CURRENT_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
           CURRENT_CODE="$("$AAPT" dump badging "$CURRENT_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
+          CURRENT_NAME="$("$AAPT" dump badging "$CURRENT_APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)"
+          PACKAGE_NAME="$(node -p "require('./package.json').version")"
+          APP_NAME="$(sed -n "s/.*APP_VERSION = '\([^']*\)'.*/\1/p" src/lib/version.ts | head -n 1)"
           test "$CURRENT_CERT" = "12c3ac6ccaa7850986223bbbbebedc860afdf8a44a9bbde542adfb5cc6dafb38"
-          test "$CURRENT_CODE" = "26"
-          echo "Permanent v6 signing baseline verified: certificate pinned; versionCode $CURRENT_CODE"
+          test "$CURRENT_CODE" = "27"
+          test "$CURRENT_NAME" = "6.1.0"
+          test "$PACKAGE_NAME" = "$CURRENT_NAME"
+          test "$APP_NAME" = "$CURRENT_NAME"
+          echo "Release identity verified: versionName $CURRENT_NAME; versionCode $CURRENT_CODE; certificate pinned"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

@@ -467,10 +467,16 @@ export default function TodayBriefingSheet({
                   : 'inset 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent)',
             }}
             role="slider"
+            tabIndex={0}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(progress * 100)}
             aria-label="Slide to Got it"
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              finish();
+            }}
           >
             <div
               className="absolute inset-0 pointer-events-none"
