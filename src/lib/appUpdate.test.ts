@@ -1,5 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { compareAppVersions, releaseHighlights } from './appUpdate';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { checkForAppUpdate, compareAppVersions, releaseHighlights } from './appUpdate';
+
+function memoryStorage(initial: Record<string, string> = {}): Storage {
+  const values = new Map(Object.entries(initial));
+  return {
+    get length() { return values.size; },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => { values.delete(key); },
+    setItem: (key, value) => { values.set(key, value); },
+  };
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe('app updates', () => {
   it('compares semantic release versions without treating v prefixes differently', () => {
@@ -22,5 +39,28 @@ describe('app updates', () => {
       'Clear history with restore points.',
       'Update notice opens the official release.',
     ]);
+  });
+
+  it('ignores an update cache written by an older installed app version', async () => {
+    vi.stubGlobal('localStorage', memoryStorage({
+      'youdo-update-check-v1': JSON.stringify({ checkedAt: Date.now(), release: null }),
+    }));
+    vi.stubGlobal('navigator', { onLine: true });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tag_name: 'v6.1.1',
+        html_url: 'https://github.com/mattedhairr/YouDO/releases/tag/v6.1.1',
+        body: '- A safer update check.',
+        draft: false,
+        prerelease: false,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const release = await checkForAppUpdate();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(release?.version).toBe('6.1.1');
   });
 });

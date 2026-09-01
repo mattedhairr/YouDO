@@ -110,6 +110,7 @@ YouDO records both total session duration and net focus.
 - Recover a recently broken streak through the required real work.
 - Join the public Board only if you choose.
 - Compare Today, Week, or Month using net focus as the ranking measure.
+- See a focused Top 10, your own rank, and nearby competitors instead of scrolling through every participant.
 - Turn Board participation off to remove your public row.
 
 The Board is private by default and runs on an honour system. Padded hours only cheat the person who still has to sit the exam.
@@ -138,7 +139,7 @@ YouDO requires an account for a real workspace so signed-out and cross-account d
 
 v6 establishes YouDO's permanent Android signing identity. Because the private key used for the published v5 APK is no longer available, moving from v5 or an older differently signed build requires one clean reinstall: sync or export your workspace, uninstall the old app, install v6, then sign in and restore. Releases after v6 use the same protected signing key and a higher Android `versionCode`, so they can install over v6 normally.
 
-Only the latest GitHub Release is supported. From v6 onward, YouDO checks once per day for a newer stable release and shows a dismissible notice with brief highlights; updates are always opened from the official GitHub Release page and are never installed silently.
+Only the latest GitHub Release is supported. From v6 onward, YouDO periodically checks for a newer stable release and shows a dismissible notice with brief highlights; updates are always opened from the official GitHub Release page and are never installed silently.
 
 ## Community
 
@@ -180,6 +181,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 Apply the SQL files in `supabase/`, then deploy `supabase/functions/delete-account` with JWT verification enabled. Its service-role key remains server-side in the Edge Function environment and must never be added to the app.
+
+For an existing YouDO Supabase project, run `supabase/optimize_auth_rls_policies.sql` once in the SQL Editor. It atomically preserves the same ownership rules while removing the Auth RLS Initialization Plan performance warnings. Set the Auth minimum password length to 10 as well; existing passwords remain valid for sign-in, while new accounts and future password changes use the stronger rule.
 
 ### Validate a change
 

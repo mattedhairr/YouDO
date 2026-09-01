@@ -64,6 +64,21 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v6.1.1] — 2026-09-01 ("A Board that grows") *not published as a GitHub Release*
+
+This maintenance release keeps the public Board useful from its first few aspirants through a much larger community, while hardening account entry and the update path without changing anyone's saved preparation data.
+
+### 🚀 What you will notice
+- **A Board that scales gracefully** — Real opted-in aspirants appear while the Board forms; after ranking unlocks, a focused Top 10, personal position card, and optional nearby-competitor view replace an endless list.
+- **Stronger new accounts** — New passwords require at least 10 characters, while all existing users can continue signing in with their current password.
+- **Fresher update notices** — YouDO checks periodically and invalidates update results left by an older installed version, preventing stale or self-referencing notices after an upgrade.
+
+### ⚙ Under the hood
+- Supabase ownership policies now evaluate the authenticated user once per statement and are scoped explicitly to signed-in users, removing the current Auth RLS Initialization Plan performance warnings without weakening isolation.
+- Backup, restore-point, and public Board owner columns already have the required indexes; no user rows or historical progress are migrated.
+
+---
+
 ## [v6.1.0] — 2026-09-01 ("Blueprints without friction")
 
 Blueprint Studio now behaves like a real working surface rather than a sequence of disconnected forms. You can move through a large preparation tree, build several different branches, review exactly what changed, and save the complete blueprint only when it feels right.

@@ -918,6 +918,40 @@ describe('pace board', () => {
     });
   });
 
+  it('shows only the top ten when the current user is already among them', async () => {
+    const { selectPaceBoardRows } = await import('./paceBoard');
+    const ids = Array.from({ length: 15 }, (_, index) => `user-${index + 1}`);
+    expect(selectPaceBoardRows(ids, 'user-4')).toEqual({
+      topIds: ids.slice(0, 10),
+      myRank: 4,
+      nearbyIds: [],
+    });
+  });
+
+  it('keeps an outside user visible with nearby competitors and no top-ten duplicates', async () => {
+    const { selectPaceBoardRows } = await import('./paceBoard');
+    const ids = Array.from({ length: 15 }, (_, index) => `user-${index + 1}`);
+    expect(selectPaceBoardRows(ids, 'user-12')).toEqual({
+      topIds: ids.slice(0, 10),
+      myRank: 12,
+      nearbyIds: ['user-11', 'user-13', 'user-14'],
+    });
+    expect(selectPaceBoardRows(ids, 'user-15')).toMatchObject({
+      myRank: 15,
+      nearbyIds: ['user-13', 'user-14'],
+    });
+  });
+
+  it('does not invent a personal rank when the signed-in user is absent', async () => {
+    const { selectPaceBoardRows } = await import('./paceBoard');
+    const ids = Array.from({ length: 12 }, (_, index) => `user-${index + 1}`);
+    expect(selectPaceBoardRows(ids, 'not-opted-in')).toEqual({
+      topIds: ids.slice(0, 10),
+      myRank: null,
+      nearbyIds: [],
+    });
+  });
+
   it('keeps newer pace prefs when merging devices', async () => {
     const { mergePacePrefs } = await import('./paceBoard');
     const merged = mergePacePrefs(

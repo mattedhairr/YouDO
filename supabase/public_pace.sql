@@ -26,13 +26,13 @@ create policy pace_select_auth
 
 create policy pace_insert_own
   on public.public_pace for insert to authenticated
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 create policy pace_update_own
   on public.public_pace for update to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create policy pace_delete_own
   on public.public_pace for delete to authenticated
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);

@@ -3,6 +3,8 @@ import { netFocusByLocalDateOverlapping } from './focusTrends';
 import type { TaskSession } from '../types';
 
 export const PACE_BOARD_MIN_OPT_IN = 10;
+export const PACE_BOARD_TOP_LIMIT = 10;
+export const PACE_BOARD_NEARBY_RADIUS = 2;
 
 export const PACE_HONEST_QUOTE =
   'The board cannot see a lie. You can. Padding hours cheats the only person who has to sit the exam.';
@@ -101,6 +103,35 @@ export function rankedIds(rows: PaceRow[], window: PaceWindow): string[] {
       return a.displayName.localeCompare(b.displayName);
     })
     .map((r) => r.userId);
+}
+
+export type PaceBoardSelection = {
+  topIds: string[];
+  myRank: number | null;
+  nearbyIds: string[];
+};
+
+/** Keep the public Board focused without making an aspirant lose their own context. */
+export function selectPaceBoardRows(
+  orderedIds: string[],
+  currentUserId: string | null | undefined,
+  topLimit = PACE_BOARD_TOP_LIMIT,
+  nearbyRadius = PACE_BOARD_NEARBY_RADIUS,
+): PaceBoardSelection {
+  const safeTopLimit = Math.max(1, Math.floor(topLimit));
+  const safeNearbyRadius = Math.max(0, Math.floor(nearbyRadius));
+  const topIds = orderedIds.slice(0, safeTopLimit);
+  const myIndex = currentUserId ? orderedIds.indexOf(currentUserId) : -1;
+  if (myIndex < 0) return { topIds, myRank: null, nearbyIds: [] };
+  if (myIndex < safeTopLimit) return { topIds, myRank: myIndex + 1, nearbyIds: [] };
+
+  const visibleTopIds = new Set(topIds);
+  const nearbyIds = [
+    ...orderedIds.slice(Math.max(0, myIndex - safeNearbyRadius), myIndex),
+    ...orderedIds.slice(myIndex + 1, myIndex + safeNearbyRadius + 1),
+  ].filter((id) => !visibleTopIds.has(id));
+
+  return { topIds, myRank: myIndex + 1, nearbyIds };
 }
 
 export type RankDelta = 'up' | 'down' | null;

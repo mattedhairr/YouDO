@@ -17,13 +17,13 @@ drop policy if exists "Users can insert their own snapshots" on public.user_back
 drop policy if exists "Users can delete their own snapshots" on public.user_backup_snapshots;
 
 create policy "Users can read their own snapshots"
-  on public.user_backup_snapshots for select
-  using (auth.uid() = user_id);
+  on public.user_backup_snapshots for select to authenticated
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can insert their own snapshots"
-  on public.user_backup_snapshots for insert
-  with check (auth.uid() = user_id);
+  on public.user_backup_snapshots for insert to authenticated
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can delete their own snapshots"
-  on public.user_backup_snapshots for delete
-  using (auth.uid() = user_id);
+  on public.user_backup_snapshots for delete to authenticated
+  using ((select auth.uid()) = user_id);
