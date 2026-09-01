@@ -528,7 +528,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-[14px] font-bold tracking-[-0.01em] text-content-primary">Build with Blueprint Studio</span>
-              <span className="block mt-1 text-[11.5px] leading-snug text-content-secondary">Create your preparation plan one clear step at a time.</span>
+              <span className="block mt-1 text-[11.5px] leading-snug text-content-secondary">Build several branches freely, then review and save once.</span>
             </span>
             <span className="w-8 h-8 rounded-full grid place-items-center bg-primary text-on-primary shrink-0">
               <ChevronRight size={15} />

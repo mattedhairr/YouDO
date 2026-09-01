@@ -3,6 +3,8 @@ import type { GoalNode } from '../types';
 import {
   addBlueprintChildren,
   addBlueprintSteps,
+  blueprintReviewState,
+  closestBlueprintPathIds,
   countBlueprintNodes,
   maxBlueprintDepth,
   normalizeBlueprintTitles,
@@ -64,6 +66,36 @@ describe('Blueprint Studio tree operations', () => {
     const goals = [node('g', 'goal', 'Goal', [node('p', 'phase', 'Phase', [node('s', 'section', 'Section')])])];
     expect(countBlueprintNodes(goals)).toBe(3);
     expect(maxBlueprintDepth(goals)).toBe(3);
+  });
+
+  it('opens only paths containing additions and marks the new nodes', () => {
+    const previous = [node('g', 'goal', 'Goal', [node('p1', 'phase', 'One'), node('p2', 'phase', 'Two')])];
+    const next = [node('g', 'goal', 'Goal', [node('p1', 'phase', 'One', [node('s', 'section', 'New section')]), node('p2', 'phase', 'Two')])];
+    const review = blueprintReviewState(previous, next);
+    expect(review.addedIds).toEqual(['s']);
+    expect(review.changedIds).toEqual(['s']);
+    expect(review.expandedIds).toEqual(['g', 'p1', 's']);
+    expect(review.expandedIds).not.toContain('p2');
+  });
+
+  it('exposes changed steps and the closest surviving parent after removal', () => {
+    const previousLeaf = { ...node('l', 'leaf', 'Leaf'), steps: ['Watch'], stepDone: [false] };
+    const previous = [node('g', 'goal', 'Goal', [node('p', 'phase', 'Phase', [previousLeaf]), node('gone', 'phase', 'Remove me')])];
+    const nextLeaf = { ...previousLeaf, steps: ['Watch', 'Revise'], stepDone: [false, false] };
+    const next = [node('g', 'goal', 'Goal', [node('p', 'phase', 'Phase', [nextLeaf])])];
+    const review = blueprintReviewState(previous, next);
+    expect(review.changedIds).toEqual(expect.arrayContaining(['l', 'g']));
+    expect(review.expandedIds).toEqual(expect.arrayContaining(['g', 'p', 'l']));
+    expect(review.addedStepsByNode).toEqual({ l: ['Revise'] });
+  });
+
+  it('opens Studio at the requested depth and falls back to a surviving parent', () => {
+    const goals = [node('g', 'goal', 'Goal', [node('p', 'phase', 'Phase', [node('s', 'section', 'Section')])])];
+    expect(closestBlueprintPathIds(goals, ['g', 'p', 's'])).toEqual(['g', 'p', 's']);
+
+    const withoutSection = removeBlueprintNodes(goals, ['s']);
+    expect(closestBlueprintPathIds(withoutSection, ['g', 'p', 's'])).toEqual(['g', 'p']);
+    expect(closestBlueprintPathIds(withoutSection, ['missing'])).toEqual([]);
   });
 
   it('keeps generated node ids unique across repeated branches', () => {
