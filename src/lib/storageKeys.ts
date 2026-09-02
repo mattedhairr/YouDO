@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   pacePrefs: 'youdo-pace-prefs-v1',
   paceRankSnapshot: 'youdo-pace-rank-snapshot-v1',
   workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
+  workspaceCloudFingerprint: 'youdo-workspace-cloud-fingerprint-v1',
   workspaceOwner: 'youdo-workspace-owner-v1',
 } as const;
 
@@ -26,6 +27,7 @@ const WORKSPACE_KEYS = [
   STORAGE_KEYS.pacePrefs,
   STORAGE_KEYS.paceRankSnapshot,
   STORAGE_KEYS.workspaceUpdatedAt,
+  STORAGE_KEYS.workspaceCloudFingerprint,
 ] as const;
 
 const LEGACY_ALIASES: Record<string, string[]> = {
@@ -47,6 +49,18 @@ export function readWorkspaceUpdatedAt(): number {
 export function writeWorkspaceUpdatedAt(value: number): void {
   try {
     localStorage.setItem(STORAGE_KEYS.workspaceUpdatedAt, String(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readWorkspaceCloudFingerprint(): string | null {
+  return readStorageRaw(STORAGE_KEYS.workspaceCloudFingerprint);
+}
+
+export function writeWorkspaceCloudFingerprint(value: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.workspaceCloudFingerprint, value);
   } catch {
     /* ignore */
   }

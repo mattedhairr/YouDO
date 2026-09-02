@@ -129,3 +129,71 @@ export function parseBackupPayload(jsonData: string): {
     return null;
   }
 }
+
+export type BackupSummary = {
+  roots: number;
+  nodes: number;
+  leaves: number;
+  tasks: number;
+  sessions: number;
+  rootNames: string[];
+};
+
+function countGoalNodes(nodes: GoalNode[]): { nodes: number; leaves: number } {
+  let total = 0;
+  let leaves = 0;
+  const visit = (items: GoalNode[]) => {
+    for (const node of items) {
+      total += 1;
+      if (node.kind === 'leaf') leaves += 1;
+      visit(node.children ?? []);
+    }
+  };
+  visit(nodes);
+  return { nodes: total, leaves };
+}
+
+/** Safe, read-only metadata for choosing among cloud restore points. */
+export function summarizeBackupPayload(jsonData: string): BackupSummary | null {
+  const parsed = parseBackupPayload(jsonData);
+  if (!parsed) return null;
+  const tree = countGoalNodes(parsed.goals);
+  const history = asRecord(parsed.sessionHistory);
+  const sessions = history
+    ? Object.values(history).reduce<number>((total, rows) => total + (Array.isArray(rows) ? rows.length : 0), 0)
+    : 0;
+  return {
+    roots: parsed.goals.length,
+    nodes: tree.nodes,
+    leaves: tree.leaves,
+    tasks: parsed.tasks.length,
+    sessions,
+    rootNames: parsed.goals.map((goal) => goal.title).filter(Boolean).slice(0, 2),
+  };
+}
+
+/** Ignores volatile export/version timestamps while comparing the actual workspace payload. */
+export function backupContentFingerprint(jsonData: string): string | null {
+  try {
+    const parsed = JSON.parse(jsonData) as unknown;
+    const obj = asRecord(parsed);
+    if (!obj) return null;
+    const content = JSON.stringify({
+      tasks: obj.tasks ?? obj.t ?? [],
+      goals: obj.goals ?? obj.g ?? [],
+      sessionHistory: obj.sessionHistory ?? {},
+      recentlyDeletedGoals: obj.recentlyDeletedGoals ?? [],
+      streakMeta: obj.streakMeta ?? null,
+      pacePrefs: obj.pacePrefs ?? null,
+    });
+    let hash = 0xcbf29ce484222325n;
+    const prime = 0x100000001b3n;
+    for (let index = 0; index < content.length; index += 1) {
+      hash ^= BigInt(content.charCodeAt(index));
+      hash = BigInt.asUintN(64, hash * prime);
+    }
+    return `${content.length}:${hash.toString(16).padStart(16, '0')}`;
+  } catch {
+    return null;
+  }
+}

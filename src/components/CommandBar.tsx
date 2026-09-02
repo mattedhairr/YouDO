@@ -28,6 +28,7 @@ interface Props {
   todayCount?: number;
   todayDone?: number;
   goalsCount?: number;
+  syncAttention?: boolean;
   batch?: BatchMode;
   paste?: PasteMode;
 }
@@ -39,6 +40,7 @@ export default function CommandBar({
   todayCount = 0,
   todayDone = 0,
   goalsCount = 0,
+  syncAttention = false,
   batch,
   paste,
 }: Props) {
@@ -138,11 +140,17 @@ export default function CommandBar({
             <button
               type="button"
               onClick={onSettings}
-              className="command-settings shrink-0 grid place-items-center size-11 rounded-[11px] text-content-muted active:scale-[0.94] [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated"
+              className="command-settings relative shrink-0 grid place-items-center size-11 rounded-[11px] text-content-muted active:scale-[0.94] [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated"
               title="Settings"
               aria-label="Settings"
             >
               <Settings size={16} strokeWidth={2} />
+              {syncAttention && (
+                <span
+                  className="absolute right-2 top-2 size-2 rounded-full bg-warning ring-2 ring-[var(--bg-surface)]"
+                  aria-label="Sync needs review"
+                />
+              )}
             </button>
           </>
         )}

@@ -75,6 +75,54 @@ function unionTasks(local: Task[], remote: Task[]): Task[] {
   return order.map((id) => byId.get(id)!).filter(Boolean);
 }
 
+function mergeGoalLists(primary: GoalNode[], secondary: GoalNode[]): GoalNode[] {
+  const secondaryById = new Map(secondary.filter((node) => node?.id).map((node) => [node.id, node]));
+  const primaryIds = new Set(primary.filter((node) => node?.id).map((node) => node.id));
+  const merged = primary
+    .filter((node) => node?.id)
+    .map((node) => {
+      const older = secondaryById.get(node.id);
+      if (!older) return node;
+      return {
+        ...node,
+        children: mergeGoalLists(node.children ?? [], older.children ?? []),
+      };
+    });
+  for (const node of secondary) {
+    if (!node?.id || primaryIds.has(node.id)) continue;
+    merged.push(node);
+  }
+  return merged;
+}
+
+function goalIdSet(nodes: GoalNode[]): Set<string> {
+  const ids = new Set<string>();
+  const visit = (items: GoalNode[]) => {
+    for (const node of items) {
+      if (!node?.id) continue;
+      ids.add(node.id);
+      visit(node.children ?? []);
+    }
+  };
+  visit(nodes);
+  return ids;
+}
+
+function keepTasksForRecoveredBranches(primary: WorkspaceSlice, secondary: WorkspaceSlice, goals: GoalNode[]): Task[] {
+  const result = [...(primary.tasks ?? [])];
+  const taskIds = new Set(result.map((task) => task.id));
+  const primaryGoalIds = goalIdSet(primary.goals ?? []);
+  const mergedGoalIds = goalIdSet(goals);
+  for (const task of secondary.tasks ?? []) {
+    if (!task?.id || taskIds.has(task.id) || !task.goalNodeId) continue;
+    if (mergedGoalIds.has(task.goalNodeId) && !primaryGoalIds.has(task.goalNodeId)) {
+      result.push(task);
+      taskIds.add(task.id);
+    }
+  }
+  return result;
+}
+
 export function mergeSessionHistories(
   local: unknown,
   remote: unknown,
@@ -97,7 +145,8 @@ export function mergeSessionHistories(
 /**
  * Sessions: union by id.
  * Deletes: union trash, then drop those nodes.
- * Goals + tasks: last-write-wins by updatedAt. Never OR completion flags.
+ * Existing goal/task values: last-write-wins by updatedAt. Never OR completion flags.
+ * Branches that exist on only one device are retained unless a deletion tombstone removes them.
  */
 export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): WorkspaceSlice {
   const trash = mergeTrash(local.recentlyDeletedGoals ?? [], remote.recentlyDeletedGoals ?? []);
@@ -110,9 +159,10 @@ export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): W
   let tasks: Task[];
 
   if (localAt > 0 || remoteAt > 0) {
-    const tree = localAt >= remoteAt ? local : remote;
-    goals = tree.goals ?? [];
-    tasks = tree.tasks ?? [];
+    const primary = localAt >= remoteAt ? local : remote;
+    const secondary = primary === local ? remote : local;
+    goals = mergeGoalLists(primary.goals ?? [], secondary.goals ?? []);
+    tasks = keepTasksForRecoveredBranches(primary, secondary, goals);
   } else {
     goals = unionGoalList(local.goals ?? [], remote.goals ?? []);
     tasks = unionTasks(local.tasks ?? [], remote.tasks ?? []);
@@ -152,4 +202,18 @@ export function workspaceSignature(
     streakMeta: slice.streakMeta ?? null,
     pacePrefs: slice.pacePrefs ?? null,
   });
+}
+
+/** Compact deterministic identity used to detect edits on two devices without duplicating the backup in storage. */
+export function workspaceFingerprint(
+  slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta' | 'pacePrefs'>,
+): string {
+  const value = workspaceSignature(slice);
+  let hash = 0xcbf29ce484222325n;
+  const prime = 0x100000001b3n;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= BigInt(value.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * prime);
+  }
+  return `${value.length}:${hash.toString(16).padStart(16, '0')}`;
 }

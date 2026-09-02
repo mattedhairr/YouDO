@@ -3,7 +3,8 @@ import { APP_VERSION } from './version';
 const RELEASE_API = 'https://api.github.com/repos/mattedhairr/YouDO/releases/latest';
 const CHECK_CACHE_KEY = 'youdo-update-check-v1';
 const DISMISS_KEY = 'youdo-update-dismissed-v1';
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const DISMISS_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export interface AppRelease {
   version: string;
@@ -25,6 +26,7 @@ interface ReleaseResponse {
 
 interface UpdateCache {
   checkedAt: number;
+  appVersion: string;
   release: AppRelease | null;
 }
 
@@ -79,7 +81,11 @@ function parseRelease(raw: ReleaseResponse): AppRelease | null {
 function readCache(): UpdateCache | null {
   try {
     const parsed = JSON.parse(localStorage.getItem(CHECK_CACHE_KEY) ?? 'null') as UpdateCache | null;
-    return parsed && typeof parsed.checkedAt === 'number' ? parsed : null;
+    return parsed
+      && typeof parsed.checkedAt === 'number'
+      && parsed.appVersion === APP_VERSION
+      ? parsed
+      : null;
   } catch {
     return null;
   }
@@ -95,7 +101,7 @@ function writeCache(cache: UpdateCache): void {
 
 export function dismissAppUpdate(version: string, now = Date.now()): void {
   try {
-    localStorage.setItem(DISMISS_KEY, JSON.stringify({ version, until: now + CHECK_INTERVAL_MS }));
+    localStorage.setItem(DISMISS_KEY, JSON.stringify({ version, until: now + DISMISS_INTERVAL_MS }));
   } catch {
     /* ignore */
   }
@@ -114,7 +120,10 @@ export async function checkForAppUpdate(options?: { force?: boolean; signal?: Ab
   const now = Date.now();
   const cached = readCache();
   if (!options?.force && cached && now - cached.checkedAt < CHECK_INTERVAL_MS) {
-    return cached.release && !isDismissed(cached.release.version, now) ? cached.release : null;
+    const release = cached.release && compareAppVersions(cached.release.version, APP_VERSION) > 0
+      ? cached.release
+      : null;
+    return release && !isDismissed(release.version, now) ? release : null;
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
 
@@ -125,7 +134,7 @@ export async function checkForAppUpdate(options?: { force?: boolean; signal?: Ab
     });
     if (!response.ok) return null;
     const release = parseRelease(await response.json() as ReleaseResponse);
-    writeCache({ checkedAt: now, release });
+    writeCache({ checkedAt: now, appVersion: APP_VERSION, release });
     return release && !isDismissed(release.version, now) ? release : null;
   } catch {
     return null;

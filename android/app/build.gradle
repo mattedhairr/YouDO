@@ -20,8 +20,8 @@ android {
         applicationId "com.mattedhairr.youdo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 27
-        versionName "6.1.0"
+        versionCode 29
+        versionName "6.1.2"
         // versionCode MUST increase for every release APK (install-over / sideload).
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

@@ -154,6 +154,7 @@ function AppInner() {
     setStreakMeta,
     setStreakBarHours,
     publishPublicPace,
+    cloudSyncConflict,
   } = useStore();
 
   const {
@@ -296,6 +297,7 @@ function AppInner() {
     }
     if (blueprintStudioOpen) {
       setBlueprintStudioOpen(false);
+      if (window.history.state?.modal) window.history.back();
       return true;
     }
     if (settingsOpen) {
@@ -1440,6 +1442,7 @@ function AppInner() {
                 clearSelectionRef={clearSelectionRef}
                 onNavigateToPath={navigateToGoalPath}
                 onOpenStudio={openBlueprintStudio}
+                onOpenDescription={openDescriptionModal}
               />
             )}
           </div>
@@ -1465,6 +1468,7 @@ function AppInner() {
           todayCount={todayCount}
           todayDone={todayDone}
           goalsCount={goals.length}
+          syncAttention={cloudSyncConflict}
           batch={batchSelectedIds.length > 0 ? {
             count: batchSelectedIds.length,
             scheduleCount: batchLeafGroups.schedule.length,

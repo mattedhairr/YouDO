@@ -808,11 +808,11 @@ describe('device clock integrity', () => {
 });
 
 describe('visit snapshot labels', () => {
-  it('names the last three app opens', async () => {
+  it('names cloud safety copies clearly', async () => {
     const { visitSnapshotLabel } = await import('./cloudBackup');
-    expect(visitSnapshotLabel(0)).toBe('When you opened this time');
-    expect(visitSnapshotLabel(1)).toBe('Previous time you opened');
-    expect(visitSnapshotLabel(2)).toBe('2 opens ago');
+    expect(visitSnapshotLabel(0)).toBe('Most recent safety copy');
+    expect(visitSnapshotLabel(1)).toBe('Previous safety copy');
+    expect(visitSnapshotLabel(2)).toBe('Safety copy 3');
   });
 });
 
@@ -863,6 +863,32 @@ describe('cloud merge', () => {
     expect(merged.goals[0].stepDone).toEqual([false, false]);
   });
 
+  it('keeps branches that only exist in the older device copy', async () => {
+    const { mergeWorkspace } = await import('./syncMerge');
+    const phoneOnly = { id: 'section-phone', kind: 'section' as const, title: 'Phone work', children: [], createdAt: 2 };
+    const browserRoot = { id: 'goal', kind: 'goal' as const, title: 'Exam', children: [], createdAt: 1 };
+    const phoneRoot = { ...browserRoot, children: [phoneOnly] };
+    const merged = mergeWorkspace(
+      { tasks: [], goals: [browserRoot], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 300 },
+      {
+        tasks: [{ id: 'task-phone', title: 'Phone plan', description: '', priority: 'medium', targetDate: null, deadline: null, steps: [], progress: 0, createdAt: 2, order: 2, goalNodeId: 'section-phone' }],
+        goals: [phoneRoot], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 200,
+      },
+    );
+    expect(merged.goals[0].children.map((node) => node.id)).toEqual(['section-phone']);
+    expect(merged.tasks.map((task) => task.id)).toEqual(['task-phone']);
+  });
+
+  it('fingerprints workspace content deterministically', async () => {
+    const { workspaceFingerprint } = await import('./syncMerge');
+    const base = { tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [] };
+    expect(workspaceFingerprint(base)).toBe(workspaceFingerprint({ ...base }));
+    expect(workspaceFingerprint(base)).not.toBe(workspaceFingerprint({
+      ...base,
+      goals: [{ id: 'g', kind: 'goal', title: 'Exam', children: [], createdAt: 1 }],
+    }));
+  });
+
   it('clamps impossible session numbers', async () => {
     const { sanitizeSession } = await import('./sessionStats');
     const row = sanitizeSession({
@@ -879,6 +905,71 @@ describe('cloud merge', () => {
       completedStepIndices: [],
     });
     expect(row?.netFocusMs).toBe(1_000);
+  });
+});
+
+describe('backup recovery metadata', () => {
+  it('ignores volatile export timestamps but detects workspace changes', async () => {
+    const { backupContentFingerprint } = await import('./backup');
+    const first = JSON.stringify({ exportedAt: 'a', updatedAt: 1, goals: [], tasks: [] });
+    const second = JSON.stringify({ exportedAt: 'b', updatedAt: 2, goals: [], tasks: [] });
+    const changed = JSON.stringify({ exportedAt: 'b', updatedAt: 2, goals: [{ id: 'g', title: 'Exam', kind: 'goal', children: [] }], tasks: [] });
+    expect(backupContentFingerprint(first)).toBe(backupContentFingerprint(second));
+    expect(backupContentFingerprint(first)).not.toBe(backupContentFingerprint(changed));
+  });
+
+  it('summarizes restore points without applying them', async () => {
+    const { summarizeBackupPayload } = await import('./backup');
+    const summary = summarizeBackupPayload(JSON.stringify({
+      goals: [{
+        id: 'g', title: 'GATE', kind: 'goal', children: [
+          { id: 'l', title: 'Lecture', kind: 'leaf', children: [] },
+        ],
+      }],
+      tasks: [{ id: 't', title: 'Today', steps: [] }],
+      sessionHistory: { t: [{ id: 's' }] },
+    }));
+    expect(summary).toMatchObject({ roots: 1, nodes: 2, leaves: 1, tasks: 1, sessions: 1, rootNames: ['GATE'] });
+  });
+});
+
+describe('two-device sync decisions', () => {
+  it('pulls when only cloud changed and pushes when only this device changed', async () => {
+    const { decideSyncAction } = await import('./syncDecision');
+    expect(decideSyncAction({
+      localFingerprint: 'base', remoteFingerprint: 'cloud-new', baseFingerprint: 'base', localEmpty: false,
+    })).toBe('pull');
+    expect(decideSyncAction({
+      localFingerprint: 'local-new', remoteFingerprint: 'base', baseFingerprint: 'base', localEmpty: false,
+    })).toBe('push');
+  });
+
+  it('pauses when both devices changed or the first comparison differs', async () => {
+    const { decideSyncAction } = await import('./syncDecision');
+    expect(decideSyncAction({
+      localFingerprint: 'local-new', remoteFingerprint: 'cloud-new', baseFingerprint: 'base', localEmpty: false,
+    })).toBe('conflict');
+    expect(decideSyncAction({
+      localFingerprint: 'local', remoteFingerprint: 'cloud', baseFingerprint: null, localEmpty: false,
+    })).toBe('conflict');
+  });
+
+  it('never treats an empty device as permission to clear a cloud copy', async () => {
+    const { decideSyncAction } = await import('./syncDecision');
+    expect(decideSyncAction({
+      localFingerprint: 'empty', remoteFingerprint: 'cloud', baseFingerprint: 'cloud', localEmpty: true,
+    })).toBe('pull');
+    expect(decideSyncAction({
+      localFingerprint: 'empty', remoteFingerprint: null, baseFingerprint: null, localEmpty: true,
+    })).toBe('empty-error');
+  });
+
+  it('requires an explicit strategy to resolve a conflict', async () => {
+    const { decideSyncAction } = await import('./syncDecision');
+    const base = { localFingerprint: 'local', remoteFingerprint: 'cloud', baseFingerprint: 'base', localEmpty: false };
+    expect(decideSyncAction({ ...base, conflictStrategy: 'merge' })).toBe('merge');
+    expect(decideSyncAction({ ...base, conflictStrategy: 'cloud' })).toBe('pull');
+    expect(decideSyncAction({ ...base, conflictStrategy: 'device' })).toBe('push');
   });
 });
 
@@ -915,6 +1006,40 @@ describe('pace board', () => {
       b: 'up',
       a: 'down',
       c: null,
+    });
+  });
+
+  it('shows only the top ten when the current user is already among them', async () => {
+    const { selectPaceBoardRows } = await import('./paceBoard');
+    const ids = Array.from({ length: 15 }, (_, index) => `user-${index + 1}`);
+    expect(selectPaceBoardRows(ids, 'user-4')).toEqual({
+      topIds: ids.slice(0, 10),
+      myRank: 4,
+      nearbyIds: [],
+    });
+  });
+
+  it('keeps an outside user visible with nearby competitors and no top-ten duplicates', async () => {
+    const { selectPaceBoardRows } = await import('./paceBoard');
+    const ids = Array.from({ length: 15 }, (_, index) => `user-${index + 1}`);
+    expect(selectPaceBoardRows(ids, 'user-12')).toEqual({
+      topIds: ids.slice(0, 10),
+      myRank: 12,
+      nearbyIds: ['user-11', 'user-13', 'user-14'],
+    });
+    expect(selectPaceBoardRows(ids, 'user-15')).toMatchObject({
+      myRank: 15,
+      nearbyIds: ['user-13', 'user-14'],
+    });
+  });
+
+  it('does not invent a personal rank when the signed-in user is absent', async () => {
+    const { selectPaceBoardRows } = await import('./paceBoard');
+    const ids = Array.from({ length: 12 }, (_, index) => `user-${index + 1}`);
+    expect(selectPaceBoardRows(ids, 'not-opted-in')).toEqual({
+      topIds: ids.slice(0, 10),
+      myRank: null,
+      nearbyIds: [],
     });
   });
 
