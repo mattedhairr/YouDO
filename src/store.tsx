@@ -66,6 +66,7 @@ import {
 } from './lib/storageKeys';
 import { mergeWorkspace, workspaceFingerprint, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
 import { decideSyncAction, type SyncConflictStrategy } from './lib/syncDecision';
+import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 import {
   applyStreakBarHours,
@@ -1533,8 +1534,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       : null;
     let localSlice = currentSlice();
-    let localFingerprint = workspaceFingerprint(localSlice);
-    const remoteFingerprint = remoteSlice ? workspaceFingerprint(remoteSlice) : null;
+    let localFingerprint = canonicalWorkspaceFingerprint(localSlice, todayISO());
+    const remoteFingerprint = remoteSlice
+      ? canonicalWorkspaceFingerprint(remoteSlice, todayISO())
+      : null;
     const baseFingerprint = readWorkspaceCloudFingerprint();
     const localEmpty = localSlice.tasks.length === 0 && localSlice.goals.length === 0;
 
@@ -1583,7 +1586,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         streakMeta: streakMetaRef.current,
         pacePrefs: pacePrefsRef.current,
       };
-      const fingerprint = workspaceFingerprint(payload);
+      const fingerprint = canonicalWorkspaceFingerprint(payload, todayISO());
       const result = await updateCloudBackup(payload, { expectedUpdatedAt: remoteInfo?.updatedAt ?? null });
       if (result.ok) {
         writeWorkspaceCloudFingerprint(fingerprint);
@@ -1595,7 +1598,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ...result, conflict: raced || undefined };
     };
 
-    const decision = decideSyncAction({
+    let decision = decideSyncAction({
       localFingerprint,
       remoteFingerprint,
       baseFingerprint,
@@ -1603,6 +1606,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       allowEmpty: opts?.allowEmpty,
       conflictStrategy: opts?.conflictStrategy,
     });
+
+    // v6.1.1 stored fingerprints before canonical cloud normalization. During
+    // the one-time migration, honor a conclusive legacy comparison and then
+    // replace it with the canonical fingerprint after this sync succeeds.
+    if (decision === 'conflict' && baseFingerprint) {
+      const legacyLocalFingerprint = workspaceFingerprint(localSlice);
+      const legacyRemoteFingerprint = remoteSlice ? workspaceFingerprint(remoteSlice) : null;
+      const legacyDecision = decideSyncAction({
+        localFingerprint: legacyLocalFingerprint,
+        remoteFingerprint: legacyRemoteFingerprint,
+        baseFingerprint,
+        localEmpty,
+        allowEmpty: opts?.allowEmpty,
+        conflictStrategy: opts?.conflictStrategy,
+      });
+      if (legacyDecision !== 'conflict') decision = legacyDecision;
+    }
 
     if (decision === 'noop') {
       writeWorkspaceCloudFingerprint(remoteFingerprint!);
@@ -1627,7 +1647,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       applySlice(merged);
       localSlice = currentSlice();
-      localFingerprint = workspaceFingerprint(localSlice);
+      localFingerprint = canonicalWorkspaceFingerprint(localSlice, todayISO());
       if (localFingerprint === remoteFingerprint) {
         writeWorkspaceCloudFingerprint(remoteFingerprint);
         setCloudSyncConflict(false);
@@ -1753,6 +1773,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const handleOnline = () => { void syncToCloud(); };
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
+  }, [user, syncToCloud]);
+
+  // Reconcile when the app returns to the foreground, before a stale device
+  // becomes the next editor. A light periodic check also keeps an open desktop
+  // copy aware of work completed on the phone.
+  useEffect(() => {
+    if (!user) return;
+    let lastAttemptAt = 0;
+    const reconcileVisible = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+      const now = Date.now();
+      if (now - lastAttemptAt < 1_500) return;
+      lastAttemptAt = now;
+      void syncToCloud();
+    };
+    const handleVisibility = () => reconcileVisible();
+    window.addEventListener('focus', reconcileVisible);
+    window.addEventListener('pageshow', reconcileVisible);
+    document.addEventListener('visibilitychange', handleVisibility);
+    const interval = window.setInterval(reconcileVisible, 30_000);
+    return () => {
+      window.removeEventListener('focus', reconcileVisible);
+      window.removeEventListener('pageshow', reconcileVisible);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(interval);
+    };
   }, [user, syncToCloud]);
 
   const dataValue = useMemo<DataStore>(

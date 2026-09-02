@@ -889,6 +889,37 @@ describe('cloud merge', () => {
     }));
   });
 
+  it('treats cloud-normalized optional fields as the same synced workspace', async () => {
+    const { canonicalWorkspaceFingerprint } = await import('./syncPayload');
+    const { parseBackupPayload } = await import('./backup');
+    const local = {
+      tasks: [{
+        id: 'task-1', title: 'Lecture', description: '', priority: 'medium' as const,
+        targetDate: null, deadline: null, steps: [], progress: 0, createdAt: 1, order: 1,
+        originalTargetDate: null,
+      }],
+      goals: [{
+        id: 'goal-1', kind: 'goal' as const, title: 'GATE', children: [], createdAt: 1,
+        todayTaskId: null, pinned: undefined,
+      }],
+      sessionHistory: {},
+      recentlyDeletedGoals: [],
+      streakMeta: null,
+      pacePrefs: null,
+      updatedAt: 10,
+    };
+    const parsed = parseBackupPayload(JSON.stringify(local));
+    expect(parsed).not.toBeNull();
+    const cloudRead = {
+      ...local,
+      tasks: parsed!.tasks,
+      goals: parsed!.goals,
+      updatedAt: parsed!.updatedAt,
+    };
+    expect(canonicalWorkspaceFingerprint(local, '2026-09-02'))
+      .toBe(canonicalWorkspaceFingerprint(cloudRead, '2026-09-02'));
+  });
+
   it('clamps impossible session numbers', async () => {
     const { sanitizeSession } = await import('./sessionStats');
     const row = sanitizeSession({
