@@ -297,6 +297,7 @@ function AppInner() {
     }
     if (blueprintStudioOpen) {
       setBlueprintStudioOpen(false);
+      if (window.history.state?.modal) window.history.back();
       return true;
     }
     if (settingsOpen) {
@@ -1441,6 +1442,7 @@ function AppInner() {
                 clearSelectionRef={clearSelectionRef}
                 onNavigateToPath={navigateToGoalPath}
                 onOpenStudio={openBlueprintStudio}
+                onOpenDescription={openDescriptionModal}
               />
             )}
           </div>

@@ -64,6 +64,26 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
+## [v6.1.2] — 2026-09-02 ("Polished goal interactions")
+
+This patch release smooths the everyday Goal and Blueprint Studio interactions so navigation, progress feedback, and task details feel dependable on a phone.
+
+### 🚀 What you will notice
+- **Reliable back gestures** — Leaving Blueprint Studio with the device edge gesture no longer exits the app unexpectedly after a second swipe.
+- **Instant completion feedback** — Goal progress updates immediately after marking work done, without requiring a second tap.
+- **Editable micro-steps** — Existing Blueprint Studio steps can now be renamed without changing their completion state.
+- **Descriptions where you need them** — Goal items with descriptions now provide a compact description action, consistent with Scheduled and Backlog cards.
+- **Cleaner branch navigation** — Sibling branches are presented in a compact, aligned branch rail with less empty space around the task list.
+
+### ⚙ Under the hood
+- Completion mutations invalidate cached rollups before rendering the next state, preventing stale progress bars.
+- The new step rename operation updates labels immutably and preserves step completion evidence.
+
+### 💾 Data Safety
+- **Android APK**: versionName **6.1.2**, versionCode **29**. Same package id `com.mattedhairr.youdo` and the permanent v6+ signing identity — install directly over **6.1.1** (28) without uninstalling or clearing app data.
+
+---
+
 ## [v6.1.1] — 2026-09-02 ("Safer sync and recovery")
 
 This maintenance release keeps the public Board useful from its first few aspirants through a much larger community, while hardening account entry and the update path without changing anyone's saved preparation data.

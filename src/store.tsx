@@ -834,6 +834,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const markingDone = !newStepDone[stepIdx];
       newStepDone[stepIdx] = markingDone;
       const allDone = newStepDone.every(Boolean);
+      clearRollupCache();
       setGoals((prev) =>
         prev.map((root) =>
           recomputeCompleted(updateNode(root, nodeId, (n) => ({ ...n, stepDone: newStepDone, completed: allDone }))),
@@ -921,6 +922,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!node) return;
 
       const nextCompleted = !node.completed;
+      clearRollupCache();
       setGoals((prev) =>
         prev.map((root) =>
           recomputeCompleted(updateNode(root, nodeId, (target) => setSubtreeCompleted(target, nextCompleted))),

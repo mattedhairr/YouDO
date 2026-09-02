@@ -154,6 +154,18 @@ export function addBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps
   return { goals: next, added, affected };
 }
 
+/** Rename one existing micro-step without changing its completion state. */
+export function renameBlueprintStep(goals: GoalNode[], nodeId: string, stepIndex: number, rawTitle: string): GoalNode[] {
+  const title = rawTitle.trim().replace(/\s+/g, ' ');
+  if (!title || stepIndex < 0) return goals;
+  return goals.map((root) => updateNode(root, nodeId, (node) => {
+    if (node.kind !== 'leaf' || stepIndex >= (node.steps?.length ?? 0)) return node;
+    const steps = [...(node.steps ?? [])];
+    steps[stepIndex] = title;
+    return { ...node, steps };
+  }));
+}
+
 export function renameBlueprintNodes(goals: GoalNode[], titlesById: Record<string, string>): GoalNode[] {
   let next = goals;
   for (const [id, rawTitle] of Object.entries(titlesById)) {

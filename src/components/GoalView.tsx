@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CircleDot,
   Copy,
+  FileText,
   Flag,
   Layers,
   ListTree,
@@ -88,6 +89,7 @@ interface Props {
   /** Optional direct navigation handler for recording jump origin for 1-step back navigation */
   onNavigateToPath?: (pathIds: string[]) => void;
   onOpenStudio: () => void;
+  onOpenDescription?: (title: string, description: string) => void;
 }
 
 const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
@@ -99,7 +101,7 @@ const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: str
   leaf:    { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Leaf' },
 };
 
-export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenStudio }: Props) {
+export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenStudio, onOpenDescription }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
@@ -256,7 +258,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
   return (
     <div className="fade-in pb-20">
-      <div className="sticky top-0 z-30 no-swipe -mt-4 mb-5 pt-1 pb-3 bg-base/95 space-y-2">
+      <div className="sticky top-0 z-30 no-swipe -mt-4 mb-3.5 pt-1 pb-2.5 bg-base/95 space-y-2">
         <nav
           aria-label="Goal location"
           className="flex items-center gap-1 rounded-[12px] border border-subtle bg-surface p-1"
@@ -319,7 +321,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
         </nav>
 
         {siblings.length > 1 && current && (
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-0.5">
+          <div className="rounded-[14px] border border-subtle bg-surface/80 shadow-card px-2 py-2">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar" aria-label="Sibling branches">
+              <span className="shrink-0 pl-1 text-[9px] font-bold uppercase tracking-[0.14em] text-content-muted">Branches</span>
+              <span className="h-4 w-px shrink-0 bg-border-subtle" aria-hidden />
             {siblings.map((node) => {
               const here = node.id === current.id;
               return (
@@ -328,16 +333,17 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   type="button"
                   onClick={() => jumpToSibling(node)}
                   title={node.title}
-                  className={`shrink-0 max-w-[9.5rem] h-7 px-2.5 rounded-full text-[11px] font-semibold truncate border transition-colors ${
+                  className={`shrink-0 max-w-[9.5rem] h-8 px-3 rounded-[10px] text-[11px] font-semibold truncate border transition-all ${
                     here
-                      ? 'bg-primary-soft text-primary border-primary/25'
-                      : 'bg-surface text-content-secondary border-subtle hover:text-content-primary hover:bg-elevated'
+                      ? 'bg-primary-soft text-primary border-primary/30 shadow-[inset_0_0_0_1px_rgba(196,165,116,0.08)]'
+                      : 'bg-elevated/60 text-content-secondary border-subtle hover:text-content-primary hover:bg-elevated'
                   }`}
                 >
                   {node.title}
                 </button>
               );
             })}
+            </div>
           </div>
         )}
       </div>
@@ -620,6 +626,20 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   <h3 className={`text-[14.5px] font-semibold leading-snug truncate ${isDone ? 'line-through text-content-muted' : 'text-content-primary'}`}>
                     {child.title}
                   </h3>
+                  {child.description && onOpenDescription && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenDescription(child.title, child.description ?? '');
+                      }}
+                      className="inline-flex items-center shrink-0 text-[10px] font-semibold text-content-muted hover:text-primary"
+                      title="View description"
+                      aria-label={`View description for ${child.title}`}
+                    >
+                      <FileText size={12} />
+                    </button>
+                  )}
                   {child.pinned && <Star size={12} className="fill-primary text-primary shrink-0" />}
                 </div>
                 <span className={`text-[13px] font-semibold tabular-nums shrink-0 ${isDone ? 'text-secondary' : pct > 0 ? 'text-primary' : 'text-content-muted'}`}>

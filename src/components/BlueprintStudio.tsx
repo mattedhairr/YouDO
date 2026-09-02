@@ -12,6 +12,7 @@ import {
   ListPlus,
   ListTree,
   Minus,
+  Pencil,
   Plus,
   RotateCcw,
   Target,
@@ -36,6 +37,7 @@ import {
   normalizeBlueprintTitles,
   numberedBlueprintTitles,
   removeBlueprintNodes,
+  renameBlueprintStep,
   renameBlueprintNodes,
 } from '../lib/blueprintStudio';
 import { findGoal } from '../lib/goalTree';
@@ -50,6 +52,7 @@ type Screen =
   | { type: 'actions'; selectedIds: string[]; returnBrowse: Extract<Screen, { type: 'browse' }>; allowBuildInside: boolean }
   | { type: 'rename'; selectedIds: string[]; returnBrowse: BrowseScreen }
   | { type: 'details'; nodeId: string; returnBrowse: BrowseScreen }
+  | { type: 'stepDetails'; nodeId: string; stepIndex: number; returnBrowse: BrowseScreen }
   | { type: 'preview'; summary: string };
 
 type BrowseScreen = Extract<Screen, { type: 'browse' }>;
@@ -407,6 +410,7 @@ function BrowseTree({
   onSelectionChange,
   onOpenActions,
   onAdd,
+  onEditStep,
 }: {
   goals: GoalNode[];
   screen: Extract<Screen, { type: 'browse' }>;
@@ -415,6 +419,7 @@ function BrowseTree({
   onSelectionChange: (ids: string[]) => void;
   onOpenActions: (ids: string[], allowBuildInside: boolean) => void;
   onAdd: (parent: GoalNode | null) => void;
+  onEditStep: (nodeId: string, stepIndex: number) => void;
 }) {
   const [selectionOpen, setSelectionOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(selectedIds.length > 0);
@@ -562,7 +567,8 @@ function BrowseTree({
               {steps.map((step, index) => (
                 <li key={`${step}-${index}`} className="min-h-[48px] px-3.5 py-2 flex items-center gap-3">
                   <span className="w-6 h-6 rounded-full bg-primary-soft text-primary grid place-items-center text-[10px] font-bold shrink-0">{index + 1}</span>
-                  <span className="text-[12.5px] font-semibold text-content-primary">{step}</span>
+                  <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-content-primary truncate">{step}</span>
+                  <button type="button" onClick={() => onEditStep(currentParent!.id, index)} className="p-2 rounded-lg text-content-muted hover:text-primary" aria-label={`Edit step ${index + 1}`} title="Edit step"><Pencil size={13} /></button>
                 </li>
               ))}
             </ol>
@@ -795,7 +801,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
             {screen.type === 'browse' && (
               <BrowseTree goals={workingGoals} screen={screen} selectedIds={editSelectedIds} onSelectionChange={setEditSelectedIds} onScreen={(next) => {
                 replaceScreen(next);
-              }} onOpenActions={(ids, allowBuildInside) => move({ type: 'actions', selectedIds: ids, returnBrowse: screen, allowBuildInside })} onAdd={(parent) => {
+              }} onOpenActions={(ids, allowBuildInside) => move({ type: 'actions', selectedIds: ids, returnBrowse: screen, allowBuildInside })} onEditStep={(nodeId, stepIndex) => move({ type: 'stepDetails', nodeId, stepIndex, returnBrowse: screen })} onAdd={(parent) => {
                 if (!parent) {
                   move({ type: 'goal', returnBrowse: screen });
                   return;
@@ -848,6 +854,14 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
                 const renamed = renameBlueprintNodes(workingGoals, { [node.id]: patch.title });
                 const nextGoals = renamed.map((root) => root.id === node.id ? { ...root, ...patch } : updateDetails(root, node.id, patch));
                 applyToDraft(`Updated “${patch.title}”`, nextGoals, screen.returnBrowse);
+              }} /> : null;
+            })()}
+
+            {screen.type === 'stepDetails' && (() => {
+              const node = findGoal(workingGoals, screen.nodeId);
+              const step = node?.steps?.[screen.stepIndex];
+              return node && step !== undefined ? <StepEditor step={step} index={screen.stepIndex} onContinue={(title) => {
+                applyToDraft(`Renamed step ${screen.stepIndex + 1} in “${node.title}”`, renameBlueprintStep(workingGoals, node.id, screen.stepIndex, title), screen.returnBrowse);
               }} /> : null;
             })()}
 
@@ -977,6 +991,20 @@ function DetailsEditor({ node, onContinue }: { node: GoalNode; onContinue: (patc
         <div className="grid grid-cols-2 gap-2"><label className="text-[10px] uppercase tracking-wider font-bold text-content-muted">Start<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1.5 w-full h-11 bg-base border border-subtle rounded-[10px] px-2 text-[12px] text-content-primary outline-none focus:border-primary" /></label><label className="text-[10px] uppercase tracking-wider font-bold text-content-muted">Finish<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1.5 w-full h-11 bg-base border border-subtle rounded-[10px] px-2 text-[12px] text-content-primary outline-none focus:border-primary" /></label></div>
       </div>
       <StudioButton onClick={() => onContinue({ title: title.trim(), description: description.trim() || undefined, startDate: startDate || undefined, endDate: endDate || undefined })} disabled={!title.trim()}>Apply changes <Check size={15} /></StudioButton>
+    </div>
+  );
+}
+
+function StepEditor({ step, index, onContinue }: { step: string; index: number; onContinue: (title: string) => void }) {
+  const [title, setTitle] = useState(step);
+  return (
+    <div className="space-y-5">
+      <StudioTitle eyebrow="Edit · Micro-step" title="Make this step clear." copy="Rename the step without changing its completion status." />
+      <label className="block text-[10px] uppercase tracking-wider font-bold text-content-muted">
+        Step {index + 1}
+        <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} className="mt-1.5 w-full h-11 bg-elevated border border-subtle rounded-[10px] px-3 text-[13px] font-semibold text-content-primary outline-none focus:border-primary" />
+      </label>
+      <StudioButton onClick={() => onContinue(title)} disabled={!title.trim()}>Apply step name <Check size={15} /></StudioButton>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   numberedBlueprintTitles,
   removeBlueprintNodes,
   reconcileBlueprintTasks,
+  renameBlueprintStep,
   renameBlueprintNodes,
 } from './blueprintStudio';
 
@@ -52,6 +53,14 @@ describe('Blueprint Studio tree operations', () => {
     const result = addBlueprintSteps([goal], ['g'], ['Check']);
     expect(result.goals).toEqual([goal]);
     expect(result.added).toBe(0);
+  });
+
+  it('renames one existing step while preserving its completion state', () => {
+    const leaf = { ...node('l', 'leaf', 'Leaf'), steps: ['Watch', 'Notes'], stepDone: [true, false], completed: false };
+    const result = renameBlueprintStep([leaf], 'l', 1, 'Review notes');
+    expect(result[0].steps).toEqual(['Watch', 'Review notes']);
+    expect(result[0].stepDone).toEqual([true, false]);
+    expect(renameBlueprintStep([leaf], 'l', 0, '   ')).toEqual([leaf]);
   });
 
   it('renames and removes branches immutably', () => {
