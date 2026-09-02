@@ -93,8 +93,11 @@ jobs:
           PACKAGE_NAME="$(node -p "require('./package.json').version")"
           APP_NAME="$(sed -n "s/.*APP_VERSION = '\([^']*\)'.*/\1/p" src/lib/version.ts | head -n 1)"
           test "$CURRENT_CERT" = "12c3ac6ccaa7850986223bbbbebedc860afdf8a44a9bbde542adfb5cc6dafb38"
-          test "$CURRENT_CODE" = "27"
-          test "$CURRENT_NAME" = "6.1.0"
+          EXPECTED_CODE="$(sed -n 's/.*versionCode \([0-9]*\).*/\1/p' android/app/build.gradle | head -n 1)"
+          EXPECTED_NAME="$(sed -n 's/.*versionName \"\([^\"]*\)\".*/\1/p' android/app/build.gradle | head -n 1)"
+          test "$EXPECTED_CODE" -ge 1
+          test "$CURRENT_CODE" = "$EXPECTED_CODE"
+          test "$CURRENT_NAME" = "$EXPECTED_NAME"
           test "$PACKAGE_NAME" = "$CURRENT_NAME"
           test "$APP_NAME" = "$CURRENT_NAME"
           echo "Release identity verified: versionName $CURRENT_NAME; versionCode $CURRENT_CODE; certificate pinned"
