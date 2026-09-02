@@ -23,7 +23,10 @@ interface AuthContextType {
   signOut: (options?: { clearWorkspace?: boolean }) => Promise<AuthActionResult>;
   deleteAccount: () => Promise<AuthActionResult>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
-  updateCloudBackup: (backupData: unknown) => Promise<{ ok: boolean; error?: string }>;
+  updateCloudBackup: (
+    backupData: unknown,
+    options?: { expectedUpdatedAt?: string | null },
+  ) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
   fetchLiveBackupInfo: () => Promise<{ backupData: string; updatedAt: string } | null>;
   listVisitSnapshots: () => Promise<VisitSnapshotMeta[]>;
@@ -118,12 +121,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateCloudBackup = async (backupData: unknown): Promise<{ ok: boolean; error?: string }> => {
+  const updateCloudBackup = async (
+    backupData: unknown,
+    options?: { expectedUpdatedAt?: string | null },
+  ): Promise<{ ok: boolean; error?: string }> => {
     try {
       const userId = await currentUserId();
       if (!userId) return { ok: false, error: 'No active user session found. Please sign in again.' };
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
-      return await upsertLiveBackup(userId, jsonStr);
+      return await upsertLiveBackup(userId, jsonStr, options);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown network error';
       console.error('updateCloudBackup failed:', err);

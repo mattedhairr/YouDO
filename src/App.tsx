@@ -154,6 +154,7 @@ function AppInner() {
     setStreakMeta,
     setStreakBarHours,
     publishPublicPace,
+    cloudSyncConflict,
   } = useStore();
 
   const {
@@ -1465,6 +1466,7 @@ function AppInner() {
           todayCount={todayCount}
           todayDone={todayDone}
           goalsCount={goals.length}
+          syncAttention={cloudSyncConflict}
           batch={batchSelectedIds.length > 0 ? {
             count: batchSelectedIds.length,
             scheduleCount: batchLeafGroups.schedule.length,

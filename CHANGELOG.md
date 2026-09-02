@@ -64,7 +64,7 @@ Append to the heading line: `*not published as a GitHub Release*`
 
 ---
 
-## [v6.1.1] — 2026-09-01 ("A Board that grows") *not published as a GitHub Release*
+## [v6.1.1] — 2026-09-02 ("Safer sync and recovery")
 
 This maintenance release keeps the public Board useful from its first few aspirants through a much larger community, while hardening account entry and the update path without changing anyone's saved preparation data.
 
@@ -72,9 +72,14 @@ This maintenance release keeps the public Board useful from its first few aspira
 - **A Board that scales gracefully** — Real opted-in aspirants appear while the Board forms; after ranking unlocks, a focused Top 10, personal position card, and optional nearby-competitor view replace an endless list.
 - **Stronger new accounts** — New passwords require at least 10 characters, while all existing users can continue signing in with their current password.
 - **Fresher update notices** — YouDO checks periodically and invalidates update results left by an older installed version, preventing stale or self-referencing notices after an upgrade.
+- **Community within reach** — Settings now separates the official Telegram updates channel from the discussion group used for questions, feedback, and screenshot-based bug reports.
+- **Settings that fit every phone** — Data, backup, and community rows now keep their icons and actions aligned while descriptions wrap cleanly on narrow displays.
+- **Sync that refuses to guess** — If this device and cloud both changed, YouDO now pauses with both copies intact instead of silently choosing a winner; Settings offers an explicit safe-combine review.
+- **Useful recovery history** — Restore points show goal-tree, leaf-task, and planned-card counts, retain up to 10 genuinely changed copies, and no longer churn merely because the app was reopened.
 
 ### ⚙ Under the hood
 - Supabase ownership policies now evaluate the authenticated user once per statement and are scoped explicitly to signed-in users, removing the current Auth RLS Initialization Plan performance warnings without weakening isolation.
+- Cloud writes now use compare-and-swap protection, persisted device/cloud fingerprints, and branch-preserving goal merges so a stale device or write race cannot erase newer branches.
 - Backup, restore-point, and public Board owner columns already have the required indexes; no user rows or historical progress are migrated.
 
 ---
@@ -96,10 +101,10 @@ Blueprint Studio now behaves like a real working surface rather than a sequence 
 - Studio changes remain isolated from the saved workspace until one atomic final commit; stale goal data and active-session branch removal are still rejected safely.
 - Existing goal completion, scheduling links, Today-task progress, and historical Plan records remain intact unless their branch is intentionally removed.
 - Review-path detection covers additions, edits, steps, and removals so unrelated branches remain collapsed even in a large blueprint.
-- Android CI now verifies versionName **6.1.0**, versionCode **27**, and the permanent v6+ signing certificate before uploading the APK.
+- Android CI verifies the release version and the permanent v6+ signing certificate before uploading the APK.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **6.1.0**, versionCode **27**. Same package id `com.mattedhairr.youdo` and the permanent v6+ signing identity — install directly over **6.0.0** (26) without uninstalling or clearing app data.
+- **Android APK**: versionName **6.1.1**, versionCode **28**. Same package id `com.mattedhairr.youdo` and the permanent v6+ signing identity — install directly over **6.1.0** (27) without uninstalling or clearing app data.
 - The v6.0.0 in-app updater can discover this stable GitHub Release, show its first three highlights, and open the official download page; YouDO never installs an APK silently.
 - A Studio draft changes no saved goal data until **Save blueprint** succeeds. Leaving with unapplied work requires explicit discard confirmation, and the latest draft operation remains undoable before saving.
 

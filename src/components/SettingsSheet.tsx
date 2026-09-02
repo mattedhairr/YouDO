@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { Browser } from '@capacitor/browser';
 import {
   AlertTriangle,
   ArrowLeft,
+  Bug,
   ChevronRight,
   Download,
   Edit2,
@@ -16,11 +18,14 @@ import {
   Flame,
   TrendingUp,
   Info,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
+import type { BackupSummary } from '../lib/backup';
 import { formatBackupStamp, formatDuration } from '../lib/format';
 import { useSessionStore, useStore } from '../store';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -45,6 +50,23 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+const TELEGRAM_UPDATES_URL = 'https://t.me/YouDO_Updates';
+const TELEGRAM_DISCUSSION_URL = 'https://t.me/+-manVNAPhThkMzRl';
+
+async function openExternalUrl(url: string): Promise<void> {
+  try {
+    await Browser.open({ url, toolbarColor: '#171612' });
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
+function backupSummaryText(summary: BackupSummary | null): string {
+  if (!summary) return 'Copy details unavailable';
+  const name = summary.rootNames.length > 0 ? `${summary.rootNames.join(', ')} · ` : '';
+  return `${name}${summary.nodes} tree items · ${summary.leaves} leaf tasks · ${summary.tasks} planned cards`;
+}
+
 export default function SettingsSheet({
   open,
   onClose,
@@ -55,6 +77,7 @@ export default function SettingsSheet({
     exportBackup,
     importBackup,
     syncToCloud,
+    cloudSyncConflict,
     restoreFromCloud,
     restoreFromVisitSnapshot,
     listCloudRestorePoints,
@@ -77,8 +100,8 @@ export default function SettingsSheet({
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [restorePoints, setRestorePoints] = useState<{
-    live: { updatedAt: string } | null;
-    visits: { id: string; createdAt: string }[];
+    live: { updatedAt: string; summary: BackupSummary | null } | null;
+    visits: { id: string; createdAt: string; summary: BackupSummary | null }[];
   } | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<
     { kind: 'live' } | { kind: 'visit'; id: string; label: string; when: string } | null
@@ -312,8 +335,12 @@ export default function SettingsSheet({
                     This plan is yours — goals, Today, and focus time stay in sync when you open YouDO on another phone.
                   </p>
                   <div className="mt-3.5 flex flex-wrap gap-1.5">
-                    <span className="text-[10px] font-semibold tracking-wide text-secondary bg-secondary-soft border border-secondary/25 px-2.5 py-1 rounded-full">
-                      Cloud live
+                    <span className={`text-[10px] font-semibold tracking-wide border px-2.5 py-1 rounded-full ${
+                      cloudSyncConflict
+                        ? 'text-warning bg-warning/10 border-warning/25'
+                        : 'text-secondary bg-secondary-soft border-secondary/25'
+                    }`}>
+                      {cloudSyncConflict ? 'Sync paused safely' : 'Cloud live'}
                     </span>
                   </div>
 
@@ -332,6 +359,47 @@ export default function SettingsSheet({
                     <Upload size={15} strokeWidth={2.25} />
                     Sync now
                   </button>
+
+                  {cloudSyncConflict && (
+                    <div className="mt-2.5 rounded-[14px] border border-warning/25 bg-warning/8 p-3">
+                      <div className="flex items-start gap-2.5">
+                        <ShieldCheck size={16} className="mt-0.5 shrink-0 text-warning" />
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-semibold text-content-primary">Both copies are preserved</p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">
+                            This device and cloud contain different work. YouDO stopped before overwriting either copy.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const result = await syncToCloud({ conflictStrategy: 'merge' });
+                            setMsg(
+                              result.ok
+                                ? { text: '✓ Device and cloud branches combined safely.' }
+                                : { text: `✗ ${result.error || 'Could not combine copies.'}`, error: true },
+                            );
+                          }}
+                          className="h-10 rounded-[11px] bg-primary text-on-primary text-[11px] font-semibold"
+                        >
+                          Combine copies
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmRestore(null);
+                            setRestoreOpen(true);
+                            setEditProfileOpen(false);
+                          }}
+                          className="h-10 rounded-[11px] border border-subtle bg-surface text-content-secondary text-[11px] font-semibold"
+                        >
+                          Review copies
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {tasks.length === 0 && goals.length === 0 && (
                     confirmWipeCloud ? (
@@ -478,7 +546,7 @@ export default function SettingsSheet({
                 {restoreOpen && (
                   <div className="relative px-5 pb-4 space-y-2">
                     <p className="text-[12px] text-content-secondary leading-relaxed">
-                      Latest is what is in the cloud now. The other copies were frozen each time you opened the app (last 3 visits). Restoring replaces goals, tasks, and session stats on this device.
+                      Latest is what is in the cloud now. Safety copies are kept only when workspace content changes, up to the latest 10 copies. Compare their contents before restoring.
                     </p>
                     {restoreLoading && (
                       <p className="text-[12px] text-content-muted">Loading copies…</p>
@@ -495,6 +563,9 @@ export default function SettingsSheet({
                         <div className="text-[12px] font-semibold text-content-primary">Latest cloud</div>
                         <div className="text-[11px] text-content-secondary mt-0.5">
                           Includes this visit · {formatBackupStamp(restorePoints.live.updatedAt)}
+                        </div>
+                        <div className="mt-1 text-[10.5px] leading-relaxed text-content-muted">
+                          {backupSummaryText(restorePoints.live.summary)}
                         </div>
                       </button>
                     )}
@@ -515,6 +586,9 @@ export default function SettingsSheet({
                         >
                           <div className="text-[12px] font-semibold text-content-primary">{visitSnapshotLabel(index)}</div>
                           <div className="text-[11px] text-content-secondary mt-0.5">{formatBackupStamp(visit.createdAt)}</div>
+                          <div className="mt-1 text-[10.5px] leading-relaxed text-content-muted">
+                            {backupSummaryText(visit.summary)}
+                          </div>
                         </button>
                       ))}
                     {confirmRestore && (
@@ -887,11 +961,11 @@ export default function SettingsSheet({
             <button
               type="button"
               onClick={() => setTrashOpen(true)}
-              className="settings-data-row w-full p-4 flex items-center justify-between text-left hover:bg-white/2 transition"
+              className="settings-data-row w-full p-4 flex flex-nowrap items-center justify-between text-left hover:bg-white/2 transition"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Trash2 size={16} className="text-primary shrink-0" />
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-semibold text-content-primary">Recently Deleted Goals</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">
                     {recentlyDeletedGoals.length} {recentlyDeletedGoals.length === 1 ? 'item' : 'items'} in trash
@@ -902,10 +976,10 @@ export default function SettingsSheet({
             </button>
 
             {/* Row 2: Export JSON */}
-            <div className="settings-data-row p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Download size={16} className="text-primary shrink-0" />
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-semibold text-content-primary">Export Backup (JSON)</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">Download offline JSON snapshot</p>
                 </div>
@@ -919,10 +993,10 @@ export default function SettingsSheet({
             </div>
 
             {/* Row 3: Import JSON */}
-            <div className="settings-data-row p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Upload size={16} className="text-secondary shrink-0" />
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-semibold text-content-primary">Import Backup (JSON)</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">Restore state from file</p>
                 </div>
@@ -938,10 +1012,10 @@ export default function SettingsSheet({
               </button>
             </div>
 
-            <div className="settings-data-row p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <History size={16} className="text-primary shrink-0" />
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-semibold text-content-primary">Trim old sittings</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">
                     Keep the last 90 days of focus history
@@ -1027,6 +1101,53 @@ export default function SettingsSheet({
               </div>
             </div>
           )}
+        </section>
+
+        <section>
+          <SectionLabel>COMMUNITY &amp; SUPPORT</SectionLabel>
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
+            <button
+              type="button"
+              onClick={() => void openExternalUrl(TELEGRAM_UPDATES_URL)}
+              className="settings-data-row w-full p-4 flex flex-nowrap items-center justify-between gap-3 text-left hover:bg-white/2 transition"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="size-9 shrink-0 rounded-xl bg-primary-soft text-primary grid place-items-center">
+                  <Send size={16} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">YouDO Updates</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed">
+                    Releases, fixes and important announcements
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="shrink-0 text-content-muted" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void openExternalUrl(TELEGRAM_DISCUSSION_URL)}
+              className="settings-data-row w-full p-4 flex flex-nowrap items-center justify-between gap-3 text-left hover:bg-white/2 transition"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="relative size-9 shrink-0 rounded-xl bg-secondary-soft text-secondary grid place-items-center">
+                  <MessageCircle size={16} />
+                  <Bug size={9} className="absolute bottom-1 right-1" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">Discussion &amp; bug reports</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed">
+                    Ask for help, suggest improvements or attach a bug screenshot
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="shrink-0 text-content-muted" />
+            </button>
+          </div>
+          <p className="mt-2 px-1 text-[10px] leading-relaxed text-content-muted">
+            For a bug, mention what you were doing, what happened and what you expected. Remove personal information from screenshots.
+          </p>
         </section>
 
       </div>

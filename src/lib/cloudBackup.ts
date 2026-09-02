@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
+import { backupContentFingerprint } from './backup';
 
-export const MAX_VISIT_SNAPSHOTS = 3;
+export const MAX_VISIT_SNAPSHOTS = 10;
 
 export type VisitSnapshotMeta = {
   id: string;
@@ -58,7 +59,9 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
     .limit(1)
     .maybeSingle();
 
-  if (latest?.backup_data === live.backup_data) {
+  const latestFingerprint = latest?.backup_data ? backupContentFingerprint(latest.backup_data) : null;
+  const liveFingerprint = backupContentFingerprint(live.backup_data);
+  if (latestFingerprint && liveFingerprint && latestFingerprint === liveFingerprint) {
     freezeState.done = true;
     return;
   }
@@ -85,6 +88,7 @@ const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
 export async function upsertLiveBackup(
   userId: string,
   jsonStr: string,
+  options?: { expectedUpdatedAt?: string | null },
 ): Promise<{ ok: boolean; error?: string }> {
   if (jsonStr.length > MAX_BACKUP_BYTES) {
     return {
@@ -95,6 +99,36 @@ export async function upsertLiveBackup(
 
   await freezeLiveBackupForVisit(userId);
   const now = new Date().toISOString();
+  if (options && 'expectedUpdatedAt' in options) {
+    if (options.expectedUpdatedAt) {
+      const { data, error } = await supabase
+        .from('user_backups')
+        .update({ backup_data: jsonStr, updated_at: now })
+        .eq('user_id', userId)
+        .eq('updated_at', options.expectedUpdatedAt)
+        .select('updated_at');
+      if (error) return { ok: false, error: error.message || 'Database update failed' };
+      if (!data || data.length !== 1) {
+        return { ok: false, error: 'Cloud changed on another device. Nothing was overwritten; sync again to review it.' };
+      }
+      return { ok: true };
+    }
+    const { error } = await supabase.from('user_backups').insert({
+      user_id: userId,
+      backup_data: jsonStr,
+      updated_at: now,
+    });
+    if (error) {
+      const raced = /duplicate|unique/i.test(error.message);
+      return {
+        ok: false,
+        error: raced
+          ? 'Cloud was created on another device. Nothing was overwritten; sync again to review it.'
+          : error.message || 'Database update failed',
+      };
+    }
+    return { ok: true };
+  }
   const { error } = await supabase.from('user_backups').upsert(
     { user_id: userId, backup_data: jsonStr, updated_at: now },
     { onConflict: 'user_id' },
@@ -157,7 +191,7 @@ export async function fetchLiveBackupMeta(
 }
 
 export function visitSnapshotLabel(indexFromNewest: number): string {
-  if (indexFromNewest === 0) return 'When you opened this time';
-  if (indexFromNewest === 1) return 'Previous time you opened';
-  return '2 opens ago';
+  if (indexFromNewest === 0) return 'Most recent safety copy';
+  if (indexFromNewest === 1) return 'Previous safety copy';
+  return `Safety copy ${indexFromNewest + 1}`;
 }

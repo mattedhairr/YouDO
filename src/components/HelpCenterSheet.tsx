@@ -119,7 +119,8 @@ const USER_GUIDE_STEPS = [
     desc: 'Your signed-in workspace saves locally first, then syncs to your cloud copy.',
     do: [
       'YouDO requires an account so one person’s plan is never mixed with another account.',
-      'Temporary internet loss is safe: keep working, then tap Sync now after reconnecting.',
+      'Temporary internet loss is safe. When you reconnect, YouDO uploads only if the cloud copy has not changed elsewhere.',
+      'If two devices changed, sync pauses and preserves both copies until you review or combine them in Settings.',
       'Before signing out or changing phones, wait for sync or export a JSON backup.',
     ],
     mock: 'sync' as const,
@@ -262,7 +263,7 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
       </div>
       <div>
         <div className="text-[12px] font-semibold text-content-primary">This phone ↔ your cloud copy</div>
-        <div className="text-[11px] text-content-secondary mt-0.5">Local first. Sync after reconnecting.</div>
+        <div className="text-[11px] text-content-secondary mt-0.5">Local first. Conflicts pause before overwrite.</div>
       </div>
     </div>
   );

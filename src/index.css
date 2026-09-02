@@ -977,10 +977,19 @@ input[type='datetime-local'] {
 .settings-data-row {
   min-height: 70px;
   gap: 12px;
+  flex-wrap: nowrap;
   transition: background 180ms ease;
 }
 
-.settings-data-row > div { min-width: 0; }
+.settings-data-row > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-data-row > svg:last-child,
+.settings-data-row > button:last-child {
+  flex: 0 0 auto;
+}
 
 .settings-data-row > div > svg {
   width: 38px;

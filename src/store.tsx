@@ -13,7 +13,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
-import { parseBackupPayload } from './lib/backup';
+import { parseBackupPayload, summarizeBackupPayload, type BackupSummary } from './lib/backup';
 import { guardWallClock, hasClockIncident } from './lib/deviceClock';
 import { formatWallClock } from './lib/format';
 import {
@@ -57,8 +57,15 @@ import {
 } from './lib/goalTree';
 import { uid } from './lib/ids';
 import { APP_VERSION } from './lib/version';
-import { STORAGE_KEYS, readWorkspaceUpdatedAt, writeWorkspaceUpdatedAt } from './lib/storageKeys';
-import { mergeWorkspace, workspaceSignature, type TrashRecord } from './lib/syncMerge';
+import {
+  STORAGE_KEYS,
+  readWorkspaceCloudFingerprint,
+  readWorkspaceUpdatedAt,
+  writeWorkspaceCloudFingerprint,
+  writeWorkspaceUpdatedAt,
+} from './lib/storageKeys';
+import { mergeWorkspace, workspaceFingerprint, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
+import { decideSyncAction, type SyncConflictStrategy } from './lib/syncDecision';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 import {
   applyStreakBarHours,
@@ -120,6 +127,13 @@ export interface GoalTreeChangeResult {
   error?: 'stale' | 'unchanged' | 'active-session';
 }
 
+type CloudSyncOptions = {
+  allowEmpty?: boolean;
+  conflictStrategy?: SyncConflictStrategy;
+};
+
+type CloudSyncResult = { ok: boolean; error?: string; conflict?: boolean };
+
 interface Store {
   tasks: Task[];
   goals: GoalNode[];
@@ -178,13 +192,14 @@ interface Store {
   /** Import full state from JSON string backup */
   importBackup: (jsonStr: string) => boolean;
   /** Sync current state to Supabase cloud metadata */
-  syncToCloud: (opts?: { allowEmpty?: boolean }) => Promise<{ ok: boolean; error?: string }>;
+  syncToCloud: (opts?: CloudSyncOptions) => Promise<CloudSyncResult>;
+  cloudSyncConflict: boolean;
   /** Restore state from Supabase cloud metadata */
   restoreFromCloud: () => Promise<boolean>;
   restoreFromVisitSnapshot: (snapshotId: string) => Promise<boolean>;
   listCloudRestorePoints: () => Promise<{
-    live: { updatedAt: string } | null;
-    visits: { id: string; createdAt: string }[];
+    live: { updatedAt: string; summary: BackupSummary | null } | null;
+    visits: { id: string; createdAt: string; summary: BackupSummary | null }[];
   }>;
   /** Drop sittings older than 90 days from this device. */
   pruneOldSessions: () => number;
@@ -278,6 +293,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     defaultStreakMeta(todayISO()),
   );
   const [pacePrefs, setPacePrefs] = useLocalStorage<PacePrefs>(STORAGE_KEYS.pacePrefs, defaultPacePrefs());
+  const [cloudSyncConflict, setCloudSyncConflict] = useState(false);
 
   // Invalidate rollup cache whenever goals tree changes
   useEffect(() => {
@@ -1489,116 +1505,177 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setStreakMeta],
   );
 
-  const lastCloudPayloadRef = useRef<string>('');
-
-  const syncToCloud = useCallback(async (opts?: { allowEmpty?: boolean }): Promise<{ ok: boolean; error?: string }> => {
-    if (!opts?.allowEmpty) {
-      const currentSig = workspaceSignature({
-        tasks: tasksRef.current,
-        goals: goalsRef.current,
-        sessionHistory: sessionHistoryRef.current,
-        recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
-        streakMeta: streakMetaRef.current,
-        pacePrefs: pacePrefsRef.current,
-      });
-      if (currentSig === lastCloudPayloadRef.current) return { ok: true };
-    }
-
-    if (!opts?.allowEmpty && tasksRef.current.length === 0 && goalsRef.current.length === 0) {
-      return { ok: false, error: 'This device is empty. Restore from cloud, or tap Clear cloud backup if you meant to wipe it.' };
-    }
-
-    if (!opts?.allowEmpty) {
-      const remoteStr = await fetchCloudBackup();
-      if (remoteStr) {
-        const parsed = parseBackupPayload(remoteStr);
-        if (parsed) {
-          const localSlice = {
-            tasks: tasksRef.current,
-            goals: goalsRef.current,
-            sessionHistory: sessionHistoryRef.current,
-            recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
-            streakMeta: streakMetaRef.current,
-            pacePrefs: pacePrefsRef.current,
-            updatedAt: workspaceUpdatedAtRef.current,
-          };
-          const remoteSlice = {
-            tasks: parsed.tasks,
-            goals: parsed.goals,
-            sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
-            recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
-              ? (parsed.recentlyDeletedGoals as TrashRecord[])
-              : [],
-            streakMeta: sanitizeStreakMeta(parsed.streakMeta, todayISO()),
-            pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
-            updatedAt: parsed.updatedAt ?? 0,
-          };
-          const merged = mergeWorkspace(localSlice, remoteSlice);
-          const runningTaskId = activeSessionRef.current?.taskId;
-          if (runningTaskId) {
-            const localRunningTask = localSlice.tasks.find((task) => task.id === runningTaskId);
-            const mergedRunningTask = merged.tasks.find((task) => task.id === runningTaskId);
-            if (!localRunningTask || !mergedRunningTask || !sameTasks([localRunningTask], [mergedRunningTask])) {
-              return { ok: false, error: 'End the current sitting before merging workspace changes to its task.' };
-            }
-          }
-          if (workspaceSignature(merged) !== workspaceSignature(localSlice)) {
-            tasksRef.current = merged.tasks;
-            goalsRef.current = merged.goals;
-            sessionHistoryRef.current = merged.sessionHistory;
-            recentlyDeletedRef.current = merged.recentlyDeletedGoals as typeof recentlyDeletedRef.current;
-            if (merged.streakMeta) {
-              streakMetaRef.current = merged.streakMeta;
-              setStreakMeta(merged.streakMeta);
-            }
-            if (merged.pacePrefs) {
-              pacePrefsRef.current = merged.pacePrefs;
-              setPacePrefs(merged.pacePrefs);
-            }
-            if (merged.updatedAt) {
-              workspaceUpdatedAtRef.current = merged.updatedAt;
-              writeWorkspaceUpdatedAt(merged.updatedAt);
-            }
-            setTasks(merged.tasks);
-            setGoals(merged.goals);
-            setSessionHistory(merged.sessionHistory);
-            setRecentlyDeletedGoals(merged.recentlyDeletedGoals as typeof recentlyDeletedGoals);
-          }
-        }
-      }
-    }
-
-    const payload = {
-      app: 'YouDO',
-      version: APP_VERSION,
-      exportedAt: new Date().toISOString(),
-      updatedAt: workspaceUpdatedAtRef.current || Date.now(),
+  const performCloudSync = useCallback(async (opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
+    const currentSlice = (): WorkspaceSlice => ({
       tasks: tasksRef.current,
       goals: goalsRef.current,
       sessionHistory: sessionHistoryRef.current,
-      recentlyDeletedGoals: recentlyDeletedRef.current,
+      recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
       streakMeta: streakMetaRef.current,
       pacePrefs: pacePrefsRef.current,
-    };
-    const signature = workspaceSignature({
-      tasks: payload.tasks,
-      goals: payload.goals,
-      sessionHistory: payload.sessionHistory,
-      recentlyDeletedGoals: payload.recentlyDeletedGoals as TrashRecord[],
-      streakMeta: payload.streakMeta,
-      pacePrefs: payload.pacePrefs,
+      updatedAt: workspaceUpdatedAtRef.current,
     });
-    if (signature === lastCloudPayloadRef.current) return { ok: true };
-    const result = await updateCloudBackup(payload);
-    if (result.ok) lastCloudPayloadRef.current = signature;
-    return result;
-  }, [updateCloudBackup, fetchCloudBackup, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs]);
+    const remoteInfo = await fetchLiveBackupInfo();
+    const remoteParsed = remoteInfo ? parseBackupPayload(remoteInfo.backupData) : null;
+    const remoteSlice: WorkspaceSlice | null = remoteParsed
+      ? {
+          tasks: remoteParsed.tasks,
+          goals: remoteParsed.goals,
+          sessionHistory: sanitizeSessionHistory(remoteParsed.sessionHistory),
+          recentlyDeletedGoals: Array.isArray(remoteParsed.recentlyDeletedGoals)
+            ? (remoteParsed.recentlyDeletedGoals as TrashRecord[])
+            : [],
+          streakMeta: sanitizeStreakMeta(remoteParsed.streakMeta, todayISO()),
+          pacePrefs: sanitizePacePrefs(remoteParsed.pacePrefs),
+          updatedAt: remoteParsed.updatedAt ?? 0,
+        }
+      : null;
+    let localSlice = currentSlice();
+    let localFingerprint = workspaceFingerprint(localSlice);
+    const remoteFingerprint = remoteSlice ? workspaceFingerprint(remoteSlice) : null;
+    const baseFingerprint = readWorkspaceCloudFingerprint();
+    const localEmpty = localSlice.tasks.length === 0 && localSlice.goals.length === 0;
+
+    const applySlice = (next: WorkspaceSlice) => {
+      tasksRef.current = next.tasks;
+      goalsRef.current = next.goals;
+      sessionHistoryRef.current = next.sessionHistory;
+      recentlyDeletedRef.current = next.recentlyDeletedGoals as typeof recentlyDeletedRef.current;
+      if (next.streakMeta) {
+        streakMetaRef.current = next.streakMeta;
+        setStreakMeta(next.streakMeta);
+      }
+      if (next.pacePrefs) {
+        pacePrefsRef.current = next.pacePrefs;
+        setPacePrefs(next.pacePrefs);
+      }
+      if (next.updatedAt) {
+        workspaceUpdatedAtRef.current = next.updatedAt;
+        writeWorkspaceUpdatedAt(next.updatedAt);
+      }
+      setTasks(next.tasks);
+      setGoals(next.goals);
+      setSessionHistory(next.sessionHistory);
+      setRecentlyDeletedGoals(next.recentlyDeletedGoals as typeof recentlyDeletedGoals);
+    };
+
+    const pullRemote = (): { ok: boolean; error?: string } => {
+      if (!remoteInfo || !remoteSlice || !remoteFingerprint) return { ok: false, error: 'No valid cloud copy was found.' };
+      if (activeSessionRef.current) return { ok: false, error: 'End the current sitting before replacing this device workspace.' };
+      applySlice(remoteSlice);
+      writeWorkspaceCloudFingerprint(remoteFingerprint);
+      setCloudSyncConflict(false);
+      return { ok: true };
+    };
+
+    const pushCurrent = async () => {
+      const payload = {
+        app: 'YouDO',
+        version: APP_VERSION,
+        exportedAt: new Date().toISOString(),
+        updatedAt: workspaceUpdatedAtRef.current || Date.now(),
+        tasks: tasksRef.current,
+        goals: goalsRef.current,
+        sessionHistory: sessionHistoryRef.current,
+        recentlyDeletedGoals: recentlyDeletedRef.current,
+        streakMeta: streakMetaRef.current,
+        pacePrefs: pacePrefsRef.current,
+      };
+      const fingerprint = workspaceFingerprint(payload);
+      const result = await updateCloudBackup(payload, { expectedUpdatedAt: remoteInfo?.updatedAt ?? null });
+      if (result.ok) {
+        writeWorkspaceCloudFingerprint(fingerprint);
+        setCloudSyncConflict(false);
+        return result;
+      }
+      const raced = /changed on another device|created on another device/i.test(result.error ?? '');
+      if (raced) setCloudSyncConflict(true);
+      return { ...result, conflict: raced || undefined };
+    };
+
+    const decision = decideSyncAction({
+      localFingerprint,
+      remoteFingerprint,
+      baseFingerprint,
+      localEmpty,
+      allowEmpty: opts?.allowEmpty,
+      conflictStrategy: opts?.conflictStrategy,
+    });
+
+    if (decision === 'noop') {
+      writeWorkspaceCloudFingerprint(remoteFingerprint!);
+      setCloudSyncConflict(false);
+      return { ok: true };
+    }
+    if (decision === 'pull') return pullRemote();
+    if (decision === 'push') return pushCurrent();
+    if (decision === 'empty-error') {
+      return { ok: false, error: 'This device is empty. Restore from cloud, or tap Clear cloud backup if you meant to wipe it.' };
+    }
+    if (decision === 'merge') {
+      if (!remoteSlice) return { ok: false, error: 'No valid cloud copy was found to combine.' };
+      const merged = mergeWorkspace(localSlice, remoteSlice);
+      const runningTaskId = activeSessionRef.current?.taskId;
+      if (runningTaskId) {
+        const localRunningTask = localSlice.tasks.find((task) => task.id === runningTaskId);
+        const mergedRunningTask = merged.tasks.find((task) => task.id === runningTaskId);
+        if (!localRunningTask || !mergedRunningTask || !sameTasks([localRunningTask], [mergedRunningTask])) {
+          return { ok: false, error: 'End the current sitting before combining workspace changes.' };
+        }
+      }
+      applySlice(merged);
+      localSlice = currentSlice();
+      localFingerprint = workspaceFingerprint(localSlice);
+      if (localFingerprint === remoteFingerprint) {
+        writeWorkspaceCloudFingerprint(remoteFingerprint);
+        setCloudSyncConflict(false);
+        return { ok: true };
+      }
+      return pushCurrent();
+    }
+    setCloudSyncConflict(true);
+    return {
+      ok: false,
+      conflict: true,
+      error: !remoteSlice
+        ? 'The cloud copy disappeared. This device was preserved; review before recreating cloud data.'
+        : baseFingerprint
+          ? 'Sync paused: this device and another device both changed. Nothing was overwritten.'
+          : 'Sync paused for a one-time safety check because this device and cloud contain different work.',
+    };
+  }, [updateCloudBackup, fetchLiveBackupInfo, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs]);
+
+  const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const syncToCloud = useCallback((opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
+    const run = syncQueueRef.current.then(
+      () => performCloudSync(opts),
+      () => performCloudSync(opts),
+    );
+    syncQueueRef.current = run.then(() => undefined, () => undefined);
+    return run;
+  }, [performCloudSync]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
     const jsonStr = await fetchCloudBackup();
     if (!jsonStr) return false;
     try {
-      return importBackup(jsonStr);
+      const parsed = parseBackupPayload(jsonStr);
+      if (!parsed) return false;
+      const ok = importBackup(jsonStr);
+      if (ok) {
+        writeWorkspaceCloudFingerprint(workspaceFingerprint({
+          tasks: parsed.tasks,
+          goals: parsed.goals,
+          sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
+          recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
+            ? (parsed.recentlyDeletedGoals as TrashRecord[])
+            : [],
+          streakMeta: sanitizeStreakMeta(parsed.streakMeta, todayISO()),
+          pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
+        }));
+        setCloudSyncConflict(false);
+      }
+      return ok;
     } catch {
       return false;
     }
@@ -1608,7 +1685,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const jsonStr = await fetchVisitSnapshot(snapshotId);
     if (!jsonStr) return false;
     try {
-      return importBackup(jsonStr);
+      const parsed = parseBackupPayload(jsonStr);
+      if (!parsed) return false;
+      const ok = importBackup(jsonStr);
+      if (ok) {
+        // This restored copy intentionally differs from live cloud; the next sync must review it.
+        setCloudSyncConflict(true);
+      }
+      return ok;
     } catch {
       return false;
     }
@@ -1616,11 +1700,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const listCloudRestorePoints = useCallback(async () => {
     const [live, visits] = await Promise.all([fetchLiveBackupInfo(), listVisitSnapshots()]);
+    const visitsWithSummary = await Promise.all(
+      visits.map(async (visit) => {
+        const backupData = await fetchVisitSnapshot(visit.id);
+        return { ...visit, summary: backupData ? summarizeBackupPayload(backupData) : null };
+      }),
+    );
     return {
-      live: live ? { updatedAt: live.updatedAt } : null,
-      visits,
+      live: live
+        ? { updatedAt: live.updatedAt, summary: summarizeBackupPayload(live.backupData) }
+        : null,
+      visits: visitsWithSummary,
     };
-  }, [fetchLiveBackupInfo, listVisitSnapshots]);
+  }, [fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot]);
 
   const pruneOldSessions = useCallback((): number => {
     const cutoff = Date.now() - SESSION_HISTORY_KEEP_MS;
@@ -1633,28 +1725,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return before - after;
   }, [setSessionHistory]);
 
-  // Auto-restore / Auto-push on user auth change
+  // Reconcile against the cloud on auth change. syncToCloud only pushes when
+  // this device is the sole editor; concurrent edits pause instead of overwriting.
   useEffect(() => {
     if (!user) return;
-    // When user logs in: check if local state is empty, if so auto-restore from cloud
-    const autoRestoreOrPush = async () => {
-      if (tasksRef.current.length === 0 && goalsRef.current.length === 0) {
-        const jsonStr = await fetchCloudBackup();
-        if (jsonStr) {
-          importBackup(jsonStr);
-        }
-      } else {
-        syncToCloud();
-      }
-    };
-    autoRestoreOrPush();
+    void syncToCloud();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Automatic Background Push: debounced 2s after any data change.
+  // Automatic reconciliation: debounced 2s after any data change.
   // syncToCloud is intentionally excluded from deps — it is a stable useCallback ref
   // and including it would cause the effect to re-trigger after each cloud merge,
-  // creating a loop. The early-exit signature check inside syncToCloud handles redundant calls.
+  // creating a loop. Persisted fingerprints prevent redundant writes and detect two-device edits.
   useEffect(() => {
     if (!user) return;
     const timer = setTimeout(() => { syncToCloud(); }, 2000);
@@ -1679,7 +1761,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
-      exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      exportBackup, importBackup, syncToCloud, cloudSyncConflict, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       pruneOldSessions,
       sessionHistory,
       completeSessionSteps,
@@ -1696,7 +1778,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
-      exportBackup, importBackup, syncToCloud, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      exportBackup, importBackup, syncToCloud, cloudSyncConflict, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       pruneOldSessions,
       sessionHistory, completeSessionSteps, streakMeta, setStreakMeta, setStreakBarHours,
       pacePrefs, updatePacePrefs, publishPublicPace],
