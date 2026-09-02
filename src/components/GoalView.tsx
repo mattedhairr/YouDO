@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -7,6 +7,7 @@ import {
   FileText,
   Flag,
   Layers,
+  Link2,
   ListTree,
   Pencil,
   Pin,
@@ -107,6 +108,8 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [pathMapOpen, setPathMapOpen] = useState(false);
+  const siblingStripRef = useRef<HTMLDivElement>(null);
+  const pendingSiblingScrollRef = useRef<number | null>(null);
 
   // Register clearSelection so App can call it when batch actions complete
   useEffect(() => {
@@ -234,10 +237,32 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
   const jumpToSibling = (node: GoalNode) => {
     if (node.id === current?.id) return;
+    pendingSiblingScrollRef.current = siblingStripRef.current?.scrollLeft ?? null;
     setPathIds([...pathIds.slice(0, -1), node.id]);
     setSelected(new Set());
     onSelectionChange([], []);
   };
+
+  useLayoutEffect(() => {
+    const strip = siblingStripRef.current;
+    if (!strip || !current) return;
+    const preservedLeft = pendingSiblingScrollRef.current;
+    pendingSiblingScrollRef.current = null;
+    if (preservedLeft != null) {
+      strip.scrollLeft = preservedLeft;
+      return;
+    }
+
+    const active = strip.querySelector<HTMLElement>(`[data-sibling-id="${CSS.escape(current.id)}"]`);
+    if (!active) return;
+    const stripRect = strip.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    if (activeRect.left < stripRect.left) {
+      strip.scrollLeft -= stripRect.left - activeRect.left + 8;
+    } else if (activeRect.right > stripRect.right) {
+      strip.scrollLeft += activeRect.right - stripRect.right + 8;
+    }
+  }, [current, siblings]);
 
   const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
     // Generalized rule: If pinned item has children (Goal/Phase/Section/Task/Sub), drill INTO it to display its children.
@@ -322,7 +347,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
         {siblings.length > 1 && current && (
           <div className="rounded-[14px] border border-subtle bg-surface/80 shadow-card px-2 py-2">
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar" aria-label="Sibling branches">
+            <div ref={siblingStripRef} className="flex items-center gap-2 overflow-x-auto no-scrollbar" aria-label="Sibling branches">
               <span className="shrink-0 pl-1 text-[9px] font-bold uppercase tracking-[0.14em] text-content-muted">Branches</span>
               <span className="h-4 w-px shrink-0 bg-border-subtle" aria-hidden />
             {siblings.map((node) => {
@@ -330,6 +355,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               return (
                 <button
                   key={node.id}
+                  data-sibling-id={node.id}
                   type="button"
                   onClick={() => jumpToSibling(node)}
                   title={node.title}
@@ -418,7 +444,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               {pinned.map((p, i) => {
                 const meta = kindMeta[p.node.kind];
                 const Icon = meta.icon;
-                const pathLabel = p.path.slice(0, -1).map((n) => n.title).join(' / ') || 'Root goal';
+                const ancestors = p.path.slice(0, -1);
+                const badgeNodes = ancestors.filter((node) => node.kind === 'goal' || node.kind === 'phase');
+                const contextNodes = ancestors.filter((node) => node.kind !== 'goal' && node.kind !== 'phase');
+                const pathLabel = ancestors.map((n) => n.title).join(' / ') || 'Root goal';
                 const pPct = rollupPct(p.node);
                 return (
                   <button
@@ -429,10 +458,20 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                       i < pinned.length - 1 ? 'border-b border-subtle' : ''
                     }`}
                   >
-                    <Icon size={15} style={{ color: meta.tint }} className="shrink-0" />
+                    <Icon size={15} style={{ color: meta.tint }} className="mt-1 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13.5px] font-semibold text-content-primary truncate">{p.node.title}</div>
-                      <div className="mt-0.5 text-[11px] text-content-muted truncate">{pathLabel}</div>
+                      {badgeNodes.length > 0 && (
+                        <div className="mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-subtle bg-base px-2 py-0.5 text-[10px] font-semibold text-primary">
+                          <Link2 size={10} className="shrink-0" />
+                          <span className="min-w-0 whitespace-normal break-words">
+                            {badgeNodes.map((node) => node.title).join(' · ')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="text-[13.5px] font-semibold leading-snug text-content-primary break-words">{p.node.title}</div>
+                      <div className="mt-0.5 text-[11px] leading-relaxed text-content-muted whitespace-normal break-words">
+                        {contextNodes.length > 0 ? contextNodes.map((node) => node.title).join(' / ') : badgeNodes.length === 0 ? pathLabel : meta.label}
+                      </div>
                     </div>
                     <span
                       className={`text-[12px] font-semibold tabular-nums shrink-0 ${
