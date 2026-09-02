@@ -121,10 +121,10 @@ Blueprint Studio now behaves like a real working surface rather than a sequence 
 - Studio changes remain isolated from the saved workspace until one atomic final commit; stale goal data and active-session branch removal are still rejected safely.
 - Existing goal completion, scheduling links, Today-task progress, and historical Plan records remain intact unless their branch is intentionally removed.
 - Review-path detection covers additions, edits, steps, and removals so unrelated branches remain collapsed even in a large blueprint.
-- Android CI verifies the release version and the permanent v6+ signing certificate before uploading the APK.
+- Android CI now verifies versionName **6.1.0**, versionCode **27**, and the permanent v6+ signing certificate before uploading the APK.
 
 ### 💾 Data Safety
-- **Android APK**: versionName **6.1.1**, versionCode **28**. Same package id `com.mattedhairr.youdo` and the permanent v6+ signing identity — install directly over **6.1.0** (27) without uninstalling or clearing app data.
+- **Android APK**: versionName **6.1.0**, versionCode **27**. Same package id `com.mattedhairr.youdo` and the permanent v6+ signing identity — install directly over **6.0.0** (26) without uninstalling or clearing app data.
 - The v6.0.0 in-app updater can discover this stable GitHub Release, show its first three highlights, and open the official download page; YouDO never installs an APK silently.
 - A Studio draft changes no saved goal data until **Save blueprint** succeeds. Leaving with unapplied work requires explicit discard confirmation, and the latest draft operation remains undoable before saving.
 
