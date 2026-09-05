@@ -4,6 +4,16 @@ Published release history, newest first. Each entry focuses on what changed for 
 
 ---
 
+## [v6.3.0] — 2026-09-05 — A sharper Board, safer momentum
+
+- **Focus Board redesigned** — A consistent leaderboard now highlights the top three, ranks strictly by real net-focus hours, and shows each aspirant's personal-bar progress.
+- **Full-period bars** — Weekly bars target seven daily bars; monthly bars target every day in the calendar month. Going beyond the target is shown as an achievement.
+- **Safer continuation** — Blueprint Studio protects unfinished drafts on exit, while unfinished focus work can keep a short resume note that clears when the task is completed.
+- **Everyday polish** — Parent Goal deadlines and descriptions are clearer; Android startup and keyboard handling are more reliable.
+- **Android APK** — versionName **6.3.0**, versionCode **31**. Installs directly over **v6.2.0** without uninstalling or clearing data.
+
+---
+
 ## [v6.2.0] — 2026-09-02 — Safer sync, clearer Goals
 
 - **Reliable multi-device sync** — Normal device and cloud changes now sync automatically without false “Combine copies” prompts. YouDO checks for newer cloud work when returning to the app; genuine simultaneous edits still pause safely with both copies preserved.
