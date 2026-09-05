@@ -10,9 +10,11 @@ import {
   normalizeBlueprintTitles,
   numberedBlueprintTitles,
   removeBlueprintNodes,
+  removeBlueprintSteps,
   reconcileBlueprintTasks,
   renameBlueprintStep,
   renameBlueprintNodes,
+  updateBlueprintNodes,
 } from './blueprintStudio';
 
 function node(id: string, kind: GoalNode['kind'], title: string, children: GoalNode[] = []): GoalNode {
@@ -55,6 +57,19 @@ describe('Blueprint Studio tree operations', () => {
     expect(result.added).toBe(0);
   });
 
+  it('removes unfinished bulk steps while protecting completed work', () => {
+    const first = { ...node('l1', 'leaf', 'One'), steps: ['Read', 'Revise', 'Test'], stepDone: [true, false, false] };
+    const second = { ...node('l2', 'leaf', 'Two'), steps: ['Read', 'Revise'], stepDone: [false, false] };
+    const result = removeBlueprintSteps([first, second], ['l1', 'l2'], ['Read', 'Revise']);
+    expect(result.removed).toBe(3);
+    expect(result.affected).toBe(2);
+    expect(result.protectedCompleted).toBe(1);
+    expect(result.goals[0].steps).toEqual(['Read', 'Test']);
+    expect(result.goals[0].stepDone).toEqual([true, false]);
+    expect(result.goals[1].steps).toEqual([]);
+    expect(result.goals[1].completed).toBe(false);
+  });
+
   it('renames one existing step while preserving its completion state', () => {
     const leaf = { ...node('l', 'leaf', 'Leaf'), steps: ['Watch', 'Notes'], stepDone: [true, false], completed: false };
     const result = renameBlueprintStep([leaf], 'l', 1, 'Review notes');
@@ -69,6 +84,23 @@ describe('Blueprint Studio tree operations', () => {
     expect(renamed[0].children[0].title).toBe('New');
     expect(goals[0].children[0].title).toBe('Old');
     expect(removeBlueprintNodes(renamed, ['p', 's'])[0].children).toEqual([]);
+  });
+
+  it('bulk edits descriptions without changing child branches', () => {
+    const goals = [node('g', 'goal', 'Goal', [
+      { ...node('p1', 'phase', 'Old one', [node('s1', 'section', 'Child')]), description: 'Previous note' },
+      node('p2', 'phase', 'Old two'),
+    ])];
+    const updated = updateBlueprintNodes(goals, {
+      p1: { title: 'New one', description: 'First phase context' },
+      p2: { title: 'New two', description: '' },
+    });
+    expect(updated[0].children[0]).toMatchObject({ title: 'New one', description: 'First phase context' });
+    expect(updated[0].children[0].children[0].title).toBe('Child');
+    expect(updated[0].children[1]).toMatchObject({ title: 'New two' });
+    expect(updated[0].children[1].description).toBeUndefined();
+    expect(goals[0].children[0].title).toBe('Old one');
+    expect(goals[0].children[0].description).toBe('Previous note');
   });
 
   it('counts nodes and depth for review', () => {

@@ -286,6 +286,7 @@ export function duplicateTaskAsFresh(
     originalTargetDate: undefined,
     pastFailedNativeDates: undefined,
     pastFailedBacklogDates: undefined,
+    resumeNote: undefined,
   };
 }
 
@@ -348,13 +349,14 @@ export function isMutableGoalPlan(task: Task, node: GoalNode, today = todayISO()
 /** When overdue work is finished today, stamp today as the clear date and keep the miss for calendar/stats. */
 export function clearBacklogIfComplete(task: Task, today = todayISO()): Task {
   if (!isTaskComplete(task)) return task;
+  const completedTask = task.resumeNote ? { ...task, resumeNote: undefined } : task;
   const missed =
-    task.originalTargetDate ||
-    (task.targetDate && task.targetDate < today ? task.targetDate : null);
-  if (!missed) return task;
-  const failed = task.pastFailedNativeDates ?? [];
+    completedTask.originalTargetDate ||
+    (completedTask.targetDate && completedTask.targetDate < today ? completedTask.targetDate : null);
+  if (!missed) return completedTask;
+  const failed = completedTask.pastFailedNativeDates ?? [];
   return {
-    ...task,
+    ...completedTask,
     originalTargetDate: missed,
     targetDate: today,
     pastFailedNativeDates: failed.includes(missed) ? failed : [...failed, missed],

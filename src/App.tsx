@@ -296,8 +296,17 @@ function AppInner() {
       return true;
     }
     if (blueprintStudioOpen) {
-      setBlueprintStudioOpen(false);
-      if (window.history.state?.modal) window.history.back();
+      // The Studio owns its draft. Route device/browser Back into it so an
+      // unsaved blueprint cannot be closed behind its discard confirmation.
+      const poppedModalEntry = !window.history.state?.modal;
+      if (poppedModalEntry) {
+        try {
+          window.history.pushState({ modal: true }, '', window.location.href);
+        } catch {
+          /* Keep the Studio open even if the browser blocks history access. */
+        }
+      }
+      window.dispatchEvent(new Event('youdo:blueprint-back-request'));
       return true;
     }
     if (settingsOpen) {

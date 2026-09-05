@@ -26,12 +26,12 @@ type GateState = 'checking' | 'ready' | 'legacy' | 'mismatch';
 
 function Brand() {
   return (
-    <div className="flex items-center justify-center gap-2" aria-label="YouDO">
-      <svg width="38" height="42" viewBox="4 3.5 16 17.5" fill="none" aria-hidden="true">
+    <div className="inline-flex items-center justify-center" aria-label="YouDO">
+      <svg width="42" height="46" viewBox="4 3.5 16 17.5" fill="none" aria-hidden="true" className="shrink-0">
         <path d="M5 4.5L12 13.25V19.5" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M19 4.5L12 13.25L9.25 10" stroke="var(--secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="text-[29px] tracking-[-0.06em] text-content-secondary">ou<span className="font-semibold text-content-primary">DO</span></span>
+      <span className="-ml-2 text-[28px] leading-none tracking-[-0.06em] text-content-secondary">ou<span className="font-semibold text-content-primary">DO</span></span>
     </div>
   );
 }
@@ -62,10 +62,12 @@ function localBackupPayload() {
 
 function LoadingGate() {
   return (
-    <div className="min-h-screen bg-base text-content-primary grid place-items-center px-6">
-      <div className="text-center space-y-4">
+    <div className="min-h-screen min-h-[100dvh] bg-base text-content-primary grid place-items-center px-6" aria-live="polite" aria-label="Opening YouDO">
+      <div className="text-center space-y-3">
         <Brand />
-        <div className="mx-auto size-5 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
+        <div className="mx-auto h-0.5 w-12 overflow-hidden rounded-full bg-border-subtle">
+          <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
+        </div>
       </div>
     </div>
   );

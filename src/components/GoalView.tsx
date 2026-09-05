@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   CircleDot,
   Copy,
   FileText,
@@ -31,6 +34,7 @@ import {
   useStore,
 } from '../store';
 import Overlay from './Overlay';
+import { deadlineDaysLabel, todayISO } from '../lib/dates';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
   if (!targetDate) return 'Scheduled';
@@ -43,6 +47,24 @@ function getScheduledDateLabel(targetDate: string | null | undefined): string {
   if (targetDate === tomStr) return 'Tomorrow';
   return formatDDMMYYYY(targetDate);
 }
+
+function formatGoalDateRange(startDate: string | null | undefined, endDate: string | null | undefined): string {
+  const format = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  });
+  const start = startDate ?? endDate;
+  const end = endDate ?? startDate;
+  if (!start || !end) return '';
+
+  const startParts = new Date(`${start}T00:00:00`);
+  const endParts = new Date(`${end}T00:00:00`);
+  if (start !== end && startParts.getFullYear() === endParts.getFullYear() && startParts.getMonth() === endParts.getMonth()) {
+    return `${startParts.getDate()}–${format(end)}`;
+  }
+  return start === end ? format(start) : `${format(start)} – ${format(end)}`;
+}
+
 function findGoalInTree(id: string, nodes: GoalNode[]): GoalNode | undefined {
   for (const n of nodes) {
     if (n.id === id) return n;
@@ -108,6 +130,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [pathMapOpen, setPathMapOpen] = useState(false);
+  const [parentDescriptionExpanded, setParentDescriptionExpanded] = useState(false);
   const siblingStripRef = useRef<HTMLDivElement>(null);
   const pendingSiblingScrollRef = useRef<number | null>(null);
 
@@ -121,6 +144,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
   useEffect(() => {
     setPathMapOpen(false);
+    setParentDescriptionExpanded(false);
   }, [pathIds]);
 
   const current = useMemo(() => {
@@ -502,20 +526,25 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       {current && (
         <div className="bg-surface border border-subtle rounded-[16px] shadow-card p-4 mb-3.5 fade-in">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="min-w-0 flex-1">
               {(() => {
                 const Icon = kindMeta[current.kind].icon;
-                return <Icon size={16} style={{ color: kindMeta[current.kind].tint }} className="shrink-0" />;
+                return (
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: kindMeta[current.kind].tint }}>
+                    <Icon size={13} className="shrink-0" />
+                    {kindMeta[current.kind].label}
+                  </div>
+                );
               })()}
-              <h2 className="text-base font-bold text-content-primary truncate leading-snug">{current.title}</h2>
+              <h2 className="mt-1 text-[19px] font-bold tracking-[-0.02em] text-content-primary truncate leading-tight">{current.title}</h2>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0 -mt-1">
               {(() => {
                 const parentPct = rollupPct(current);
                 const isParentDone = parentPct >= 100;
                 return (
                   <span
-                    className={`text-lg font-bold tabular-nums px-0.5 ${
+                    className={`mr-1 text-base font-bold tabular-nums px-0.5 ${
                       isParentDone ? 'text-secondary' : parentPct > 0 ? 'text-primary' : 'text-content-muted'
                     }`}
                   >
@@ -536,16 +565,24 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             </div>
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-content-secondary">
-            <span className="shrink-0 whitespace-nowrap font-medium" style={{ color: kindMeta[current.kind].tint }}>
-              {kindMeta[current.kind].label}
+          <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-content-secondary">
+            <span className="shrink-0 whitespace-nowrap tabular-nums font-medium">
+              {countCompletedDirectChildren(current)} of {countDirectChildren(current)} complete
             </span>
-            <span className="shrink-0 whitespace-nowrap tabular-nums">
-              {countCompletedDirectChildren(current)}/{countDirectChildren(current)} done
-            </span>
+            {(current.startDate || current.endDate) && (
+              <span className="inline-flex items-center gap-1 tabular-nums text-content-muted">
+                <CalendarDays size={11} />
+                {formatGoalDateRange(current.startDate, current.endDate)}
+              </span>
+            )}
+            {current.endDate && (
+              <span className={`${current.endDate < todayISO() ? 'text-error' : current.endDate === todayISO() ? 'text-primary' : 'text-secondary'} font-bold`}>
+                {deadlineDaysLabel(current.endDate)}
+              </span>
+            )}
           </div>
 
-          <div className="mt-3 h-2 rounded-full bg-border-subtle overflow-hidden">
+          <div className="mt-2.5 h-1.5 rounded-full bg-border-subtle overflow-hidden">
             {(() => {
               const parentPct = rollupPct(current);
               const isParentDone = parentPct >= 100;
@@ -560,6 +597,23 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               );
             })()}
           </div>
+
+          {current.description && (
+            <div className="mt-3 pt-3 border-t border-subtle">
+              <p className={`text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap ${parentDescriptionExpanded ? '' : 'line-clamp-2'}`}>
+                {current.description}
+              </p>
+              {current.description.length > 110 && (
+                <button
+                  type="button"
+                  onClick={() => setParentDescriptionExpanded((value) => !value)}
+                  className="mt-1.5 inline-flex items-center gap-1 text-[10.5px] font-semibold text-primary"
+                >
+                  {parentDescriptionExpanded ? <>Show less <ChevronUp size={12} /></> : <>Read more <ChevronDown size={12} /></>}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

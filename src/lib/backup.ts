@@ -51,6 +51,7 @@ export function normalizeImportedTask(raw: unknown): Task | null {
     pastFailedBacklogDates: Array.isArray(t.pastFailedBacklogDates)
       ? t.pastFailedBacklogDates.filter((d): d is string => typeof d === 'string')
       : undefined,
+    resumeNote: asString(t.resumeNote).trim() || undefined,
   };
 }
 

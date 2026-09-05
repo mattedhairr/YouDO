@@ -39,6 +39,16 @@ export function daysBetweenLocalISO(fromISO: string, toISO: string): number {
   return Math.round((b - a) / 86_400_000);
 }
 
+/** Human warning for a date-only deadline, calculated by local calendar days. */
+export function deadlineDaysLabel(endISO: string, fromISO = todayISO()): string {
+  const days = daysBetweenLocalISO(fromISO, endISO);
+  if (days === 0) return 'Due today';
+  if (days === 1) return '1 day left';
+  if (days > 1) return `${days} days left`;
+  if (days === -1) return 'Overdue by 1 day';
+  return `Overdue by ${Math.abs(days)} days`;
+}
+
 /** First local midnight strictly after `ts`. */
 export function nextLocalMidnight(ts: number): number {
   const d = new Date(ts);
