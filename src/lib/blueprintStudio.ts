@@ -121,6 +121,13 @@ export interface AddStepsResult {
   affected: number;
 }
 
+export interface RemoveStepsResult {
+  goals: GoalNode[];
+  removed: number;
+  affected: number;
+  protectedCompleted: number;
+}
+
 /** Append missing steps to leaf nodes. Duplicate labels are skipped without disturbing completion state. */
 export function addBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps: string[]): AddStepsResult {
   const steps = normalizeBlueprintTitles(rawSteps);
@@ -154,6 +161,51 @@ export function addBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps
   return { goals: next, added, affected };
 }
 
+/** Remove matching unfinished steps from leaves while always preserving completed work. */
+export function removeBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps: string[]): RemoveStepsResult {
+  const selected = new Set(normalizeBlueprintTitles(rawSteps).map((step) => step.toLocaleLowerCase()));
+  if (selected.size === 0 || nodeIds.length === 0) {
+    return { goals, removed: 0, affected: 0, protectedCompleted: 0 };
+  }
+
+  let removed = 0;
+  let affected = 0;
+  let protectedCompleted = 0;
+  const targets = new Set(nodeIds);
+  const next = goals.map((root) => {
+    let changedRoot = root;
+    for (const id of targets) {
+      changedRoot = updateNode(changedRoot, id, (node) => {
+        if (node.kind !== 'leaf') return node;
+        const oldSteps = node.steps ?? [];
+        const oldDone = node.stepDone ?? oldSteps.map(() => false);
+        const keep = oldSteps.map((step, index) => {
+          const matches = selected.has(step.trim().toLocaleLowerCase());
+          if (!matches) return true;
+          if (oldDone[index]) {
+            protectedCompleted += 1;
+            return true;
+          }
+          removed += 1;
+          return false;
+        });
+        if (keep.every(Boolean)) return node;
+        affected += 1;
+        const steps = oldSteps.filter((_, index) => keep[index]);
+        const stepDone = oldDone.filter((_, index) => keep[index]);
+        return {
+          ...node,
+          steps,
+          stepDone,
+          completed: steps.length > 0 && stepDone.every(Boolean),
+        };
+      });
+    }
+    return changedRoot;
+  });
+  return { goals: next, removed, affected, protectedCompleted };
+}
+
 /** Rename one existing micro-step without changing its completion state. */
 export function renameBlueprintStep(goals: GoalNode[], nodeId: string, stepIndex: number, rawTitle: string): GoalNode[] {
   const title = rawTitle.trim().replace(/\s+/g, ' ');
@@ -166,14 +218,39 @@ export function renameBlueprintStep(goals: GoalNode[], nodeId: string, stepIndex
   }));
 }
 
-export function renameBlueprintNodes(goals: GoalNode[], titlesById: Record<string, string>): GoalNode[] {
+export interface BlueprintNodeEdit {
+  title: string;
+  /** An empty string intentionally clears the optional description. */
+  description: string;
+}
+
+/** Update labels and optional descriptions without disturbing the branch below. */
+export function updateBlueprintNodes(goals: GoalNode[], editsById: Record<string, BlueprintNodeEdit>): GoalNode[] {
   let next = goals;
-  for (const [id, rawTitle] of Object.entries(titlesById)) {
-    const title = rawTitle.trim().replace(/\s+/g, ' ');
+  for (const [id, edit] of Object.entries(editsById)) {
+    const title = edit.title.trim().replace(/\s+/g, ' ');
     if (!title) continue;
-    next = next.map((root) => updateNode(root, id, (node) => ({ ...node, title })));
+    const description = edit.description.trim();
+    next = next.map((root) => updateNode(root, id, (node) => {
+      const updated: GoalNode = { ...node, title };
+      if (description) updated.description = description;
+      else delete updated.description;
+      return updated;
+    }));
   }
   return next;
+}
+
+/** Rename helper retained for title-only callers. */
+export function renameBlueprintNodes(goals: GoalNode[], titlesById: Record<string, string>): GoalNode[] {
+  return updateBlueprintNodes(goals, Object.fromEntries(
+    Object.entries(titlesById).map(([id, title]) => [id, { title, description: findBlueprintNodeDescription(goals, id) }]),
+  ));
+}
+
+function findBlueprintNodeDescription(goals: GoalNode[], id: string): string {
+  const node = findGoal(goals, id);
+  return node?.description ?? '';
 }
 
 /** Remove selected branches once. Descendants of another selected node are ignored as redundant targets. */

@@ -37,8 +37,11 @@ import {
   normalizeBlueprintTitles,
   numberedBlueprintTitles,
   removeBlueprintNodes,
+  removeBlueprintSteps,
   renameBlueprintStep,
   renameBlueprintNodes,
+  updateBlueprintNodes,
+  type BlueprintNodeEdit,
 } from '../lib/blueprintStudio';
 import { findGoal } from '../lib/goalTree';
 import Overlay from './Overlay';
@@ -51,6 +54,7 @@ type Screen =
   | { type: 'browse'; parentId: string | null; pathIds: string[]; selectedIds: string[] }
   | { type: 'actions'; selectedIds: string[]; returnBrowse: Extract<Screen, { type: 'browse' }>; allowBuildInside: boolean }
   | { type: 'rename'; selectedIds: string[]; returnBrowse: BrowseScreen }
+  | { type: 'removeSteps'; selectedIds: string[]; returnBrowse: BrowseScreen }
   | { type: 'details'; nodeId: string; returnBrowse: BrowseScreen }
   | { type: 'stepDetails'; nodeId: string; stepIndex: number; returnBrowse: BrowseScreen }
   | { type: 'preview'; summary: string };
@@ -650,6 +654,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
   const changeIdRef = useRef(0);
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const wasOpenRef = useRef(false);
+  const backRequestRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
@@ -726,7 +731,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
     setError(null);
   };
 
-  const targetNodes = screen.type === 'actions' || screen.type === 'rename'
+  const targetNodes = screen.type === 'actions' || screen.type === 'rename' || screen.type === 'removeSteps'
     ? screen.selectedIds.map((id) => findGoal(workingGoals, id)).filter((node): node is GoalNode => Boolean(node))
     : [];
 
@@ -736,6 +741,17 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
   const reviewState = useMemo(() => blueprintReviewState(baseGoals, workingGoals), [baseGoals, workingGoals]);
   const hasDraftChanges = JSON.stringify(baseGoals) !== JSON.stringify(workingGoals);
   const requestClose = () => hasDraftChanges ? setDiscardConfirm(true) : onClose();
+  backRequestRef.current = () => {
+    if (!discardConfirm) goBack();
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDeviceBack = () => backRequestRef.current();
+    window.addEventListener('youdo:blueprint-back-request', handleDeviceBack);
+    return () => window.removeEventListener('youdo:blueprint-back-request', handleDeviceBack);
+  }, [open]);
+
   const onStudioTouchStart = (event: React.TouchEvent) => {
     if (screen.type !== 'browse' || screen.pathIds.length === 0) return;
     const target = event.target as HTMLElement | null;
@@ -833,7 +849,8 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
                   <div className="rounded-[12px] bg-primary-soft border border-primary/15 px-3.5 py-3 text-[12px] text-content-secondary line-clamp-2">{targetNodes.slice(0, 4).map((node) => node.title).join(' · ')}{targetNodes.length > 4 ? ` · +${targetNodes.length - 4}` : ''}</div>
                   <div className="space-y-2.5">
                     {screen.allowBuildInside && sameKind && next && operation(next === 'steps' ? <ListTree size={18} /> : <ListPlus size={18} />, next === 'steps' ? 'Add steps to selected' : 'Add inside selected', next === 'steps' ? 'Add the same missing steps to every selected leaf task.' : `Add the same structure to all ${targetNodes.length} selected branches.`, () => startItems(screen.selectedIds, next, screen.returnBrowse))}
-                    {operation(<FilePenLine size={18} />, targetNodes.length === 1 ? 'Rename or edit details' : 'Rename selected', targetNodes.length === 1 ? 'Change its name, description, or dates.' : 'Give each selected item a clear new name.', () => move(targetNodes.length === 1 ? { type: 'details', nodeId: targetNodes[0].id, returnBrowse: screen.returnBrowse } : { type: 'rename', selectedIds: screen.selectedIds, returnBrowse: screen.returnBrowse }))}
+                    {sameKind && firstKind === 'leaf' && targetNodes.some((node) => (node.steps?.length ?? 0) > 0) && operation(<Minus size={18} />, 'Remove shared steps', `Choose unfinished steps to remove from ${targetNodes.length === 1 ? 'this leaf task' : `all ${targetNodes.length} selected leaf tasks`}. Completed steps stay protected.`, () => move({ type: 'removeSteps', selectedIds: screen.selectedIds, returnBrowse: screen.returnBrowse }))}
+                    {operation(<FilePenLine size={18} />, targetNodes.length === 1 ? 'Rename or edit details' : 'Edit selected', targetNodes.length === 1 ? 'Change its name, description, or dates.' : 'Update names and optional descriptions together.', () => move(targetNodes.length === 1 ? { type: 'details', nodeId: targetNodes[0].id, returnBrowse: screen.returnBrowse } : { type: 'rename', selectedIds: screen.selectedIds, returnBrowse: screen.returnBrowse }))}
                     {operation(<Trash2 size={18} />, `Remove ${targetNodes.length === 1 ? 'this branch' : 'selected branches'}`, 'Apply this to the draft now; Undo remains available before the final save.', () => {
                       const nextGoals = removeBlueprintNodes(workingGoals, screen.selectedIds);
                       applyToDraft(`Removed ${targetNodes.length} branch${targetNodes.length === 1 ? '' : 'es'}`, nextGoals, browseAt(nextGoals, screen.returnBrowse.pathIds));
@@ -845,7 +862,18 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
             })()}
 
             {screen.type === 'rename' && (
-              <RenameEditor nodes={targetNodes} onContinue={(titles) => applyToDraft(`Renamed ${Object.keys(titles).length} item${Object.keys(titles).length === 1 ? '' : 's'}`, renameBlueprintNodes(workingGoals, titles), screen.returnBrowse)} />
+              <RenameEditor nodes={targetNodes} onContinue={(edits) => applyToDraft(`Updated ${Object.keys(edits).length} item${Object.keys(edits).length === 1 ? '' : 's'}`, updateBlueprintNodes(workingGoals, edits), screen.returnBrowse)} />
+            )}
+
+            {screen.type === 'removeSteps' && (
+              <RemoveStepsEditor nodes={targetNodes} onContinue={(steps) => {
+                const result = removeBlueprintSteps(workingGoals, screen.selectedIds, steps);
+                if (result.removed === 0) {
+                  setError('No unfinished matching steps were removed. Completed steps stay protected.');
+                  return;
+                }
+                applyToDraft(`Removed ${result.removed} unfinished step${result.removed === 1 ? '' : 's'} across ${result.affected} leaf task${result.affected === 1 ? '' : 's'}`, result.goals, screen.returnBrowse);
+              }} />
             )}
 
             {screen.type === 'details' && (() => {
@@ -963,16 +991,63 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], onCl
   );
 }
 
-function RenameEditor({ nodes, onContinue }: { nodes: GoalNode[]; onContinue: (titles: Record<string, string>) => void }) {
-  const [titles, setTitles] = useState<Record<string, string>>(() => Object.fromEntries(nodes.map((node) => [node.id, node.title])));
-  const valid = nodes.every((node) => titles[node.id]?.trim());
+function RenameEditor({ nodes, onContinue }: { nodes: GoalNode[]; onContinue: (edits: Record<string, BlueprintNodeEdit>) => void }) {
+  const [edits, setEdits] = useState<Record<string, BlueprintNodeEdit>>(() => Object.fromEntries(nodes.map((node) => [node.id, { title: node.title, description: node.description ?? '' }])));
+  const valid = nodes.every((node) => edits[node.id]?.title.trim());
   return (
     <div className="space-y-5">
-      <StudioTitle eyebrow="Edit · Names" title="Make every label clear." copy="Change only what needs changing. The structure underneath stays untouched." />
+      <StudioTitle eyebrow="Edit · Selected items" title="Make every item clear." copy="Update names and optional descriptions. The structure underneath stays untouched." />
       <div className="rounded-[16px] border border-subtle bg-surface divide-y divide-border-subtle max-h-[52vh] overflow-y-auto no-scrollbar">
-        {nodes.map((node) => <label key={node.id} className="block p-3.5"><span className="block text-[10px] uppercase tracking-wider font-bold text-content-muted">{BLUEPRINT_LABELS[node.kind].singular}</span><input value={titles[node.id] ?? ''} onChange={(event) => setTitles((current) => ({ ...current, [node.id]: event.target.value }))} className="mt-1.5 w-full h-11 bg-elevated border border-subtle rounded-[10px] px-3 text-[13px] font-semibold text-content-primary outline-none focus:border-primary" /></label>)}
+        {nodes.map((node) => (
+          <div key={node.id} className="p-3.5 space-y-2.5">
+            <label className="block"><span className="block text-[10px] uppercase tracking-wider font-bold text-content-muted">{BLUEPRINT_LABELS[node.kind].singular} name</span><input value={edits[node.id]?.title ?? ''} onChange={(event) => setEdits((current) => ({ ...current, [node.id]: { ...current[node.id], title: event.target.value } }))} className="mt-1.5 w-full h-11 bg-elevated border border-subtle rounded-[10px] px-3 text-[13px] font-semibold text-content-primary outline-none focus:border-primary" /></label>
+            <label className="block"><span className="block text-[10px] uppercase tracking-wider font-bold text-content-muted">Description <span className="normal-case tracking-normal font-medium">(optional)</span></span><textarea value={edits[node.id]?.description ?? ''} onChange={(event) => setEdits((current) => ({ ...current, [node.id]: { ...current[node.id], description: event.target.value } }))} rows={2} placeholder="Add useful context" className="mt-1.5 w-full bg-elevated border border-subtle rounded-[10px] px-3 py-2 text-[12px] text-content-primary outline-none focus:border-primary resize-none" /></label>
+          </div>
+        ))}
       </div>
-      <StudioButton onClick={() => onContinue(titles)} disabled={!valid}>Apply names <Check size={15} /></StudioButton>
+      <StudioButton onClick={() => onContinue(edits)} disabled={!valid}>Apply changes <Check size={15} /></StudioButton>
+    </div>
+  );
+}
+
+function RemoveStepsEditor({ nodes, onContinue }: { nodes: GoalNode[]; onContinue: (steps: string[]) => void }) {
+  const removable = useMemo(() => {
+    if (nodes.length === 0) return [];
+    const firstDone = nodes[0].stepDone ?? (nodes[0].steps ?? []).map(() => false);
+    const candidates = (nodes[0].steps ?? [])
+      .filter((_, index) => !firstDone[index])
+      .map((step) => ({ title: step, key: step.trim().toLocaleLowerCase() }));
+    const unique = candidates.filter((candidate, index) => candidates.findIndex((item) => item.key === candidate.key) === index);
+    return unique.filter((candidate) => nodes.every((node) => {
+      const done = node.stepDone ?? (node.steps ?? []).map(() => false);
+      return (node.steps ?? []).some((step, index) => step.trim().toLocaleLowerCase() === candidate.key && !done[index]);
+    }));
+  }, [nodes]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const toggle = (title: string) => setSelected((current) => current.includes(title) ? current.filter((step) => step !== title) : [...current, title]);
+
+  return (
+    <div className="space-y-5">
+      <StudioTitle eyebrow="Edit · Steps" title="Remove only what is no longer needed." copy={nodes.length === 1 ? 'Completed steps are locked and will remain in the task.' : 'Only unfinished steps shared by every selected leaf task are shown.'} />
+      {removable.length > 0 ? (
+        <div className="rounded-[16px] border border-subtle bg-surface overflow-hidden divide-y divide-border-subtle">
+          {removable.map((step) => {
+            const checked = selected.includes(step.title);
+            return (
+              <button key={step.key} type="button" onClick={() => toggle(step.title)} className={`w-full min-h-[52px] px-3.5 py-2.5 flex items-center gap-3 text-left ${checked ? 'bg-primary-soft' : ''}`}>
+                {checked ? <CheckCircle2 size={19} className="shrink-0 text-primary" /> : <Circle size={19} className="shrink-0 text-content-muted" />}
+                <span className="flex-1 min-w-0 text-[13px] font-semibold text-content-primary truncate">{step.title}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-[14px] border border-subtle bg-elevated px-4 py-5 text-center">
+          <p className="text-[13px] font-bold text-content-primary">No shared unfinished steps</p>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-content-secondary">Completed work stays protected. Select leaf tasks with the same unfinished step names to remove them together.</p>
+        </div>
+      )}
+      <StudioButton onClick={() => onContinue(selected)} disabled={selected.length === 0}>Remove {selected.length || ''} step{selected.length === 1 ? '' : 's'} <Trash2 size={15} /></StudioButton>
     </div>
   );
 }

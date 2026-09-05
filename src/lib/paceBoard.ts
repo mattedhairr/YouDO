@@ -95,6 +95,18 @@ export function windowMs(row: PaceRow, window: PaceWindow): number {
   return row.monthMs;
 }
 
+/** A personal bar represents the full calendar window, not only days elapsed so far. */
+export function paceWindowBarDays(window: PaceWindow, anchor = new Date()): number {
+  if (window === 'today') return 1;
+  if (window === 'week') return 7;
+  return new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+}
+
+export function paceWindowBarTargetMs(barHours: number, window: PaceWindow, anchor = new Date()): number {
+  const safeHours = Math.max(0, Number.isFinite(barHours) ? barHours : 0);
+  return safeHours * paceWindowBarDays(window, anchor) * 60 * 60 * 1000;
+}
+
 export function rankedIds(rows: PaceRow[], window: PaceWindow): string[] {
   return [...rows]
     .sort((a, b) => {

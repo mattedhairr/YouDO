@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, Trash2, CheckCircle2, Check } from 'lucide-react';
+import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, StickyNote, Trash2, CheckCircle2, Check } from 'lucide-react';
 import type { Priority, Task, ActiveSession, TaskSession } from '../types';
 import { isBacklogTask, isTaskComplete } from '../store';
 import { hapticSessionStart, hapticSessionPause, hapticAmbient } from '../lib/haptics';
@@ -327,6 +327,13 @@ export default function TaskCard({
               );
             })()}
 
+            {!complete && task.resumeNote && (
+              <div className="mt-2 ml-3.5 flex items-start gap-1.5 rounded-lg border border-primary/15 bg-primary-soft/55 px-2.5 py-2 text-[11px] leading-relaxed text-content-secondary">
+                <StickyNote size={12} className="mt-0.5 shrink-0 text-primary" />
+                <span className="line-clamp-2"><span className="font-semibold text-primary">Resume:</span> {task.resumeNote}</span>
+              </div>
+            )}
+
             {/* Date / Deadline / Description Row */}
             <div className="mt-2.5 flex items-center gap-3 text-[11px] text-content-secondary font-medium flex-wrap ml-3.5">
               <span className="inline-flex items-center gap-1">
@@ -380,6 +387,15 @@ export default function TaskCard({
               </p>
             )}
           </div>
+
+          {!complete && task.resumeNote && (
+            <div className="rounded-[12px] border border-primary/20 bg-primary-soft px-3.5 py-3">
+              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <StickyNote size={13} /> Continue from here
+              </p>
+              <p className="mt-1.5 whitespace-pre-wrap text-[12.5px] leading-relaxed text-content-primary">{task.resumeNote}</p>
+            </div>
+          )}
 
           {hasSteps && (
             <div className="bg-surface border border-subtle rounded-[12px] overflow-hidden">

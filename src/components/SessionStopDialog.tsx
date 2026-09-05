@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { X, Check, Clock, Trash2 } from 'lucide-react';
+import { X, Check, Clock, StickyNote, Trash2 } from 'lucide-react';
 import Overlay from './Overlay';
-import type { Task } from '../types';
+import type { SessionStopOutcome, Task } from '../types';
 
 interface Props {
   open: boolean;
   task: Task;
-  onConfirm: (outcome: { completed: boolean | 'partial'; completedStepIndices: number[] }) => void;
+  onConfirm: (outcome: SessionStopOutcome) => void;
   onDiscard: () => void;
   onCancel: () => void;
 }
@@ -14,10 +14,16 @@ interface Props {
 export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }: Props) {
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
   const [markTaskDone, setMarkTaskDone] = useState(false);
+  const [resumeNote, setResumeNote] = useState(task.resumeNote ?? '');
 
   if (!open) return null;
 
   const hasSteps = task.steps.length > 0;
+  const resultingStepCount = new Set([
+    ...Array.from({ length: task.progress }, (_, index) => index),
+    ...selectedSteps,
+  ]).size;
+  const willComplete = hasSteps ? resultingStepCount === task.steps.length : markTaskDone;
 
   const toggleStep = (index: number) => {
     setSelectedSteps((prev) =>
@@ -30,6 +36,7 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
       onConfirm({
         completed: markTaskDone,
         completedStepIndices: [],
+        resumeNote: markTaskDone ? undefined : resumeNote.trim() || undefined,
       });
       return;
     }
@@ -42,7 +49,11 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
     const isAll = resulting.size === task.steps.length;
     const isNone = selectedSteps.length === 0;
     const outcome = isAll ? true : isNone ? false : 'partial';
-    onConfirm({ completed: outcome, completedStepIndices: selectedSteps });
+    onConfirm({
+      completed: outcome,
+      completedStepIndices: selectedSteps,
+      resumeNote: isAll ? undefined : resumeNote.trim() || undefined,
+    });
   };
 
   return (
@@ -125,6 +136,26 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
               {markTaskDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
             </div>
           </button>
+        )}
+
+        {!willComplete && (
+          <label className="block mb-5">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-content-secondary mb-2">
+              <StickyNote className="w-3.5 h-3.5 text-primary" />
+              Continue from here <span className="font-normal text-content-muted">(optional)</span>
+            </span>
+            <textarea
+              value={resumeNote}
+              onChange={(event) => setResumeNote(event.target.value)}
+              rows={3}
+              maxLength={280}
+              placeholder="Example: Resume from question 18; revise the last formula first."
+              className="w-full rounded-xl border border-subtle bg-surface px-3 py-2.5 text-sm leading-relaxed text-content-primary placeholder:text-content-muted outline-none focus:border-primary resize-none"
+            />
+            <span className="mt-1.5 block text-[10.5px] leading-relaxed text-content-muted">
+              Kept with this open task and removed automatically when the task is done.
+            </span>
+          </label>
         )}
 
         <div className="flex flex-col gap-2">

@@ -49,8 +49,8 @@ describe('app updates', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        tag_name: 'v6.2.1',
-        html_url: 'https://github.com/mattedhairr/YouDO/releases/tag/v6.2.1',
+        tag_name: 'v6.3.1',
+        html_url: 'https://github.com/mattedhairr/YouDO/releases/tag/v6.3.1',
         body: '- A safer update check.',
         draft: false,
         prerelease: false,
@@ -61,6 +61,6 @@ describe('app updates', () => {
     const release = await checkForAppUpdate();
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(release?.version).toBe('6.2.1');
+    expect(release?.version).toBe('6.3.1');
   });
 });

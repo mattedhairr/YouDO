@@ -21,6 +21,15 @@ export interface Task {
   pastFailedNativeDates?: string[];
   /** dates this task was a backlog task but failed on */
   pastFailedBacklogDates?: string[];
+  /** Short-lived handoff note for resuming an unfinished task. Cleared on completion. */
+  resumeNote?: string;
+}
+
+export interface SessionStopOutcome {
+  completed: boolean | 'partial';
+  completedStepIndices: number[];
+  /** Saved on the unfinished task only; never copied into session history. */
+  resumeNote?: string;
 }
 
 export type GoalKind = 'goal' | 'phase' | 'section' | 'task' | 'sub' | 'leaf';

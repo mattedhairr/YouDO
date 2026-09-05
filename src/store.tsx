@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { ActiveSession, GoalNode, Task, TaskSession } from './types';
+import type { ActiveSession, GoalNode, SessionStopOutcome, Task, TaskSession } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -226,7 +226,7 @@ interface Store {
   resumeSession: () => void;
   /** Stop the active session and record to history */
   stopSession: (
-    outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] },
+    outcome: SessionStopOutcome,
     options?: { endTime?: number; ignoreOpenPause?: boolean },
   ) => void;
   /** Discard the active session without saving to history */
@@ -564,8 +564,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const nextTasks = reconcileBlueprintTasks(currentTasks, nextGoals, currentGoals);
 
-      if (activeSessionRef.current && !nextTasks.some((task) => task.id === activeSessionRef.current?.taskId)) {
-        return { ok: false, error: 'active-session' };
+      if (activeSessionRef.current) {
+        const activeTaskId = activeSessionRef.current.taskId;
+        const currentActiveTask = currentTasks.find((task) => task.id === activeTaskId);
+        const nextActiveTask = nextTasks.find((task) => task.id === activeTaskId);
+        if (!currentActiveTask || !nextActiveTask || !sameTasks([currentActiveTask], [nextActiveTask])) {
+          return { ok: false, error: 'active-session' };
+        }
       }
 
       const token = uid('blueprint');
@@ -1160,7 +1165,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const persistActiveSession = useCallback(
     (
-      outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] },
+      outcome: SessionStopOutcome,
       options?: { endTime?: number; ignoreOpenPause?: boolean },
     ) => {
       const prev = activeSessionRef.current;
@@ -1251,7 +1256,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const stopSession = useCallback(
     (
-      outcome: { completed: boolean | 'partial'; completedStepIndices?: number[] },
+      outcome: SessionStopOutcome,
       options?: { endTime?: number; ignoreOpenPause?: boolean },
     ) => {
       const prev = activeSessionRef.current;
@@ -1261,17 +1266,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTasks((prevTasks) =>
         prevTasks.map((t) => {
           if (t.id !== prev.taskId) return t;
-          if (outcome.completed === true) return clearBacklogIfComplete(t);
+          if (outcome.completed === true) return clearBacklogIfComplete({ ...t, resumeNote: undefined });
+          const withResumeNote = { ...t, resumeNote: outcome.resumeNote?.trim() || undefined };
           if (t.originalTargetDate && (outcome.completed === false || outcome.completed === 'partial')) {
-            if (!isTaskComplete({ ...t, progress: t.progress })) {
+            if (!isTaskComplete({ ...withResumeNote, progress: withResumeNote.progress })) {
               return {
-                ...t,
+                ...withResumeNote,
                 targetDate: t.originalTargetDate,
                 originalTargetDate: undefined,
               };
             }
           }
-          return t;
+          return withResumeNote;
         }),
       );
     },

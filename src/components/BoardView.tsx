@@ -5,6 +5,8 @@ import { useStore } from '../store';
 import {
   PACE_BOARD_MIN_OPT_IN,
   PACE_BOARD_TOP_LIMIT,
+  paceWindowBarDays,
+  paceWindowBarTargetMs,
   rankDeltas,
   rankedIds,
   selectPaceBoardRows,
@@ -45,6 +47,30 @@ function saveSnapshot(window: PaceWindow, ids: string[]) {
   }
 }
 
+function barProgress(row: PaceRow, paceWindow: PaceWindow): { percent: number; targetMs: number; overMs: number } {
+  const targetMs = Math.max(1, paceWindowBarTargetMs(row.barHours, paceWindow));
+  const focused = windowMs(row, paceWindow);
+  return {
+    percent: Math.min(100, Math.round((focused / targetMs) * 100)),
+    targetMs,
+    overMs: Math.max(0, focused - targetMs),
+  };
+}
+
+function windowLabel(paceWindow: PaceWindow): string {
+  if (paceWindow === 'week') return 'Focus since Monday · 7-day bar';
+  if (paceWindow === 'month') return `Focus since the 1st · ${paceWindowBarDays('month')}-day bar`;
+  return 'Today';
+}
+
+function rankTone(rank: number | undefined, locked: boolean): string {
+  if (locked || rank == null) return 'border-subtle bg-surface text-content-muted';
+  if (rank === 1) return 'border-primary/35 bg-primary-soft text-primary';
+  if (rank === 2) return 'border-content-muted/25 bg-elevated text-content-secondary';
+  if (rank === 3) return 'border-primary/20 bg-primary-soft/45 text-primary';
+  return 'border-subtle bg-surface text-content-muted';
+}
+
 function BoardRowCard({
   row,
   paceWindow,
@@ -63,27 +89,29 @@ function BoardRowCard({
   featured?: boolean;
 }) {
   const podium = !locked && rank != null && rank <= 3;
+  const progress = barProgress(row, paceWindow);
+  const focused = windowMs(row, paceWindow);
   return (
     <li
       value={rank}
-      className={`relative overflow-hidden rounded-[14px] border p-3.5 transition-colors ${
+      className={`relative min-h-[108px] overflow-hidden rounded-[15px] border p-3.5 transition-colors ${
         mine
-          ? 'border-primary/45 bg-primary-soft/40'
+          ? 'border-primary/45 bg-primary-soft/30'
           : podium
-            ? 'border-primary/25 bg-elevated'
+            ? 'border-primary/25 bg-elevated/95'
             : 'border-subtle bg-elevated'
       } ${featured ? 'shadow-elevated' : ''}`}
     >
       {podium && (
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 w-16 opacity-60"
-          style={{ background: 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 11%, transparent), transparent)' }}
+          className="pointer-events-none absolute inset-y-0 left-0 w-1"
+          style={{ background: rank === 1 ? 'var(--primary)' : 'color-mix(in srgb, var(--primary) 58%, var(--border))' }}
         />
       )}
       <div className="relative flex items-start gap-3">
         {locked ? (
           <span
-            className="grid size-7 shrink-0 place-items-center rounded-full border border-subtle bg-surface text-content-muted"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-subtle bg-surface text-content-muted"
             aria-label={`Rank locked until ${PACE_BOARD_MIN_OPT_IN} people join`}
             title={`Rank locked until ${PACE_BOARD_MIN_OPT_IN} people join`}
           >
@@ -91,18 +119,14 @@ function BoardRowCard({
           </span>
         ) : (
           <span
-            className={`grid size-7 shrink-0 place-items-center rounded-full border text-[12px] font-bold tabular-nums ${
-              podium
-                ? 'border-primary/30 bg-primary-soft text-primary'
-                : 'border-subtle bg-surface text-content-muted'
-            }`}
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border text-[11px] font-bold tabular-nums ${rankTone(rank, locked)}`}
             aria-label={`Rank ${rank}`}
           >
-            {rank}
+            {String(rank).padStart(2, '0')}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-baseline gap-2">
             <p className="truncate text-[14px] font-semibold text-content-primary">{row.displayName}</p>
             {mine && (
               <span className="shrink-0 rounded-full bg-primary-soft px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-primary">
@@ -111,17 +135,26 @@ function BoardRowCard({
             )}
             {!locked && delta === 'up' && <ArrowUp size={14} className="shrink-0 text-success" strokeWidth={2.6} />}
             {!locked && delta === 'down' && <ArrowDown size={14} className="shrink-0 text-error" strokeWidth={2.6} />}
+            <p className="ml-auto shrink-0 text-[15px] font-bold tabular-nums text-content-primary">
+              {formatDuration(focused)}
+            </p>
           </div>
-          {row.examLabel ? (
-            <p className="mt-0.5 truncate text-[11px] text-content-muted">{row.examLabel}</p>
-          ) : null}
-          <p className="mt-1 text-[11px] text-content-secondary">
-            {row.streak}d streak · {formatStreakHours(row.barHours)} bar
-          </p>
+          <p className="mt-0.5 truncate text-[11px] text-content-muted">{row.examLabel || 'Independent preparation'}</p>
+          <div className="mt-2.5">
+            <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px]">
+              <span className="text-content-secondary">{row.streak}d streak · {formatStreakHours(row.barHours)} daily bar</span>
+              <span className={`shrink-0 tabular-nums font-semibold ${progress.percent >= 100 ? 'text-secondary' : 'text-primary'}`}>
+                {progress.overMs > 0 ? `+${formatDuration(progress.overMs)} beyond bar` : progress.percent >= 100 ? 'Bar reached' : `${progress.percent}% of bar`}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-track" aria-label={`${progress.percent}% of personal focus bar`}>
+              <div
+                className={`h-full rounded-full transition-[width] duration-500 ${progress.percent >= 100 ? 'bg-secondary' : 'bg-primary'}`}
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+          </div>
         </div>
-        <p className="shrink-0 text-[15px] font-semibold tabular-nums text-content-primary">
-          {formatDuration(windowMs(row, paceWindow))}
-        </p>
       </div>
     </li>
   );
@@ -188,32 +221,28 @@ export default function BoardView() {
           .map((row) => row.userId),
     [ready, rows, selection.topIds],
   );
+  const podiumIds = ready ? visibleOrder.slice(0, 3) : [];
+  const remainingIds = ready ? visibleOrder.slice(3) : visibleOrder;
 
   return (
-    <div className="space-y-3.5 pb-4">
-      <section className="board-intro relative overflow-hidden rounded-[14px] border border-subtle bg-elevated px-3.5 py-3">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(120% 80% at 8% -20%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 52%), radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--secondary) 16%, transparent), transparent 50%)',
-          }}
-        />
-        <div className="relative flex items-center gap-3 min-w-0">
-          <div className="board-intro-mark shrink-0 grid size-10 place-items-center rounded-[12px] bg-primary-soft text-primary">
-            <TrendingUp size={18} strokeWidth={2.35} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2 min-w-0">
-              <h2 className="text-[15px] font-semibold text-content-primary tracking-tight shrink-0">Net focus, ranked</h2>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary truncate">Public board</span>
-            </div>
-            <p className="mt-0.5 text-[11.5px] leading-4 text-content-secondary line-clamp-2">
-              Be honest—padded hours only cheat the person doing the work.
+    <div className="space-y-4 pb-4">
+      <header className="px-0.5 pt-0.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+              <TrendingUp size={13} strokeWidth={2.4} /> Public focus board
             </p>
+            <h2 className="mt-1 text-[20px] font-bold tracking-[-0.025em] text-content-primary">Earn your place.</h2>
           </div>
+          <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-subtle bg-elevated px-2.5 py-1 text-[10.5px] font-medium text-content-secondary">
+            <Users size={12.5} className="text-primary" />
+            {count} competing
+          </span>
         </div>
-      </section>
+        <p className="mt-1.5 max-w-[32rem] text-[11.5px] leading-relaxed text-content-secondary">
+          Net focus decides rank. Your fill shows progress toward your own daily bar.
+        </p>
+      </header>
 
       <div className="flex gap-1 rounded-[12px] border border-subtle bg-elevated p-1">
         {WINDOWS.map((tab) => {
@@ -234,13 +263,10 @@ export default function BoardView() {
           );
         })}
       </div>
-      <p className="text-[11px] text-content-muted px-0.5">
-        {paceWindow === 'week'
-          ? 'Week is Monday through today, local time.'
-          : paceWindow === 'month'
-            ? 'Month is the 1st through today, local time.'
-            : 'Today is this local calendar day.'}
-      </p>
+      <div className="flex items-center justify-between gap-3 px-0.5 text-[10.5px] text-content-muted">
+        <span>{windowLabel(paceWindow)}, local time</span>
+        <span className="shrink-0">Ranked by net focus</span>
+      </div>
 
       {missingTable ? (
         <div className="rounded-[16px] border border-subtle bg-surface p-5">
@@ -283,44 +309,83 @@ export default function BoardView() {
             </section>
           )}
 
-          {ready && (
-            <div className="flex items-end justify-between gap-3 px-0.5 pt-0.5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-primary/20 bg-primary-soft text-primary">
-                  <Trophy size={15} strokeWidth={2.3} />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">Leaderboard</p>
-                  <h3 className="text-[15px] font-semibold text-content-primary">Top {Math.min(PACE_BOARD_TOP_LIMIT, count)}</h3>
-                </div>
-              </div>
-              <span className="mb-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-subtle bg-elevated px-2.5 py-1 text-[10.5px] font-medium text-content-secondary">
-                <Users size={12.5} className="text-primary" />
-                {count} competing
-              </span>
-            </div>
+          {!ready && (
+            <ol className="space-y-2" aria-label="Aspirants waiting for the Board">
+              {remainingIds.map((id) => {
+                const row = byId.get(id);
+                if (!row) return null;
+                return (
+                  <BoardRowCard
+                    key={row.userId}
+                    row={row}
+                    paceWindow={paceWindow}
+                    mine={user?.id === row.userId}
+                    locked
+                  />
+                );
+              })}
+            </ol>
           )}
 
-          <ol
-            className="space-y-2"
-            aria-label={ready ? `Top ${Math.min(PACE_BOARD_TOP_LIMIT, count)}` : 'Aspirants waiting for the Board'}
-          >
-            {visibleOrder.map((id) => {
-              const row = byId.get(id);
-              if (!row) return null;
-              return (
-                <BoardRowCard
-                  key={row.userId}
-                  row={row}
-                  paceWindow={paceWindow}
-                  rank={ready ? rankById.get(id) : undefined}
-                  mine={user?.id === row.userId}
-                  delta={deltas[id]}
-                  locked={!ready}
-                />
-              );
-            })}
-          </ol>
+          {ready && (
+            <>
+              <div className="flex items-end justify-between gap-3 px-0.5 pt-1">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-primary/20 bg-primary-soft text-primary">
+                    <Trophy size={15} strokeWidth={2.3} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">Front runners</p>
+                    <h3 className="text-[15px] font-semibold text-content-primary">Top focus {paceWindow === 'today' ? 'today' : `this ${paceWindow}`}</h3>
+                  </div>
+                </div>
+                <span className="mb-0.5 shrink-0 text-[10.5px] font-medium text-content-muted">Ranked by hours</span>
+              </div>
+
+              <ol className="space-y-2" aria-label="Top three focus leaders">
+                {podiumIds.map((id) => {
+                  const row = byId.get(id);
+                  if (!row) return null;
+                  return (
+                    <BoardRowCard
+                      key={row.userId}
+                      row={row}
+                      paceWindow={paceWindow}
+                      rank={rankById.get(id)}
+                      mine={user?.id === row.userId}
+                      delta={deltas[id]}
+                    />
+                  );
+                })}
+              </ol>
+
+              {remainingIds.length > 0 && (
+                <>
+                  <div className="flex items-center gap-3 px-0.5 pt-1.5">
+                    <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.15em] text-content-muted">The field</p>
+                    <div className="h-px flex-1 bg-border-subtle" />
+                    <p className="shrink-0 text-[10px] text-content-muted">Top {Math.min(PACE_BOARD_TOP_LIMIT, count)}</p>
+                  </div>
+                  <ol className="space-y-2" start={4} aria-label={`Remaining Top ${Math.min(PACE_BOARD_TOP_LIMIT, count)} focus leaders`}>
+                    {remainingIds.map((id) => {
+                      const row = byId.get(id);
+                      if (!row) return null;
+                      return (
+                        <BoardRowCard
+                          key={row.userId}
+                          row={row}
+                          paceWindow={paceWindow}
+                          rank={rankById.get(id)}
+                          mine={user?.id === row.userId}
+                          delta={deltas[id]}
+                        />
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </>
+          )}
 
           {showPersonalRank && myRow && selection.myRank != null && (
             <section className="relative mt-3 overflow-hidden rounded-[18px] border border-primary/35 bg-primary-soft/25 p-3.5 shadow-elevated">

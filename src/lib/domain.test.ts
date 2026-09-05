@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
+import { deadlineDaysLabel, formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
 import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
@@ -10,6 +10,13 @@ describe('dates', () => {
   it('formats ISO dates as DD-MM-YYYY', () => {
     expect(formatDDMMYYYY('2026-08-14')).toBe('14-08-2026');
     expect(formatDDMMYYYY(null)).toBe('');
+  });
+
+  it('describes date-only deadlines in local calendar days', () => {
+    expect(deadlineDaysLabel('2026-09-05', '2026-09-05')).toBe('Due today');
+    expect(deadlineDaysLabel('2026-09-06', '2026-09-05')).toBe('1 day left');
+    expect(deadlineDaysLabel('2026-09-12', '2026-09-05')).toBe('7 days left');
+    expect(deadlineDaysLabel('2026-09-04', '2026-09-05')).toBe('Overdue by 1 day');
   });
 
   it('builds local ISO dates without UTC drift', () => {
@@ -404,6 +411,16 @@ describe('session math', () => {
     expect(rec!.netFocusMs).toBe(10 * 60_000);
   });
 
+  it('keeps temporary resume notes out of session history', () => {
+    const outcome = {
+      completed: false as const,
+      completedStepIndices: [],
+      resumeNote: 'Continue from page 18',
+    };
+    const rec = finalizeSession(base, 1_000_000 + 5 * 60_000, outcome);
+    expect(rec).not.toHaveProperty('resumeNote');
+  });
+
   it('can cut a forgotten tail at an earlier end time', () => {
     const rec = finalizeSession(base, 1_000_000 + 5 * 60_000, { completed: true }, 'g1', {
       ignoreOpenPause: true,
@@ -581,6 +598,16 @@ describe('goal tree', () => {
     expect(isBacklogTask(cleared, today)).toBe(true);
     expect(isOpenBacklogTask(cleared, today)).toBe(false);
     expect(isBacklogTask(cleared, '2000-01-15')).toBe(false);
+  });
+
+  it('keeps a resume note only while its task remains unfinished', () => {
+    const open: Task = {
+      id: 'resume', title: 'Continue chapter', description: '', priority: 'medium',
+      targetDate: null, deadline: null, steps: ['Read'], progress: 0,
+      createdAt: 1, order: 0, resumeNote: 'Continue from page 18',
+    };
+    expect(clearBacklogIfComplete(open).resumeNote).toBe('Continue from page 18');
+    expect(clearBacklogIfComplete({ ...open, progress: 1 }).resumeNote).toBeUndefined();
   });
 
   it('reschedules open backlog as normal work while retaining its failed date', () => {
@@ -1023,6 +1050,18 @@ describe('pace board', () => {
     expect(totals.todayMs).toBe(45_000);
     expect(totals.weekMs).toBe(165_000);
     expect(totals.monthMs).toBe(225_000);
+  });
+
+  it('sets personal bars against the full calendar week or month', async () => {
+    const { paceWindowBarDays, paceWindowBarTargetMs } = await import('./paceBoard');
+    const september = new Date(2026, 8, 5);
+    const februaryLeapYear = new Date(2028, 1, 3);
+    expect(paceWindowBarDays('today', september)).toBe(1);
+    expect(paceWindowBarDays('week', september)).toBe(7);
+    expect(paceWindowBarDays('month', september)).toBe(30);
+    expect(paceWindowBarDays('month', februaryLeapYear)).toBe(29);
+    expect(paceWindowBarTargetMs(8, 'week', september)).toBe(56 * 60 * 60 * 1000);
+    expect(paceWindowBarTargetMs(8, 'month', september)).toBe(240 * 60 * 60 * 1000);
   });
 
   it('ranks by total window hours and marks up/down vs the last snapshot', async () => {
