@@ -836,10 +836,11 @@ input[type='datetime-local'] {
 .board-workspace {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
 }
 
 .board-heading { padding-top: 0; }
+.board-heading > p:last-child { margin-top: 2px; line-height: 1.4; }
 
 @media (max-width: 340px) {
   .command-tab-label { display: none; }
@@ -950,7 +951,7 @@ input[type='datetime-local'] {
 .community-empty { padding: 30px 12px; text-align: center; color: var(--text-muted); font-size: 12px; }
 .settings-account-actions { border-block: 1px solid var(--border-subtle); }
 
-.calendar-workspace { display: flex; flex-direction: column; gap: 11px; }
+.calendar-workspace { display: flex; flex-direction: column; gap: 8px; }
 .calendar-dial { border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px; }
 .calendar-dial-caption { display: flex; align-items: center; justify-content: space-between; min-height: 36px; font-size: 11px; color: var(--text-muted); }
 .calendar-dial-caption button { min-height: 36px; padding: 0 6px; color: var(--primary); }
@@ -965,7 +966,7 @@ input[type='datetime-local'] {
 .calendar-dial-track span { font-size: 10px; }
 .calendar-dial-track strong { font-size: 23px; line-height: 27px; font-weight: 600; font-variant-numeric: tabular-nums; }
 @keyframes dial-arrive { from { translate: calc(var(--dial-direction, 1) * 18px) 0; opacity: .6; } to { translate: 0 0; opacity: 1; } }
-.calendar-expand { display: flex; width: 100%; min-height: 40px; align-items: center; justify-content: space-between; padding: 0 3px; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); }
+.calendar-expand { display: flex; width: 100%; min-height: 36px; align-items: center; justify-content: space-between; padding: 0 3px; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); }
 .calendar-expand svg { transition: transform 160ms ease; }
 .calendar-month-panel { animation: calendar-reveal 160ms ease-out; }
 .calendar-day-summary, .admin-activity { border: 1px solid var(--border-subtle); border-radius: 15px; overflow: hidden; background: var(--bg-elevated); }
@@ -992,9 +993,9 @@ input[type='datetime-local'] {
 .admin-activity details p { padding-bottom: 12px; font-size: 11px; line-height: 1.6; color: var(--text-secondary); }
 @keyframes calendar-reveal { from { opacity: .6; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-.calendar-planned { margin-top: 1px; }
-.calendar-planned-heading { min-height: 42px; margin-bottom: 6px; }
-.calendar-add-task { height: 40px; padding: 0 12px; border-radius: 11px; }
+.calendar-planned { margin-top: 0; }
+.calendar-planned-heading { min-height: 36px; margin-bottom: 4px; }
+.calendar-add-task { height: 36px; padding: 0 11px; border-radius: 10px; }
 
 .auth-welcome { padding-top: max(1.25rem, env(safe-area-inset-top)); padding-bottom: max(1.75rem, env(safe-area-inset-bottom)); }
 .auth-brand { display: flex; justify-content: center; min-height: 48px; }
