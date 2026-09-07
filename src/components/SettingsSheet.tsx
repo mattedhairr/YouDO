@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Bug,
+  Check,
   ChevronRight,
   Download,
   Edit2,
@@ -18,10 +19,15 @@ import {
   Flame,
   TrendingUp,
   Info,
+  KeyRound,
+  Mail,
   MessageCircle,
+  MonitorSmartphone,
   Send,
 } from 'lucide-react';
 import Overlay from './Overlay';
+import Toggle from './Toggle';
+import { useReducedEffects } from '../hooks/useReducedEffects';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
@@ -34,6 +40,9 @@ import { hapticTick, setHapticsPreference } from '../lib/haptics';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
 import { PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
 import { todayISO } from '../lib/dates';
+import { checkAppUpdateStatus, type AppRelease } from '../lib/appUpdate';
+import { APP_VERSION } from '../lib/version';
+import SignedInDevices from './SignedInDevices';
 
 interface Props {
   open: boolean;
@@ -64,7 +73,7 @@ async function openExternalUrl(url: string): Promise<void> {
 function backupSummaryText(summary: BackupSummary | null): string {
   if (!summary) return 'Copy details unavailable';
   const name = summary.rootNames.length > 0 ? `${summary.rootNames.join(', ')} · ` : '';
-  return `${name}${summary.nodes} tree items · ${summary.leaves} leaf tasks · ${summary.tasks} planned cards`;
+  return `${name}${summary.nodes} tree items · ${summary.leaves} endpoint tasks · ${summary.tasks} planned cards`;
 }
 
 export default function SettingsSheet({
@@ -91,9 +100,10 @@ export default function SettingsSheet({
     pacePrefs,
     updatePacePrefs,
   } = useStore();
-  const { user, signOut, deleteAccount, updateProfile } = useAuth();
+  const { user, signOut, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
   const { activeSession } = useSessionStore();
   const [theme, setTheme] = useTheme();
+  const [reducedEffects, setReducedEffects] = useReducedEffects();
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
@@ -113,8 +123,19 @@ export default function SettingsSheet({
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [securityMode, setSecurityMode] = useState<'email' | 'password' | 'devices' | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [nextEmail, setNextEmail] = useState('');
+  const [nextPassword, setNextPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [securityBusy, setSecurityBusy] = useState(false);
 
   const [confirmTrimSessions, setConfirmTrimSessions] = useState(false);
+  const [availableUpdate, setAvailableUpdate] = useState<AppRelease | null>(null);
+  const [updateChecked, setUpdateChecked] = useState(false);
+  const [updateUnavailable, setUpdateUnavailable] = useState(false);
+  const [updateCheckKey, setUpdateCheckKey] = useState(0);
 
   const [hapticsEnabled, setHapticsEnabled] = useLocalStorage(STORAGE_KEYS.haptics, true);
 
@@ -132,6 +153,12 @@ export default function SettingsSheet({
   useEffect(() => {
     if (!open) {
       setEditProfileOpen(false);
+      setSecurityOpen(false);
+      setSecurityMode(null);
+      setCurrentPassword('');
+      setNextEmail('');
+      setNextPassword('');
+      setConfirmPassword('');
       setTrashOpen(false);
       setStreakBarHelpOpen(false);
     }
@@ -156,6 +183,23 @@ export default function SettingsSheet({
       cancelled = true;
     };
   }, [open, user, restoreOpen, listCloudRestorePoints]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setUpdateChecked(false);
+    void checkAppUpdateStatus({ includeDismissed: true, force: updateCheckKey > 0 })
+      .then(({ release, checked }) => {
+        if (!cancelled) {
+          setAvailableUpdate(release);
+          setUpdateUnavailable(!checked);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setUpdateChecked(true);
+      });
+    return () => { cancelled = true; };
+  }, [open, updateCheckKey]);
 
   if (!open) return null;
 
@@ -304,10 +348,10 @@ export default function SettingsSheet({
                       'radial-gradient(110% 70% at 12% -10%, rgba(134, 165, 136, 0.22), transparent 52%), radial-gradient(120% 80% at 92% 8%, rgba(196, 165, 116, 0.18), transparent 56%)',
                   }}
                 />
-                <div className="relative p-5">
+                <div className="settings-account-summary relative p-4">
                   <div className="flex items-start gap-3.5">
                     <div className="relative shrink-0">
-                      <div className="size-[3.35rem] rounded-[16px] bg-primary-soft border border-primary/35 grid place-items-center text-[26px] shadow-elevated">
+                      <div className="size-11 rounded-[16px] bg-primary-soft border border-primary/35 grid place-items-center text-[26px] shadow-elevated">
                         {user.user_metadata?.avatar_url && /^https?:/.test(String(user.user_metadata.avatar_url)) ? (
                           <img
                             src={user.user_metadata.avatar_url}
@@ -323,7 +367,7 @@ export default function SettingsSheet({
                       </span>
                     </div>
                     <div className="min-w-0 flex-1 pt-0.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary">Live on every device</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary">Your account</p>
                       <h3 className="text-[17px] font-semibold text-content-primary leading-tight mt-0.5 truncate">
                         {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}
                       </h3>
@@ -331,10 +375,8 @@ export default function SettingsSheet({
                     </div>
                   </div>
 
-                  <p className="mt-4 text-[13px] text-content-secondary leading-relaxed">
-                    This plan is yours — goals, Today, and focus time stay in sync when you open YouDO on another phone.
-                  </p>
-                  <div className="mt-3.5 flex flex-wrap gap-1.5">
+
+                  <div className="mt-3 flex flex-wrap gap-1.5">
                     <span className={`text-[10px] font-semibold tracking-wide border px-2.5 py-1 rounded-full ${
                       cloudSyncConflict
                         ? 'text-warning bg-warning/10 border-warning/25'
@@ -354,7 +396,7 @@ export default function SettingsSheet({
                           : { text: `✗ ${res.error || 'Failed to sync.'}`, error: true },
                       );
                     }}
-                    className="mt-5 w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
+                    className="mt-3 w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
                   >
                     <Upload size={15} strokeWidth={2.25} />
                     Sync now
@@ -444,7 +486,7 @@ export default function SettingsSheet({
                     )
                   )}
 
-                  <div className="mt-2 grid grid-cols-3 gap-1">
+                  <div className="settings-account-actions mt-2 grid grid-cols-3 gap-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -490,6 +532,20 @@ export default function SettingsSheet({
                       Sign out
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSecurityOpen((value) => !value);
+                      setSecurityMode(null);
+                      setEditProfileOpen(false);
+                      setRestoreOpen(false);
+                      setCurrentPassword('');
+                    }}
+                    className="mt-1 flex h-10 w-full items-center justify-center gap-1.5 rounded-[12px] text-[12px] font-medium text-content-secondary hover:bg-surface/80 hover:text-content-primary"
+                  >
+                    <KeyRound size={13} className="text-secondary" />
+                    Account security
+                  </button>
                 </div>
 
                 {editProfileOpen && (
@@ -540,6 +596,86 @@ export default function SettingsSheet({
                     >
                       Save profile
                     </button>
+                  </div>
+                )}
+
+                {securityOpen && (
+                  <div className="relative border-t border-subtle px-5 pb-4 pt-4">
+                    {!securityMode ? (
+                      <div className="space-y-2">
+                        <button type="button" onClick={() => { setSecurityMode('email'); setNextEmail(''); setCurrentPassword(''); }} className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left">
+                          <span className="grid size-9 place-items-center rounded-xl bg-primary-soft text-primary"><Mail size={15} /></span>
+                          <span className="min-w-0 flex-1"><span className="block text-[12px] font-semibold text-content-primary">Change email</span><span className="block truncate text-[10.5px] text-content-muted">{user.email}</span></span>
+                          <ChevronRight size={15} className="text-content-muted" />
+                        </button>
+                        <button type="button" onClick={() => { setSecurityMode('password'); setNextPassword(''); setConfirmPassword(''); setCurrentPassword(''); }} className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left">
+                          <span className="grid size-9 place-items-center rounded-xl bg-secondary-soft text-secondary"><KeyRound size={15} /></span>
+                          <span className="min-w-0 flex-1"><span className="block text-[12px] font-semibold text-content-primary">Change password</span><span className="block text-[10.5px] text-content-muted">Verify the current password first</span></span>
+                          <ChevronRight size={15} className="text-content-muted" />
+                        </button>
+                        <button type="button" onClick={() => setSecurityMode('devices')} className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left">
+                          <span className="grid size-9 place-items-center rounded-xl bg-primary-soft text-primary"><MonitorSmartphone size={15} /></span>
+                          <span className="min-w-0 flex-1"><span className="block text-[12px] font-semibold text-content-primary">Signed-in devices</span><span className="block text-[10.5px] text-content-muted">Review active sessions and sign out remotely</span></span>
+                          <ChevronRight size={15} className="text-content-muted" />
+                        </button>
+                        <div className="flex items-center gap-2 px-1 pt-1 text-[10px] text-content-muted">
+                          <ShieldCheck size={13} className="shrink-0 text-secondary" />
+                          <span>{user.email_confirmed_at || user.confirmed_at ? 'Email verified' : 'Email confirmation is pending'}</span>
+                        </div>
+                      </div>
+                    ) : securityMode === 'devices' ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-end">
+                          <button type="button" onClick={() => setSecurityMode(null)} className="text-[10.5px] font-semibold text-content-muted">Back</button>
+                        </div>
+                        <SignedInDevices />
+                      </div>
+                    ) : (
+                      <form
+                        className="space-y-3"
+                        onSubmit={async (event) => {
+                          event.preventDefault();
+                          if (securityMode === 'password' && nextPassword !== confirmPassword) {
+                            setMsg({ text: 'New passwords do not match.', error: true });
+                            return;
+                          }
+                          setSecurityBusy(true);
+                          const result = securityMode === 'email'
+                            ? await changeEmail(currentPassword, nextEmail)
+                            : await changePassword(currentPassword, nextPassword);
+                          setSecurityBusy(false);
+                          if (!result.ok) {
+                            setMsg({ text: result.error || 'Account security could not be updated.', error: true });
+                            return;
+                          }
+                          setMsg({ text: `✓ ${result.message || 'Account security updated.'}` });
+                          setSecurityMode(null);
+                          setCurrentPassword('');
+                          setNextEmail('');
+                          setNextPassword('');
+                          setConfirmPassword('');
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div><p className="text-[12px] font-semibold text-content-primary">{securityMode === 'email' ? 'New account email' : 'New password'}</p><p className="text-[10px] text-content-muted">Your workspace stays attached to the same account.</p></div>
+                          <button type="button" onClick={() => setSecurityMode(null)} className="text-[10.5px] font-semibold text-content-muted">Back</button>
+                        </div>
+                        {securityMode === 'email' && (
+                          <>
+                            <input type="email" aria-label="New email address" autoComplete="email" required value={nextEmail} onChange={(event) => setNextEmail(event.target.value)} placeholder="New email address" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
+                            <p className="rounded-xl border border-warning/20 bg-warning/8 px-3 py-2 text-[10px] leading-relaxed text-content-secondary">Keep access to both inboxes. Open the latest confirmation email in each to finish the change.</p>
+                          </>
+                        )}
+                        {securityMode === 'password' && (
+                          <>
+                            <input type="password" aria-label="New password" autoComplete="new-password" minLength={10} required value={nextPassword} onChange={(event) => setNextPassword(event.target.value)} placeholder="New password · 10+ characters" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
+                            <input type="password" aria-label="Repeat new password" autoComplete="new-password" minLength={10} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Repeat new password" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
+                          </>
+                        )}
+                        <input type="password" aria-label="Current password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
+                        <button type="submit" disabled={securityBusy} className="h-10 w-full rounded-xl bg-primary text-[12px] font-semibold text-on-primary disabled:opacity-50">{securityBusy ? 'Verifying…' : securityMode === 'email' ? 'Request email change' : 'Change password'}</button>
+                      </form>
+                    )}
                   </div>
                 )}
 
@@ -635,7 +771,7 @@ export default function SettingsSheet({
                   </div>
                 )}
 
-                <div className="relative px-5 pb-4 flex justify-end">
+                <div hidden={!securityOpen} className="relative px-5 pb-4">
                   {!confirmDeleteAccount ? (
                     <button
                       type="button"
@@ -706,6 +842,55 @@ export default function SettingsSheet({
           </div>
         </section>
 
+        <section>
+          <SectionLabel>APP UPDATES</SectionLabel>
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
+            <div className="settings-data-row p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">
+                    {!updateChecked ? 'Checking for updates' : updateUnavailable ? 'Update status unavailable' : availableUpdate ? 'A newer YouDO is ready' : 'YouDO is up to date'}
+                  </h3>
+                  <p className="mt-0.5 text-[10px] text-content-muted">
+                    {updateUnavailable && updateChecked ? 'Reconnect and check again' : 'GitHub Releases'}
+                  </p>
+                </div>
+                {availableUpdate && (
+                  <button type="button" onClick={() => void openExternalUrl(availableUpdate.url)} className="shrink-0 py-1.5 px-3 rounded-xl bg-primary-soft text-primary-glow text-xs font-semibold">
+                    View update
+                  </button>
+                )}
+                {!availableUpdate && <button type="button" disabled={!updateChecked} onClick={() => setUpdateCheckKey((key) => key + 1)} className="shrink-0 min-h-11 px-2 text-[11px] font-semibold text-primary disabled:opacity-40">Check again</button>}
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-[14px] border border-subtle bg-surface px-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-[8.5px] font-semibold uppercase tracking-[0.15em] text-content-muted">Installed</p>
+                  <p className="mt-1 text-[13px] font-bold tabular-nums text-content-primary">v{APP_VERSION}</p>
+                </div>
+                <div className="flex items-center">
+                  <span className="h-px w-4 bg-border-subtle" />
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-full border ${!updateChecked || updateUnavailable ? 'border-subtle text-content-muted' : availableUpdate ? 'border-primary/25 bg-primary-soft text-primary' : 'border-success/25 bg-success-soft text-success'}`}>
+                    {!updateChecked || updateUnavailable ? <Info size={14} /> : availableUpdate ? <Download size={14} /> : <Check size={14} strokeWidth={2.5} />}
+                  </span>
+                  <span className="h-px w-4 bg-border-subtle" />
+                </div>
+                <div className="min-w-0 text-right">
+                  <p className="text-[8.5px] font-semibold uppercase tracking-[0.15em] text-content-muted">{availableUpdate ? 'Available' : 'Latest'}</p>
+                  <p className={`mt-1 text-[13px] font-bold tabular-nums ${availableUpdate ? 'text-primary' : 'text-secondary'}`}>
+                    {!updateChecked ? 'Checking…' : updateUnavailable ? 'Unknown' : `v${availableUpdate?.version ?? APP_VERSION}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+            {availableUpdate && availableUpdate.highlights.length > 0 && (
+              <div className="border-t border-subtle px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">What’s new</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-content-secondary line-clamp-2">{availableUpdate.highlights.join(' · ')}</p>
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* ── SECTION 2: APPEARANCE ── */}
         <section>
           <SectionLabel>APPEARANCE</SectionLabel>
@@ -754,26 +939,18 @@ export default function SettingsSheet({
               </div>
               <div>
                 <h3 className="text-xs font-semibold text-content-primary">Haptic Feedback</h3>
-                <p className="text-[10.5px] text-content-secondary font-medium">Vibrate on actions</p>
+                <p className="text-[10.5px] text-content-secondary font-medium">Distinct cues for meaningful actions</p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={toggleHaptics}
-              role="switch"
-              aria-checked={hapticsEnabled}
-              className={`settings-toggle relative inline-flex shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
-                hapticsEnabled ? 'bg-primary' : 'bg-surface border border-subtle'
-              }`}
-            >
-              <span
-                aria-hidden="true"
-                className={`settings-toggle-knob pointer-events-none absolute left-1 inline-block transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  hapticsEnabled ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
+            <Toggle checked={hapticsEnabled} onChange={toggleHaptics} label="Haptic feedback" />
+          </div>
+          <div className="settings-card settings-row mt-2 flex items-center justify-between gap-3 border border-subtle bg-elevated">
+            <div className="flex items-center gap-3">
+              <div className="grid shrink-0 place-items-center bg-secondary-soft text-secondary"><Flame size={17} /></div>
+              <div><h3 className="text-xs font-semibold text-content-primary">Reduced effects</h3><p className="text-[10.5px] text-content-secondary">Less motion and blur. Same features.</p></div>
+            </div>
+            <Toggle checked={reducedEffects} onChange={() => setReducedEffects(!reducedEffects)} label="Reduced effects" />
           </div>
         </section>
 
@@ -879,14 +1056,10 @@ export default function SettingsSheet({
               <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
                 <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
-                  Off by default. Turning this on publishes your net focus hours, name, streak, and bar. Turning it off removes your row.
+                  Off by default. Shares your name, net focus, streak, and bar. Also includes you in admin activity totals. Turning it off removes your row and activity signal.
                 </p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={pacePrefs.optedIn}
-                onClick={() => {
+              <Toggle checked={pacePrefs.optedIn} label="Public Board participation" onChange={() => {
                   if (!user) {
                     setMsg({ text: 'Sign in to join the public board.', error: true });
                     return;
@@ -897,18 +1070,7 @@ export default function SettingsSheet({
                   }
                   hapticTick();
                   updatePacePrefs({ optedIn: !pacePrefs.optedIn });
-                }}
-                className={`settings-toggle relative inline-flex shrink-0 appearance-none items-center rounded-full border p-0 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-                  pacePrefs.optedIn ? 'bg-primary border-primary' : 'bg-surface border-subtle'
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`settings-toggle-knob pointer-events-none absolute left-1 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${
-                    pacePrefs.optedIn ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+                }} />
             </div>
             <label className="block">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Display name</span>

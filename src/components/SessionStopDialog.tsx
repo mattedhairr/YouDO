@@ -5,13 +5,14 @@ import type { SessionStopOutcome, Task } from '../types';
 
 interface Props {
   open: boolean;
+  error?: string;
   task: Task;
   onConfirm: (outcome: SessionStopOutcome) => void;
   onDiscard: () => void;
   onCancel: () => void;
 }
 
-export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }: Props) {
+export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel, error }: Props) {
   const [selectedSteps, setSelectedSteps] = useState<number[]>([]);
   const [markTaskDone, setMarkTaskDone] = useState(false);
   const [resumeNote, setResumeNote] = useState(task.resumeNote ?? '');
@@ -159,6 +160,7 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel }
         )}
 
         <div className="flex flex-col gap-2">
+          {error && <p role="alert" className="text-xs leading-relaxed text-error">{error}</p>}
           <button
             onClick={handleSaveProgress}
             className="w-full py-3.5 rounded-xl btn-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"

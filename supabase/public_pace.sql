@@ -8,10 +8,19 @@ create table if not exists public.public_pace (
   today_ms bigint not null default 0,
   week_ms bigint not null default 0,
   month_ms bigint not null default 0,
+  today_key date,
+  week_key date,
+  month_key date,
   streak integer not null default 0,
   bar_hours numeric not null default 1,
   updated_at timestamptz not null default now()
 );
+
+-- Existing projects: add period identities without touching recorded totals.
+-- Older app builds continue to work because these columns are nullable.
+alter table public.public_pace add column if not exists today_key date;
+alter table public.public_pace add column if not exists week_key date;
+alter table public.public_pace add column if not exists month_key date;
 
 alter table public.public_pace enable row level security;
 

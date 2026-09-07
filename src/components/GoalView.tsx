@@ -8,7 +8,6 @@ import {
   CircleDot,
   Copy,
   FileText,
-  Flag,
   Layers,
   Link2,
   ListTree,
@@ -21,12 +20,15 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
-import type { GoalKind, GoalNode } from '../types';
+import type { GoalNode } from '../types';
 import {
   countDirectChildren,
   countCompletedDirectChildren,
   findNode,
   formatDDMMYYYY,
+  goalNodeRole,
+  hasGoalExecutionState,
+  isGoalEndpoint,
   isBacklogTask,
   isTaskComplete,
   localISODate,
@@ -34,6 +36,8 @@ import {
   useStore,
 } from '../store';
 import Overlay from './Overlay';
+import { useSessionStore } from '../store';
+import { goalBranchContainsTask } from '../lib/goalTree';
 import { deadlineDaysLabel, todayISO } from '../lib/dates';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
@@ -98,15 +102,15 @@ interface Props {
   pathIds: string[];
   setPathIds: (ids: string[]) => void;
   highlightNodeId?: string | null;
-  onAddChild: (parentId: string | null, parentKind?: GoalKind) => void;
+  onAddChild: (parentId: string | null) => void;
   onEditNode: (node: GoalNode) => void;
   onPushNode: (node: GoalNode) => void;
   onUnplan: (taskId: string) => void;
   onCopy: (nodeId: string) => void;
   onCopyMany: (nodeIds: string[]) => void;
   onDeleteMany: (nodeIds: string[]) => void;
-  /** Called whenever selection changes — passes selected IDs and schedulable leaf IDs */
-  onSelectionChange: (selectedIds: string[], leafIds: string[]) => void;
+  /** Called whenever selection changes — passes selected IDs and schedulable work-item IDs. */
+  onSelectionChange: (selectedIds: string[], workItemIds: string[]) => void;
   /** Ref App provides — GoalView stores its clearSelection fn here so App can call it */
   clearSelectionRef: React.MutableRefObject<() => void>;
   /** Optional direct navigation handler for recording jump origin for 1-step back navigation */
@@ -115,17 +119,17 @@ interface Props {
   onOpenDescription?: (title: string, description: string) => void;
 }
 
-const kindMeta: Record<GoalKind, { icon: typeof Target; tint: string; label: string }> = {
-  goal:    { icon: Target,    tint: 'var(--primary)',        label: 'Goal' },
-  phase:   { icon: Flag,      tint: 'var(--primary-glow)',   label: 'Phase' },
-  section: { icon: Layers,    tint: 'var(--text-secondary)', label: 'Section' },
-  task:    { icon: ListTree,  tint: 'var(--text-secondary)', label: 'Task' },
-  sub:     { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Sub' },
-  leaf:    { icon: CircleDot, tint: 'var(--text-muted)',     label: 'Leaf' },
-};
+function nodeMeta(node: GoalNode): { icon: typeof Target; tint: string; label: string } {
+  const role = goalNodeRole(node);
+  if (role === 'Goal') return { icon: Target, tint: 'var(--primary)', label: role };
+  if (role === 'Branch') return { icon: Layers, tint: 'var(--text-secondary)', label: role };
+  return { icon: CircleDot, tint: 'var(--text-muted)', label: role };
+}
 
 export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenStudio, onOpenDescription }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
+  const { activeSession } = useSessionStore();
+  const runningTask = tasks.find((task) => task.id === activeSession?.taskId);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -219,11 +223,11 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       else next.add(id);
       // Notify parent of selection change
       const allIds = [...next];
-      const leafIds = allIds.filter((lid) => {
-        const n = findGoalInTree(lid, children);
+      const workItemIds = allIds.filter((itemId) => {
+        const n = findGoalInTree(itemId, children);
         return n && n.children.length === 0;
       });
-      onSelectionChange(allIds, leafIds);
+      onSelectionChange(allIds, workItemIds);
       return next;
     });
 
@@ -289,8 +293,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   }, [current, siblings]);
 
   const jumpToPinned = (p: { node: GoalNode; path: GoalNode[] }) => {
-    // Generalized rule: If pinned item has children (Goal/Phase/Section/Task/Sub), drill INTO it to display its children.
-    // If pinned item is a leaf node (0 children), open its parent level so the item is highlighted in context.
+    // Groups open directly; endpoints open at their parent so they remain visible in context.
     const targetIds =
       p.node.children.length > 0
         ? p.path.map((n) => n.id)
@@ -307,7 +310,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
   return (
     <div className="fade-in pb-20">
-      <div className="sticky top-0 z-30 no-swipe -mt-4 mb-3.5 pt-1 pb-2.5 bg-base/95 space-y-2">
+      <div className="sticky top-0 z-30 no-swipe -mt-4 mb-3.5 pt-1 pb-2.5 bg-base space-y-2 shadow-[0_10px_18px_-18px_rgba(0,0,0,0.9)]">
         <nav
           aria-label="Goal location"
           className="flex items-center gap-1 rounded-[12px] border border-subtle bg-surface p-1"
@@ -370,7 +373,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
         </nav>
 
         {siblings.length > 1 && current && (
-          <div className="rounded-[14px] border border-subtle bg-surface/80 shadow-card px-2 py-2">
+          <div className="rounded-[14px] border border-subtle bg-surface shadow-card px-2 py-2">
             <div ref={siblingStripRef} className="flex items-center gap-2 overflow-x-auto no-scrollbar" aria-label="Sibling branches">
               <span className="shrink-0 pl-1 text-[9px] font-bold uppercase tracking-[0.14em] text-content-muted">Branches</span>
               <span className="h-4 w-px shrink-0 bg-border-subtle" aria-hidden />
@@ -424,7 +427,8 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               <span className="text-[13px] font-semibold text-content-primary">All Goals</span>
             </button>
             {path.map((n, i) => {
-              const MetaIcon = kindMeta[n.kind].icon;
+              const meta = nodeMeta(n);
+              const MetaIcon = meta.icon;
               const isHere = i === path.length - 1;
               return (
                 <button
@@ -436,12 +440,12 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   } ${isHere ? 'bg-primary-soft' : ''}`}
                   style={{ paddingLeft: `${14 + Math.min(i, 5) * 12}px` }}
                 >
-                  <MetaIcon size={14} style={{ color: kindMeta[n.kind].tint }} className="shrink-0" />
+                  <MetaIcon size={14} style={{ color: meta.tint }} className="shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className={`block text-[13px] font-semibold truncate ${isHere ? 'text-primary' : 'text-content-primary'}`}>
                       {n.title}
                     </span>
-                    <span className="block text-[10px] text-content-muted">{kindMeta[n.kind].label}</span>
+                    <span className="block text-[10px] text-content-muted">{meta.label}</span>
                   </span>
                   {isHere && (
                     <span className="text-[10px] font-bold uppercase tracking-wider text-primary shrink-0">Here</span>
@@ -466,11 +470,11 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             </div>
             <div className="bg-surface rounded-[12px] border border-subtle overflow-hidden">
               {pinned.map((p, i) => {
-                const meta = kindMeta[p.node.kind];
+                const meta = nodeMeta(p.node);
                 const Icon = meta.icon;
                 const ancestors = p.path.slice(0, -1);
-                const badgeNodes = ancestors.filter((node) => node.kind === 'goal' || node.kind === 'phase');
-                const contextNodes = ancestors.filter((node) => node.kind !== 'goal' && node.kind !== 'phase');
+                const badgeNodes = ancestors.slice(0, Math.min(2, ancestors.length));
+                const contextNodes = ancestors.slice(badgeNodes.length);
                 const pathLabel = ancestors.map((n) => n.title).join(' / ') || 'Root goal';
                 const pPct = rollupPct(p.node);
                 return (
@@ -528,11 +532,12 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               {(() => {
-                const Icon = kindMeta[current.kind].icon;
+                const meta = nodeMeta(current);
+                const Icon = meta.icon;
                 return (
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: kindMeta[current.kind].tint }}>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: meta.tint }}>
                     <Icon size={13} className="shrink-0" />
-                    {kindMeta[current.kind].label}
+                    {meta.label}
                   </div>
                 );
               })()}
@@ -567,7 +572,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
 
           <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-content-secondary">
             <span className="shrink-0 whitespace-nowrap tabular-nums font-medium">
-              {countCompletedDirectChildren(current)} of {countDirectChildren(current)} complete
+              {countCompletedDirectChildren(current)} of {countDirectChildren(current)}{' '}
+              {current.children.length > 0
+                ? current.children.every(isGoalEndpoint) ? 'tasks' : 'branches'
+                : (current.steps?.length ?? 0) > 0 ? 'steps' : 'task'} complete
             </span>
             {(current.startDate || current.endDate) && (
               <span className="inline-flex items-center gap-1 tabular-nums text-content-muted">
@@ -639,17 +647,16 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       {/* Children list */}
       {children.length > 0 && <div className="bg-surface rounded-[12px] border border-subtle overflow-hidden">
         {children.map((child, index) => {
-          const meta = kindMeta[child.kind];
+          const meta = nodeMeta(child);
           const Icon = meta.icon;
-          // Any container node (goal, phase, section, task, sub) can be drilled into
-          const canDrill = child.kind !== 'leaf';
-          // Executable nodes that can be directly completed (task, sub, leaf)
-          const isTaskKind = child.kind === 'task' || child.kind === 'sub' || child.kind === 'leaf';
-          // Any childless node is considered leaf-like and can be dispatched to Today
-          const isLeafLike = child.children.length === 0;
+          // Empty untouched items can still be opened and expanded. Once work exists,
+          // the endpoint stays an executable item so scheduling/history remain clear.
+          const canDrill = child.kind === 'goal' || child.children.length > 0 || !hasGoalExecutionState(child);
+          const isEndpoint = child.children.length === 0;
+          const isWorkItem = isEndpoint && child.kind !== 'goal';
           const hasSteps = !!child.steps && child.steps.length > 0;
           const stepDone = child.stepDone ?? [];
-          const pct = isLeafLike && hasSteps ? Math.round((stepDone.filter(Boolean).length / child.steps!.length) * 100) : rollupPct(child);
+          const pct = isEndpoint && hasSteps ? Math.round((stepDone.filter(Boolean).length / child.steps!.length) * 100) : rollupPct(child);
           const isSelected = selected.has(child.id);
           const isDone = child.completed || pct === 100;
           const linkedTask = child.todayTaskId ? tasks.find((t) => t.id === child.todayTaskId) : null;
@@ -704,7 +711,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-primary z-10' : ''}`}
             >
               <div className="flex items-center gap-2.5">
-                {isTaskKind && (
+                {isWorkItem && (
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -748,8 +755,8 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               <div className="flex items-center gap-2 min-w-0">
                 <p className="flex-1 min-w-0 text-[11px] text-content-muted truncate">
                   {meta.label}
-                  {!isLeafLike && ` · ${countCompletedDirectChildren(child)}/${countDirectChildren(child)} done`}
-                  {isLeafLike && hasSteps && ` · ${stepDone.filter(Boolean).length}/${child.steps!.length} steps`}
+                  {!isEndpoint && ` · ${countCompletedDirectChildren(child)}/${countDirectChildren(child)} done`}
+                  {isEndpoint && hasSteps && ` · ${stepDone.filter(Boolean).length}/${child.steps!.length} steps`}
                 </p>
                 {isActivelyScheduled && (
                   <span
@@ -770,11 +777,12 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 <div className="h-full rounded-full" style={{ width: `${pct}%`, background: isDone ? 'var(--secondary)' : 'var(--primary)' }} />
               </div>
 
-              {isLeafLike && hasSteps && (
+                {isWorkItem && hasSteps && (
                 <div className="flex flex-wrap gap-1">
                   {child.steps!.map((s, i) => (
                     <button
                       key={i}
+                      disabled={!!runningTask && goalBranchContainsTask(child, runningTask)}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleGoalStep(child.id, i);
@@ -784,7 +792,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                           ? 'bg-elevated border-subtle text-content-muted line-through'
                           : 'border-subtle text-content-secondary'
                       }`}
-                      title={s}
+                      title={runningTask && goalBranchContainsTask(child, runningTask) ? 'Save progress from the running sitting first' : s}
                     >
                       {i + 1}. {s}
                     </button>
@@ -825,24 +833,25 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 </button>
                 <div className="flex-1" />
 
-                {isTaskKind && (
+                {isWorkItem && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleNodeCompletion(child.id);
                     }}
+                    disabled={!!runningTask && goalBranchContainsTask(child, runningTask)}
                     className={`h-8 px-2.5 rounded-[10px] text-[11px] font-medium border ${
                       isDone
                         ? 'bg-secondary-soft text-secondary border-subtle'
                         : 'text-content-secondary border-subtle hover:text-content-primary'
                     }`}
-                    title={isDone ? 'Mark as incomplete' : 'Mark as done'}
+                    title={runningTask && goalBranchContainsTask(child, runningTask) ? 'Save progress from the running sitting first' : isDone ? 'Mark as incomplete' : 'Mark as done'}
                   >
                     Done
                   </button>
                 )}
 
-                {isLeafLike && !child.completed && (
+                {isWorkItem && !child.completed && (
                   isActivelyScheduled ? (
                     <>
                       <button
@@ -886,7 +895,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       </div>}
 
       <button
-        onClick={() => onAddChild(current?.id ?? null, current?.kind)}
+        onClick={() => onAddChild(current?.id ?? null)}
         className="mt-4 w-full py-3 rounded-2xl text-sm font-medium text-content-secondary bg-surface border border-dashed border-subtle hover:border-content-muted hover:text-content-primary transition-colors flex items-center justify-center gap-1.5"
       >
         <Plus size={15} />

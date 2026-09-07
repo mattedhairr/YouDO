@@ -14,6 +14,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2}'],
         navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/auth-confirm\.html$/],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
@@ -100,6 +101,9 @@ export default defineConfig({
   ],
   optimizeDeps: {
     exclude: ['lucide-react'],
+  },
+  build: {
+    rollupOptions: { input: { app: 'index.html', confirmation: 'auth-confirm.html' } },
   },
   test: {
     environment: 'node',

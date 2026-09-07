@@ -1,7 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { registerOverlayCloser } from '../lib/overlayNavigation';
 
 type Align = 'center' | 'bottom' | 'full';
+const layers: HTMLDivElement[] = [];
+let unlockedOverflow = '';
 
 interface OverlayProps {
   open: boolean;
@@ -23,20 +26,46 @@ export default function Overlay({
   scrim = true,
 }: OverlayProps) {
   const layerRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
-    const prevOverflow = document.body.style.overflow;
+    const layer = layerRef.current;
+    if (!layer) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!layers.length) unlockedOverflow = document.body.style.overflow;
+    layers.push(layer);
+    const unregisterClose = registerOverlayCloser(() => closeRef.current?.());
+    layer.style.zIndex = String(1000 + layers.length);
     document.body.style.overflow = 'hidden';
+    if (!layer.contains(document.activeElement)) layer.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose?.();
+      if (layers[layers.length - 1] !== layer) return;
+      if (e.key === 'Escape') {
+        e.preventDefault(); e.stopImmediatePropagation(); closeRef.current?.();
+      }
+      if (e.key === 'Tab') {
+        const focusable = Array.from(layer.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], summary, [tabindex="0"]'))
+          .filter((element) => element.getClientRects().length && !element.closest('[hidden], [inert]'));
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first) { e.preventDefault(); layer.focus(); }
+        else if (e.shiftKey && (document.activeElement === first || document.activeElement === layer)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || document.activeElement === layer)) { e.preventDefault(); first.focus(); }
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      const wasTop = layers[layers.length - 1] === layer;
+      unregisterClose();
+      const index = layers.indexOf(layer);
+      if (index >= 0) layers.splice(index, 1);
+      if (!layers.length) document.body.style.overflow = unlockedOverflow;
       window.removeEventListener('keydown', onKey);
+      if (wasTop && previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   // Chromium often skips backdrop-filter on the first portal paint until a later
   // compositor update (e.g. a button re-render). Re-apply the filter on the next frame.
@@ -55,9 +84,6 @@ export default function Overlay({
 
   if (!open) return null;
 
-  const stack = overlayHost().querySelectorAll('.overlay-layer').length;
-  const zLayer = 1000 + stack;
-
   const rootClass = [
     'overlay-layer',
     align === 'bottom' ? 'overlay-layer-bottom' : align === 'full' ? 'overlay-layer-full' : 'overlay-layer-center',
@@ -72,7 +98,7 @@ export default function Overlay({
       className={rootClass}
       role="dialog"
       aria-modal="true"
-      style={{ zIndex: zLayer }}
+      tabIndex={-1}
       onClick={scrim ? onClose : undefined}
     >
       <div className="overlay-content" onClick={(e) => e.stopPropagation()}>

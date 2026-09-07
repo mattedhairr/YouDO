@@ -85,7 +85,7 @@ export default function CommandBar({
                 </button>
               </div>
             ) : (
-              <p className="px-2 pb-1 text-[10.5px] text-content-muted">No schedulable leaf tasks selected. Active sessions stay protected.</p>
+              <p className="px-2 pb-1 text-[10.5px] text-content-muted">No schedulable tasks selected. Active sessions stay protected.</p>
             )}
           </div>
         ) : paste ? (

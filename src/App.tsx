@@ -3,7 +3,7 @@ import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clo
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, isBacklogTask, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
+import { findNode, formatDDMMYYYY, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
 import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
 import TaskCard from './components/TaskCard';
@@ -16,7 +16,6 @@ import HelpCenterSheet from './components/HelpCenterSheet';
 import TodayBriefingSheet from './components/TodayBriefingSheet';
 import UndoToast from './components/UndoToast';
 import { STORAGE_KEYS } from './lib/storageKeys';
-import { hapticTap } from './lib/haptics';
 import { daysBetweenLocalISO } from './lib/dates';
 import {
   netFocusByLocalDateOverlapping,
@@ -35,24 +34,92 @@ import { useTheme } from './hooks/useTheme';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { assertDeviceClock, clearClockIncident } from './lib/deviceClock';
 import UpdateNotice from './components/UpdateNotice';
+import { useCommunityActivity } from './hooks/useCommunityActivity';
+import { useAuth } from './contexts/AuthContext';
+import { closeTopOverlay } from './lib/overlayNavigation';
 
+// Original YouDO prompts: no invented attribution or pressure to skip rest.
 const MOTIVATIONAL_QUOTES = [
-  { text: 'Giving up is not in the blood sir..... not in the blood', author: 'Nimsdai Purja' },
-  { text: "It's not about being the best. It's about being better than you were yesterday.", author: 'Unknown' },
-  { text: 'Discipline equals freedom.', author: 'Jocko Willink' },
-  { text: 'You must do the thing you think you cannot do.', author: 'Eleanor Roosevelt' },
-  { text: 'Hard work beats talent when talent does not work hard.', author: 'Tim Notke' },
-  { text: "Don't wish it were easier. Wish you were better.", author: 'Jim Rohn' },
-  { text: 'You do not have to be great to start. You have to start to be great.', author: 'Zig Ziglar' },
-  { text: 'The pain of discipline is nothing compared to the pain of regret.', author: 'Unknown' },
-  { text: 'While you rest, someone else is studying.', author: 'Unknown' },
-  { text: 'Sit down. Open the book. Begin.', author: 'YouDO' },
-  { text: 'Nobody is coming to save you. Do the work.', author: 'Unknown' },
-  { text: 'Comfort is the enemy of growth.', author: 'Unknown' },
-  { text: 'Suffer the hours now. Own the years later.', author: 'YouDO' },
-  { text: 'Arise, awake, and stop not till the goal is reached.', author: 'Swami Vivekananda' },
-  { text: 'Make the days count.', author: 'Muhammad Ali' },
-  { text: 'The obstacle is the way.', author: 'Marcus Aurelius' },
+  {
+    "text": "Your plan is a promise. Give it evidence today.",
+    "author": "YouDO"
+  },
+  {
+    "text": "The chapter will not finish itself. Begin the next page.",
+    "author": "YouDO"
+  },
+  {
+    "text": "You do not need a perfect day. You need an honest start.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Stop rehearsing the future. Train for it.",
+    "author": "YouDO"
+  },
+  {
+    "text": "The work you avoid is still waiting. Meet it now.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Make your next hour harder to regret.",
+    "author": "YouDO"
+  },
+  {
+    "text": "A small task finished beats a grand plan postponed.",
+    "author": "YouDO"
+  },
+  {
+    "text": "You cannot scroll your way into the life you want.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Close the distraction. Open the work.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Earn confidence one finished step at a time.",
+    "author": "YouDO"
+  },
+  {
+    "text": "The deadline does not care whether you felt ready.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Do the difficult part before you negotiate with it.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Rest on purpose. Return with purpose.",
+    "author": "YouDO"
+  },
+  {
+    "text": "You are not behind forever. Start from where you are.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Your ambition deserves more than your spare attention.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Finish one thing before you redesign the whole plan.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Discipline is keeping the next small promise.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Protect your attention. It is building your future.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Today is not a rehearsal.",
+    "author": "YouDO"
+  },
+  {
+    "text": "Let your finished work speak louder than your intentions.",
+    "author": "YouDO"
+  }
 ];
 
 function YouDoIcon({ size = 18 }: { size?: number }) {
@@ -169,6 +236,9 @@ function AppInner() {
   } = useSessionStore();
 
   const [{ darkMode }] = useTheme();
+  const { user: activityUser } = useAuth();
+  const { pacePrefs: activityPrefs } = useStore();
+  useCommunityActivity(activityUser?.id, activityPrefs.optedIn);
   const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity();
   const [clockVerifyBusy, setClockVerifyBusy] = useState(false);
   const [clockVerifyError, setClockVerifyError] = useState<string | null>(null);
@@ -181,7 +251,6 @@ function AppInner() {
   const [blueprintStudioOpen, setBlueprintStudioOpen] = useState(false);
   const [blueprintUndo, setBlueprintUndo] = useState<{ token: string; title: string } | null>(null);
   const [goalParentId, setGoalParentId] = useState<string | null>(null);
-  const [goalParentKind, setGoalParentKind] = useState<GoalKind | undefined>(undefined);
   const [editingNode, setEditingNode] = useState<GoalNode | null>(null);
   const [sliceNodes, setSliceNodes] = useState<GoalNode[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -191,6 +260,8 @@ function AppInner() {
   // Session UI states
   const [showAmbient, setShowAmbient] = useState(false);
   const [stopDialogTask, setStopDialogTask] = useState<Task | null>(null); 
+  const [sessionSaveError, setSessionSaveError] = useState('');
+  useEffect(() => { setSessionSaveError(''); }, [stopDialogTask]);
   const [helpOpen, setHelpOpen] = useState(false);
   const [hasSeenHelp, setHasSeenHelp] = useLocalStorage(STORAGE_KEYS.helpSeen, false);
   const firstHelpRef = useRef(false);
@@ -205,7 +276,7 @@ function AppInner() {
   const routedSessionTaskRef = useRef<string | null>(null);
   activeSessionRef.current = activeSession;
 
-  const openHelp = useCallback((opts?: { silent?: boolean }) => {
+  const openHelp = useCallback(() => {
     setHelpOpen((already) => {
       if (!already) {
         try {
@@ -216,7 +287,6 @@ function AppInner() {
       }
       return true;
     });
-    if (!opts?.silent) hapticTap();
   }, []);
 
   // Heartbeat while visible (30s). Also tick on return so a long lock is handled immediately.
@@ -235,22 +305,22 @@ function AppInner() {
 
   // Batch selection state
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([]);
-  const [batchLeafIds, setBatchLeafIds] = useState<string[]>([]);
+  const [batchWorkItemIds, setBatchWorkItemIds] = useState<string[]>([]);
   const clearSelectionRef = useRef<() => void>(() => {});
 
-  const handleSelectionChange = useCallback((ids: string[], leafIds: string[]) => {
+  const handleSelectionChange = useCallback((ids: string[], workItemIds: string[]) => {
     setBatchSelectedIds(ids);
-    setBatchLeafIds(leafIds);
+    setBatchWorkItemIds(workItemIds);
   }, []);
 
-  const batchLeafGroups = useMemo(() => {
+  const batchWorkItemGroups = useMemo(() => {
     const allNodes: GoalNode[] = [];
     const flatten = (node: GoalNode) => {
       allNodes.push(node);
       node.children.forEach(flatten);
     };
     goals.forEach(flatten);
-    const selected = allNodes.filter((node) => batchLeafIds.includes(node.id) && node.children.length === 0 && !node.completed);
+    const selected = allNodes.filter((node) => batchWorkItemIds.includes(node.id) && node.children.length === 0 && !node.completed);
     const schedule: GoalNode[] = [];
     const replan: GoalNode[] = [];
     const unplan: GoalNode[] = [];
@@ -268,12 +338,12 @@ function AppInner() {
       }
     }
     return { schedule, replan, unplan };
-  }, [activeSession?.taskId, batchLeafIds, goals, tasks]);
+  }, [activeSession?.taskId, batchWorkItemIds, goals, tasks]);
 
   const handleBatchCancel = useCallback(() => {
     clearSelectionRef.current();
     setBatchSelectedIds([]);
-    setBatchLeafIds([]);
+    setBatchWorkItemIds([]);
   }, []);
 
   // Modal close interceptor ref for popstate (device back gesture)
@@ -322,7 +392,7 @@ function AppInner() {
       setHelpOpen(false);
       return true;
     }
-    return false;
+    return closeTopOverlay();
   };
 
   const handleModalPopState = useCallback(() => {
@@ -347,11 +417,18 @@ function AppInner() {
     setSheetOpen(true);
   };
 
-  const openAddGoal = (parentId: string | null, parentKind?: GoalKind) => {
+  const openAddGoal = (parentId: string | null) => {
+    const parent = parentId ? findGoal(goals, parentId) : null;
+    if (parent && parent.kind !== 'goal' && isGoalEndpoint(parent) && hasGoalExecutionState(parent)) {
+      setDescModalData({
+        title: 'This is already a task',
+        description: 'It already has steps, progress, or scheduled work. Keep it as a task so your history stays safe, or create a separate item beside it.',
+      });
+      return;
+    }
     pushModalState();
     setEditingNode(null);
     setGoalParentId(parentId);
-    setGoalParentKind(parentKind);
     setGoalSheetOpen(true);
   };
 
@@ -386,14 +463,14 @@ function AppInner() {
     copyGoalNodes(batchSelectedIds);
     clearSelectionRef.current();
     setBatchSelectedIds([]);
-    setBatchLeafIds([]);
+    setBatchWorkItemIds([]);
   }, [copyGoalNodes, batchSelectedIds]);
 
   const handleBatchDelete = useCallback(() => {
     deleteGoalNodes(batchSelectedIds);
     clearSelectionRef.current();
     setBatchSelectedIds([]);
-    setBatchLeafIds([]);
+    setBatchWorkItemIds([]);
   }, [deleteGoalNodes, batchSelectedIds]);
 
   const openBatchPlanner = useCallback((selectedNodes: GoalNode[]) => {
@@ -402,26 +479,26 @@ function AppInner() {
     setSliceNodes(selectedNodes);
     clearSelectionRef.current();
     setBatchSelectedIds([]);
-    setBatchLeafIds([]);
+    setBatchWorkItemIds([]);
   }, [pushModalState]);
 
   const handleBatchSchedule = useCallback(() => {
-    openBatchPlanner(batchLeafGroups.schedule);
-  }, [batchLeafGroups.schedule, openBatchPlanner]);
+    openBatchPlanner(batchWorkItemGroups.schedule);
+  }, [batchWorkItemGroups.schedule, openBatchPlanner]);
 
   const handleBatchReplan = useCallback(() => {
-    openBatchPlanner(batchLeafGroups.replan);
-  }, [batchLeafGroups.replan, openBatchPlanner]);
+    openBatchPlanner(batchWorkItemGroups.replan);
+  }, [batchWorkItemGroups.replan, openBatchPlanner]);
 
   const handleBatchUnplan = useCallback(() => {
-    if (batchLeafGroups.unplan.length === 0) return;
-    for (const node of batchLeafGroups.unplan) {
+    if (batchWorkItemGroups.unplan.length === 0) return;
+    for (const node of batchWorkItemGroups.unplan) {
       if (node.todayTaskId) unlinkTask(node.todayTaskId);
     }
     clearSelectionRef.current();
     setBatchSelectedIds([]);
-    setBatchLeafIds([]);
-  }, [batchLeafGroups.unplan, unlinkTask]);
+    setBatchWorkItemIds([]);
+  }, [batchWorkItemGroups.unplan, unlinkTask]);
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
@@ -951,7 +1028,7 @@ function AppInner() {
     if (hasSeenHelp || recoverySessionPrompt || reconstructOpen || helpOpen) return;
     if (firstHelpRef.current) return;
     firstHelpRef.current = true;
-    openHelp({ silent: true });
+    openHelp();
   }, [hasSeenHelp, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
 
   useEffect(() => {
@@ -1042,7 +1119,7 @@ function AppInner() {
         </header>
 
         {/* Main View Area */}
-        <main className="mt-3">
+        <main className={view === 'board' || view === 'calendar' ? 'mt-2' : 'mt-3'}>
           <div
             key={`${view}-${goalPathIds.join('-')}`}
             className={
@@ -1480,9 +1557,9 @@ function AppInner() {
           syncAttention={cloudSyncConflict}
           batch={batchSelectedIds.length > 0 ? {
             count: batchSelectedIds.length,
-            scheduleCount: batchLeafGroups.schedule.length,
-            replanCount: batchLeafGroups.replan.length,
-            unplanCount: batchLeafGroups.unplan.length,
+            scheduleCount: batchWorkItemGroups.schedule.length,
+            replanCount: batchWorkItemGroups.replan.length,
+            unplanCount: batchWorkItemGroups.unplan.length,
             onCopy: handleBatchCopy,
             onDelete: handleBatchDelete,
             onSchedule: handleBatchSchedule,
@@ -1507,7 +1584,6 @@ function AppInner() {
       <AddGoalSheet
         open={goalSheetOpen}
         parentId={goalParentId}
-        parentKind={goalParentKind}
         editing={editingNode}
         onClose={closeGoalSheet}
         onAddRoot={addGoalRoot}
@@ -1519,6 +1595,7 @@ function AppInner() {
         open={blueprintStudioOpen}
         goals={goals}
         initialPathIds={goalPathIds}
+        activeGoalNodeId={tasks.find((task) => task.id === activeSession?.taskId)?.goalNodeId}
         onClose={closeBlueprintStudio}
         onCommit={(base, next, title) => {
           const result = applyGoalTreeChange(base, next);
@@ -1586,6 +1663,7 @@ function AppInner() {
           key={stopDialogTask.id}
           open={!!stopDialogTask}
           task={stopDialogTask}
+          error={sessionSaveError}
           onCancel={() => setStopDialogTask(null)}
           onDiscard={() => {
             discardSession();
@@ -1594,7 +1672,9 @@ function AppInner() {
             setReconstructOpen(false);
           }}
           onConfirm={(outcome) => {
-            stopSession(outcome);
+            const saved = stopSession(outcome, { taskId: stopDialogTask.id });
+            if (!saved.ok) { setSessionSaveError(saved.error ?? 'Could not save the sitting.'); return; }
+            setSessionSaveError('');
             if (outcome.completed === true || (outcome.completedStepIndices?.length ?? 0) > 0) {
               completeSessionSteps(stopDialogTask.id, outcome.completedStepIndices ?? []);
             }
@@ -1702,6 +1782,7 @@ function AppInner() {
           open
           task={activeTask}
           session={activeSession}
+          error={sessionSaveError}
           onCancel={() => {
             setReconstructOpen(false);
             const session = activeSessionRef.current;
@@ -1714,7 +1795,9 @@ function AppInner() {
             setReconstructOpen(false);
           }}
           onSave={({ endTime, completed, completedStepIndices }) => {
-            stopSession({ completed, completedStepIndices }, { endTime, ignoreOpenPause: true });
+            const saved = stopSession({ completed, completedStepIndices }, { endTime, ignoreOpenPause: true, taskId: activeTask.id });
+            if (!saved.ok) { setSessionSaveError(saved.error ?? 'Could not save the sitting.'); return; }
+            setSessionSaveError('');
             if (completed === true || completedStepIndices.length > 0) {
               completeSessionSteps(activeTask.id, completedStepIndices);
             }

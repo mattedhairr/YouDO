@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import AuthGate from './components/AuthGate';
 import { clearYouDoStorage } from './lib/storageKeys';
 import './index.css';
+import ExperiencePreferences from './components/ExperiencePreferences';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -67,6 +68,7 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <ExperiencePreferences />
     <GlobalErrorBoundary>
       <AuthProvider>
         <AuthGate>

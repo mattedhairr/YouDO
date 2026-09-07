@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   goalPathIds: 'youdo-goal-path-ids',
   helpSeen: 'youdo-help-seen-v1',
   haptics: 'youdo-haptics-v1',
+  reducedEffects: 'youdo-reduced-effects-v1',
   streakMeta: 'youdo-streak-meta-v1',
   pacePrefs: 'youdo-pace-prefs-v1',
   paceRankSnapshot: 'youdo-pace-rank-snapshot-v1',

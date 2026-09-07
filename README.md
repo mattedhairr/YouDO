@@ -46,32 +46,35 @@ A normal to-do list flattens that structure. A normal timer rewards keeping the 
 
 ## What makes YouDO different
 
-### A blueprint deep enough for a real syllabus
+### A blueprint that fits the way you think
 
-YouDO keeps preparation organised through six connected levels:
+YouDO uses one universal tree instead of forcing fixed layer names or a fixed depth:
 
 ```text
-Goal
-└── Phase
-    └── Section
-        └── Task
-            └── Sub-task
-                └── Leaf Task
+Goal: GATE 2027
+├── Foundation
+│   └── Network Theory
+│       └── Chapter 1
+│           └── Lecture 1  ← task
+└── Revision
+    └── Mock test          ← task
 ```
 
-Use only the depth your plan needs. A goal can remain simple, or grow into a detailed blueprint covering subjects, chapters, lessons, practice, notes, and revision.
+Name every item in the language that makes sense for your plan. Items with children act as branches; endpoints become schedulable tasks. A goal can stay simple or grow as deep as a real syllabus requires, without empty compulsory layers.
 
 ### Blueprint Studio: structure without repetitive entry
 
 Blueprint Studio is one focused workspace for creating and reshaping large plans without repeatedly opening and closing individual branches.
 
-- Open Studio at the exact goal level you are already viewing.
-- Move freely through the hierarchy while applied changes remain in one unsaved draft.
-- Add named items or numbered ranges directly, without repetitive confirmation screens.
-- Fully develop one phase while leaving later phases as clean shells.
-- Keep selections across different branches and update them together.
-- Review a visible history and undo the newest applied change at any time.
-- Save the whole blueprint once, with only changed paths expanded and clearly marked in the final review.
+- Open Studio at the exact item you are already viewing.
+- Browse compact rows with breadcrumbs; item names open their contents and pencil buttons edit their details.
+- Add one item, a list, or a numbered range. Optional descriptions stay tucked away.
+- Select branches and choose **Open** to inspect their existing contents under separate parent headings. Filter names and select matches for repeated edits.
+- Choose **Edit** for one shared name, description, or date change; switch to **Individually** for per-item forms with full parent paths.
+- Use **More** for duplication, moving, reordering, pins, removal, and checklist tools. Completed or scheduled checklist steps cannot be deleted; active focus tasks stay protected.
+- Undo and redo applied edits, review the actual changed items, then save the blueprint once. Exit and unfinished-form confirmations keep accidental Back actions from discarding work.
+
+Studio uses an in-memory draft, not an autosaved backup. A final save still checks that the underlying goal tree has not changed elsewhere; it never overwrites a newer tree silently. Scheduling remains in the regular Goals workspace.
 
 The regular goal editor remains available whenever direct manual control is faster.
 
@@ -104,6 +107,14 @@ YouDO records both total session duration and net focus.
 
 **Daily Focus Stats** separates task execution from focus quality, so completed work, failed work, net focus, elapsed duration, efficiency, momentum, and individual sessions remain understandable.
 
+Calendar opens with a compact **date dial** and a short summary: finished tasks, net focus, and sessions. Swipe sideways, use the arrows, or use keyboard arrow keys to move through dates; **Back to today** recentres it. Expand **Choose another date** for the month grid or **Full stats** for the detailed breakdown. Reduced effects removes the dial animation. Focus sessions are split at local midnight; viewing past work does not edit it.
+
+### Feedback that earns its place
+
+Selection uses a light tick; session start, pause, completion, and warnings have distinct short haptic cues. Routine Help navigation stays quiet. Device hardware determines how strongly those cues can be felt, and **Haptic feedback** can be switched off entirely.
+
+**Settings → Appearance → Reduced effects** removes decorative motion, blur, shadows, and the moving quote without changing features. It follows the device’s reduced-motion preference until the user chooses otherwise. This device-only preference does not change focus timing or cloud data. Original YouDO prompts encourage action without inventing famous attributions.
+
 ### Motivation without forced publicity
 
 - Set a personal daily focus threshold for your streak.
@@ -111,9 +122,18 @@ YouDO records both total session duration and net focus.
 - Join the public Board only if you choose.
 - Compare Today, Week, or Month using net focus as the ranking measure.
 - See a focused Top 10, your own rank, and nearby competitors instead of scrolling through every participant.
+- Give **Kudos** to the top three in the selected Today/Week/Month view. One acknowledgement per sender/recipient per UTC day; never affects rank. Tied focus totals use a stable account-ID order across client and server.
+- Acknowledgements share the focus row, only on the top three. **Community** and **Admin** have separate matching controls. Each new acknowledgement posts one short system note while the room is enabled; retries do not duplicate it.
+- Use the short daily encouragement room without links, private messages, or a permanent user-facing chat history.
 - Turn Board participation off to remove your public row.
 
-The Board is private by default and runs on an honour system. Padded hours only cheat the person who still has to sit the exam.
+The Board is private by default and runs on an honour system. Community access is limited to opted-in Board members, with rate limits and private reporting. The admin console separates **Review**, **Controls**, and **Safety log** without exposing private workspaces through those tools. Padded hours only cheat the person who still has to sit the exam.
+
+Admin opens with a compact **Community pulse**: **Active recently** (a foreground signal within five minutes) and **Used today** (unique Board members since 00:00 UTC, or 05:30 in India). These are aggregate signals, not exact online counts, and exclude older builds without activity support. Only the latest activity timestamp is stored per participating account; there is no page, device, or task-activity history in this measurement. Turning Board participation off removes that timestamp with the public row.
+
+Opened messages remain for the current visit, then disappear on reopening or at **00:00 UTC**. Unread messages remain in each recipient’s catch-up inbox until opened; removed content never resurfaces. This is a display/read-state rule, not immediate server deletion. Reports, appeals, restrictions, and the safety log persist. See [community setup and verification](docs/community-setup.md) before deploying the new build.
+
+Session completion now waits for a successful local history write; storage failures leave the sitting open with an error. Manual completion controls cannot bypass a running sitting. These safeguards do not establish the cause of the reported v6.3.0 lost-session/frozen-phone incident; see [investigation status](docs/focus-session-investigation.md).
 
 ## Your data remains yours
 
@@ -124,6 +144,7 @@ YouDO requires an account for a real workspace so signed-out and cross-account d
 - **Explicit migration:** existing device data is never merged into an account without asking first.
 - **Safe sign-out:** YouDO refuses to clear the phone workspace when unsynced changes cannot reach the cloud.
 - **Account deletion:** permanently remove the Auth user, cloud backups, restore points, and Board profile.
+- **Signed-in devices:** review active sessions and remotely sign out one owned session after the current device has been trusted for 24 hours. See [the account-session setup](docs/account-sessions.md).
 - **Local backup:** export and import a JSON snapshot at any time.
 - **Private by default:** public Board participation is a separate opt-in.
 - **No paid tier or advertising:** the current project is free and open source.
@@ -178,11 +199,20 @@ For your own Supabase project, add its URL and anonymous key to `.env`:
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_AUTH_REDIRECT_URL=https://your-public-site.example/auth-confirm.html
 ```
 
 Apply the SQL files in `supabase/`, then deploy `supabase/functions/delete-account` with JWT verification enabled. Its service-role key remains server-side in the Edge Function environment and must never be added to the app.
 
 For an existing YouDO Supabase project, run `supabase/optimize_auth_rls_policies.sql` once in the SQL Editor. It atomically preserves the same ownership rules while removing the Auth RLS Initialization Plan performance warnings. Set the Auth minimum password length to 10 as well; existing passwords remain valid for sign-in, while new accounts and future password changes use the stronger rule.
+
+The calendar-boundary Board fix needs three nullable date markers. The current `supabase/community.sql` already installs them; use `supabase/add_pace_window_keys.sql` only when installing the Board without community. These additions do not rewrite rankings or focus history.
+
+Before enabling the Board community, run `supabase/community.sql`. It is idempotent: rerun the whole file after pulling a newer version to install additions such as appeals safely. Then promote the owner’s existing account with the commented email-based statement at the bottom of that file. The same account remains a normal YouDO user; the role only unlocks the separate moderation console. A community ban hides public participation but leaves private study work intact; account deletion remains the user-owned, permanently destructive flow.
+
+Keep Supabase **Confirm Email** and **Secure email change** enabled, and set the server-side minimum password length to 10. YouDO’s signed-in security panel verifies the current password before requesting an email or password change. These settings do not retroactively prove ownership of previously auto-confirmed addresses.
+
+For mobile confirmation links, deploy the dedicated public confirmation page and configure Supabase before releasing the APK. Follow [the ordered account-link setup and test checklist](docs/account-links.md). Local previews and Android builds deliberately use a public HTTPS destination, never the device’s localhost. The standalone callback page shows pending/expired outcomes without opening or syncing a workspace.
 
 ### Validate a change
 
@@ -206,6 +236,8 @@ Open the `android` directory in Android Studio or use the repository's GitHub Ac
 </details>
 
 ## Maintainer
+
+Current promotional artwork: [universal goal-tree poster](docs/media/youdo-promo-poster-v7.png). Older fixed-layer artwork is historical, not current product guidance.
 
 Built and maintained by **Jatin Parmar** ([@mattedhairr](https://github.com/mattedhairr)).
 

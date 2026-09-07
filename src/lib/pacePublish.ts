@@ -1,6 +1,6 @@
 import { todayISO } from './dates';
 import { currentFocusStreak, netFocusByLocalDateOverlapping, walkOptsFromMeta, type StreakMeta } from './focusTrends';
-import { paceWindowTotals, type PacePrefs } from './paceBoard';
+import { paceWindowKeys, paceWindowTotals, type PacePrefs } from './paceBoard';
 import { deletePaceRow, upsertPaceRow } from './paceCloud';
 import type { TaskSession } from '../types';
 
@@ -15,6 +15,7 @@ export async function syncPublicPaceRow(input: {
   if (!displayName) return { ok: true, skipped: true };
   const today = todayISO();
   const totals = paceWindowTotals(input.sessions, today);
+  const keys = paceWindowKeys(today);
   const byDate = netFocusByLocalDateOverlapping(input.sessions);
   const streak = currentFocusStreak(byDate, today, walkOptsFromMeta(input.streakMeta));
   return upsertPaceRow({
@@ -24,6 +25,7 @@ export async function syncPublicPaceRow(input: {
     todayMs: totals.todayMs,
     weekMs: totals.weekMs,
     monthMs: totals.monthMs,
+    ...keys,
     streak,
     barHours: input.streakMeta.barHours,
   });

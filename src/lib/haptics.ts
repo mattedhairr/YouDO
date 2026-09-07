@@ -9,6 +9,9 @@ const VIBRATE_MS: Record<ImpactStyle, number> = {
 };
 
 let pending: number[] = [];
+let protectedUntil = 0;
+let activePriority = 0;
+let lastStarted = -Infinity;
 
 function isHapticsEnabled(): boolean {
   try {
@@ -26,6 +29,10 @@ export function setHapticsPreference(enabled: boolean): void {
   } catch {
     /* quota */
   }
+  if (!enabled) {
+    clearPending();
+    try { navigator.vibrate?.(0); } catch { /* Unsupported browser. */ }
+  }
 }
 
 function clearPending() {
@@ -34,7 +41,7 @@ function clearPending() {
 }
 
 async function impact(style: ImpactStyle): Promise<void> {
-  if (!isHapticsEnabled()) return;
+  if (!isHapticsEnabled() || document.visibilityState === 'hidden') return;
   if (Capacitor.isNativePlatform()) {
     try {
       await Haptics.impact({ style });
@@ -50,9 +57,15 @@ async function impact(style: ImpactStyle): Promise<void> {
   }
 }
 
-function play(steps: Array<{ style: ImpactStyle; at: number }>): void {
-  if (!isHapticsEnabled()) return;
+function play(steps: Array<{ style: ImpactStyle; at: number }>, priority = 1): void {
+  if (!isHapticsEnabled() || document.visibilityState === 'hidden') return;
+  const now = Date.now();
+  // Rapid checkbox/drag ticks must not turn into a buzz or cut off a result cue.
+  if ((now - lastStarted < 55 && priority <= activePriority) || (now < protectedUntil && priority < activePriority)) return;
   clearPending();
+  lastStarted = now;
+  activePriority = priority;
+  protectedUntil = now + steps[steps.length - 1].at + 55;
   for (const step of steps) {
     if (step.at <= 0) {
       void impact(step.style);
@@ -74,42 +87,36 @@ export function hapticTap() {
 export function hapticSessionStart() {
   play([
     { style: ImpactStyle.Light, at: 0 },
-    { style: ImpactStyle.Medium, at: 70 },
-    { style: ImpactStyle.Heavy, at: 160 },
-  ]);
+    { style: ImpactStyle.Medium, at: 65 },
+  ], 2);
 }
 
 export function hapticSessionPause() {
-  play([{ style: ImpactStyle.Heavy, at: 0 }]);
+  play([{ style: ImpactStyle.Medium, at: 0 }], 2);
 }
 
 export function hapticSuccess() {
   play([
-    { style: ImpactStyle.Heavy, at: 0 },
-    { style: ImpactStyle.Light, at: 140 },
-  ]);
+    { style: ImpactStyle.Medium, at: 0 },
+    { style: ImpactStyle.Light, at: 95 },
+  ], 2);
 }
 
 export function hapticGoalComplete() {
   play([
     { style: ImpactStyle.Medium, at: 0 },
     { style: ImpactStyle.Heavy, at: 90 },
-    { style: ImpactStyle.Heavy, at: 200 },
-    { style: ImpactStyle.Light, at: 360 },
-  ]);
+    { style: ImpactStyle.Light, at: 190 },
+  ], 3);
 }
 
 export function hapticWarn() {
   play([
     { style: ImpactStyle.Medium, at: 0 },
     { style: ImpactStyle.Medium, at: 90 },
-  ]);
+  ], 3);
 }
 
 export function hapticAmbient() {
-  play([
-    { style: ImpactStyle.Light, at: 0 },
-    { style: ImpactStyle.Light, at: 180 },
-    { style: ImpactStyle.Light, at: 400 },
-  ]);
+  play([{ style: ImpactStyle.Light, at: 0 }]);
 }

@@ -3,7 +3,7 @@ import { deadlineDaysLabel, formatDDMMYYYY, isToday, localISODate, todayISO } fr
 import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, isBacklogTask, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, updateNode, removeNode } from './goalTree';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, goalNodeRole, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task, TaskSession } from '../types';
 
 describe('dates', () => {
@@ -27,6 +27,30 @@ describe('dates', () => {
   it('treats YYYY-MM-DD as a local calendar date, not UTC midnight', () => {
     expect(isToday(todayISO())).toBe(true);
     expect(isToday('1999-01-01')).toBe(false);
+  });
+});
+
+describe('universal goal tree roles', () => {
+  const item = (patch: Partial<GoalNode> = {}): GoalNode => ({
+    id: 'item', kind: 'node', title: 'Item', children: [], createdAt: 1, completed: false, ...patch,
+  });
+
+  it('derives behavior from structure while preserving legacy kinds', () => {
+    const legacyEndpoint = item({ kind: 'phase' });
+    const legacyGroup = item({ kind: 'section', children: [item({ id: 'child' })] });
+    const root = item({ kind: 'goal' });
+
+    expect(isGoalEndpoint(legacyEndpoint)).toBe(true);
+    expect(goalNodeRole(legacyEndpoint)).toBe('Task');
+    expect(goalNodeRole(legacyGroup)).toBe('Branch');
+    expect(goalNodeRole(root)).toBe('Goal');
+  });
+
+  it('recognizes work that must not silently become a branch', () => {
+    expect(hasGoalExecutionState(item())).toBe(false);
+    expect(hasGoalExecutionState(item({ steps: ['Read'], stepDone: [false] }))).toBe(true);
+    expect(hasGoalExecutionState(item({ completed: true }))).toBe(true);
+    expect(hasGoalExecutionState(item({ todayTaskId: 'planned-card' }))).toBe(true);
   });
 });
 
@@ -513,12 +537,27 @@ describe('goal tree', () => {
     expect(rollupPct(leaf({ id: 'b', completed: true }))).toBe(100);
   });
 
-  it('rolls up by leaf work, not sibling count', () => {
+  it('gives sibling branches equal weight regardless of their internal detail', () => {
     clearRollupCache();
     const small = leaf({ id: 's', steps: ['a'], stepDone: [true] });
     const big = leaf({ id: 'b', steps: ['a', 'b', 'c', 'd'], stepDone: [false, false, false, false] });
     const root: GoalNode = { id: 'r', kind: 'goal', title: 'R', children: [small, big], createdAt: 1 };
-    expect(rollupPct(root)).toBe(20);
+    expect(rollupPct(root)).toBe(50);
+  });
+
+  it('counts empty future branches as unfinished at the parent level', () => {
+    clearRollupCache();
+    const complete = leaf({ id: 'complete', completed: true });
+    const nearlyDone = leaf({ id: 'nearly', steps: Array(100).fill('step'), stepDone: Array(87).fill(true).concat(Array(13).fill(false)) });
+    const empty = (id: string) => leaf({ id });
+    const root: GoalNode = {
+      id: 'r',
+      kind: 'goal',
+      title: 'R',
+      children: [complete, nearlyDone, empty('three'), empty('four'), empty('five')],
+      createdAt: 1,
+    };
+    expect(rollupPct(root)).toBe(37);
   });
 
   it('clears ancestor completed when a leaf is unchecked', () => {
@@ -967,6 +1006,24 @@ describe('cloud merge', () => {
 });
 
 describe('backup recovery metadata', () => {
+  it('loads universal and legacy tree items together without rewriting identity', async () => {
+    const { parseBackupPayload } = await import('./backup');
+    const parsed = parseBackupPayload(JSON.stringify({
+      goals: [{
+        id: 'root', title: 'Exam', kind: 'goal', children: [
+          { id: 'new-item', title: 'Revision', kind: 'node', children: [] },
+          { id: 'old-item', title: 'Foundation', kind: 'phase', children: [] },
+        ],
+      }],
+      tasks: [],
+    }));
+
+    expect(parsed?.goals[0].children.map(({ id, kind }) => ({ id, kind }))).toEqual([
+      { id: 'new-item', kind: 'node' },
+      { id: 'old-item', kind: 'phase' },
+    ]);
+  });
+
   it('ignores volatile export timestamps but detects workspace changes', async () => {
     const { backupContentFingerprint } = await import('./backup');
     const first = JSON.stringify({ exportedAt: 'a', updatedAt: 1, goals: [], tasks: [] });
@@ -1052,6 +1109,22 @@ describe('pace board', () => {
     expect(totals.monthMs).toBe(225_000);
   });
 
+  it('expires stale public totals at day, week, and month boundaries', async () => {
+    const { windowMs } = await import('./paceBoard');
+    const row = {
+      userId: 'a', displayName: 'A', examLabel: '',
+      todayMs: 10, weekMs: 20, monthMs: 30,
+      todayKey: '2026-09-05', weekKey: '2026-08-31', monthKey: '2026-09-01',
+      streak: 1, barHours: 1, updatedAt: '',
+    };
+
+    expect(windowMs(row, 'today', '2026-09-06')).toBe(0);
+    expect(windowMs(row, 'week', '2026-09-06')).toBe(20);
+    expect(windowMs(row, 'month', '2026-09-06')).toBe(30);
+    expect(windowMs(row, 'week', '2026-09-07')).toBe(0);
+    expect(windowMs(row, 'month', '2026-10-01')).toBe(0);
+  });
+
   it('sets personal bars against the full calendar week or month', async () => {
     const { paceWindowBarDays, paceWindowBarTargetMs } = await import('./paceBoard');
     const september = new Date(2026, 8, 5);
@@ -1077,6 +1150,18 @@ describe('pace board', () => {
       a: 'down',
       c: null,
     });
+  });
+
+  it('does not award a rank until an aspirant records real focus', async () => {
+    const { rankedIds } = await import('./paceBoard');
+    const rows = [
+      { userId: 'zero-b', displayName: 'Beta', examLabel: '', todayMs: 0, weekMs: 20, monthMs: 20, streak: 0, barHours: 1, updatedAt: '' },
+      { userId: 'active', displayName: 'Active', examLabel: '', todayMs: 1, weekMs: 1, monthMs: 1, streak: 1, barHours: 1, updatedAt: '' },
+      { userId: 'zero-a', displayName: 'Alpha', examLabel: '', todayMs: 0, weekMs: 10, monthMs: 10, streak: 0, barHours: 1, updatedAt: '' },
+    ];
+
+    expect(rankedIds(rows, 'today')).toEqual(['active']);
+    expect(rankedIds(rows, 'week')).toEqual(['zero-b', 'zero-a', 'active']);
   });
 
   it('shows only the top ten when the current user is already among them', async () => {

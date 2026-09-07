@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">#C4A574</item>
+        <item name="colorPrimaryDark">#11100E</item>
+        <item name="colorAccent">#C4A574</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">#11100E</item>
+        <item name="android:colorBackground">#11100E</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:statusBarColor">#11100E</item>
+        <item name="android:navigationBarColor">#11100E</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+</resources>

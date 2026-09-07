@@ -9,6 +9,26 @@ export function countDirectChildren(node: GoalNode): number {
   return node.children.length;
 }
 
+/** Universal-tree roles are structural: only the root is named; endpoint tasks are actionable. */
+export function isGoalEndpoint(node: GoalNode): boolean {
+  return node.children.length === 0;
+}
+
+export function goalNodeRole(node: GoalNode): 'Goal' | 'Branch' | 'Task' {
+  if (node.kind === 'goal') return 'Goal';
+  return isGoalEndpoint(node) ? 'Task' : 'Branch';
+}
+
+/** Adding children would hide this node's own executable work, so require a deliberate redesign first. */
+export function hasGoalExecutionState(node: GoalNode): boolean {
+  return Boolean(
+    node.todayTaskId ||
+    node.completed ||
+    (node.steps?.length ?? 0) > 0 ||
+    (node.stepDone?.some(Boolean) ?? false)
+  );
+}
+
 export function countCompletedDirectChildren(node: GoalNode): number {
   if (node.children.length === 0) {
     if (node.steps && node.steps.length > 0) {
@@ -25,28 +45,22 @@ export function clearRollupCache() {
   rollupCache.clear();
 }
 
-function leafWork(node: GoalNode): { done: number; total: number } {
-  if (node.children.length > 0) {
-    return node.children.reduce(
-      (acc, child) => {
-        const next = leafWork(child);
-        return { done: acc.done + next.done, total: acc.total + next.total };
-      },
-      { done: 0, total: 0 },
-    );
-  }
-  if (node.steps && node.steps.length > 0) {
-    return { done: (node.stepDone ?? []).filter(Boolean).length, total: node.steps.length };
-  }
-  return { done: node.completed ? 1 : 0, total: 1 };
-}
-
-/** Share of leaf work done (steps, or one unit for a stepless leaf). */
+/**
+ * Hierarchical progress gives each direct child equal weight. This prevents one
+ * deeply detailed branch from making a goal look nearly complete while its
+ * other branches are still empty or untouched.
+ */
 export function rollupPct(node: GoalNode): number {
   const cached = rollupCache.get(node.id);
   if (cached !== undefined) return cached;
-  const { done, total } = leafWork(node);
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  let pct: number;
+  if (node.children.length > 0) {
+    pct = Math.round(node.children.reduce((total, child) => total + rollupPct(child), 0) / node.children.length);
+  } else if (node.steps && node.steps.length > 0) {
+    pct = Math.round(((node.stepDone ?? []).filter(Boolean).length / node.steps.length) * 100);
+  } else {
+    pct = node.completed ? 100 : 0;
+  }
   rollupCache.set(node.id, pct);
   return pct;
 }

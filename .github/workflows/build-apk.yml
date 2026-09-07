@@ -47,6 +47,12 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Verify application
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
       - name: Build Web Production Assets
         run: npm run build
 

@@ -30,7 +30,7 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
 
   return (
     <aside
-      className="fixed left-1/2 -translate-x-1/2 bottom-[calc(6.4rem+env(safe-area-inset-bottom))] z-[900] w-[calc(100%-2rem)] max-w-sm rounded-[18px] border border-primary/30 bg-elevated p-4 shadow-elevated fade-in"
+      className="fixed inset-x-0 bottom-[calc(6.4rem+env(safe-area-inset-bottom))] z-[900] mx-auto w-[calc(100%-2rem)] max-w-sm rounded-[18px] border border-primary/30 bg-elevated p-4 shadow-elevated fade-in"
       aria-label={`YouDO ${release.version} update available`}
     >
       <div className="flex items-start gap-3">

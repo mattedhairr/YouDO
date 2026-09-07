@@ -48,9 +48,14 @@ drop policy if exists pace_insert_own on public.public_pace;
 drop policy if exists pace_update_own on public.public_pace;
 drop policy if exists pace_delete_own on public.public_pace;
 
-create policy pace_select_auth
-  on public.public_pace for select to authenticated
-  using (true);
+do $$
+begin
+  if to_regprocedure('public.is_community_banned(uuid)') is null then
+    execute 'create policy pace_select_auth on public.public_pace for select to authenticated using (true)';
+  else
+    execute 'create policy pace_select_auth on public.public_pace for select to authenticated using ((select auth.uid()) = user_id or not public.is_community_banned(user_id))';
+  end if;
+end $$;
 
 create policy pace_insert_own
   on public.public_pace for insert to authenticated

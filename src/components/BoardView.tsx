@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, LockKeyhole, TrendingUp, Trophy, Users } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, ChevronDown, Gauge, Heart, LockKeyhole, MessageCircle, ShieldCheck, TrendingUp, Trophy, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../store';
 import {
@@ -19,6 +19,10 @@ import { fetchPaceRows } from '../lib/paceCloud';
 import { formatDuration } from '../lib/format';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import { formatStreakHours } from '../lib/focusTrends';
+import { todayISO } from '../lib/dates';
+import { fetchAppreciations, fetchCommunityContext, giveKudos, type AppreciationState, type CommunityContext } from '../lib/community';
+import CommunitySheet from './CommunitySheet';
+import { hapticTick } from '../lib/haptics';
 
 const WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -47,9 +51,9 @@ function saveSnapshot(window: PaceWindow, ids: string[]) {
   }
 }
 
-function barProgress(row: PaceRow, paceWindow: PaceWindow): { percent: number; targetMs: number; overMs: number } {
+function barProgress(row: PaceRow, paceWindow: PaceWindow, anchorISO: string): { percent: number; targetMs: number; overMs: number } {
   const targetMs = Math.max(1, paceWindowBarTargetMs(row.barHours, paceWindow));
-  const focused = windowMs(row, paceWindow);
+  const focused = windowMs(row, paceWindow, anchorISO);
   return {
     percent: Math.min(100, Math.round((focused / targetMs) * 100)),
     targetMs,
@@ -64,11 +68,11 @@ function windowLabel(paceWindow: PaceWindow): string {
 }
 
 function rankTone(rank: number | undefined, locked: boolean): string {
-  if (locked || rank == null) return 'border-subtle bg-surface text-content-muted';
-  if (rank === 1) return 'border-primary/35 bg-primary-soft text-primary';
-  if (rank === 2) return 'border-content-muted/25 bg-elevated text-content-secondary';
-  if (rank === 3) return 'border-primary/20 bg-primary-soft/45 text-primary';
-  return 'border-subtle bg-surface text-content-muted';
+  if (locked || rank == null) return 'text-content-muted';
+  if (rank === 1) return 'text-primary';
+  if (rank === 2) return 'text-content-secondary';
+  if (rank === 3) return 'text-primary/80';
+  return 'text-content-muted';
 }
 
 function BoardRowCard({
@@ -79,6 +83,11 @@ function BoardRowCard({
   delta,
   locked = false,
   featured = false,
+  anchorISO,
+  appreciationCount = 0,
+  appreciated = false,
+  canAppreciate = false,
+  onAppreciate,
 }: {
   row: PaceRow;
   paceWindow: PaceWindow;
@@ -87,31 +96,36 @@ function BoardRowCard({
   delta?: RankDelta;
   locked?: boolean;
   featured?: boolean;
+  anchorISO: string;
+  appreciationCount?: number;
+  appreciated?: boolean;
+  canAppreciate?: boolean;
+  onAppreciate?: () => void;
 }) {
   const podium = !locked && rank != null && rank <= 3;
-  const progress = barProgress(row, paceWindow);
-  const focused = windowMs(row, paceWindow);
+  const progress = barProgress(row, paceWindow, anchorISO);
+  const focused = windowMs(row, paceWindow, anchorISO);
   return (
     <li
       value={rank}
-      className={`relative min-h-[108px] overflow-hidden rounded-[15px] border p-3.5 transition-colors ${
+      className={`board-person relative overflow-hidden rounded-[15px] border transition-colors ${
         mine
-          ? 'border-primary/45 bg-primary-soft/30'
+          ? 'border-primary/45 bg-elevated'
           : podium
-            ? 'border-primary/25 bg-elevated/95'
+            ? 'border-primary/25 bg-elevated'
             : 'border-subtle bg-elevated'
       } ${featured ? 'shadow-elevated' : ''}`}
     >
-      {podium && (
+      {(podium || mine) && (
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 w-1"
-          style={{ background: rank === 1 ? 'var(--primary)' : 'color-mix(in srgb, var(--primary) 58%, var(--border))' }}
+          className="pointer-events-none absolute inset-y-0 left-0 w-[3px]"
+          style={{ background: podium && rank === 1 ? 'var(--primary)' : 'color-mix(in srgb, var(--primary) 55%, var(--border))' }}
         />
       )}
-      <div className="relative flex items-start gap-3">
+      <div className="board-person-layout">
         {locked ? (
           <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border border-subtle bg-surface text-content-muted"
+            className="grid h-9 w-8 shrink-0 place-items-center text-content-muted"
             aria-label={`Rank locked until ${PACE_BOARD_MIN_OPT_IN} people join`}
             title={`Rank locked until ${PACE_BOARD_MIN_OPT_IN} people join`}
           >
@@ -119,14 +133,15 @@ function BoardRowCard({
           </span>
         ) : (
           <span
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-[10px] border text-[11px] font-bold tabular-nums ${rankTone(rank, locked)}`}
+            className={`flex h-9 w-8 shrink-0 flex-col items-center justify-center text-[14px] font-bold tabular-nums leading-none ${rankTone(rank, locked)}`}
             aria-label={`Rank ${rank}`}
           >
+            <span className="mb-1 text-[7px] font-semibold uppercase tracking-[0.14em] opacity-70">Rank</span>
             {String(rank).padStart(2, '0')}
           </span>
         )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
+        <div className="board-person-content">
+          <div className="board-person-heading">
             <p className="truncate text-[14px] font-semibold text-content-primary">{row.displayName}</p>
             {mine && (
               <span className="shrink-0 rounded-full bg-primary-soft px-1.5 py-0.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-primary">
@@ -135,27 +150,50 @@ function BoardRowCard({
             )}
             {!locked && delta === 'up' && <ArrowUp size={14} className="shrink-0 text-success" strokeWidth={2.6} />}
             {!locked && delta === 'down' && <ArrowDown size={14} className="shrink-0 text-error" strokeWidth={2.6} />}
-            <p className="ml-auto shrink-0 text-[15px] font-bold tabular-nums text-content-primary">
-              {formatDuration(focused)}
-            </p>
           </div>
           <p className="mt-0.5 truncate text-[11px] text-content-muted">{row.examLabel || 'Independent preparation'}</p>
-          <div className="mt-2.5">
-            <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px]">
-              <span className="text-content-secondary">{row.streak}d streak · {formatStreakHours(row.barHours)} daily bar</span>
-              <span className={`shrink-0 tabular-nums font-semibold ${progress.percent >= 100 ? 'text-secondary' : 'text-primary'}`}>
-                {progress.overMs > 0 ? `+${formatDuration(progress.overMs)} beyond bar` : progress.percent >= 100 ? 'Bar reached' : `${progress.percent}% of bar`}
-              </span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-track" aria-label={`${progress.percent}% of personal focus bar`}>
+          <p className="board-person-meta">{row.streak}d streak · {formatStreakHours(row.barHours)}/day</p>
+        </div>
+        <div className="board-person-score">
+          <p className="text-[15px] font-bold tabular-nums text-content-primary">{formatDuration(focused)}</p>
+          {podium && <button type="button" disabled={!canAppreciate || appreciated} onClick={onAppreciate}
+            className={`board-appreciation ${appreciated ? 'is-active' : ''}`}
+            aria-pressed={appreciated}
+            aria-label={`${appreciated ? 'Kudos given to' : 'Give kudos to'} ${row.displayName}: ${appreciationCount}`}
+            title="One acknowledgement per person each UTC day. Never affects rank.">
+            <Heart size={12} className={appreciated ? 'fill-current' : ''} />
+            <span>Kudos</span>
+            {appreciationCount > 0 && <span>{appreciationCount > 99 ? '99+' : appreciationCount}</span>}
+          </button>}
+        </div>
+        <div className="board-person-progress">
+            <div className="h-1 overflow-hidden rounded-full bg-track" aria-label={`${progress.percent}% of personal focus bar`}>
               <div
                 className={`h-full rounded-full transition-[width] duration-500 ${progress.percent >= 100 ? 'bg-secondary' : 'bg-primary'}`}
                 style={{ width: `${progress.percent}%` }}
               />
             </div>
-          </div>
+            <span className={`board-bar-label ${progress.percent >= 100 ? 'text-secondary' : 'text-primary'}`}>
+              {progress.overMs > 0 ? `+${formatDuration(progress.overMs)} over` : progress.percent >= 100 ? 'Bar reached' : `${progress.percent}% of bar`}
+            </span>
         </div>
       </div>
+    </li>
+  );
+}
+
+function EmptyRankSlot({ rank }: { rank: number }) {
+  return (
+    <li className="board-empty-rank flex items-center gap-3 rounded-[15px] border border-dashed border-subtle bg-surface/45 px-3.5">
+      <span className="flex w-8 shrink-0 flex-col items-center text-content-muted">
+        <span className="text-[7px] font-semibold uppercase tracking-[0.14em]">Rank</span>
+        <span className="mt-1 text-[14px] font-bold tabular-nums">{String(rank).padStart(2, '0')}</span>
+      </span>
+      <span className="h-7 w-px bg-border-subtle" />
+      <span>
+        <span className="block text-[12.5px] font-semibold text-content-secondary">Waiting for real focus</span>
+        <span className="mt-0.5 block text-[10px] text-content-muted">The next focused aspirant earns this place.</span>
+      </span>
     </li>
   );
 }
@@ -169,6 +207,26 @@ export default function BoardView() {
   const [loading, setLoading] = useState(true);
   const [deltas, setDeltas] = useState<Record<string, RankDelta>>({});
   const [showNearby, setShowNearby] = useState(false);
+  const [anchorISO, setAnchorISO] = useState(todayISO());
+  const [communityOpen, setCommunityOpen] = useState(false);
+  const [communityStartInAdmin, setCommunityStartInAdmin] = useState(false);
+  const [community, setCommunity] = useState<CommunityContext>({ available: false, dayKey: todayISO(), isAdmin: false, canJoin: false, canPost: false, settings: { roomEnabled: false, appreciationsEnabled: false, announcement: '' }, banned: false });
+  const [appreciations, setAppreciations] = useState<AppreciationState>({ counts: {}, mine: new Set() });
+  const appreciationBusy = useRef(false);
+  const [savingAppreciation, setSavingAppreciation] = useState(false);
+  const [appreciationError, setAppreciationError] = useState('');
+
+  useEffect(() => {
+    const refreshDate = () => setAnchorISO(todayISO());
+    const timer = window.setInterval(refreshDate, 60_000);
+    window.addEventListener('focus', refreshDate);
+    document.addEventListener('visibilitychange', refreshDate);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshDate);
+      document.removeEventListener('visibilitychange', refreshDate);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +251,50 @@ export default function BoardView() {
     };
   }, [user, publishPublicPace, pacePrefs.optedIn, pacePrefs.displayName]);
 
-  const order = useMemo(() => rankedIds(rows, paceWindow), [rows, paceWindow]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) return;
+    void fetchCommunityContext(user.id).then(async (next) => {
+      if (cancelled || next.error) return;
+      setCommunity(next);
+      if (next.banned) setRows((current) => current.some((row) => row.userId === user.id) ? current.filter((row) => row.userId !== user.id) : current);
+      if (next.available) {
+        const state = await fetchAppreciations(next.dayKey, user.id);
+        if (!cancelled) setAppreciations(state);
+      }
+    }).catch(() => { /* Keep the last known Board state during a connection failure. */ });
+    return () => { cancelled = true; };
+  }, [user, rows, communityOpen, anchorISO]);
+
+  const toggleAppreciation = async (targetId: string) => {
+    if (!user || appreciationBusy.current || !community.canJoin || !community.settings.appreciationsEnabled || targetId === user.id
+      || appreciations.mine.has(targetId) || !podiumIds.includes(targetId)) return;
+    appreciationBusy.current = true;
+    setSavingAppreciation(true);
+    setAppreciationError('');
+    const previous = appreciations;
+    const active = !appreciations.mine.has(targetId);
+    setAppreciations((current) => {
+      const mine = new Set(current.mine);
+      if (active) mine.add(targetId); else mine.delete(targetId);
+      return { mine, counts: { ...current.counts, [targetId]: Math.max(0, (current.counts[targetId] ?? 0) + (active ? 1 : -1)) } };
+    });
+    try {
+      const result = await giveKudos(targetId, paceWindow);
+      if (!result.ok) {
+        setAppreciationError(result.error ?? 'Could not save your acknowledgement. Please try again.');
+        setAppreciations(await fetchAppreciations(community.dayKey, user.id));
+      } else hapticTick();
+    } catch {
+      setAppreciations(previous);
+      setAppreciationError('Could not save your acknowledgement. Please try again.');
+    } finally {
+      appreciationBusy.current = false;
+      setSavingAppreciation(false);
+    }
+  };
+
+  const order = useMemo(() => rankedIds(rows, paceWindow, anchorISO), [rows, paceWindow, anchorISO]);
   const byId = useMemo(() => new Map(rows.map((r) => [r.userId, r])), [rows]);
 
   useEffect(() => {
@@ -202,12 +303,13 @@ export default function BoardView() {
       return;
     }
     const prev = loadSnapshots()[paceWindow] ?? null;
-    const nextIds = rankedIds(rows, paceWindow);
+    const nextIds = rankedIds(rows, paceWindow, anchorISO);
     setDeltas(rankDeltas(nextIds, prev));
     saveSnapshot(paceWindow, nextIds);
-  }, [rows, paceWindow]);
+  }, [rows, paceWindow, anchorISO]);
 
   const count = rows.length;
+  const activeCount = order.length;
   const ready = count >= PACE_BOARD_MIN_OPT_IN;
   const selection = useMemo(() => selectPaceBoardRows(order, user?.id), [order, user?.id]);
   const rankById = useMemo(() => new Map(order.map((id, index) => [id, index + 1])), [order]);
@@ -223,10 +325,11 @@ export default function BoardView() {
   );
   const podiumIds = ready ? visibleOrder.slice(0, 3) : [];
   const remainingIds = ready ? visibleOrder.slice(3) : visibleOrder;
+  const waitingCount = ready ? count - activeCount : 0;
 
   return (
-    <div className="space-y-4 pb-4">
-      <header className="px-0.5 pt-0.5">
+    <div className="board-workspace pb-4">
+      <header className="board-heading px-0.5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
@@ -234,13 +337,10 @@ export default function BoardView() {
             </p>
             <h2 className="mt-1 text-[20px] font-bold tracking-[-0.025em] text-content-primary">Earn your place.</h2>
           </div>
-          <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-subtle bg-elevated px-2.5 py-1 text-[10.5px] font-medium text-content-secondary">
-            <Users size={12.5} className="text-primary" />
-            {count} competing
-          </span>
+          <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-subtle bg-elevated px-2.5 py-1 text-[10.5px] font-medium text-content-secondary"><Users size={12.5} className="text-primary" />{count} on board</span>
         </div>
-        <p className="mt-1.5 max-w-[32rem] text-[11.5px] leading-relaxed text-content-secondary">
-          Net focus decides rank. Your fill shows progress toward your own daily bar.
+        <p className="mt-1 max-w-[32rem] text-[11.5px] leading-relaxed text-content-secondary">
+          Ranked by focus. Kudos for effort.
         </p>
       </header>
 
@@ -268,6 +368,14 @@ export default function BoardView() {
         <span className="shrink-0">Ranked by net focus</span>
       </div>
 
+      {community.available && (community.canJoin || community.isAdmin || community.banned) && <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}><button type="button" onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }} className="board-community-link">
+        {community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}
+        <span>{community.banned ? 'Community access · Request a review' : 'Community'}</span>
+        <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Join in' : 'Paused'}</span>
+        <ChevronDown size={14} className="-rotate-90" />
+      </button>{community.isAdmin && <button type="button" onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }} className="board-admin-link" aria-label="Open community admin"><Gauge size={16} /><span>Admin</span></button>}</div>}
+
+      {appreciationError && <p role="status" className="text-[11px] text-error">{appreciationError}</p>}
       {missingTable ? (
         <div className="rounded-[16px] border border-subtle bg-surface p-5">
           <p className="text-[14px] font-semibold text-content-primary">Board is not set up yet</p>
@@ -321,6 +429,11 @@ export default function BoardView() {
                     paceWindow={paceWindow}
                     mine={user?.id === row.userId}
                     locked
+                    anchorISO={anchorISO}
+                    appreciationCount={appreciations.counts[row.userId] ?? 0}
+                    appreciated={appreciations.mine.has(row.userId)}
+                    canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
+                    onAppreciate={() => void toggleAppreciation(row.userId)}
                   />
                 );
               })}
@@ -339,11 +452,13 @@ export default function BoardView() {
                     <h3 className="text-[15px] font-semibold text-content-primary">Top focus {paceWindow === 'today' ? 'today' : `this ${paceWindow}`}</h3>
                   </div>
                 </div>
-                <span className="mb-0.5 shrink-0 text-[10.5px] font-medium text-content-muted">Ranked by hours</span>
+                <span className="mb-0.5 shrink-0 text-[10.5px] font-medium text-content-muted">{activeCount} focused</span>
               </div>
 
               <ol className="space-y-2" aria-label="Top three focus leaders">
-                {podiumIds.map((id) => {
+                {[0, 1, 2].map((index) => {
+                  const id = podiumIds[index];
+                  if (!id) return <EmptyRankSlot key={`empty-rank-${index + 1}`} rank={index + 1} />;
                   const row = byId.get(id);
                   if (!row) return null;
                   return (
@@ -354,6 +469,11 @@ export default function BoardView() {
                       rank={rankById.get(id)}
                       mine={user?.id === row.userId}
                       delta={deltas[id]}
+                      anchorISO={anchorISO}
+                      appreciationCount={appreciations.counts[row.userId] ?? 0}
+                      appreciated={appreciations.mine.has(row.userId)}
+                      canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
+                      onAppreciate={() => void toggleAppreciation(row.userId)}
                     />
                   );
                 })}
@@ -364,9 +484,9 @@ export default function BoardView() {
                   <div className="flex items-center gap-3 px-0.5 pt-1.5">
                     <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.15em] text-content-muted">The field</p>
                     <div className="h-px flex-1 bg-border-subtle" />
-                    <p className="shrink-0 text-[10px] text-content-muted">Top {Math.min(PACE_BOARD_TOP_LIMIT, count)}</p>
+                    <p className="shrink-0 text-[10px] text-content-muted">Top {Math.min(PACE_BOARD_TOP_LIMIT, activeCount)}</p>
                   </div>
-                  <ol className="space-y-2" start={4} aria-label={`Remaining Top ${Math.min(PACE_BOARD_TOP_LIMIT, count)} focus leaders`}>
+                  <ol className="space-y-2" start={4} aria-label={`Remaining Top ${Math.min(PACE_BOARD_TOP_LIMIT, activeCount)} focus leaders`}>
                     {remainingIds.map((id) => {
                       const row = byId.get(id);
                       if (!row) return null;
@@ -378,11 +498,26 @@ export default function BoardView() {
                           rank={rankById.get(id)}
                           mine={user?.id === row.userId}
                           delta={deltas[id]}
+                          anchorISO={anchorISO}
+                          appreciationCount={appreciations.counts[row.userId] ?? 0}
+                          appreciated={appreciations.mine.has(row.userId)}
+                          canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
+                          onAppreciate={() => void toggleAppreciation(row.userId)}
                         />
                       );
                     })}
                   </ol>
                 </>
+              )}
+
+              {waitingCount > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-[13px] border border-subtle bg-surface/60 px-3.5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-[11.5px] font-semibold text-content-secondary">{waitingCount} waiting to enter the ranking</p>
+                    <p className="mt-0.5 text-[10px] text-content-muted">Zero-focus accounts stay unranked until they complete a real session.</p>
+                  </div>
+                  <span className="shrink-0 text-[18px] font-bold tabular-nums text-content-muted">—</span>
+                </div>
               )}
             </>
           )}
@@ -397,7 +532,7 @@ export default function BoardView() {
                 <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Your position</p>
-                    <p className="mt-0.5 text-[11px] text-content-secondary">Your place among {count} aspirants</p>
+                    <p className="mt-0.5 text-[11px] text-content-secondary">Your place among {activeCount} focused aspirants</p>
                   </div>
                   <p className="text-[22px] font-bold tabular-nums text-primary">#{selection.myRank}</p>
                 </div>
@@ -410,6 +545,8 @@ export default function BoardView() {
                     mine
                     delta={deltas[myRow.userId]}
                     featured
+                    anchorISO={anchorISO}
+                    appreciationCount={appreciations.counts[myRow.userId] ?? 0}
                   />
                 </ol>
 
@@ -447,6 +584,11 @@ export default function BoardView() {
                               rank={rank}
                               mine={false}
                               delta={deltas[id]}
+                              anchorISO={anchorISO}
+                              appreciationCount={appreciations.counts[row.userId] ?? 0}
+                              appreciated={appreciations.mine.has(row.userId)}
+                              canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
+                              onAppreciate={() => void toggleAppreciation(row.userId)}
                             />
                           );
                         })}
@@ -466,6 +608,7 @@ export default function BoardView() {
           )}
         </div>
       )}
+      {communityOpen && <CommunitySheet key={communityStartInAdmin ? 'admin' : 'room'} open onClose={() => setCommunityOpen(false)} userId={user?.id} rows={rows} initialContext={community} startInAdmin={communityStartInAdmin} />}
     </div>
   );
 }

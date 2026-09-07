@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkForAppUpdate, compareAppVersions, releaseHighlights } from './appUpdate';
+import { checkAppUpdateStatus, checkForAppUpdate, compareAppVersions, dismissAppUpdate, releaseHighlights } from './appUpdate';
+import { APP_VERSION } from './version';
+
+const NEXT_VERSION = `${Number(APP_VERSION.split('.')[0]) + 1}.0.0`;
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
   const values = new Map(Object.entries(initial));
@@ -19,6 +22,30 @@ afterEach(() => {
 });
 
 describe('app updates', () => {
+  it('does not report an offline check as up to date', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    vi.stubGlobal('navigator', { onLine: false });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(checkAppUpdateStatus()).resolves.toEqual({ release: null, checked: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does not report a rejected release request as up to date', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    vi.stubGlobal('navigator', { onLine: true });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    await expect(checkAppUpdateStatus({ force: true })).resolves.toEqual({ release: null, checked: false });
+  });
+
+  it('distinguishes a successful current-version check from an unavailable one', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    vi.stubGlobal('navigator', { onLine: true });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({ tag_name: `v${APP_VERSION}`, html_url: `https://github.com/mattedhairr/YouDO/releases/tag/v${APP_VERSION}`, draft: false, prerelease: false }),
+    }));
+    await expect(checkAppUpdateStatus({ force: true })).resolves.toEqual({ release: null, checked: true });
+  });
   it('compares semantic release versions without treating v prefixes differently', () => {
     expect(compareAppVersions('v6.0.0', '5.0.0')).toBe(1);
     expect(compareAppVersions('6.0', '6.0.0')).toBe(0);
@@ -49,8 +76,8 @@ describe('app updates', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        tag_name: 'v6.3.1',
-        html_url: 'https://github.com/mattedhairr/YouDO/releases/tag/v6.3.1',
+        tag_name: `v${NEXT_VERSION}`,
+        html_url: `https://github.com/mattedhairr/YouDO/releases/tag/v${NEXT_VERSION}`,
         body: '- A safer update check.',
         draft: false,
         prerelease: false,
@@ -61,6 +88,26 @@ describe('app updates', () => {
     const release = await checkForAppUpdate();
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(release?.version).toBe('6.3.1');
+    expect(release?.version).toBe(NEXT_VERSION);
+  });
+
+  it('keeps a dismissed release available for the Settings update centre', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    vi.stubGlobal('navigator', { onLine: true });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tag_name: `v${NEXT_VERSION}`,
+        html_url: `https://github.com/mattedhairr/YouDO/releases/tag/v${NEXT_VERSION}`,
+        body: '- Better release access.',
+        draft: false,
+        prerelease: false,
+      }),
+    }));
+
+    dismissAppUpdate(NEXT_VERSION);
+
+    await expect(checkForAppUpdate({ force: true })).resolves.toBeNull();
+    await expect(checkForAppUpdate({ includeDismissed: true })).resolves.toMatchObject({ version: NEXT_VERSION });
   });
 });
