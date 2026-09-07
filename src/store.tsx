@@ -28,6 +28,7 @@ import {
   SESSION_HISTORY_KEEP_MS,
 } from './lib/sessionStats';
 import { attachSessionNotificationActions, pullNativeSession, syncSessionNotification } from './lib/sessionNotification';
+import { nativeSessionIsFinished, persistSessionRecord } from './lib/sessionPersistence';
 import {
   clearRollupCache,
   cloneNode,
@@ -37,6 +38,8 @@ import {
   findGoal,
   findNode,
   goalBranchContainsTask,
+  hasGoalExecutionState,
+  isGoalEndpoint,
   isMutableGoalPlan,
   isTaskComplete,
   clearBacklogIfComplete,
@@ -96,6 +99,9 @@ export {
   countDirectChildren,
   findGoal,
   findNode,
+  goalNodeRole,
+  hasGoalExecutionState,
+  isGoalEndpoint,
   isBacklogTask,
   isOpenBacklogTask,
   isTaskComplete,
@@ -165,10 +171,10 @@ interface Store {
   reorderGoalNodes: (parentId: string | null, fromId: string, toId: string) => void;
   /** Move a goal node up or down */
   moveGoalNode: (parentId: string | null, nodeId: string, direction: 'up' | 'down') => void;
-  /** Toggle completed status of any goal node (goal, phase, section, task, sub, leaf) */
+  /** Toggle completed status of any goal-tree item. */
   toggleNodeCompletion: (nodeId: string) => void;
 
-  /** Plan a goal leaf to a specific date, optionally with a step slice */
+  /** Plan a goal-tree endpoint task to a specific date, optionally with a checklist slice. */
   planTask: (nodeId: string, targetDate: string, stepSlice?: number[]) => void;
   /** Batch plan multiple leaves to the same date */
   planBatch: (nodeIds: string[], targetDate: string) => void;
@@ -227,8 +233,8 @@ interface Store {
   /** Stop the active session and record to history */
   stopSession: (
     outcome: SessionStopOutcome,
-    options?: { endTime?: number; ignoreOpenPause?: boolean },
-  ) => void;
+    options?: { endTime?: number; ignoreOpenPause?: boolean; taskId?: string },
+  ) => { ok: boolean; error?: string };
   /** Discard the active session without saving to history */
   discardSession: () => void;
   /** After an interrupted session, keep counting including phone-off time */
@@ -339,6 +345,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   recentlyDeletedRef.current = recentlyDeletedGoals;
   const activeSessionRef = useRef(activeSession);
   activeSessionRef.current = activeSession;
+  // A crash between saving history and clearing the timer must not restart
+  // an already recorded sitting on the next launch.
+  useEffect(() => {
+    if (activeSession && nativeSessionIsFinished(activeSession, sessionHistory)) {
+      activeSessionRef.current = null;
+      setActiveSession(null);
+    }
+  }, [activeSession, sessionHistory, setActiveSession]);
   const goalTreeTransactionsRef = useRef(new Map<string, {
     beforeGoals: GoalNode[];
     beforeTasks: Task[];
@@ -424,6 +438,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const advance = useCallback(
     (id: string) => {
+      if (activeSessionRef.current?.taskId === id) return;
       const t = tasksRef.current.find((x) => x.id === id);
       if (!t) return;
       const totalSteps = t.steps.length > 0 ? t.steps.length : 1;
@@ -547,7 +562,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addChildNode = useCallback(
     (parentId: string, node: GoalNode) => {
       setGoals((prev) =>
-        prev.map((root) => updateNode(root, parentId, (n) => ({ ...n, children: [...n.children, node] }))),
+        prev.map((root) => updateNode(root, parentId, (n) => {
+          if (n.kind !== 'goal' && isGoalEndpoint(n) && hasGoalExecutionState(n)) return n;
+          return { ...n, children: [...n.children, node] };
+        })),
       );
     },
     [setGoals],
@@ -686,7 +704,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const planTask = useCallback(
     (nodeId: string, targetDate: string, stepSlice?: number[]) => {
       const target = findGoal(goalsRef.current, nodeId);
-      if (!target) return;
+      if (!target || target.kind === 'goal' || !isGoalEndpoint(target)) return;
       const activeTask = activeSessionRef.current
         ? tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId)
         : undefined;
@@ -751,7 +769,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const replaceIds = new Set<string>();
       for (const id of nodeIds) {
         const target = findGoal(goalsRef.current, id);
-        if (!target) continue;
+        if (!target || target.kind === 'goal' || !isGoalEndpoint(target)) continue;
         const activeTask = activeSessionRef.current
           ? tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId)
           : undefined;
@@ -832,6 +850,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (nodeId: string, stepIdx: number) => {
       const node = findGoal(goalsRef.current, nodeId);
       if (!node || !node.steps) return;
+      const running = tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId);
+      if (running && goalBranchContainsTask(node, running)) return;
       const linkedTask = node.todayTaskId
         ? tasksRef.current.find((task) => task.id === node.todayTaskId)
         : undefined;
@@ -927,6 +947,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const node = findGoal(goalsRef.current, nodeId);
       if (!node) return;
 
+      const running = tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId);
+      if (running && goalBranchContainsTask(node, running)) return;
+
       const nextCompleted = !node.completed;
       clearRollupCache();
       setGoals((prev) =>
@@ -1015,9 +1038,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const node = findGoal(goalsRef.current, id);
         if (!node) continue;
         selectedBranches.push(node);
-        const subTaskIds = collectDescendantTaskIds(node);
-        taskIdsToRemove.push(...subTaskIds);
-        const associated = tasksRef.current.filter((t) => subTaskIds.includes(t.id));
+        const descendantTaskIds = collectDescendantTaskIds(node);
+        taskIdsToRemove.push(...descendantTaskIds);
+        const associated = tasksRef.current.filter((t) => descendantTaskIds.includes(t.id));
 
         let parentRootId: string | null = null;
         let parentNodeId: string | null = null;
@@ -1166,10 +1189,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const persistActiveSession = useCallback(
     (
       outcome: SessionStopOutcome,
-      options?: { endTime?: number; ignoreOpenPause?: boolean },
+      options?: { endTime?: number; ignoreOpenPause?: boolean; taskId?: string },
     ) => {
       const prev = activeSessionRef.current;
-      if (!prev) return;
+      if (!prev || (options?.taskId && prev.taskId !== options.taskId)) {
+        return { ok: false, error: 'This sitting is no longer active. No completion was applied.' };
+      }
       const endAt = resolvePersistEndAt(prev, Date.now(), {
         userEnd: options?.endTime,
         clockIncident: hasClockIncident(),
@@ -1178,16 +1203,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
       });
+      if (!record) return { ok: false, error: 'There is not enough verified time to save this sitting yet. Keep it open, or discard it explicitly. If device time changed, review the interrupted sitting first.' };
       if (record) {
-        const nextHist = {
-          ...sessionHistoryRef.current,
-          [record.taskId]: [...(sessionHistoryRef.current[record.taskId] ?? []), record],
-        };
+        let nextHist: Record<string, TaskSession[]>;
+        try {
+          nextHist = persistSessionRecord(sessionHistoryRef.current, record);
+        } catch {
+          return { ok: false, error: 'Could not save focus time on this device. The sitting is still open. Free some device storage and retry; do not clear YouDO data.' };
+        }
         sessionHistoryRef.current = nextHist;
         setSessionHistory(nextHist);
         void publishPublicPace(nextHist);
       }
+      activeSessionRef.current = null;
       setActiveSession(null);
+      return { ok: true };
     },
     [setActiveSession, setSessionHistory, publishPublicPace],
   );
@@ -1257,11 +1287,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const stopSession = useCallback(
     (
       outcome: SessionStopOutcome,
-      options?: { endTime?: number; ignoreOpenPause?: boolean },
+      options?: { endTime?: number; ignoreOpenPause?: boolean; taskId?: string },
     ) => {
       const prev = activeSessionRef.current;
-      if (!prev) return;
-      persistActiveSession(outcome, options);
+      if (!prev) return { ok: false, error: 'This sitting is no longer active. No completion was applied.' };
+      const result = persistActiveSession(outcome, options);
+      if (!result.ok) return result;
 
       setTasks((prevTasks) =>
         prevTasks.map((t) => {
@@ -1280,6 +1311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return withResumeNote;
         }),
       );
+      return result;
     },
     [persistActiveSession, setTasks],
   );
@@ -1308,11 +1340,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let handle: { remove: () => Promise<void> } | undefined;
     let cancelled = false;
     void pullNativeSession().then((session) => {
-      if (cancelled || !session) return;
+      if (cancelled || !session || nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
+      if (!tasksRef.current.some((task) => task.id === session.taskId)) return;
+      if (activeSessionRef.current && (activeSessionRef.current.taskId !== session.taskId || activeSessionRef.current.startTime !== session.startTime)) return;
       setActiveSession(session);
     });
     void attachSessionNotificationActions((session) => {
-      if (cancelled) return;
+      if (cancelled || nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
+      const current = activeSessionRef.current;
+      if (!current || current.taskId !== session.taskId || current.startTime !== session.startTime) return;
       setActiveSession(session);
     }).then((h) => {
       if (cancelled) {

@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app';
 import type { PluginListenerHandle } from '@capacitor/core';
 import type { View } from '../types';
 import { STORAGE_KEYS } from '../lib/storageKeys';
+import { reducedEffectsSnapshot } from './useReducedEffects';
 
 const TABS: View[] = ['tasks', 'goals', 'calendar', 'board'];
 
@@ -167,6 +168,7 @@ export function useNavigationSync(onPopState?: () => boolean) {
   // Native Capacitor Android hardware & gesture back button listener
   useEffect(() => {
     let backListenerHandle: PluginListenerHandle | null = null;
+    let disposed = false;
     const registerCapacitorBack = async () => {
       try {
         backListenerHandle = await CapApp.addListener('backButton', () => {
@@ -209,6 +211,7 @@ export function useNavigationSync(onPopState?: () => boolean) {
           // 5. Root level in Today tab: exit/minimize app
           CapApp.exitApp();
         });
+        if (disposed) void backListenerHandle.remove();
       } catch {
         /* Non-capacitor browser environment */
       }
@@ -216,6 +219,7 @@ export function useNavigationSync(onPopState?: () => boolean) {
 
     registerCapacitorBack();
     return () => {
+      disposed = true;
       if (backListenerHandle && backListenerHandle.remove) {
         backListenerHandle.remove();
       }
@@ -232,7 +236,7 @@ export function useNavigationSync(onPopState?: () => boolean) {
         setGoalPathIdsState([]);
         syncUrlAndStorage('goals', [], false);
       }
-      const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const reducedMotion = reducedEffectsSnapshot();
       window.requestAnimationFrame(() => {
         window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
       });

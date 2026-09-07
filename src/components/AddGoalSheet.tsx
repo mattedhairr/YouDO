@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Trash2, X } from 'lucide-react';
-import type { GoalKind, GoalNode } from '../types';
+import { ListPlus, Trash2, X } from 'lucide-react';
+import type { GoalNode } from '../types';
 import { uid } from '../store';
 import Overlay from './Overlay';
 import StepListEditor, { MAX_STEPS } from './StepListEditor';
@@ -8,7 +8,6 @@ import StepListEditor, { MAX_STEPS } from './StepListEditor';
 interface Props {
   open: boolean;
   parentId: string | null;
-  parentKind?: GoalKind;
   editing?: GoalNode | null;
   onClose: () => void;
   onAddRoot: (node: GoalNode) => void;
@@ -17,64 +16,46 @@ interface Props {
   onDeleteNode: (id: string) => void;
 }
 
-const kindOptions: { value: GoalKind; label: string }[] = [
-  { value: 'phase', label: 'Phase' },
-  { value: 'section', label: 'Section' },
-  { value: 'task', label: 'Task' },
-  { value: 'sub', label: 'Sub' },
-  { value: 'leaf', label: 'Leaf' },
-];
-
-function getDefaultChildKind(parentKind?: GoalKind): GoalKind {
-  if (parentKind === 'goal') return 'phase';
-  if (parentKind === 'phase') return 'section';
-  if (parentKind === 'section') return 'task';
-  if (parentKind === 'task') return 'sub';
-  if (parentKind === 'sub') return 'leaf';
-  return 'phase';
-}
-
 export default function AddGoalSheet({
-  open, parentId, parentKind, editing, onClose, onAddRoot, onAddChild, onUpdateNode, onDeleteNode,
+  open, parentId, editing, onClose, onAddRoot, onAddChild, onUpdateNode, onDeleteNode,
 }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [kind, setKind] = useState<GoalKind>('goal');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [steps, setSteps] = useState<string[]>(['']);
+  const [showChecklist, setShowChecklist] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const isEditing = !!editing;
   const isRootGoal = !editing && !parentId;
+  const isWorkItem = Boolean(parentId && !editing) || Boolean(editing && editing.kind !== 'goal' && editing.children.length === 0);
 
   useEffect(() => {
     if (!open) return;
     if (editing) {
       setTitle(editing.title);
       setDescription(editing.description ?? '');
-      setKind(editing.kind);
       setStartDate(editing.startDate ?? '');
       setEndDate(editing.endDate ?? '');
       setSteps(editing.steps && editing.steps.length ? [...editing.steps] : ['']);
+      setShowChecklist(Boolean(editing.steps?.length));
     } else {
       setTitle('');
       setDescription('');
-      setKind(parentId ? getDefaultChildKind(parentKind) : 'goal');
       setStartDate('');
       setEndDate('');
       setSteps(['']);
+      setShowChecklist(false);
     }
     setTimeout(() => titleRef.current?.focus(), 120);
-  }, [open, parentId, parentKind, editing]);
+  }, [open, parentId, editing]);
 
   if (!open) return null;
 
   const submit = () => {
     if (!title.trim()) return;
     const cleanSteps = steps.map((s) => s.trim()).filter(Boolean).slice(0, MAX_STEPS);
-    const finalKind = isEditing ? kind : (parentId ? kind : 'goal');
-
     if (isEditing && editing) {
       const prevStepDone = editing.stepDone ?? [];
       const newStepDone = cleanSteps.map((_, i) => prevStepDone[i] ?? false);
@@ -82,23 +63,22 @@ export default function AddGoalSheet({
         ...n,
         title: title.trim(),
         description: description.trim() || undefined,
-        kind: finalKind,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        steps: finalKind === 'leaf' ? cleanSteps : n.steps,
-        stepDone: finalKind === 'leaf' ? newStepDone : n.stepDone,
-        completed: finalKind === 'leaf' && cleanSteps.length > 0 ? newStepDone.every(Boolean) : n.completed,
+        steps: isWorkItem ? cleanSteps : n.steps,
+        stepDone: isWorkItem ? newStepDone : n.stepDone,
+        completed: isWorkItem && cleanSteps.length > 0 ? newStepDone.every(Boolean) : n.completed,
       }));
     } else {
       const node: GoalNode = {
         id: uid('goal'),
-        kind: finalKind,
+        kind: parentId ? 'node' : 'goal',
         title: title.trim(),
         description: description.trim() || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        steps: finalKind === 'leaf' ? cleanSteps : undefined,
-        stepDone: finalKind === 'leaf' ? cleanSteps.map(() => false) : undefined,
+        steps: parentId ? cleanSteps : undefined,
+        stepDone: parentId ? cleanSteps.map(() => false) : undefined,
         completed: false,
         createdAt: Date.now(),
         children: [],
@@ -110,10 +90,9 @@ export default function AddGoalSheet({
   };
 
   const getHeaderTitle = () => {
-    if (isEditing) return `Edit ${editing?.kind === 'goal' ? 'Goal' : 'Node'}`;
+    if (isEditing) return `Edit ${editing?.kind === 'goal' ? 'goal' : 'item'}`;
     if (isRootGoal) return 'New Goal';
-    const currentKindLabel = kindOptions.find((k) => k.value === kind)?.label ?? 'Node';
-    return `Add ${currentKindLabel}`;
+    return 'Add item';
   };
 
   return (
@@ -154,29 +133,6 @@ export default function AddGoalSheet({
             />
           </div>
 
-          {/* Node Type Selector: Only shown when adding a child or editing a child node */}
-          {!isRootGoal && (editing?.kind !== 'goal') && (
-            <div>
-              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Node type</label>
-              <div className="mt-1.5 grid grid-cols-5 gap-1.5">
-                {kindOptions.map((k) => (
-                  <button
-                    key={k.value}
-                    type="button"
-                    onClick={() => setKind(k.value)}
-                    className={`py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
-                      kind === k.value
-                        ? 'bg-primary text-on-primary border-primary'
-                        : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
-                    }`}
-                  >
-                    {k.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 cq-grid-2 gap-3">
             <div className="min-w-0">
               <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Start date</label>
@@ -198,9 +154,27 @@ export default function AddGoalSheet({
             </div>
           </div>
 
-          {kind === 'leaf' && (
-            <StepListEditor label="Micro-progress steps" steps={steps} onChange={setSteps} />
-          )}
+          {isWorkItem && (showChecklist ? (
+            <div className="rounded-xl border border-subtle bg-surface p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Optional checklist</span>
+                {(editing?.steps?.length ?? 0) === 0 && (
+                  <button type="button" onClick={() => { setShowChecklist(false); setSteps(['']); }} className="text-[11px] font-semibold text-content-muted">
+                    Remove
+                  </button>
+                )}
+              </div>
+              <StepListEditor label="Steps" steps={steps} onChange={setSteps} />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowChecklist(true)}
+              className="w-full min-h-11 rounded-xl border border-dashed border-subtle bg-surface px-3.5 text-left text-[13px] font-semibold text-content-secondary inline-flex items-center gap-2 hover:border-primary/40 hover:text-primary"
+            >
+              <ListPlus size={16} /> Add an optional checklist
+            </button>
+          ))}
 
           <div className="flex gap-2">
             {isEditing && editing && (
@@ -216,7 +190,7 @@ export default function AddGoalSheet({
               disabled={!title.trim()}
               className="flex-1 py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {isEditing ? 'Save' : parentId ? 'Add Node' : 'Create Goal'}
+              {isEditing ? 'Save changes' : parentId ? 'Add item' : 'Create goal'}
             </button>
           </div>
         </div>

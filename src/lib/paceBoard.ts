@@ -1,4 +1,4 @@
-import { localISODate, shiftLocalISO } from './dates';
+import { localISODate, shiftLocalISO, todayISO } from './dates';
 import { netFocusByLocalDateOverlapping } from './focusTrends';
 import type { TaskSession } from '../types';
 
@@ -84,15 +84,28 @@ export type PaceRow = {
   todayMs: number;
   weekMs: number;
   monthMs: number;
+  todayKey?: string;
+  weekKey?: string;
+  monthKey?: string;
   streak: number;
   barHours: number;
   updatedAt: string;
 };
 
-export function windowMs(row: PaceRow, window: PaceWindow): number {
-  if (window === 'today') return row.todayMs;
-  if (window === 'week') return row.weekMs;
-  return row.monthMs;
+export function paceWindowKeys(anchorISO: string): { todayKey: string; weekKey: string; monthKey: string } {
+  return {
+    todayKey: anchorISO,
+    weekKey: mondayOfLocalISO(anchorISO),
+    monthKey: monthStartLocalISO(anchorISO),
+  };
+}
+
+/** Expired denormalized totals read as zero even if their owner has not reopened the app. */
+export function windowMs(row: PaceRow, window: PaceWindow, anchorISO = todayISO()): number {
+  const keys = paceWindowKeys(anchorISO);
+  if (window === 'today') return row.todayKey && row.todayKey !== keys.todayKey ? 0 : row.todayMs;
+  if (window === 'week') return row.weekKey && row.weekKey !== keys.weekKey ? 0 : row.weekMs;
+  return row.monthKey && row.monthKey !== keys.monthKey ? 0 : row.monthMs;
 }
 
 /** A personal bar represents the full calendar window, not only days elapsed so far. */
@@ -107,12 +120,14 @@ export function paceWindowBarTargetMs(barHours: number, window: PaceWindow, anch
   return safeHours * paceWindowBarDays(window, anchor) * 60 * 60 * 1000;
 }
 
-export function rankedIds(rows: PaceRow[], window: PaceWindow): string[] {
-  return [...rows]
+export function rankedIds(rows: PaceRow[], window: PaceWindow, anchorISO = todayISO()): string[] {
+  return rows
+    .filter((row) => windowMs(row, window, anchorISO) > 0)
     .sort((a, b) => {
-      const d = windowMs(b, window) - windowMs(a, window);
+      const d = windowMs(b, window, anchorISO) - windowMs(a, window, anchorISO);
       if (d !== 0) return d;
-      return a.displayName.localeCompare(b.displayName);
+      // Match server eligibility checks exactly, independent of device locale.
+      return a.userId.localeCompare(b.userId);
     })
     .map((r) => r.userId);
 }

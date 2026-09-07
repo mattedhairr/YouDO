@@ -32,7 +32,11 @@ export interface SessionStopOutcome {
   resumeNote?: string;
 }
 
-export type GoalKind = 'goal' | 'phase' | 'section' | 'task' | 'sub' | 'leaf';
+/**
+ * `goal` and `node` are the universal v7 model. The remaining values are
+ * retained so older backups keep loading without rewriting users' trees.
+ */
+export type GoalKind = 'goal' | 'node' | 'phase' | 'section' | 'task' | 'sub' | 'leaf';
 
 export interface GoalNode {
   id: string;
@@ -43,9 +47,9 @@ export interface GoalNode {
   endDate?: string; // ISO date
   /** ordered children for unlimited nesting */
   children: GoalNode[];
-  /** for leaf/sub nodes: micro-progress step labels */
+  /** optional checklist labels for an endpoint task */
   steps?: string[];
-  /** per-step completion state (parallel to steps); source of truth for leaf progress */
+  /** per-step completion state (parallel to steps); source of truth for end-item progress */
   stepDone?: boolean[];
   /** true when every step is done (or for stepless leaves, manually toggled) */
   completed?: boolean;

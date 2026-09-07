@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Calendar, Check, Cloud, GripVertical, Link2, Pause, Sparkles, Target, TrendingUp, User, X, Zap } from 'lucide-react';
 import Overlay from './Overlay';
-import { hapticTap } from '../lib/haptics';
 
 const HOW_IT_WORKS_TABS = [
   {
@@ -24,9 +23,9 @@ const HOW_IT_WORKS_TABS = [
     role: 'Your full plan',
     oneLiner: 'The map of the work. Nested however you need. Not the daily list.',
     uses: [
-      'Add a goal, then phases, then tasks under it',
-      'Tap a node to open it, pin it, or edit it',
-      'Tap Schedule on a task and pick any date',
+      'Add a goal, then name the items inside it your way',
+      'Open any branch, or pin and edit any item',
+      'Schedule a task when it is ready to do',
     ],
     notFor: 'You do not “work the Goals list” each morning. Schedule a task onto a date, then work from Today.',
     after: 'Edits in Goals update the linked Today and Calendar cards. Delete a goal and it goes to Recently Deleted, not into thin air.',
@@ -36,11 +35,11 @@ const HOW_IT_WORKS_TABS = [
     icon: Calendar,
     name: 'Calendar',
     role: 'Any date',
-    oneLiner: 'The calendar. Past, today, and future — plus time stats for each day.',
+    oneLiner: 'Swipe the date dial through your days; expand the month or statistics when needed.',
     uses: [
-      'Tap a date to see what was scheduled there',
+      'Pick a quick day, or expand the calendar for any date',
       'Check completed, missed, and backlog on that day',
-      'Read net focus and session stats for the date',
+      'See a compact summary; open Full stats for the details',
     ],
     notFor: 'Calendar is not a second Today list. It is the date-by-date record around Today.',
     after: 'If you scheduled a task for the 18th, it lives on the 18th in Calendar. It appears on Today only when that date is today.',
@@ -56,6 +55,8 @@ const HOW_IT_WORKS_TABS = [
       'Opt in from Settings with a display name',
       'See your rank and nearby competitors without scrolling through everyone',
       'Use streak and bar as context — rank is hours only',
+      'Give a top-three member kudos once per day; kudos never change rank',
+      'Community opens chat; Admin opens moderation. Unread messages wait until you open them',
     ],
     notFor: 'The board does not verify hours. Padding time only cheats you.',
     after: 'Off by default. Turn it off and your public row is deleted.',
@@ -68,11 +69,11 @@ const USER_GUIDE_STEPS = [
     icon: Target,
     title: 'Create your plan',
     where: 'Goals tab',
-    desc: 'Add a goal, then add phases or tasks under it. This is the map — not today’s list.',
+    desc: 'Add a goal, then build the plan with your own labels. This is the map — not today’s list.',
     do: [
-      'Open Goals and tap Create Goal (or Add under a node).',
-      'Nest the work: goal → phase → tasks. As deep as you need.',
-      'Leave it here until you are ready to put a piece on a date.',
+      'Open Goals and tap Create Goal, then add items inside it.',
+      'Go as deep as needed. An item with children is a branch.',
+      'Stop dividing when the work is small enough; that endpoint becomes a task you can schedule.',
     ],
     mock: 'goals' as const,
   },
@@ -122,6 +123,8 @@ const USER_GUIDE_STEPS = [
       'Temporary internet loss is safe. When you reconnect, YouDO uploads only if the cloud copy has not changed elsewhere.',
       'If two devices changed, sync pauses and preserves both copies until you review or combine them in Settings.',
       'Before signing out or changing phones, wait for sync or export a JSON backup.',
+      'Use Account security to change email or password after confirming your current password.',
+      'For an email change, open the latest link in both inboxes, then return to YouDO to check the new address.',
     ],
     mock: 'sync' as const,
   },
@@ -131,7 +134,7 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
   if (kind === 'goals') {
     return (
       <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2" aria-hidden>
-        {['Target exam', 'Foundation phase', 'Core subject notes'].map((label, i) => (
+        {['Target exam', 'Foundation', 'Core subject', 'Chapter notes'].map((label, i) => (
           <div key={label} className="flex items-center gap-2" style={{ paddingLeft: i * 14 }}>
             <div className={`size-1.5 rounded-full ${i === 2 ? 'bg-primary' : 'bg-border'}`} />
             <div className={`h-7 flex-1 rounded-[8px] border border-subtle px-2.5 flex items-center text-[11px] font-medium ${i === 2 ? 'bg-primary-soft text-primary' : 'bg-elevated text-content-secondary'}`}>
@@ -299,7 +302,6 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
     if (!el) return;
     el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' });
     setGuideStep(index);
-    hapticTap();
   };
 
   return (
@@ -313,7 +315,6 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
                 type="button"
                 onClick={() => {
                   setTab(id);
-                  hapticTap();
                 }}
                 className={`px-3.5 py-1.5 rounded-[8px] text-[13px] font-semibold transition-colors ${
                   tab === id ? 'bg-primary text-on-primary' : 'text-content-secondary'
@@ -417,7 +418,6 @@ export default function HelpCenterSheet({ open, onClose }: Props) {
                     type="button"
                     onClick={() => {
                       setHowTab(t.name);
-                      hapticTap();
                     }}
                     className={`flex-1 h-10 rounded-[10px] flex items-center justify-center gap-1.5 text-[13px] ${
                       active ? 'bg-primary text-on-primary font-semibold' : 'text-content-secondary font-medium'

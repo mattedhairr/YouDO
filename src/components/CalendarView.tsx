@@ -1,5 +1,9 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import Overlay from './Overlay';
+import { useLocalDay } from '../hooks/useLocalDay';
+import CalendarDateDial from './CalendarDateDial';
+import { calendarFocusSummary } from '../lib/calendarSummary';
+import { hapticTick } from '../lib/haptics';
 import { ChevronLeft, ChevronRight, Link2, Plus, BarChart2, X, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Task } from '../types';
 import { localISODate, pathTitles, useStore, isOpenBacklogTask } from '../store';
@@ -21,7 +25,18 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
-  const [selectedDate, setSelectedDate] = useState<string | null>(localISODate(new Date()));
+  const todayStr = useLocalDay();
+  const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const previousToday = useRef(todayStr);
+  useEffect(() => {
+    if (todayStr !== previousToday.current && selectedDate === previousToday.current) {
+      setSelectedDate(todayStr);
+      const date = new Date(todayStr + 'T12:00:00');
+      setCursor(new Date(date.getFullYear(), date.getMonth(), 1));
+    }
+    previousToday.current = todayStr;
+  }, [todayStr, selectedDate]);
   const [dayStatsModalDate, setDayStatsModalDate] = useState<string | null>(null);
   const [showDayStatsHelp, setShowDayStatsHelp] = useState(false);
   const [openSessionSummaryId, setOpenSessionSummaryId] = useState<string | null>(null);
@@ -59,7 +74,6 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayStr = localISODate(new Date());
 
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
@@ -73,6 +87,14 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
   const selectedDone = selectedDate
     ? selectedTasks.filter((task) => taskOccurrenceOnDate(task, selectedDate)?.completedOnDate).length
     : 0;
+
+  const summary = useMemo(() => calendarFocusSummary(Object.values(sessionHistory).flat(), selectedDate ?? todayStr), [sessionHistory, selectedDate, todayStr]);
+  const selectDay = (date: string) => {
+    if (date !== selectedDate) hapticTick();
+    setSelectedDate(date);
+    const parsed = new Date(date + 'T12:00:00');
+    setCursor(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
+  };
 
   // Gather sessions for modal date
   const modalDateSessions = useMemo(() => {
@@ -149,14 +171,19 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
   }
 
   return (
-    <div className="fade-in space-y-4">
+    <div className="calendar-workspace">
+      <CalendarDateDial value={selectedDate ?? todayStr} today={todayStr} onChange={selectDay} />
+      <button type="button" className="calendar-expand" aria-expanded={calendarOpen} aria-controls="calendar-month-grid" onClick={() => setCalendarOpen((open) => !open)}>
+        <span>{calendarOpen ? 'Close calendar' : 'Choose another date'}</span><ChevronDown size={16} className={calendarOpen ? 'rotate-180' : ''} />
+      </button>
+      {calendarOpen && <div id="calendar-month-grid" className="calendar-month-panel">
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-2">
-        <button onClick={prevMonth} className="p-2 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface transition-colors">
+        <button type="button" aria-label="Previous month" onClick={prevMonth} className="p-2 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface transition-colors">
           <ChevronLeft size={18} />
         </button>
         <h2 className="text-base font-bold text-content-primary">{monthName}</h2>
-        <button onClick={nextMonth} className="p-2 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface transition-colors">
+        <button type="button" aria-label="Next month" onClick={nextMonth} className="p-2 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface transition-colors">
           <ChevronRight size={18} />
         </button>
       </div>
@@ -181,10 +208,13 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
             return (
               <button
                 key={i}
-                onClick={() => setSelectedDate(dateStr)}
+                type="button"
+                aria-pressed={isSelected}
+                aria-label={new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, {dateStyle:'full'})}
+                onClick={() => selectDay(dateStr)}
                 className={`relative aspect-square rounded-xl flex items-center justify-center transition-all text-[13px] font-medium ${
                   isSelected
-                    ? 'bg-primary text-on-primary font-semibold shadow-card scale-105 z-10'
+                    ? 'bg-primary text-on-primary font-semibold'
                     : isToday
                       ? 'bg-primary-soft text-primary-glow font-bold border border-primary/20'
                       : 'text-content-primary hover:bg-surface'
@@ -211,36 +241,34 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
         </div>
       </div>
 
+      </div>}
+      <section className="calendar-day-summary" aria-label="Selected day summary">
+        <div className="calendar-summary-heading">
+          <h2>{selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Daily summary'}</h2>
+          <button type="button" aria-haspopup="dialog" onClick={() => setDayStatsModalDate(selectedDate)}><BarChart2 size={14} /> Full stats <ChevronRight size={13} /></button>
+        </div>
+        <div className="calendar-summary-values" key={selectedDate}>
+          <div><strong>{selectedDone}<small> / {selectedTasks.length}</small></strong><span>Finished</span></div>
+          <div><strong>{formatDuration(summary.netFocusMs)}</strong><span>Net focus</span></div>
+          <div><strong>{summary.count}</strong><span>Sessions</span></div>
+        </div>
+      </section>
+
       {/* Selected date tasks */}
-      <div className="mt-4">
-        <div className="flex items-center justify-between mb-2">
+      <div className="calendar-planned">
+        <div className="calendar-planned-heading flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-[14px] font-bold text-content-primary">
-                {selectedDate
-                  ? new Date(selectedDate + 'T00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-                  : 'Select a date'}
+                Planned work
               </h3>
-              {selectedDate && (
-                <button
-                  onClick={() => setDayStatsModalDate(selectedDate)}
-                  className="p-1 rounded-lg bg-primary-soft text-primary-glow hover:bg-primary-soft border border-primary/20 transition text-[10px] font-bold flex items-center gap-1"
-                  title="View Daily Efficiency & Stats"
-                >
-                  <BarChart2 size={12} /> Stats
-                </button>
-              )}
+
             </div>
-            {selectedTasks.length > 0 && (
-              <p className="text-[11px] text-content-secondary font-medium">
-                {selectedDone}/{selectedTasks.length} done
-              </p>
-            )}
           </div>
           {selectedDate && (
             <button
               onClick={() => onAddTask(selectedDate)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-on-primary text-xs font-semibold rounded-xl"
+              className="calendar-add-task flex items-center gap-1.5 bg-primary text-on-primary text-xs font-semibold"
             >
               <Plus size={14} /> Add task
             </button>
@@ -405,6 +433,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                 </button>
                 <button
                   onClick={() => setDayStatsModalDate(null)}
+                  aria-label="Close daily statistics"
                   className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary hover:bg-elevated transition"
                 >
                   <X className="w-4 h-4" />

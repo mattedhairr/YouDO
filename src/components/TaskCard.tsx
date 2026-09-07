@@ -101,6 +101,8 @@ export default function TaskCard({
   const fillPct = (task.progress / total) * 100;
   const complete = isTaskComplete(task);
   const hasSteps = task.steps.length > 0;
+  const originBadgeNodes = originNodes?.slice(0, Math.min(2, originNodes.length)) ?? [];
+  const originContextNodes = originNodes?.slice(originBadgeNodes.length) ?? [];
 
   const hours = Math.floor(elapsed / 3600);
   const minutes = Math.floor((elapsed % 3600) / 60);
@@ -186,10 +188,10 @@ export default function TaskCard({
 
           {/* Content Column */}
           <div className="flex-1 min-w-0">
-            {/* EYEBROW: Path / Origin Tags (Goal & Phase) */}
+            {/* EYEBROW: first two path items, followed by any remaining context. */}
             {originNodes && originNodes.length > 0 ? (
               (() => {
-                const badgeNodes = originNodes.filter(n => n.kind === 'goal' || n.kind === 'phase');
+                const badgeNodes = originBadgeNodes;
                 if (badgeNodes.length === 0) return null;
                 return (
                   <div className="mb-1.5">
@@ -311,9 +313,9 @@ export default function TaskCard({
               )}
             </div>
 
-            {/* SUBTITLE: Sections and Subtasks Context */}
+            {/* SUBTITLE: remaining path context. */}
             {originNodes && originNodes.length > 0 && (() => {
-              const ctxNodes = originNodes.filter(n => n.kind !== 'goal' && n.kind !== 'phase');
+              const ctxNodes = originContextNodes;
               if (ctxNodes.length === 0) return null;
               return (
                 <div className="mt-1 flex items-center flex-wrap gap-1 text-[11px] text-content-muted font-normal ml-3.5">
@@ -373,17 +375,17 @@ export default function TaskCard({
       <Overlay open={expanded} onClose={() => setExpanded(false)} align="center">
         <div className="panel sheet-up max-h-[85vh] overflow-y-auto no-scrollbar p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
           <div className="space-y-1.5">
-            {originNodes && originNodes.filter((n) => n.kind === 'goal' || n.kind === 'phase').length > 0 && (
+            {originBadgeNodes.length > 0 && (
               <p className="text-[11px] font-semibold text-primary">
-                {originNodes.filter((n) => n.kind === 'goal' || n.kind === 'phase').map((n) => n.title).join(' · ')}
+                {originBadgeNodes.map((n) => n.title).join(' · ')}
               </p>
             )}
             <h3 className={`text-[16px] font-semibold leading-snug ${complete ? 'line-through text-content-muted' : 'text-content-primary'}`}>
               {task.title}
             </h3>
-            {originNodes && originNodes.filter((n) => n.kind !== 'goal' && n.kind !== 'phase').length > 0 && (
+            {originContextNodes.length > 0 && (
               <p className="text-[12px] text-content-muted leading-snug">
-                {originNodes.filter((n) => n.kind !== 'goal' && n.kind !== 'phase').map((n) => n.title).join(' / ')}
+                {originContextNodes.map((n) => n.title).join(' / ')}
               </p>
             )}
           </div>
@@ -463,12 +465,13 @@ export default function TaskCard({
                 onClick={() => {
                   setExpanded(false);
                   if (task.goalNodeId && onJumpToGoal) onJumpToGoal();
+                  else if (isSessionTask) onStopSession?.();
                   else onAdvance(task.id);
                 }}
                 className="py-2.5 rounded-[12px] bg-surface text-content-primary border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-secondary" />
-                {task.goalNodeId ? 'Jump' : 'Advance'}
+                {task.goalNodeId ? 'Jump' : isSessionTask ? 'Finish sitting' : 'Advance'}
               </button>
               <button
                 onClick={() => { setExpanded(false); onDuplicate(task.id); }}

@@ -6,6 +6,7 @@ import {
   blueprintReviewState,
   closestBlueprintPathIds,
   countBlueprintNodes,
+  groupBlueprintChildren,
   maxBlueprintDepth,
   normalizeBlueprintTitles,
   numberedBlueprintTitles,
@@ -41,6 +42,35 @@ describe('Blueprint Studio tree operations', () => {
     expect(goals[0].children[0].children).toHaveLength(0);
   });
 
+  it('builds generic items at arbitrary depth', () => {
+    const goals = [node('g', 'goal', 'Exam', [node('a', 'node', 'Stage')])];
+    const levelTwo = addBlueprintChildren(goals, ['a'], 'node', ['Subject']);
+    const subject = levelTwo.goals[0].children[0].children[0];
+    const levelThree = addBlueprintChildren(levelTwo.goals, [subject.id], 'node', ['Chapter']);
+    const chapter = levelThree.goals[0].children[0].children[0].children[0];
+    const levelFour = addBlueprintChildren(levelThree.goals, [chapter.id], 'node', ['Lecture']);
+
+    expect(maxBlueprintDepth(levelFour.goals)).toBe(5);
+    expect(levelFour.goals[0].children[0].children[0].children[0].children[0]).toMatchObject({
+      kind: 'node', title: 'Lecture', children: [],
+    });
+  });
+
+  it('protects scheduled, completed, or checklist tasks from silently becoming a branch', () => {
+    const untouched = node('open', 'node', 'Can grow');
+    const checklist = { ...node('steps', 'leaf', 'Checklist'), steps: ['Read'], stepDone: [false] };
+    const completed = { ...node('done', 'task', 'Finished'), completed: true };
+    const scheduled = { ...node('planned', 'section', 'Planned'), todayTaskId: 'task-1' };
+    const goals = [node('g', 'goal', 'Exam', [untouched, checklist, completed, scheduled])];
+
+    const result = addBlueprintChildren(goals, ['open', 'steps', 'done', 'planned'], 'node', ['Child']);
+
+    expect(result.added).toBe(1);
+    expect(result.blocked).toBe(3);
+    expect(result.goals[0].children[0].children[0].title).toBe('Child');
+    expect(result.goals[0].children.slice(1).every((entry) => entry.children.length === 0)).toBe(true);
+  });
+
   it('adds only missing steps and preserves completed step state', () => {
     const leaf = { ...node('l', 'leaf', 'Leaf'), steps: ['Do'], stepDone: [true], completed: true };
     const result = addBlueprintSteps([leaf], ['l'], ['do', 'Check']);
@@ -50,11 +80,16 @@ describe('Blueprint Studio tree operations', () => {
     expect(result.goals[0].completed).toBe(false);
   });
 
-  it('ignores step edits for non-leaf nodes', () => {
-    const goal = node('g', 'goal', 'Goal');
-    const result = addBlueprintSteps([goal], ['g'], ['Check']);
-    expect(result.goals).toEqual([goal]);
-    expect(result.added).toBe(0);
+  it('adds steps to any endpoint but not to roots or branches', () => {
+    const endpoint = node('endpoint', 'phase', 'Legacy endpoint');
+    const group = node('group', 'node', 'Branch', [node('child', 'node', 'Child')]);
+    const goal = node('g', 'goal', 'Goal', [endpoint, group]);
+    const result = addBlueprintSteps([goal], ['g', 'endpoint', 'group'], ['Check']);
+    expect(result.goals[0].steps).toBeUndefined();
+    expect(result.goals[0].children[0].steps).toEqual(['Check']);
+    expect(result.goals[0].children[1].steps).toBeUndefined();
+    expect(result.added).toBe(1);
+    expect(result.affected).toBe(1);
   });
 
   it('removes unfinished bulk steps while protecting completed work', () => {
@@ -101,6 +136,37 @@ describe('Blueprint Studio tree operations', () => {
     expect(updated[0].children[1].description).toBeUndefined();
     expect(goals[0].children[0].title).toBe('Old one');
     expect(goals[0].children[0].description).toBe('Previous note');
+  });
+
+  it('groups matching existing children across selected branches for bulk editing', () => {
+    const goals = [node('g', 'goal', 'Goal', [
+      node('p1', 'node', 'Phase 1', [node('c1', 'node', 'Chapter 1'), node('x', 'node', 'Extra')]),
+      node('p2', 'node', 'Phase 2', [node('c2', 'node', ' chapter   1 '), node('c3', 'node', 'Chapter 2')]),
+    ])];
+
+    expect(groupBlueprintChildren(goals, ['p1', 'p2', 'p1'])).toEqual([
+      {
+        key: 'chapter 1',
+        title: 'Chapter 1',
+        nodeIds: ['c1', 'c2'],
+        parentIds: ['p1', 'p2'],
+        parentTitles: ['Phase 1', 'Phase 2'],
+      },
+      {
+        key: 'chapter 2',
+        title: 'Chapter 2',
+        nodeIds: ['c3'],
+        parentIds: ['p2'],
+        parentTitles: ['Phase 2'],
+      },
+      {
+        key: 'extra',
+        title: 'Extra',
+        nodeIds: ['x'],
+        parentIds: ['p1'],
+        parentTitles: ['Phase 1'],
+      },
+    ]);
   });
 
   it('counts nodes and depth for review', () => {

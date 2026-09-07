@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.0.0] — 2026-09-08 — Goals without fixed layers
+
+- **One universal goal tree** — Name and nest items your way; branches and schedulable endpoints follow the structure, while equal-weight branch progress keeps unfinished plans visible.
+- **A clearer Blueprint Studio** — Browse compact branches with visible parent paths and location groups, edit repeated items together or individually, and return through the real tree instead of old browsing history.
+- **A calmer Board and community** — Give the top three Kudos, catch up on unread messages, and use clear activity counts with separate chat, admin, appeals, and moderation controls.
+- **A more focused interface** — Swipe Calendar’s date dial, expand detailed stats when needed, and choose Reduced effects; distinct haptics and tighter layouts keep everyday controls clear.
+- **Account and session safeguards** — Change email/password, review signed-in devices with guarded remote logout, and use a phone-friendly confirmation page; session-save errors keep the sitting open for retry.
+- **Android APK** — versionName **7.0.0**, versionCode **32**. Keeps the package ID and permanent v6 signing key for install-over-v6.3.0; native changes address system-bar overlap and keyboard backgrounds, with affected-device verification still pending.
+
+---
+
 ## [v6.3.0] — 2026-09-05 — A sharper Board, safer momentum
 
 - **A Board worth scanning** — The public leaderboard now uses consistent rows, clearer top-three treatment, and ranks everyone strictly by real net-focus hours.
@@ -24,7 +35,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 - **Safer Blueprint Studio** — Leaving with an unfinished draft, including through a device back gesture, asks for confirmation before anything is discarded.
 - **Practical bulk editing** — Selected Studio items can receive descriptions, and shared unfinished micro-steps can be removed safely without touching completed work or active sessions.
 - **Continue without losing your place** — An unfinished focus sitting can keep a short resume note. It disappears automatically when the task is completed and never clutters Calendar history.
-- **Goal and Android polish** — Parent deadlines and descriptions are easier to read; startup, keyboard, and Android 10 overlay behavior are more reliable.
+- **Goal and startup polish** — Parent deadlines and descriptions are easier to read, and the connected launch mark replaces the separated loading logo.
 - **Android APK** — versionName **6.3.0**, versionCode **31**. Installs directly over **v6.2.0** without uninstalling or clearing data.
 
 ---

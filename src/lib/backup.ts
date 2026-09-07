@@ -1,7 +1,7 @@
 import type { GoalKind, GoalNode, Task } from '../types';
 import { uid } from './ids';
 
-const VALID_KINDS = new Set(['goal', 'phase', 'section', 'task', 'sub', 'leaf']);
+const VALID_KINDS = new Set(['goal', 'node', 'phase', 'section', 'task', 'sub', 'leaf']);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : null;
@@ -146,7 +146,7 @@ function countGoalNodes(nodes: GoalNode[]): { nodes: number; leaves: number } {
   const visit = (items: GoalNode[]) => {
     for (const node of items) {
       total += 1;
-      if (node.kind === 'leaf') leaves += 1;
+      if ((node.children ?? []).length === 0) leaves += 1;
       visit(node.children ?? []);
     }
   };

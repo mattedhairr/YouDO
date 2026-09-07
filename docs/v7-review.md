@@ -1,0 +1,35 @@
+# v7 pre-release review
+
+Release candidate: **7.0.0**, Android **versionCode 32**, prepared on **2026-09-08**. Package, lockfile, in-app version, and Android versionName agree. A commit/push is not itself a published GitHub Release or proof of a successful phone upgrade.
+
+## Verified locally
+
+- 184 automated tests pass, including callback classification, unsafe redirect rejection, signed-in session parsing, switch semantics, unavailable update checks, haptic priorities/cancellation, reduced-effects preferences, Calendar midnight splitting/dial gestures, focus persistence, activity-value validation, and dialog Back routing. Release-update tests derive their fixtures from the current app version.
+- TypeScript checking, ESLint, and the Vite production build pass.
+- 52 isolated PostgreSQL checks pass against the actual community and account-session SQL, including repeat installation, recipient-only delivery, read/unread retention, top-three eligibility, duplicate Kudos prevention, session ownership, the 24-hour trust boundary, exact revocation, permission denial, and admin account deletion that preserves moderation history. These use disposable local fixtures, not production accounts.
+- The production build includes a separate `auth-confirm.html` entry; it does not import the workspace or Supabase client.
+- Capacitor asset/plugin sync into the Android project passes. Native compilation and the signed APK are delegated to the release-branch workflow.
+- The final two-column admin panel was visually rechecked in the signed-in preview: no daily-percentage tile or progress bar remains.
+- At the inspected 429px viewport: all three populated Board rows measure 114px; both appearance rows measure 74px; no document-level horizontal overflow.
+- Board, Calendar, Admin Review/Controls, and the empty daily room were inspected visually in the signed-in preview during the preceding UI pass. The admin home now presents only **Active recently** and **Used today**; the redundant daily percentage and progress bar are removed. Both enabled switch thumbs remained inside their tracks, with 48 × 44px touch targets.
+- The expired-link page was opened with synthetic callback parameters. It displays the error state and removes the fragment from the address bar.
+- Current README/help copy and promotional artwork describe the universal tree. Legacy node-kind values and historical changelog entries remain for compatibility/history.
+- The bulky quick-day tiles have been replaced with a compact swipeable date dial, arrow/keyboard fallbacks, and a Today shortcut. Earlier verification established matching 4h 32m in the compact summary and detailed statistics; full month and full statistics remain available.
+- Matching Community and Admin controls open separate screens. Admin Controls was visually checked without toggling live moderation settings. Loading queues are distinguished from genuinely empty queues.
+- Reduced effects was switched on and off through Settings, verified to remove backdrop blur, and restored to off. The Settings switches each retain a 48 × 44px hit area. No document-level horizontal overflow was observed.
+
+No moderation actions, test messages, or account email changes were submitted against the owner's main account during this pass.
+
+## Before publishing
+
+1. Review Board, Calendar, Settings, the daily room, and admin views on the target phone, including larger text, keyboard-open, light-theme, and Reduced effects states. Check actual haptic feel on both capable and low-end hardware; browser/mocked tests cannot establish this.
+2. The owner successfully installed the earlier 570-line community query. The final release review corrected its audit foreign key, which would otherwise block an admin's self-deletion. Rerun the current saved setup once more to install that correction; this does not delete or demote accounts. Verify hosted grants, PostgREST integration, and UTC rollover with controlled accounts; isolated PostgreSQL coverage is not a substitute for those live checks.
+3. Deploy the confirmation page and finish [the Supabase URL setup](account-links.md); then test both inbox confirmations with a controlled account. Exercise report/appeal decisions, failed saves, restricted-member access, and non-admin denial separately.
+4. The owner successfully installed [the account-session functions](account-sessions.md) and verified a two-device listing. Remote revocation still needs a controlled test after the 24-hour trust boundary; it has the normal access-token expiry window.
+5. Recheck the previously reported Android system-bar and keyboard-overlay bugs on affected hardware. A web preview cannot verify those native fixes.
+6. The owner has chosen to proceed with release preparation while deferring the missing focus session and unresponsive v6.3.0 phone investigation. This is an accepted unresolved risk, not a verified compatibility fix. Follow [the anonymized incident evidence and safe next checks](focus-session-investigation.md); do not clear app data or invent a duration.
+7. Obtain the signed APK from the release-branch GitHub Actions build and verify install-over-v6.3.0 on a backed-up device. The workflow checks the permanent signing certificate and matching release versions, and now runs typecheck, lint, and tests before building. Keep `main` and public release publication separate from a candidate-branch push.
+
+Existing build warnings remain: the main app bundle exceeds Vite's 500kB advisory threshold, and Capacitor App has mixed static/dynamic imports. No warnings were suppressed.
+
+The current poster is [the v7 asset](media/youdo-promo-poster-v7.png). The old fixed-layer poster is historical only; live Telegram posts have not been edited or published by this task.

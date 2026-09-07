@@ -4,7 +4,8 @@ import Overlay from './Overlay';
 import type { Task, TaskSession } from '../types';
 import { formatCountdownHm, formatDuration } from '../lib/format';
 import { isCountableSession, sessionOverlapsLocalDate } from '../lib/sessionStats';
-import { hapticSuccess, hapticTap, hapticTick } from '../lib/haptics';
+import { hapticTap, hapticTick } from '../lib/haptics';
+import { useReducedEffects } from '../hooks/useReducedEffects';
 import { localISODate, msUntilEndOfLocalISODate, shiftLocalISO } from '../lib/dates';
 import { useReviveTimeLeftSub } from '../hooks/useReviveCountdown';
 import type { StreakView } from '../lib/focusTrends';
@@ -112,6 +113,7 @@ export default function TodayBriefingSheet({
   sessionHistory,
   onDismiss,
 }: Props) {
+  const [reducedEffects] = useReducedEffects();
   const trackRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLButtonElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
@@ -233,9 +235,9 @@ export default function TodayBriefingSheet({
     setKnobProgress(1);
     setConfirmed(true);
     setExiting(true);
-    hapticSuccess();
-    window.setTimeout(() => onDismiss(), 520);
-  }, [onDismiss, setKnobProgress]);
+    hapticTap();
+    window.setTimeout(() => onDismiss(), reducedEffects ? 0 : 200);
+  }, [onDismiss, setKnobProgress, reducedEffects]);
 
   const resetSlider = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -255,7 +257,7 @@ export default function TodayBriefingSheet({
 
   useEffect(() => {
     if (!exiting) return;
-    const layer = document.querySelector('#overlay-root .overlay-layer') as HTMLElement | null;
+    const layer = trackRef.current?.closest('.overlay-layer') as HTMLElement | null;
     if (!layer) return;
     layer.style.transition = 'opacity 420ms cubic-bezier(0.4, 0, 0.2, 1)';
     layer.style.opacity = '0';

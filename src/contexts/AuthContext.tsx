@@ -9,12 +9,14 @@ import {
   upsertLiveBackup,
   type VisitSnapshotMeta,
 } from '../lib/cloudBackup';
-import { supabase } from '../lib/supabase';
+import { createCredentialVerificationClient, supabase } from '../lib/supabase';
+import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { clearWorkspaceStorage, clearYouDoStorage } from '../lib/storageKeys';
 
 interface AuthActionResult {
   ok: boolean;
   error?: string;
+  message?: string;
 }
 
 interface AuthContextType {
@@ -23,6 +25,8 @@ interface AuthContextType {
   signOut: (options?: { clearWorkspace?: boolean }) => Promise<AuthActionResult>;
   deleteAccount: () => Promise<AuthActionResult>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
+  changeEmail: (currentPassword: string, nextEmail: string) => Promise<AuthActionResult>;
+  changePassword: (currentPassword: string, nextPassword: string) => Promise<AuthActionResult>;
   updateCloudBackup: (
     backupData: unknown,
     options?: { expectedUpdatedAt?: string | null },
@@ -39,6 +43,8 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => ({ ok: false, error: 'Not initialized' }),
   deleteAccount: async () => ({ ok: false, error: 'Not initialized' }),
   updateProfile: async () => false,
+  changeEmail: async () => ({ ok: false, error: 'Not initialized' }),
+  changePassword: async () => ({ ok: false, error: 'Not initialized' }),
   updateCloudBackup: async () => ({ ok: false, error: 'Not initialized' }),
   fetchCloudBackup: async () => null,
   fetchLiveBackupInfo: async () => null,
@@ -75,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async (options?: { clearWorkspace?: boolean }): Promise<AuthActionResult> => {
     try {
       resetVisitSnapshotFreeze();
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
       setUser(null);
       if (options?.clearWorkspace) clearWorkspaceStorage();
@@ -118,6 +124,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Failed to update profile:', err);
       return false;
+    }
+  };
+
+  const verifyCurrentPassword = async (password: string): Promise<AuthActionResult> => {
+    const email = user?.email;
+    if (!email) return { ok: false, error: 'No email is attached to this account.' };
+    const verificationClient = createCredentialVerificationClient();
+    const { data, error } = await verificationClient.auth.signInWithPassword({ email, password });
+    if (error || !data.session) return { ok: false, error: 'Current password is incorrect.' };
+    const { error: cleanupError } = await verificationClient.auth.signOut({ scope: 'local' });
+    if (cleanupError) return { ok: false, error: 'Password verified, but the temporary security check could not be closed. Try again.' };
+    return { ok: true };
+  };
+
+  const changeEmail = async (currentPassword: string, nextEmail: string): Promise<AuthActionResult> => {
+    try {
+      const cleanEmail = nextEmail.trim().toLowerCase();
+      if (!cleanEmail || !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+        return { ok: false, error: 'Enter a valid new email address.' };
+      }
+      if (cleanEmail === user?.email?.toLowerCase()) {
+        return { ok: false, error: 'That is already your account email.' };
+      }
+      const verified = await verifyCurrentPassword(currentPassword);
+      if (!verified.ok) return verified;
+      const emailRedirectTo = resolveAuthRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL);
+      const { data, error } = await supabase.auth.updateUser({ email: cleanEmail }, { emailRedirectTo });
+      if (error) throw error;
+      if (data.user) setUser(data.user);
+      return {
+        ok: true,
+        message: data.user?.new_email
+          ? 'Email change requested. Check both your current and new inboxes.'
+          : 'Account email changed.',
+      };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Unable to change email.' };
+    }
+  };
+
+  const changePassword = async (currentPassword: string, nextPassword: string): Promise<AuthActionResult> => {
+    try {
+      if (nextPassword.length < 10) return { ok: false, error: 'Use at least 10 characters.' };
+      if (nextPassword === currentPassword) return { ok: false, error: 'Choose a different password.' };
+      const verified = await verifyCurrentPassword(currentPassword);
+      if (!verified.ok) return verified;
+      const { data, error } = await supabase.auth.updateUser({ password: nextPassword });
+      if (error) throw error;
+      if (data.user) setUser(data.user);
+      return { ok: true, message: 'Password changed.' };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Unable to change password.' };
     }
   };
 
@@ -174,6 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         deleteAccount,
         updateProfile,
+        changeEmail,
+        changePassword,
         updateCloudBackup,
         fetchCloudBackup,
         fetchLiveBackupInfo,

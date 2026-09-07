@@ -9,6 +9,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
 import { supabase } from '../lib/supabase';
@@ -94,7 +95,10 @@ function AuthWelcome() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { full_name: fullName.trim() || undefined } },
+          options: {
+            data: { full_name: fullName.trim() || undefined },
+            emailRedirectTo: resolveAuthRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL),
+          },
         });
         if (error) throw error;
         if (!data.session) setMessage({ text: 'Account created. Check your email to confirm it, then sign in.' });
@@ -107,10 +111,10 @@ function AuthWelcome() {
   };
 
   return (
-    <div className="min-h-screen bg-base text-content-primary px-5 py-7 overflow-y-auto">
+    <div className="auth-welcome min-h-screen bg-base text-content-primary px-5 overflow-y-auto">
       <div className="mx-auto w-full max-w-sm pb-8">
-        <Brand />
-        <div className="mt-7 text-center">
+        <div className="auth-brand"><Brand /></div>
+        <div className="auth-hero text-center">
           <p className="text-[11px] uppercase tracking-[0.2em] text-primary font-semibold">Built for serious aspirants</p>
           <h1 className="mt-2 text-[27px] leading-[1.12] font-semibold">Your preparation deserves a system.</h1>
           <p className="mt-3 text-[13px] leading-relaxed text-content-secondary">Build the blueprint, execute today’s work, and preserve every honest hour.</p>
@@ -123,7 +127,7 @@ function AuthWelcome() {
           </div>
         )}
 
-        <div className="mt-5 rounded-[20px] border border-subtle bg-elevated p-4 shadow-elevated">
+        <div className="auth-card mt-5 rounded-[20px] border border-subtle bg-elevated p-4 shadow-elevated">
           <div className="grid grid-cols-2 gap-1 p-1 rounded-[12px] bg-base border border-subtle">
             {(['signin', 'signup'] as const).map((value) => (
               <button key={value} type="button" onClick={() => { setMode(value); setMessage(null); }} className={`h-9 rounded-[9px] text-[12px] font-semibold ${mode === value ? 'bg-primary text-on-primary' : 'text-content-secondary'}`}>
@@ -134,7 +138,7 @@ function AuthWelcome() {
 
           <form onSubmit={submit} className="mt-4 space-y-3">
             {mode === 'signup' && <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Name</span><div className="relative mt-1.5"><User size={15} className="absolute left-3 top-3.5 text-content-muted" /><input value={fullName} onChange={(event) => setFullName(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder="Your name" /></div></label>}
-            <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Email</span><div className="relative mt-1.5"><Mail size={15} className="absolute left-3 top-3.5 text-content-muted" /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder="you@example.com" /></div></label>
+            <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Email</span><div className="relative mt-1.5"><Mail size={15} className="absolute left-3 top-3.5 text-content-muted" /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder="you@example.com" /></div>{mode === 'signup' && <span className="mt-1.5 block text-[10px] leading-relaxed text-content-muted">Use an inbox you can open for confirmation and account recovery.</span>}</label>
             <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Password</span><div className="relative mt-1.5"><LockKeyhole size={15} className="absolute left-3 top-3.5 text-content-muted" /><input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={mode === 'signup' ? 10 : 1} value={password} onChange={(event) => setPassword(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder={mode === 'signup' ? 'At least 10 characters' : 'Your password'} /></div></label>
             {message && <div className={`rounded-[11px] px-3 py-2.5 text-[11px] ${message.error ? 'bg-error-soft text-error' : 'bg-secondary-soft text-secondary'}`}>{message.text}</div>}
             <button disabled={busy} className="w-full h-12 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold disabled:opacity-60 flex items-center justify-center gap-2">{busy ? <span className="size-4 rounded-full border-2 border-current/25 border-t-current animate-spin" /> : mode === 'signin' ? 'Open my workspace' : 'Create my workspace'} {!busy && <ArrowRight size={16} />}</button>

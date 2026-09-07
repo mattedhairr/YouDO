@@ -7,6 +7,7 @@ import { formatDuration, formatWallClock } from '../lib/format';
 
 interface Props {
   open: boolean;
+  error?: string;
   task: Task;
   session: ActiveSession;
   onCancel: () => void;
@@ -18,7 +19,7 @@ interface Props {
   }) => void;
 }
 
-export function SessionReconstructSheet({ open, task, session, onCancel, onWasNotWorking, onSave }: Props) {
+export function SessionReconstructSheet({ open, task, session, onCancel, onWasNotWorking, onSave, error }: Props) {
   const openedAt = useMemo(() => Date.now(), []);
   const span = Math.max(1, openedAt - session.startTime);
   const [t, setT] = useState(() =>
@@ -51,6 +52,7 @@ export function SessionReconstructSheet({ open, task, session, onCancel, onWasNo
   return (
     <Overlay open={open} onClose={onCancel} align="bottom">
       <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[90vh] overflow-y-auto">
+        {error && <p role="alert" className="mb-3 text-xs leading-relaxed text-error">{error}</p>}
         <div className="flex items-start justify-between gap-2 mb-4">
           <div>
             <h3 className="text-sm font-semibold text-content-primary">When did you actually stop?</h3>

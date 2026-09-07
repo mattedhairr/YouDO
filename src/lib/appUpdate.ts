@@ -116,27 +116,33 @@ function isDismissed(version: string, now: number): boolean {
   }
 }
 
-export async function checkForAppUpdate(options?: { force?: boolean; signal?: AbortSignal }): Promise<AppRelease | null> {
+type UpdateCheckOptions = { force?: boolean; includeDismissed?: boolean; signal?: AbortSignal };
+
+export async function checkAppUpdateStatus(options?: UpdateCheckOptions): Promise<{ release: AppRelease | null; checked: boolean }> {
   const now = Date.now();
   const cached = readCache();
   if (!options?.force && cached && now - cached.checkedAt < CHECK_INTERVAL_MS) {
     const release = cached.release && compareAppVersions(cached.release.version, APP_VERSION) > 0
       ? cached.release
       : null;
-    return release && !isDismissed(release.version, now) ? release : null;
+    return { release: release && (options?.includeDismissed || !isDismissed(release.version, now)) ? release : null, checked: true };
   }
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return { release: null, checked: false };
 
   try {
     const response = await fetch(RELEASE_API, {
       signal: options?.signal,
       headers: { Accept: 'application/vnd.github+json' },
     });
-    if (!response.ok) return null;
+    if (!response.ok) return { release: null, checked: false };
     const release = parseRelease(await response.json() as ReleaseResponse);
     writeCache({ checkedAt: now, appVersion: APP_VERSION, release });
-    return release && !isDismissed(release.version, now) ? release : null;
+    return { release: release && (options?.includeDismissed || !isDismissed(release.version, now)) ? release : null, checked: true };
   } catch {
-    return null;
+    return { release: null, checked: false };
   }
+}
+
+export async function checkForAppUpdate(options?: UpdateCheckOptions): Promise<AppRelease | null> {
+  return (await checkAppUpdateStatus(options)).release;
 }

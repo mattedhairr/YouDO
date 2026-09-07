@@ -1,50 +1,20 @@
 import type { GoalKind, GoalNode, Task } from '../types';
 import { uid } from './ids';
-import { findGoal, isMutableGoalPlan, mirrorGoalContentToTask, removeNodes, updateNode } from './goalTree';
+import { findGoal, hasGoalExecutionState, isGoalEndpoint, isMutableGoalPlan, mirrorGoalContentToTask, removeNodes, updateNode } from './goalTree';
 
-export const BLUEPRINT_LEVELS: GoalKind[] = ['goal', 'phase', 'section', 'task', 'sub', 'leaf'];
-
-export const BLUEPRINT_LABELS: Record<GoalKind, { singular: string; plural: string; hint: string }> = {
+/** Labels used by the v7 root + generic-item composer. Legacy kinds remain readable elsewhere. */
+export const BLUEPRINT_LABELS: Record<'goal' | 'node', { singular: string; plural: string; hint: string }> = {
   goal: {
     singular: 'goal',
     plural: 'goals',
     hint: 'The exam-preparation result you want to reach.',
   },
-  phase: {
-    singular: 'phase',
-    plural: 'phases',
-    hint: 'A big stage of preparation, such as building fundamentals, covering the syllabus, or revising.',
-  },
-  section: {
-    singular: 'section',
-    plural: 'sections',
-    hint: 'A group that keeps related subjects or preparation work together inside one phase.',
-  },
-  task: {
-    singular: 'task',
-    plural: 'tasks',
-    hint: 'A clear piece of study or practice work that produces a result when finished.',
-  },
-  sub: {
-    singular: 'subtask',
-    plural: 'subtasks',
-    hint: 'A smaller study part that makes a larger task easier to start and finish.',
-  },
-  leaf: {
-    singular: 'leaf task',
-    plural: 'leaf tasks',
-    hint: 'The smallest piece of preparation you want to schedule and complete separately.',
+  node: {
+    singular: 'item',
+    plural: 'items',
+    hint: 'A part of your plan. Add items inside it, or leave it as schedulable work.',
   },
 };
-
-export function nextBlueprintKind(kind: GoalKind): GoalKind | null {
-  const index = BLUEPRINT_LEVELS.indexOf(kind);
-  return index >= 0 && index < BLUEPRINT_LEVELS.length - 1 ? BLUEPRINT_LEVELS[index + 1] : null;
-}
-
-export function nextKindAfter(kind: GoalKind): GoalKind | 'steps' | null {
-  return nextBlueprintKind(kind) ?? (kind === 'leaf' ? 'steps' : null);
-}
 
 export function normalizeBlueprintTitles(values: string[]): string[] {
   const seen = new Set<string>();
@@ -72,8 +42,8 @@ export function makeBlueprintNode(kind: GoalKind, title: string, now = Date.now(
     kind,
     title: title.trim(),
     children: [],
-    steps: kind === 'leaf' ? [] : undefined,
-    stepDone: kind === 'leaf' ? [] : undefined,
+    steps: kind === 'node' || kind === 'leaf' ? [] : undefined,
+    stepDone: kind === 'node' || kind === 'leaf' ? [] : undefined,
     completed: false,
     createdAt: now,
   };
@@ -83,6 +53,7 @@ export interface AddChildrenResult {
   goals: GoalNode[];
   createdIds: string[];
   added: number;
+  blocked: number;
 }
 
 /** Add the same ordered child list to every target. Existing sibling titles are skipped per parent. */
@@ -93,16 +64,21 @@ export function addBlueprintChildren(
   rawTitles: string[],
 ): AddChildrenResult {
   const titles = normalizeBlueprintTitles(rawTitles);
-  if (titles.length === 0 || parentIds.length === 0) return { goals, createdIds: [], added: 0 };
+  if (titles.length === 0 || parentIds.length === 0) return { goals, createdIds: [], added: 0, blocked: 0 };
 
   let next = goals;
   const createdIds: string[] = [];
   let added = 0;
+  let blocked = 0;
 
   for (const parentId of [...new Set(parentIds)]) {
     const parent = findGoal(next, parentId);
     if (!parent) continue;
-    const existing = new Set(parent.children.map((child) => child.title.trim().toLocaleLowerCase()));
+    if (parent.kind !== 'goal' && isGoalEndpoint(parent) && hasGoalExecutionState(parent)) {
+      blocked += 1;
+      continue;
+    }
+    const existing = new Set(parent.children.map((child) => child.title.trim().replace(/\s+/g, ' ').toLocaleLowerCase()));
     const nodes = titles
       .filter((title) => !existing.has(title.toLocaleLowerCase()))
       .map((title) => makeBlueprintNode(kind, title));
@@ -112,7 +88,7 @@ export function addBlueprintChildren(
     next = next.map((root) => updateNode(root, parentId, (node) => ({ ...node, children: [...node.children, ...nodes] })));
   }
 
-  return { goals: next, createdIds, added };
+  return { goals: next, createdIds, added, blocked };
 }
 
 export interface AddStepsResult {
@@ -128,7 +104,7 @@ export interface RemoveStepsResult {
   protectedCompleted: number;
 }
 
-/** Append missing steps to leaf nodes. Duplicate labels are skipped without disturbing completion state. */
+/** Append missing steps to endpoint tasks. Duplicate labels are skipped without disturbing completion state. */
 export function addBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps: string[]): AddStepsResult {
   const steps = normalizeBlueprintTitles(rawSteps);
   if (steps.length === 0 || nodeIds.length === 0) return { goals, added: 0, affected: 0 };
@@ -140,10 +116,10 @@ export function addBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps
     let changedRoot = root;
     for (const id of targets) {
       changedRoot = updateNode(changedRoot, id, (node) => {
-        if (node.kind !== 'leaf') return node;
+        if (!isGoalEndpoint(node) || node.kind === 'goal') return node;
         const oldSteps = node.steps ?? [];
         const oldDone = node.stepDone ?? oldSteps.map(() => false);
-        const existing = new Set(oldSteps.map((step) => step.trim().toLocaleLowerCase()));
+        const existing = new Set(oldSteps.map((step) => step.trim().replace(/\s+/g, ' ').toLocaleLowerCase()));
         const missing = steps.filter((step) => !existing.has(step.toLocaleLowerCase()));
         if (missing.length === 0) return node;
         added += missing.length;
@@ -161,7 +137,7 @@ export function addBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps
   return { goals: next, added, affected };
 }
 
-/** Remove matching unfinished steps from leaves while always preserving completed work. */
+/** Remove matching unfinished steps from endpoint tasks while always preserving completed work. */
 export function removeBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSteps: string[]): RemoveStepsResult {
   const selected = new Set(normalizeBlueprintTitles(rawSteps).map((step) => step.toLocaleLowerCase()));
   if (selected.size === 0 || nodeIds.length === 0) {
@@ -176,7 +152,7 @@ export function removeBlueprintSteps(goals: GoalNode[], nodeIds: string[], rawSt
     let changedRoot = root;
     for (const id of targets) {
       changedRoot = updateNode(changedRoot, id, (node) => {
-        if (node.kind !== 'leaf') return node;
+        if (!isGoalEndpoint(node) || node.kind === 'goal') return node;
         const oldSteps = node.steps ?? [];
         const oldDone = node.stepDone ?? oldSteps.map(() => false);
         const keep = oldSteps.map((step, index) => {
@@ -211,7 +187,7 @@ export function renameBlueprintStep(goals: GoalNode[], nodeId: string, stepIndex
   const title = rawTitle.trim().replace(/\s+/g, ' ');
   if (!title || stepIndex < 0) return goals;
   return goals.map((root) => updateNode(root, nodeId, (node) => {
-    if (node.kind !== 'leaf' || stepIndex >= (node.steps?.length ?? 0)) return node;
+    if (!isGoalEndpoint(node) || node.kind === 'goal' || stepIndex >= (node.steps?.length ?? 0)) return node;
     const steps = [...(node.steps ?? [])];
     steps[stepIndex] = title;
     return { ...node, steps };
@@ -370,6 +346,36 @@ export function blueprintReviewState(previousGoals: GoalNode[], nextGoals: GoalN
 
 export function blueprintChildrenAt(goals: GoalNode[], parentId: string | null): GoalNode[] {
   return parentId ? findGoal(goals, parentId)?.children ?? [] : goals;
+}
+
+export interface BlueprintChildGroup {
+  key: string;
+  title: string;
+  nodeIds: string[];
+  parentIds: string[];
+  parentTitles: string[];
+}
+
+/** Group matching direct children so repeated structures can be edited together. */
+export function groupBlueprintChildren(goals: GoalNode[], rawParentIds: string[]): BlueprintChildGroup[] {
+  const groups = new Map<string, BlueprintChildGroup>();
+  for (const parentId of [...new Set(rawParentIds)]) {
+    const parent = findGoal(goals, parentId);
+    if (!parent) continue;
+    for (const child of parent.children) {
+      const title = child.title.trim().replace(/\s+/g, ' ');
+      const key = title.toLocaleLowerCase();
+      if (!key) continue;
+      const group = groups.get(key) ?? { key, title, nodeIds: [], parentIds: [], parentTitles: [] };
+      if (!group.nodeIds.includes(child.id)) group.nodeIds.push(child.id);
+      if (!group.parentIds.includes(parent.id)) {
+        group.parentIds.push(parent.id);
+        group.parentTitles.push(parent.title);
+      }
+      groups.set(key, group);
+    }
+  }
+  return [...groups.values()].sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
 }
 
 /**
