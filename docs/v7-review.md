@@ -1,11 +1,13 @@
-# v7 pre-release review
+# v7 hotfix review
 
-Release candidate: **7.0.0**, Android **versionCode 32**, prepared on **2026-09-08**. Package, lockfile, in-app version, and Android versionName agree. A commit/push is not itself a published GitHub Release or proof of a successful phone upgrade.
+Hotfix candidate: **7.0.1**, Android **versionCode 33**, prepared on **2026-09-08**. Package, lockfile, in-app version, and Android versionName agree. A commit/push is not itself a published GitHub Release or proof of a successful phone upgrade.
 
 ## Verified locally
 
 - 184 automated tests pass, including callback classification, unsafe redirect rejection, signed-in session parsing, switch semantics, unavailable update checks, haptic priorities/cancellation, reduced-effects preferences, Calendar midnight splitting/dial gestures, focus persistence, activity-value validation, and dialog Back routing. Release-update tests derive their fixtures from the current app version.
 - TypeScript checking, ESLint, and the Vite production build pass.
+- The briefing overlay was visually rechecked in the signed-in preview: its full-screen technical focus outline is gone. The Safety Log now presents entries directly without a duplicate titled card.
+- Native Android now suppresses web safe-area top padding because the fitted WebView already begins below the status bar. Browser and installed-web builds retain their safe-area inset.
 - 52 isolated PostgreSQL checks pass against the actual community and account-session SQL, including repeat installation, recipient-only delivery, read/unread retention, top-three eligibility, duplicate Kudos prevention, session ownership, the 24-hour trust boundary, exact revocation, permission denial, and admin account deletion that preserves moderation history. These use disposable local fixtures, not production accounts.
 - The production build includes a separate `auth-confirm.html` entry; it does not import the workspace or Supabase client.
 - Capacitor asset/plugin sync into the Android project passes. Native compilation and the signed APK are delegated to the release-branch workflow.

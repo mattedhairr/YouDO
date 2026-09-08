@@ -1052,7 +1052,7 @@ function AppInner() {
         onTouchEnd={onTouchEnd}
       >
         {/* Header */}
-        <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0">
+        <header className="pt-[max(0.75rem,var(--safe-area-top))] pb-1 space-y-3 shrink-0">
           <div className="space-y-2 relative">
             <div className="app-masthead">
               <button

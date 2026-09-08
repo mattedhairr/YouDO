@@ -236,7 +236,7 @@ export default function SettingsSheet({
       {/* ── 1. Clean Top Bar ── */}
       <div
         className="settings-header flex items-center gap-3 px-4 border-b border-subtle shrink-0 bg-elevated"
-        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: '0.875rem' }}
+        style={{ paddingTop: 'max(1rem, var(--safe-area-top))', paddingBottom: '0.875rem' }}
       >
         <button
           onClick={

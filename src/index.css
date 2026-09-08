@@ -69,6 +69,11 @@ html.light-dusky {
   --radius: 12px;
   --font-sans: 'Figtree', 'SF Pro Display', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+}
+
+html[data-native-shell='true'] {
+  --safe-area-top: 0px;
 }
 
 html,
@@ -201,6 +206,7 @@ textarea,
   height: 100dvh;
   z-index: 1000;
   display: flex;
+  outline: none;
 }
 .overlay-layer-scrim {
   background: var(--backdrop);
@@ -944,6 +950,9 @@ input[type='datetime-local'] {
 .admin-control-list { border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--bg-elevated); padding: 4px 14px; }
 .admin-control-list > .flex { display: grid; grid-template-columns: minmax(0,1fr) 48px; min-height: 64px; gap: 10px; align-items: center; }
 .admin-control-list > .h-px { margin: 0; background: var(--border-subtle); }
+.admin-audit-log { margin-top: 2px; }
+.admin-audit-log > li { padding: 11px 2px; border-bottom: 1px solid var(--border-subtle); }
+.admin-audit-log > li:last-child { border-bottom: 0; }
 .community-shell button:disabled { cursor: default; opacity: .45; }
 .community-shell textarea { color: var(--text-primary); }
 .community-shell .community-privacy { border: 0; background: transparent; padding-inline: 0; }
@@ -997,7 +1006,7 @@ input[type='datetime-local'] {
 .calendar-planned-heading { min-height: 36px; margin-bottom: 4px; }
 .calendar-add-task { height: 36px; padding: 0 11px; border-radius: 10px; }
 
-.auth-welcome { padding-top: max(1.25rem, env(safe-area-inset-top)); padding-bottom: max(1.75rem, env(safe-area-inset-bottom)); }
+.auth-welcome { padding-top: max(1.25rem, var(--safe-area-top)); padding-bottom: max(1.75rem, env(safe-area-inset-bottom)); }
 .auth-brand { display: flex; justify-content: center; min-height: 48px; }
 .auth-hero { margin-top: 18px; }
 .auth-card { box-shadow: 0 16px 36px -24px rgba(0, 0, 0, .7), inset 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent); }

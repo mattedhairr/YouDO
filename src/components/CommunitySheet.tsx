@@ -214,7 +214,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
 
   return <Overlay open={open} onClose={onClose} align="full">
     <div className="community-shell app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base">
-      <header className="flex shrink-0 items-center gap-2 border-b border-subtle bg-elevated px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="flex shrink-0 items-center gap-2 border-b border-subtle bg-elevated px-3 pb-3 pt-[max(0.75rem,var(--safe-area-top))]">
         <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-content-secondary hover:bg-surface" aria-label="Close community"><ArrowLeft size={19} /></button>
         <span className="grid size-9 place-items-center rounded-xl border border-primary/20 bg-primary-soft text-primary">{mode === 'admin' ? <Gauge size={17} /> : <MessageCircle size={17} />}</span>
         <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p><h2 className="text-[16px] font-bold text-content-primary">{mode === 'admin' ? 'Community admin' : 'Daily room'}</h2></div>
@@ -286,7 +286,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </div>
         <div hidden={adminTab !== 'history' || !adminLoaded}>
         {audit.length === 0 && <p className="community-empty">No moderation actions yet.</p>}
-        {audit.length > 0 && <details open className="mt-4 rounded-[14px] border border-subtle bg-surface p-3"><summary className="cursor-pointer text-[11px] font-semibold text-content-secondary">Safety log · {audit.length} recent actions</summary><ol className="mt-2 border-t border-subtle">{audit.slice(0, 12).map((entry) => <li key={entry.id} className="border-b border-subtle py-2 last:border-0"><p className="text-[10.5px] font-semibold text-content-primary">{entry.action.replace(/\./g, ' ')}</p><p className="text-[9px] text-content-muted">{new Date(entry.createdAt).toLocaleString()}</p></li>)}</ol></details>}
+        {audit.length > 0 && <ol className="admin-audit-log">{audit.slice(0, 12).map((entry) => <li key={entry.id}><p className="text-[10.5px] font-semibold text-content-primary">{entry.action.replace(/\./g, ' ')}</p><p className="text-[9px] text-content-muted">{new Date(entry.createdAt).toLocaleString()}</p></li>)}</ol>}
         </div>
         {status && <p role="status" className="community-status">{status}</p>}
         <div className="community-privacy mt-4 flex items-start gap-2 rounded-[13px] border border-secondary/20 bg-secondary-soft/40 p-3"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><p className="text-[10px] leading-relaxed text-content-secondary">Community only. Private workspaces stay private.</p></div>

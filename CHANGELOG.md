@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.0.1] — 2026-09-08 — A cleaner Android frame
+
+- **Correct Android top spacing** — Native screens no longer add a second status-bar inset, while browser and installed-web safe areas remain protected.
+- **Clean full-screen overlays** — Briefings and other overlays no longer show the technical focus outline as a white frame around the app.
+- **Simpler Safety Log** — Moderation events now sit directly in the Safety Log tab without a redundant nested section.
+- **Android APK** — versionName **7.0.1**, versionCode **33**. Installs directly over **v7.0.0** with the same package ID and signing key; no reinstall or data migration is required.
+
+---
+
 ## [v7.0.0] — 2026-09-08 — Goals without fixed layers
 
 - **One universal goal tree** — Name and nest items your way; branches and schedulable endpoints follow the structure, while equal-weight branch progress keeps unfinished plans visible.

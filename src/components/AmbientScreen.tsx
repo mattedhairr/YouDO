@@ -92,7 +92,7 @@ export function AmbientScreen({
           />
         </div>
 
-        <div className="relative flex items-center justify-between" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
+        <div className="relative flex items-center justify-between" style={{ paddingTop: 'max(1.25rem, var(--safe-area-top))' }}>
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${activeSession.isPaused ? 'bg-content-muted' : 'bg-primary animate-session-pulse'}`} />
             <span className="text-[11px] font-mono tracking-[0.16em] uppercase text-content-muted">
