@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearWorkspaceStorage,
+  readOfflineMode,
   readLocalWorkspaceSummary,
   readWorkspaceOwner,
+  requestAccountAccess,
+  REQUEST_ACCOUNT_ACCESS_EVENT,
   STORAGE_KEYS,
+  writeOfflineMode,
   writeWorkspaceOwner,
 } from './storageKeys';
 
@@ -20,6 +24,7 @@ class MemoryStorage implements Storage {
 describe('account-owned local workspace', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', new MemoryStorage());
+    vi.stubGlobal('window', new EventTarget());
   });
 
   it('detects meaningful legacy device data without counting preferences', () => {
@@ -63,5 +68,21 @@ describe('account-owned local workspace', () => {
     clearWorkspaceStorage({ keepOwner: true });
     expect(localStorage.getItem(STORAGE_KEYS.goals)).toBeNull();
     expect(readWorkspaceOwner()).toBe('user-1');
+  });
+
+  it('keeps offline entry as a device preference when clearing workspace data', () => {
+    writeOfflineMode(true);
+    clearWorkspaceStorage();
+    expect(readOfflineMode()).toBe(true);
+    writeOfflineMode(false);
+    expect(readOfflineMode()).toBe(false);
+  });
+
+  it('signals the authentication gate without changing workspace data', () => {
+    const listener = vi.fn();
+    window.addEventListener(REQUEST_ACCOUNT_ACCESS_EVENT, listener);
+    requestAccountAccess();
+    expect(listener).toHaveBeenCalledOnce();
+    window.removeEventListener(REQUEST_ACCOUNT_ACCESS_EVENT, listener);
   });
 });

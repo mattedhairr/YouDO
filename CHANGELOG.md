@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.0.2] — 2026-09-08 — Access YouDO your way
+
+- **Use YouDO without an account** — New users can start an on-device workspace immediately, then connect it safely to an account from Settings when they want cloud backup and multi-device sync.
+- **Recover forgotten passwords** — The sign-in screen can send a secure reset link and opens a dedicated new-password flow on the deployed YouDO site.
+- **A useful Safety Log** — Admin history now explains what changed, identifies affected members when known, collapses vague legacy duplicates, and stops unchanged settings saves from creating clutter.
+- **Android APK** — versionName **7.0.2**, versionCode **34**. Installs directly over **v7.0.1** and **v7.0.0** with the same package ID and signing key; no reinstall or data migration is required.
+
+---
+
 ## [v7.0.1] — 2026-09-08 — A cleaner Android frame
 
 - **Correct Android top spacing** — Native screens no longer add a second status-bar inset, while browser and installed-web safe areas remain protected.

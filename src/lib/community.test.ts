@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canSubmitCommunityAppeal, communityAppealAvailableAt, isCommunityUnavailable, parseCommunityActivity, type CommunityAppeal } from './community';
+import { canSubmitCommunityAppeal, communityAppealAvailableAt, describeCommunityAudit, isCommunityUnavailable, parseCommunityActivity, type CommunityAppeal } from './community';
 
 describe('admin activity values', () => {
   const sample = { day_key: '2026-09-07', as_of: '2026-09-07T00:00:05Z', active_recently: 2, visited_today: 1, board_members: 14 };
@@ -26,6 +26,28 @@ describe('community availability', () => {
   it('does not hide ordinary service errors as missing setup', () => {
     expect(isCommunityUnavailable({ code: '42501', message: 'permission denied' })).toBe(false);
     expect(isCommunityUnavailable(null)).toBe(false);
+  });
+});
+
+describe('community audit descriptions', () => {
+  const entry = { id: 1, action: 'settings.room.disabled', reason: '', createdAt: '2026-09-08T09:20:00Z' };
+
+  it('explains control changes instead of exposing database action names', () => {
+    expect(describeCommunityAudit(entry)).toEqual({
+      category: 'Settings',
+      title: 'Community room paused',
+      detail: 'New messages and automatic notes are paused.',
+    });
+  });
+
+  it('names affected members and retains a useful moderation reason', () => {
+    expect(describeCommunityAudit({ ...entry, action: 'member.mute_24h', targetUserId: 'user-2', reason: 'Repeated spam' }, 'Asha')).toMatchObject({
+      category: 'Member', title: 'Muted Asha for 24 hours', detail: 'Repeated spam',
+    });
+  });
+
+  it('labels legacy vague records honestly', () => {
+    expect(describeCommunityAudit({ ...entry, action: 'settings.updated' }).detail).toContain('earlier app version');
   });
 });
 

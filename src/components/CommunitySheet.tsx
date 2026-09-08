@@ -4,6 +4,7 @@ import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
   communityAppealAvailableAt,
+  describeCommunityAudit,
   dismissCommunityReport,
   fetchAdminCommunity,
   fetchCommunityActivity,
@@ -72,6 +73,16 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [reviewingAppeal, setReviewingAppeal] = useState<string | null>(null);
   const [appealResponse, setAppealResponse] = useState('');
   const names = useMemo(() => new Map(rows.map((row) => [row.userId, row.displayName])), [rows]);
+  const visibleAudit = useMemo(() => {
+    let keptLegacySettings = false;
+    return audit.filter((entry) => {
+      if (entry.action !== 'settings.updated') return true;
+      if (keptLegacySettings) return false;
+      keptLegacySettings = true;
+      return true;
+    }).slice(0, 12);
+  }, [audit]);
+  const legacySettingsCount = useMemo(() => audit.filter((entry) => entry.action === 'settings.updated').length, [audit]);
 
   const refresh = useCallback(async () => {
     if (!open || !userId) return;
@@ -286,7 +297,14 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </div>
         <div hidden={adminTab !== 'history' || !adminLoaded}>
         {audit.length === 0 && <p className="community-empty">No moderation actions yet.</p>}
-        {audit.length > 0 && <ol className="admin-audit-log">{audit.slice(0, 12).map((entry) => <li key={entry.id}><p className="text-[10.5px] font-semibold text-content-primary">{entry.action.replace(/\./g, ' ')}</p><p className="text-[9px] text-content-muted">{new Date(entry.createdAt).toLocaleString()}</p></li>)}</ol>}
+        {audit.length > 0 && <ol className="admin-audit-log">{visibleAudit.map((entry) => {
+          const targetName = names.get(entry.targetUserId ?? '') || members.find((member) => member.userId === entry.targetUserId)?.displayName;
+          const description = describeCommunityAudit(entry, targetName);
+          const detail = entry.action === 'settings.updated' && legacySettingsCount > 1
+            ? `${legacySettingsCount} earlier settings changes were recorded without field details.`
+            : description.detail;
+          return <li key={entry.id}><span className="admin-audit-icon"><ShieldCheck size={13} /></span><div className="min-w-0 flex-1"><div className="admin-audit-title"><p>{description.title}</p><span>{description.category}</span></div><p className="admin-audit-detail">{detail}</p><time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time></div></li>;
+        })}</ol>}
         </div>
         {status && <p role="status" className="community-status">{status}</p>}
         <div className="community-privacy mt-4 flex items-start gap-2 rounded-[13px] border border-secondary/20 bg-secondary-soft/40 p-3"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><p className="text-[10px] leading-relaxed text-content-secondary">Community only. Private workspaces stay private.</p></div>

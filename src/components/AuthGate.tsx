@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Cloud,
@@ -7,19 +8,23 @@ import {
   Mail,
   ShieldCheck,
   User,
+  WifiOff,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { resolveAuthRedirectUrl } from '../lib/authRedirect';
+import { isAuthRecoveryUrl, resolveAuthRecoveryUrl, resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
 import { supabase } from '../lib/supabase';
 import {
   clearWorkspaceStorage,
+  readOfflineMode,
   readLocalWorkspaceSummary,
   readStorageRaw,
   readWorkspaceOwner,
   readWorkspaceUpdatedAt,
+  REQUEST_ACCOUNT_ACCESS_EVENT,
   STORAGE_KEYS,
+  writeOfflineMode,
   writeWorkspaceOwner,
 } from '../lib/storageKeys';
 
@@ -74,8 +79,8 @@ function LoadingGate() {
   );
 }
 
-function AuthWelcome() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+function AuthWelcome({ allowOffline, onContinueOffline }: { allowOffline: boolean; onContinueOffline: () => void }) {
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -88,7 +93,13 @@ function AuthWelcome() {
     setBusy(true);
     setMessage(null);
     try {
-      if (mode === 'signin') {
+      if (mode === 'forgot') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: resolveAuthRecoveryUrl(import.meta.env.VITE_AUTH_RECOVERY_URL),
+        });
+        if (error) throw error;
+        setMessage({ text: 'If that email belongs to an account, a reset link is on its way.' });
+      } else if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
       } else {
@@ -120,7 +131,7 @@ function AuthWelcome() {
           <p className="mt-3 text-[13px] leading-relaxed text-content-secondary">Build the blueprint, execute today’s work, and preserve every honest hour.</p>
         </div>
 
-        {mode === 'signin' && summary.hasData && (
+        {mode !== 'signup' && summary.hasData && (
           <div className="mt-5 rounded-[14px] border border-secondary/25 bg-secondary-soft p-3 flex gap-3">
             <ShieldCheck size={18} className="text-secondary shrink-0 mt-0.5" />
             <div><p className="text-[12px] font-semibold">Your existing device plan is safe</p><p className="text-[11px] text-content-secondary mt-1">Sign in first; YouDO will ask whether to keep this device plan or restore your cloud copy.</p></div>
@@ -128,24 +139,81 @@ function AuthWelcome() {
         )}
 
         <div className="auth-card mt-5 rounded-[20px] border border-subtle bg-elevated p-4 shadow-elevated">
-          <div className="grid grid-cols-2 gap-1 p-1 rounded-[12px] bg-base border border-subtle">
+          {mode === 'forgot' ? (
+            <div className="flex items-start gap-3 border-b border-subtle pb-3">
+              <button type="button" onClick={() => { setMode('signin'); setMessage(null); }} className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-base text-content-secondary" aria-label="Back to sign in"><ArrowLeft size={16} /></button>
+              <div><h2 className="text-[15px] font-semibold">Reset your password</h2><p className="mt-0.5 text-[10.5px] leading-relaxed text-content-secondary">We’ll send a secure link to your account email.</p></div>
+            </div>
+          ) : <div className="grid grid-cols-2 gap-1 p-1 rounded-[12px] bg-base border border-subtle">
             {(['signin', 'signup'] as const).map((value) => (
               <button key={value} type="button" onClick={() => { setMode(value); setMessage(null); }} className={`h-9 rounded-[9px] text-[12px] font-semibold ${mode === value ? 'bg-primary text-on-primary' : 'text-content-secondary'}`}>
                 {value === 'signin' ? 'Sign in' : 'Create account'}
               </button>
             ))}
-          </div>
+          </div>}
 
           <form onSubmit={submit} className="mt-4 space-y-3">
             {mode === 'signup' && <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Name</span><div className="relative mt-1.5"><User size={15} className="absolute left-3 top-3.5 text-content-muted" /><input value={fullName} onChange={(event) => setFullName(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder="Your name" /></div></label>}
             <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Email</span><div className="relative mt-1.5"><Mail size={15} className="absolute left-3 top-3.5 text-content-muted" /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder="you@example.com" /></div>{mode === 'signup' && <span className="mt-1.5 block text-[10px] leading-relaxed text-content-muted">Use an inbox you can open for confirmation and account recovery.</span>}</label>
-            <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Password</span><div className="relative mt-1.5"><LockKeyhole size={15} className="absolute left-3 top-3.5 text-content-muted" /><input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={mode === 'signup' ? 10 : 1} value={password} onChange={(event) => setPassword(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder={mode === 'signup' ? 'At least 10 characters' : 'Your password'} /></div></label>
+            {mode !== 'forgot' && <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Password</span><div className="relative mt-1.5"><LockKeyhole size={15} className="absolute left-3 top-3.5 text-content-muted" /><input type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={mode === 'signup' ? 10 : 1} value={password} onChange={(event) => setPassword(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder={mode === 'signup' ? 'At least 10 characters' : 'Your password'} /></div></label>}
+            {mode === 'signin' && <button type="button" onClick={() => { setMode('forgot'); setPassword(''); setMessage(null); }} className="ml-auto block text-[10.5px] font-semibold text-primary">Forgot password?</button>}
             {message && <div className={`rounded-[11px] px-3 py-2.5 text-[11px] ${message.error ? 'bg-error-soft text-error' : 'bg-secondary-soft text-secondary'}`}>{message.text}</div>}
-            <button disabled={busy} className="w-full h-12 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold disabled:opacity-60 flex items-center justify-center gap-2">{busy ? <span className="size-4 rounded-full border-2 border-current/25 border-t-current animate-spin" /> : mode === 'signin' ? 'Open my workspace' : 'Create my workspace'} {!busy && <ArrowRight size={16} />}</button>
+            <button disabled={busy} className="w-full h-12 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold disabled:opacity-60 flex items-center justify-center gap-2">{busy ? <span className="size-4 rounded-full border-2 border-current/25 border-t-current animate-spin" /> : mode === 'signin' ? 'Open my workspace' : mode === 'signup' ? 'Create my workspace' : 'Send reset link'} {!busy && <ArrowRight size={16} />}</button>
           </form>
         </div>
 
+        {allowOffline && mode !== 'forgot' && (
+          <button type="button" onClick={onContinueOffline} className="mt-3 flex w-full items-center gap-3 rounded-[15px] border border-subtle bg-surface/60 p-3 text-left active:scale-[0.99]">
+            <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-secondary-soft text-secondary"><WifiOff size={16} /></span>
+            <span className="min-w-0 flex-1"><strong className="block text-[12px] font-semibold text-content-primary">Continue offline</strong><span className="mt-0.5 block text-[10px] leading-relaxed text-content-muted">No account required. This workspace stays on this device until you connect it.</span></span>
+            <ArrowRight size={15} className="shrink-0 text-content-muted" />
+          </button>
+        )}
+
         <p className="mt-4 text-center text-[10.5px] text-content-muted leading-relaxed">Once signed in, YouDO continues working through temporary network loss and syncs when you reconnect.</p>
+      </div>
+    </div>
+  );
+}
+
+function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [complete, setComplete] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (password.length < 10) return setMessage({ text: 'Use at least 10 characters.', error: true });
+    if (password !== confirmation) return setMessage({ text: 'The passwords do not match.', error: true });
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('This reset link is invalid or has expired. Request a new one.');
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setComplete(true);
+      setMessage({ text: 'Password changed. Your account is ready.' });
+    } catch (error) {
+      setMessage({ text: error instanceof Error ? error.message : 'Password could not be changed.', error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen min-h-[100dvh] bg-base px-5 text-content-primary grid place-items-center">
+      <div className="w-full max-w-sm rounded-[20px] border border-subtle bg-elevated p-5 shadow-elevated">
+        <div className="flex justify-center"><Brand /></div>
+        <div className="mt-4 text-center"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Account recovery</p><h1 className="mt-1.5 text-[22px] font-semibold">Choose a new password</h1><p className="mt-2 text-[11px] leading-relaxed text-content-secondary">Use a unique password with at least 10 characters.</p></div>
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          {!complete && <><input type="password" autoComplete="new-password" minLength={10} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="New password" aria-label="New password" className="h-11 w-full rounded-[11px] border border-subtle bg-base px-3 text-[13px] outline-none focus:border-primary" /><input type="password" autoComplete="new-password" minLength={10} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Repeat new password" aria-label="Repeat new password" className="h-11 w-full rounded-[11px] border border-subtle bg-base px-3 text-[13px] outline-none focus:border-primary" /></>}
+          {message && <div className={`rounded-[11px] px-3 py-2.5 text-[11px] ${message.error ? 'bg-error-soft text-error' : 'bg-secondary-soft text-secondary'}`}>{message.text}</div>}
+          {complete ? <button type="button" onClick={onComplete} className="flex h-11 w-full items-center justify-center gap-2 rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary">Continue to YouDO <ArrowRight size={15} /></button> : <button disabled={busy} className="h-11 w-full rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary disabled:opacity-50">{busy ? 'Securing account…' : 'Change password'}</button>}
+          {!complete && <button type="button" disabled={busy} onClick={onCancel} className="h-10 w-full rounded-[11px] text-[11px] font-medium text-content-secondary">Back to sign in</button>}
+        </form>
       </div>
     </div>
   );
@@ -219,6 +287,23 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [remoteAvailable, setRemoteAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineMode, setOfflineMode] = useState(() => readOfflineMode() && !readWorkspaceOwner());
+  const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl(window.location.search));
+
+  useEffect(() => {
+    const requestAccount = () => {
+      writeOfflineMode(false);
+      setOfflineMode(false);
+    };
+    window.addEventListener(REQUEST_ACCOUNT_ACCESS_EVENT, requestAccount);
+    return () => window.removeEventListener(REQUEST_ACCOUNT_ACCESS_EVENT, requestAccount);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    writeOfflineMode(false);
+    setOfflineMode(false);
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -252,7 +337,13 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }, [loading, user, fetchCloudBackup]);
 
   if (loading) return <LoadingGate />;
-  if (!user) return <AuthWelcome />;
+  const leaveRecovery = () => {
+    window.history.replaceState(null, '', window.location.pathname);
+    setPasswordRecovery(false);
+  };
+  if (passwordRecovery) return <PasswordRecoveryGate onComplete={leaveRecovery} onCancel={() => { void supabase.auth.signOut({ scope: 'local' }).finally(leaveRecovery); }} />;
+  if (!user && offlineMode && !readWorkspaceOwner()) return <>{children}</>;
+  if (!user) return <AuthWelcome allowOffline={!readWorkspaceOwner()} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
   if (gate === 'checking') return <LoadingGate />;
   if (gate === 'ready') return <>{children}</>;
 

@@ -16,7 +16,8 @@ Open **Authentication → URL Configuration**:
 
 1. Set **Site URL** to `https://tu-do-psi.vercel.app/auth-confirm.html`. This also gives older clients that do not specify a redirect a reachable destination.
 2. Add that **exact same URL** to **Redirect URLs**.
-3. Save changes. Do not use localhost as the production Site URL.
+3. Also add `https://tu-do-psi.vercel.app/?auth=recovery` to **Redirect URLs**. This route opens YouDO’s new-password screen; it should not replace the Site URL.
+4. Save changes. Do not use localhost as the production Site URL.
 
 Keep **Confirm email** enabled under the signup configuration, and **Secure email change** enabled under the Email provider. Email-template editors change message wording; they are not these switches. Keep the standard `{{ .ConfirmationURL }}` verification link in signup and change-email templates: do not replace it with a plain website link.
 
@@ -34,13 +35,24 @@ Reference: [Supabase redirect URL configuration](https://supabase.com/docs/guide
 6. Return to YouDO. Refresh the account view and verify the new address; sign in with it if an older device still displays the previous cached email.
 7. Confirm goals, tasks, and focus history still belong to the same account.
 
-Test signup confirmation separately with a disposable account. Password recovery and passwordless sign-in are not implemented by this page.
+Test signup confirmation separately with an account you control. Passwordless sign-in is not implemented by this page.
+
+## 4. Test password recovery
+
+1. Sign out, choose **Forgot password?**, and enter the account email once.
+2. Open the latest reset email. It must open `https://tu-do-psi.vercel.app/?auth=recovery`, never localhost.
+3. Enter and confirm a new password of at least 10 characters.
+4. Continue into YouDO and verify the correct workspace appears. The normal device/cloud safety choice still applies if that browser already contains another workspace.
+5. Sign out and sign in once with the new password.
+
+The reset request always shows a neutral response so the sign-in page does not reveal whether an email is registered. An expired or reused link must be replaced with a newly requested link.
 
 ## What the page does—and does not do
 
 - Recognizes expired links, errors, and a first-inbox acknowledgement.
 - Scrubs callback parameters from the address bar without logging or storing them.
 - Does not create an app session, mount the workspace, or perform a cloud sync.
+- Password recovery deliberately uses the main app route instead of this confirmation-only page.
 - Does not claim a completed email change merely because someone opened the page. The account shown in YouDO remains the final check.
 - Does not automatically log out every other device or change Supabase’s session policies.
 

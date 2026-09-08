@@ -1132,7 +1132,7 @@ function AppInner() {
           >
             {view === 'tasks' ? (
               <div className="space-y-3">
-                {tasks.length === 0 && goals.length === 0 && (
+                {activityUser && tasks.length === 0 && goals.length === 0 && (
                   <div className="p-3.5 bg-primary-soft border border-subtle flex items-center justify-between gap-3 rounded-[16px]">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Cloud className="w-4 h-4 text-primary shrink-0" />

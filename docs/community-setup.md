@@ -15,6 +15,8 @@ This migration does not access private workspace backups or delete user accounts
 
 The final v7 release review also corrects the audit-log foreign key: if an admin later deletes their own account, the safety log remains with a cleared admin reference instead of blocking deletion. Projects that installed the earlier 570-line setup need the current query once more for this correction. It does not demote or delete any existing account when run.
 
+The current setup also records each changed control with a specific action (room, Kudos, or announcement) and skips unchanged saves. Rerunning the complete query upgrades the functions in place without duplicating tables, admins, messages, or existing audit records.
+
 ## What the activity figures mean
 
 - **Active recently:** unique, non-banned, opted-in Board accounts with a foreground signal in the last five minutes. It can include someone who just closed the app; do not label it “online now.”

@@ -951,8 +951,14 @@ input[type='datetime-local'] {
 .admin-control-list > .flex { display: grid; grid-template-columns: minmax(0,1fr) 48px; min-height: 64px; gap: 10px; align-items: center; }
 .admin-control-list > .h-px { margin: 0; background: var(--border-subtle); }
 .admin-audit-log { margin-top: 2px; }
-.admin-audit-log > li { padding: 11px 2px; border-bottom: 1px solid var(--border-subtle); }
+.admin-audit-log > li { display: flex; align-items: flex-start; gap: 10px; padding: 12px 2px; border-bottom: 1px solid var(--border-subtle); }
 .admin-audit-log > li:last-child { border-bottom: 0; }
+.admin-audit-icon { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 auto; border-radius: 9px; background: var(--secondary-soft); color: var(--secondary); }
+.admin-audit-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.admin-audit-title p { font-size: 11px; line-height: 15px; font-weight: 600; color: var(--text-primary); }
+.admin-audit-title span { flex: 0 0 auto; font-size: 8px; line-height: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.admin-audit-detail { margin-top: 2px; font-size: 9.5px; line-height: 14px; color: var(--text-secondary); }
+.admin-audit-log time { display: block; margin-top: 3px; font-size: 8.5px; line-height: 12px; color: var(--text-muted); }
 .community-shell button:disabled { cursor: default; opacity: .45; }
 .community-shell textarea { color: var(--text-primary); }
 .community-shell .community-privacy { border: 0; background: transparent; padding-inline: 0; }

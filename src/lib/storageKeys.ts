@@ -16,7 +16,10 @@ export const STORAGE_KEYS = {
   workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
   workspaceCloudFingerprint: 'youdo-workspace-cloud-fingerprint-v1',
   workspaceOwner: 'youdo-workspace-owner-v1',
+  offlineMode: 'youdo-offline-mode-v1',
 } as const;
+
+export const REQUEST_ACCOUNT_ACCESS_EVENT = 'youdo:request-account-access';
 
 const WORKSPACE_KEYS = [
   STORAGE_KEYS.tasks,
@@ -154,6 +157,23 @@ export function writeWorkspaceOwner(userId: string): void {
   } catch {
     /* storage health is reported by the caller's normal persistence flow */
   }
+}
+
+export function readOfflineMode(): boolean {
+  return readStorageRaw(STORAGE_KEYS.offlineMode) === 'true';
+}
+
+export function writeOfflineMode(enabled: boolean): void {
+  try {
+    if (enabled) localStorage.setItem(STORAGE_KEYS.offlineMode, 'true');
+    else localStorage.removeItem(STORAGE_KEYS.offlineMode);
+  } catch {
+    /* the in-memory gate still handles this visit when storage is unavailable */
+  }
+}
+
+export function requestAccountAccess(): void {
+  window.dispatchEvent(new Event(REQUEST_ACCOUNT_ACCESS_EVENT));
 }
 
 /** Remove account-owned work while preserving device preferences such as theme and haptics. */
