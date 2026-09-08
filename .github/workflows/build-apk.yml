@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'codex/release-*'
+      - 'codex/hotfix-*'
   workflow_dispatch:
 
 jobs:
