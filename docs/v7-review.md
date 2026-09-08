@@ -1,6 +1,6 @@
-# Post-v7 release-candidate review
+# v7.1.0 release review
 
-Unversioned release candidate based on the published **v7.0.0 / versionCode 32** baseline. The final versionName and Android versionCode will be selected only after the remaining issue list is complete. A commit or push is not itself a published GitHub Release or proof of a successful phone upgrade.
+Release candidate: **v7.1.0 / versionCode 35**, based on the published **v7.0.0 / versionCode 32** baseline. Package, lockfile, in-app version, and Android versionName agree. VersionCode 35 also installs over unpublished 33/34 test builds. A commit or push is not itself a published GitHub Release or proof of a successful phone upgrade.
 
 ## Verified locally
 
@@ -32,7 +32,7 @@ No moderation actions, test messages, or account email changes were submitted ag
 4. The owner successfully installed [the account-session functions](account-sessions.md) and verified a two-device listing. Remote revocation still needs a controlled test after the 24-hour trust boundary; it has the normal access-token expiry window.
 5. Recheck the previously reported Android system-bar and keyboard-overlay bugs on affected hardware. A web preview cannot verify those native fixes.
 6. The owner has chosen to proceed with release preparation while deferring the missing focus session and unresponsive v6.3.0 phone investigation. This is an accepted unresolved risk, not a verified compatibility fix. Follow [the anonymized incident evidence and safe next checks](focus-session-investigation.md); do not clear app data or invent a duration.
-7. Select the final versionName and next unused Android versionCode, update the release ecosystem, then obtain the signed APK from the release-branch GitHub Actions build. Verify install-over-v6.3.0 and v7.0.0 on backed-up devices, including one of the affected Samsung Android 10 phones. The workflow checks the permanent signing certificate and matching release versions, and runs typecheck, lint, and tests before building. Keep `main` and public release publication separate from a candidate-branch push.
+7. Obtain the signed v7.1.0 APK from the release-branch GitHub Actions build. Verify install-over-v6.3.0 and v7.0.0 on backed-up devices, including one of the affected Samsung Android 10 phones. The workflow checks the permanent signing certificate and matching release versions, and runs typecheck, lint, and tests before building. Keep `main` and public release publication separate from a candidate-branch push.
 
 Existing build warnings remain: the main app bundle exceeds Vite's 500kB advisory threshold, and Capacitor App has mixed static/dynamic imports. No warnings were suppressed.
 
