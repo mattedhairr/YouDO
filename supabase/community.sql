@@ -153,7 +153,7 @@ create or replace function public.set_community_settings(
   next_announcement text
 ) returns void language plpgsql security definer set search_path = public as $$
 declare current_settings public.community_settings%rowtype;
-declare clean_announcement text := left(btrim(coalesce(next_announcement, '')), 280);
+declare clean_announcement text := btrim(coalesce(next_announcement, ''));
 begin
   if not public.is_community_admin() then raise exception 'admin required'; end if;
   select * into current_settings from public.community_settings where id = 1 for update;

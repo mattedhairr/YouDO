@@ -17,21 +17,18 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
-## [v7.0.2] — 2026-09-08 — Access YouDO your way
+## [Unreleased] — Access YouDO your way
 
 - **Use YouDO without an account** — New users can start an on-device workspace immediately, then connect it safely to an account from Settings when they want cloud backup and multi-device sync.
 - **Recover forgotten passwords** — The sign-in screen can send a secure reset link and opens a dedicated new-password flow on the deployed YouDO site.
 - **A useful Safety Log** — Admin history now explains what changed, identifies affected members when known, collapses vague legacy duplicates, and stops unchanged settings saves from creating clutter.
-- **Android APK** — versionName **7.0.2**, versionCode **34**. Installs directly over **v7.0.1** and **v7.0.0** with the same package ID and signing key; no reinstall or data migration is required.
-
----
-
-## [v7.0.1] — 2026-09-08 — A cleaner Android frame
-
 - **Correct Android top spacing** — Native screens no longer add a second status-bar inset, while browser and installed-web safe areas remain protected.
 - **Clean full-screen overlays** — Briefings and other overlays no longer show the technical focus outline as a white frame around the app.
 - **Simpler Safety Log** — Moderation events now sit directly in the Safety Log tab without a redundant nested section.
-- **Android APK** — versionName **7.0.1**, versionCode **33**. Installs directly over **v7.0.0** with the same package ID and signing key; no reinstall or data migration is required.
+- **Stable Android keyboard layouts** — Native forms and sheets use the fitted WebView area once, preventing a second keyboard-sized gap on affected Android devices.
+- **Predictable update notices** — The update card stays centred within the phone width and waits until text entry is finished.
+- **A balanced Board entrance** — The member count now completes the header’s final line instead of leaving an empty pocket, and the Community entry is more compact.
+- **Room-friendly broadcasts** — Admin announcements are no longer cut to a short character limit; long broadcasts stay folded until a member chooses to read them.
 
 ---
 

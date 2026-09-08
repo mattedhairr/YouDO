@@ -17,6 +17,8 @@ The final v7 release review also corrects the audit-log foreign key: if an admin
 
 The current setup also records each changed control with a specific action (room, Kudos, or announcement) and skips unchanged saves. Rerunning the complete query upgrades the functions in place without duplicating tables, admins, messages, or existing audit records.
 
+Admin Board broadcasts are not shortened by the client or setup function. Long broadcasts remain folded to three lines in the community room until a member expands them. Ordinary member messages keep their 240-character limit to prevent the daily room from becoming difficult to scan.
+
 ## What the activity figures mean
 
 - **Active recently:** unique, non-banned, opted-in Board accounts with a foreground signal in the last five minutes. It can include someone who just closed the app; do not label it “online now.”

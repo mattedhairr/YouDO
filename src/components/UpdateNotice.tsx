@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Browser } from '@capacitor/browser';
 import { ArrowUpRight, Download, X } from 'lucide-react';
 import { checkForAppUpdate, dismissAppUpdate, type AppRelease } from '../lib/appUpdate';
 
 export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
   const [release, setRelease] = useState<AppRelease | null>(null);
+  const [textEntryActive, setTextEntryActive] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -12,7 +14,20 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
     return () => controller.abort();
   }, []);
 
-  if (!release || suppressed) return null;
+  useEffect(() => {
+    const isTextEntry = (target: EventTarget | null) => target instanceof HTMLElement
+      && (target.matches('input, textarea, select, [contenteditable="true"]'));
+    const onFocusIn = (event: FocusEvent) => setTextEntryActive(isTextEntry(event.target));
+    const onFocusOut = () => requestAnimationFrame(() => setTextEntryActive(isTextEntry(document.activeElement)));
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+    };
+  }, []);
+
+  if (!release || suppressed || textEntryActive) return null;
 
   const dismiss = () => {
     dismissAppUpdate(release.version);
@@ -28,9 +43,9 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
     dismiss();
   };
 
-  return (
+  return createPortal(
     <aside
-      className="fixed inset-x-0 bottom-[calc(6.4rem+env(safe-area-inset-bottom))] z-[900] mx-auto w-[calc(100%-2rem)] max-w-sm rounded-[18px] border border-primary/30 bg-elevated p-4 shadow-elevated fade-in"
+      className="update-notice rounded-[18px] border border-primary/30 bg-elevated p-4 shadow-elevated fade-in"
       aria-label={`YouDO ${release.version} update available`}
     >
       <div className="flex items-start gap-3">
@@ -60,6 +75,7 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
           Later
         </button>
       </div>
-    </aside>
+    </aside>,
+    document.body,
   );
 }
