@@ -1052,7 +1052,7 @@ function AppInner() {
         onTouchEnd={onTouchEnd}
       >
         {/* Header */}
-        <header className="pt-[max(0.75rem,env(safe-area-inset-top))] pb-1 space-y-3 shrink-0">
+        <header className="pt-[max(0.75rem,var(--safe-area-top))] pb-1 space-y-3 shrink-0">
           <div className="space-y-2 relative">
             <div className="app-masthead">
               <button
@@ -1132,7 +1132,7 @@ function AppInner() {
           >
             {view === 'tasks' ? (
               <div className="space-y-3">
-                {tasks.length === 0 && goals.length === 0 && (
+                {activityUser && tasks.length === 0 && goals.length === 0 && (
                   <div className="p-3.5 bg-primary-soft border border-subtle flex items-center justify-between gap-3 rounded-[16px]">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Cloud className="w-4 h-4 text-primary shrink-0" />

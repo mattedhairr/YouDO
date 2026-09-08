@@ -9,6 +9,7 @@ import {
   Download,
   Edit2,
   History,
+  LogIn,
   LogOut,
   Moon,
   Sun,
@@ -24,6 +25,7 @@ import {
   MessageCircle,
   MonitorSmartphone,
   Send,
+  WifiOff,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import Toggle from './Toggle';
@@ -35,7 +37,7 @@ import type { BackupSummary } from '../lib/backup';
 import { formatBackupStamp, formatDuration } from '../lib/format';
 import { useSessionStore, useStore } from '../store';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { STORAGE_KEYS } from '../lib/storageKeys';
+import { requestAccountAccess, STORAGE_KEYS } from '../lib/storageKeys';
 import { hapticTick, setHapticsPreference } from '../lib/haptics';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
 import { PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
@@ -236,7 +238,7 @@ export default function SettingsSheet({
       {/* ── 1. Clean Top Bar ── */}
       <div
         className="settings-header flex items-center gap-3 px-4 border-b border-subtle shrink-0 bg-elevated"
-        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: '0.875rem' }}
+        style={{ paddingTop: 'max(1rem, var(--safe-area-top))', paddingBottom: '0.875rem' }}
       >
         <button
           onClick={
@@ -837,6 +839,15 @@ export default function SettingsSheet({
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+            {!user && (
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-secondary-soft text-secondary"><WifiOff size={17} /></div>
+                  <div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary">Offline workspace</p><h3 className="mt-0.5 text-[15px] font-semibold text-content-primary">Stored on this device</h3><p className="mt-1 text-[10.5px] leading-relaxed text-content-secondary">You can use every private planning tool without an account. Connect when you want cloud backup and multi-device sync.</p></div>
+                </div>
+                <button type="button" onClick={() => { onClose(); requestAccountAccess(); }} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary"><LogIn size={14} /> Connect an account</button>
               </div>
             )}
           </div>

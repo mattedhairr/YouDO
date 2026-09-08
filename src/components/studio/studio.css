@@ -5,7 +5,7 @@
 .studio button:disabled { opacity: .4; cursor: not-allowed; }
 .studio button:focus-visible, .studio summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .studio svg { flex-shrink: 0; }
-.studio-workspace { height: 100%; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); }
+.studio-workspace { height: 100%; display: flex; flex-direction: column; padding-top: var(--safe-area-top); }
 .studio-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 9px; color: var(--text-secondary); }
 .studio-icon-button:hover:not(:disabled) { background: var(--bg-elevated); color: var(--primary); }
 .studio-header { display: flex; align-items: center; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); flex-shrink: 0; }

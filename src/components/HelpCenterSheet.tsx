@@ -117,9 +117,10 @@ const USER_GUIDE_STEPS = [
     icon: User,
     title: 'Keep your workspace safe',
     where: 'Settings',
-    desc: 'Your signed-in workspace saves locally first, then syncs to your cloud copy.',
+    desc: 'Work offline on one device, or connect an account for protected cloud sync.',
     do: [
-      'YouDO requires an account so one person’s plan is never mixed with another account.',
+      'An offline workspace stays on this device. Export a JSON backup if the work matters.',
+      'Connect an account in Settings when you want cloud backup and multi-device sync.',
       'Temporary internet loss is safe. When you reconnect, YouDO uploads only if the cloud copy has not changed elsewhere.',
       'If two devices changed, sync pauses and preserves both copies until you review or combine them in Settings.',
       'Before signing out or changing phones, wait for sync or export a JSON backup.',

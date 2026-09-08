@@ -110,6 +110,42 @@ export interface CommunityAuditEntry {
   createdAt: string;
 }
 
+export interface CommunityAuditDescription {
+  category: 'Settings' | 'Member' | 'Report' | 'Appeal' | 'Message' | 'Admin';
+  title: string;
+  detail: string;
+}
+
+const auditSubject = (targetName?: string) => targetName?.trim() || 'a board member';
+
+export function describeCommunityAudit(entry: CommunityAuditEntry, targetName?: string): CommunityAuditDescription {
+  const subject = auditSubject(targetName);
+  const descriptions: Record<string, CommunityAuditDescription> = {
+    'settings.room.enabled': { category: 'Settings', title: 'Community room opened', detail: 'Members can send messages and automatic notes again.' },
+    'settings.room.disabled': { category: 'Settings', title: 'Community room paused', detail: 'New messages and automatic notes are paused.' },
+    'settings.kudos.enabled': { category: 'Settings', title: 'Kudos enabled', detail: 'Members can recognise today’s top three again.' },
+    'settings.kudos.disabled': { category: 'Settings', title: 'Kudos paused', detail: 'New recognition is temporarily unavailable.' },
+    'settings.announcement.published': { category: 'Settings', title: 'Board announcement published', detail: 'The room announcement was added or replaced.' },
+    'settings.announcement.cleared': { category: 'Settings', title: 'Board announcement cleared', detail: 'The room announcement was removed.' },
+    'settings.updated': { category: 'Settings', title: 'Community settings updated', detail: 'An earlier app version recorded this change without field details.' },
+    'member.mute_24h': { category: 'Member', title: `Muted ${subject} for 24 hours`, detail: entry.reason || 'Posting access was temporarily paused.' },
+    'member.mute_7d': { category: 'Member', title: `Muted ${subject} for 7 days`, detail: entry.reason || 'Posting access was temporarily paused.' },
+    'member.ban': { category: 'Member', title: `Removed ${subject} from community`, detail: entry.reason || 'Community access was disabled; private workspace data was untouched.' },
+    'member.restore': { category: 'Member', title: `Restored ${subject}`, detail: entry.reason || 'Community access was restored.' },
+    'appeal.approve': { category: 'Appeal', title: `Approved ${subject}’s appeal`, detail: entry.reason || 'Community access was restored.' },
+    'appeal.decline': { category: 'Appeal', title: `Declined ${subject}’s appeal`, detail: entry.reason || 'The restriction remains in place.' },
+    'message.removed': { category: 'Message', title: `Removed ${subject}’s message`, detail: entry.reason || 'The message was removed from the community room.' },
+    'report.dismissed': { category: 'Report', title: 'Report dismissed', detail: 'The report was reviewed and closed without restricting a member.' },
+  };
+  if (descriptions[entry.action]) return descriptions[entry.action];
+  const readable = entry.action.split('.').filter(Boolean).join(' ');
+  return {
+    category: 'Admin',
+    title: readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : 'Admin action recorded',
+    detail: entry.reason || 'Recorded by a community administrator.',
+  };
+}
+
 export function isCommunityUnavailable(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   const message = (error.message ?? '').toLowerCase();

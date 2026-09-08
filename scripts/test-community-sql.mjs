@@ -94,6 +94,13 @@ try {
   await denied('select public.give_board_kudos($1,$2)', [id(2), 'week']);
   await as(1);
   await db.query('select public.set_community_settings(false,true, $1)', ['']);
+  check((await rows("select action from public.community_audit_log where admin_id=auth.uid() order by id desc limit 1"))[0]?.action === 'settings.room.disabled', 'setting audit describes the changed control');
+  const settingsAuditCount = Number((await rows("select count(*) as count from public.community_audit_log where admin_id=auth.uid()"))[0].count);
+  await db.query('select public.set_community_settings(false,true, $1)', ['']);
+  check(Number((await rows("select count(*) as count from public.community_audit_log where admin_id=auth.uid()"))[0].count) === settingsAuditCount, 'saving unchanged settings adds no audit clutter');
+  const longBroadcast = 'A'.repeat(900);
+  await db.query('select public.set_community_settings(false,true, $1)', [longBroadcast]);
+  check((await rows('select announcement from public.community_settings where id=1'))[0]?.announcement === longBroadcast, 'admin broadcasts are not truncated');
   await as(8);
   await denied('select public.post_community_message($1)', ['Paused room']);
   await db.query('select public.give_board_kudos($1,$2)', [id(2),'month']);

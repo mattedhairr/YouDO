@@ -330,18 +330,16 @@ export default function BoardView() {
   return (
     <div className="board-workspace pb-4">
       <header className="board-heading px-0.5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-              <TrendingUp size={13} strokeWidth={2.4} /> Public focus board
-            </p>
-            <h2 className="mt-1 text-[20px] font-bold tracking-[-0.025em] text-content-primary">Earn your place.</h2>
-          </div>
-          <span className="mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full border border-subtle bg-elevated px-2.5 py-1 text-[10.5px] font-medium text-content-secondary"><Users size={12.5} className="text-primary" />{count} on board</span>
+        <div className="board-heading-topline">
+          <h2 className="board-heading-eyebrow">
+            <TrendingUp size={17} strokeWidth={2.2} /> Public focus board
+          </h2>
+          <span><Users size={12.5} />{count} on board</span>
         </div>
-        <p className="mt-1 max-w-[32rem] text-[11.5px] leading-relaxed text-content-secondary">
-          Ranked by focus. Kudos for effort.
-        </p>
+        <div className="board-heading-titleline">
+          <p className="board-heading-tagline">Earn your place.</p>
+          <p>Ranked by focus. Kudos for effort.</p>
+        </div>
       </header>
 
       <div className="flex gap-1 rounded-[12px] border border-subtle bg-elevated p-1">
@@ -371,7 +369,7 @@ export default function BoardView() {
       {community.available && (community.canJoin || community.isAdmin || community.banned) && <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}><button type="button" onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }} className="board-community-link">
         {community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}
         <span>{community.banned ? 'Community access · Request a review' : 'Community'}</span>
-        <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Join in' : 'Paused'}</span>
+        <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Open' : 'Paused'}</span>
         <ChevronDown size={14} className="-rotate-90" />
       </button>{community.isAdmin && <button type="button" onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }} className="board-admin-link" aria-label="Open community admin"><Gauge size={16} /><span>Admin</span></button>}</div>}
 

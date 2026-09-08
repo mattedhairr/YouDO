@@ -9,6 +9,10 @@ import { clearYouDoStorage } from './lib/storageKeys';
 import './index.css';
 import ExperiencePreferences from './components/ExperiencePreferences';
 
+if (Capacitor.isNativePlatform()) {
+  document.documentElement.dataset.nativeShell = 'true';
+}
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;

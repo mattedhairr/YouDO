@@ -152,16 +152,37 @@ create or replace function public.set_community_settings(
   next_appreciations_enabled boolean,
   next_announcement text
 ) returns void language plpgsql security definer set search_path = public as $$
+declare current_settings public.community_settings%rowtype;
+declare clean_announcement text := btrim(coalesce(next_announcement, ''));
 begin
   if not public.is_community_admin() then raise exception 'admin required'; end if;
+  select * into current_settings from public.community_settings where id = 1 for update;
+
+  if current_settings.room_enabled is distinct from next_room_enabled then
+    insert into public.community_audit_log(admin_id, action)
+    values (auth.uid(), case when next_room_enabled then 'settings.room.enabled' else 'settings.room.disabled' end);
+  end if;
+  if current_settings.appreciations_enabled is distinct from next_appreciations_enabled then
+    insert into public.community_audit_log(admin_id, action)
+    values (auth.uid(), case when next_appreciations_enabled then 'settings.kudos.enabled' else 'settings.kudos.disabled' end);
+  end if;
+  if current_settings.announcement is distinct from clean_announcement then
+    insert into public.community_audit_log(admin_id, action)
+    values (auth.uid(), case when clean_announcement = '' then 'settings.announcement.cleared' else 'settings.announcement.published' end);
+  end if;
+
+  if current_settings.room_enabled is not distinct from next_room_enabled
+    and current_settings.appreciations_enabled is not distinct from next_appreciations_enabled
+    and current_settings.announcement is not distinct from clean_announcement then
+    return;
+  end if;
+
   update public.community_settings set
     room_enabled = next_room_enabled,
     appreciations_enabled = next_appreciations_enabled,
-    announcement = left(btrim(coalesce(next_announcement, '')), 280),
+    announcement = clean_announcement,
     updated_by = auth.uid(), updated_at = now()
   where id = 1;
-  insert into public.community_audit_log(admin_id, action, reason)
-  values (auth.uid(), 'settings.updated', left(btrim(coalesce(next_announcement, '')), 280));
 end; $$;
 
 create or replace function public.moderate_community_member(

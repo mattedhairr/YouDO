@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.1.0] — 2026-09-08 — Access YouDO your way
+
+- **Start locally or sign in** — New users can begin with an on-device workspace, then connect it safely from Settings when they want cloud backup and multi-device sync.
+- **Recover account access** — Forgot password sends a secure reset link, while Settings adds clearer account linking and signed-in device controls.
+- **Useful community administration** — Safety Log entries explain what changed, remove the redundant inner section, identify affected members when known, and skip no-op saves.
+- **Room-friendly Board updates** — The Board header and entry controls are better balanced; admin broadcasts are no longer shortened and long posts stay folded until opened.
+- **More reliable Android presentation** — Status-bar spacing, full-screen overlays, keyboard-open forms, and update notices now respect the fitted phone viewport.
+- **Android APK** — versionName **7.1.0**, versionCode **35**. Installs over public **v7.0.0** and unpublished versionCode 33/34 test builds with the same package ID and signing key; no reinstall or data migration is required.
+
+---
+
 ## [v7.0.0] — 2026-09-08 — Goals without fixed layers
 
 - **One universal goal tree** — Name and nest items your way; branches and schedulable endpoints follow the structure, while equal-weight branch progress keeps unfinished plans visible.

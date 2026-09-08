@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { confirmationStatus, DEFAULT_AUTH_REDIRECT_URL, resolveAuthRedirectUrl } from './authRedirect';
+import {
+  confirmationStatus,
+  DEFAULT_AUTH_RECOVERY_URL,
+  DEFAULT_AUTH_REDIRECT_URL,
+  isAuthRecoveryUrl,
+  resolveAuthRecoveryUrl,
+  resolveAuthRedirectUrl,
+} from './authRedirect';
 
 describe('confirmation redirect', () => {
   it('uses the public confirmation page even in preview and Android builds', () => {
@@ -9,6 +16,20 @@ describe('confirmation redirect', () => {
   });
   it.each(['http://youdo.example', 'https://localhost', 'https://127.0.0.1:5173', 'https://[::1]', 'https://192.168.1.1', 'https://youdo.local', 'https://user:pass@youdo.example', 'javascript:alert(1)', 'https://youdo.example/#token', 'https://youdo.example/?next=unsafe'])('rejects unsuitable destinations: %s', (url) => {
     expect(() => resolveAuthRedirectUrl(url)).toThrow();
+  });
+});
+
+describe('password recovery redirect', () => {
+  it('uses a deployed app route with an explicit recovery marker', () => {
+    expect(resolveAuthRecoveryUrl()).toBe(DEFAULT_AUTH_RECOVERY_URL);
+    expect(resolveAuthRecoveryUrl('https://youdo.example/')).toBe('https://youdo.example/?auth=recovery');
+    expect(resolveAuthRecoveryUrl('https://youdo.example/?auth=recovery')).toBe('https://youdo.example/?auth=recovery');
+    expect(isAuthRecoveryUrl('?auth=recovery&code=redacted')).toBe(true);
+    expect(isAuthRecoveryUrl('?auth=signin')).toBe(false);
+  });
+
+  it.each(['http://youdo.example', 'https://localhost/reset', 'https://youdo.example/?next=unsafe', 'https://youdo.example/?auth=signin', 'https://youdo.example/#recovery'])('rejects unsuitable recovery destinations: %s', (url) => {
+    expect(() => resolveAuthRecoveryUrl(url)).toThrow();
   });
 });
 

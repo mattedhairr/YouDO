@@ -4,6 +4,7 @@ import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
   communityAppealAvailableAt,
+  describeCommunityAudit,
   dismissCommunityReport,
   fetchAdminCommunity,
   fetchCommunityActivity,
@@ -66,12 +67,23 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [members, setMembers] = useState<CommunityMemberState[]>([]);
   const [audit, setAudit] = useState<CommunityAuditEntry[]>([]);
   const [announcement, setAnnouncement] = useState(initialContext.settings.announcement);
+  const [announcementExpanded, setAnnouncementExpanded] = useState(false);
   const announcementDirty = useRef(false);
   const [pendingBan, setPendingBan] = useState<string | null>(null);
   const [appealDraft, setAppealDraft] = useState('');
   const [reviewingAppeal, setReviewingAppeal] = useState<string | null>(null);
   const [appealResponse, setAppealResponse] = useState('');
   const names = useMemo(() => new Map(rows.map((row) => [row.userId, row.displayName])), [rows]);
+  const visibleAudit = useMemo(() => {
+    let keptLegacySettings = false;
+    return audit.filter((entry) => {
+      if (entry.action !== 'settings.updated') return true;
+      if (keptLegacySettings) return false;
+      keptLegacySettings = true;
+      return true;
+    }).slice(0, 12);
+  }, [audit]);
+  const legacySettingsCount = useMemo(() => audit.filter((entry) => entry.action === 'settings.updated').length, [audit]);
 
   const refresh = useCallback(async () => {
     if (!open || !userId) return;
@@ -133,6 +145,10 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     document.addEventListener('visibilitychange', visibleRefresh);
     return () => { invalidateRequests(); clearTimeout(midnight); window.clearInterval(timer); document.removeEventListener('visibilitychange', visibleRefresh); };
   }, [open, refresh, startInAdmin, invalidateRequests]);
+
+  useEffect(() => {
+    setAnnouncementExpanded(false);
+  }, [open, context.settings.announcement]);
 
   // A committed, foreground room view counts as opened. Retain this batch on screen
   // until close; next visit fetches only unread deliveries. Never mark background loads.
@@ -214,7 +230,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
 
   return <Overlay open={open} onClose={onClose} align="full">
     <div className="community-shell app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base">
-      <header className="flex shrink-0 items-center gap-2 border-b border-subtle bg-elevated px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="flex shrink-0 items-center gap-2 border-b border-subtle bg-elevated px-3 pb-3 pt-[max(0.75rem,var(--safe-area-top))]">
         <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-content-secondary hover:bg-surface" aria-label="Close community"><ArrowLeft size={19} /></button>
         <span className="grid size-9 place-items-center rounded-xl border border-primary/20 bg-primary-soft text-primary">{mode === 'admin' ? <Gauge size={17} /> : <MessageCircle size={17} />}</span>
         <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p><h2 className="text-[16px] font-bold text-content-primary">{mode === 'admin' ? 'Community admin' : 'Daily room'}</h2></div>
@@ -237,7 +253,13 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             <summary><ShieldCheck size={14} /><span>Encourage the effort.</span><span className="community-guidelines-hint">Room rules</span><ChevronDown size={14} /></summary>
             <p>Be respectful. No links, spam, personal details, or discouraging remarks. Opened messages disappear on your next visit or at 00:00 UTC. Unread messages wait for you; moderation records may be retained.</p>
           </details>
-          {context.settings.announcement && <div className="mb-3 rounded-[13px] border border-secondary/20 bg-secondary-soft px-3 py-2.5"><p className="text-[9px] font-bold uppercase tracking-wider text-secondary">From YouDO</p><p className="mt-1 text-[11.5px] text-content-primary">{context.settings.announcement}</p></div>}
+          {context.settings.announcement && <section className={`community-announcement ${announcementExpanded ? 'is-expanded' : ''}`}>
+            <p className="community-announcement-label">From YouDO</p>
+            <p className="community-announcement-copy">{context.settings.announcement}</p>
+            {context.settings.announcement.length > 150 && <button type="button" className="community-announcement-toggle" aria-expanded={announcementExpanded} onClick={() => setAnnouncementExpanded((current) => !current)}>
+              <span>{announcementExpanded ? 'Show less' : 'Read full broadcast'}</span><ChevronDown size={13} />
+            </button>}
+          </section>}
           {!context.settings.roomEnabled ? <div className="rounded-[14px] border border-subtle bg-surface p-5 text-center"><p className="text-[13px] font-semibold text-content-primary">The room is paused</p><p className="mt-1 text-[10.5px] text-content-secondary">Reactions and the focus Board can still work normally.</p></div>
           : visibleMessages.length === 0 ? <div className="rounded-[14px] border border-dashed border-subtle p-7 text-center"><MessageCircle size={20} className="mx-auto text-content-muted" /><p className="mt-2 text-[12px] font-semibold text-content-secondary">Start today with something useful.</p></div>
           : <ol className="space-y-2">{visibleMessages.map((message) => {
@@ -274,7 +296,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <div className="my-3 h-px bg-border-subtle" />
           <div className="flex items-center justify-between gap-3"><div><p className="text-[12px] font-semibold text-content-primary">Kudos</p><p className="text-[10px] text-content-muted">Recognition for the top three</p></div><Toggle disabled={busy || savingFeature} checked={context.settings.appreciationsEnabled} onChange={() => void setFeature('appreciationsEnabled', !context.settings.appreciationsEnabled)} label="Toggle Kudos" /></div>
         </section>
-        <section className="mt-4 rounded-[15px] border border-subtle bg-surface p-3.5"><label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Board announcement</label><textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} maxLength={280} rows={3} placeholder="Optional message shown above today’s room" className="mt-2 w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] outline-none focus:border-primary" /><button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || announcement.trim() === context.settings.announcement} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-on-primary"><Check size={14} /> Publish</button></section>
+        <section className="mt-4 rounded-[15px] border border-subtle bg-surface p-3.5"><label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Board broadcast</label><textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="mt-2 w-full resize-y rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] outline-none focus:border-primary" /><p className="mt-1.5 text-[9.5px] leading-relaxed text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p><button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || announcement.trim() === context.settings.announcement} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-on-primary"><Check size={14} /> Publish</button></section>
         </div>
         <div hidden={adminTab !== 'review' || !adminLoaded}>
         {appeals.length > 0 && <section className="mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Appeals</p><h3 className="text-[14px] font-semibold text-content-primary">Private review requests</h3></div><span className="rounded-full bg-secondary-soft px-2 py-1 text-[10px] font-bold text-secondary">{appeals.length}</span></div><div className="space-y-2">{appeals.map((appeal) => { const member = members.find((item) => item.userId === appeal.userId); const name = names.get(appeal.userId) || member?.displayName || appeal.userId.slice(0, 8); const expanded = reviewingAppeal === appeal.id; return <article key={appeal.id} className="rounded-[14px] border border-secondary/20 bg-secondary-soft/15 p-3"><div className="flex items-start gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><div className="min-w-0 flex-1"><p className="text-[11.5px] font-semibold text-content-primary">{name}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{appeal.message}</p><p className="mt-1.5 text-[9px] text-content-muted">Sent {new Date(appeal.createdAt).toLocaleString()}</p></div></div>{!expanded ? <button type="button" onClick={() => { setReviewingAppeal(appeal.id); setAppealResponse(''); }} className="mt-2 h-8 rounded-lg border border-secondary/25 px-3 text-[10px] font-semibold text-secondary">Review</button> : <div className="mt-3 border-t border-subtle pt-3"><textarea value={appealResponse} onChange={(event) => setAppealResponse(event.target.value)} maxLength={600} rows={3} placeholder="Private note to this user" className="w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2 text-[10.5px] outline-none focus:border-primary" /><div className="mt-2 flex flex-wrap gap-1.5"><button type="button" disabled={busy} onClick={() => void reviewAppeal(appeal, 'approve')} className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-on-secondary">Approve & restore</button><button type="button" disabled={busy || appealResponse.trim().length < 5} onClick={() => void reviewAppeal(appeal, 'decline')} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error disabled:opacity-40">Decline</button><button type="button" onClick={() => setReviewingAppeal(null)} className="px-2 text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div></section>}
@@ -286,7 +308,14 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </div>
         <div hidden={adminTab !== 'history' || !adminLoaded}>
         {audit.length === 0 && <p className="community-empty">No moderation actions yet.</p>}
-        {audit.length > 0 && <details open className="mt-4 rounded-[14px] border border-subtle bg-surface p-3"><summary className="cursor-pointer text-[11px] font-semibold text-content-secondary">Safety log · {audit.length} recent actions</summary><ol className="mt-2 border-t border-subtle">{audit.slice(0, 12).map((entry) => <li key={entry.id} className="border-b border-subtle py-2 last:border-0"><p className="text-[10.5px] font-semibold text-content-primary">{entry.action.replace(/\./g, ' ')}</p><p className="text-[9px] text-content-muted">{new Date(entry.createdAt).toLocaleString()}</p></li>)}</ol></details>}
+        {audit.length > 0 && <ol className="admin-audit-log">{visibleAudit.map((entry) => {
+          const targetName = names.get(entry.targetUserId ?? '') || members.find((member) => member.userId === entry.targetUserId)?.displayName;
+          const description = describeCommunityAudit(entry, targetName);
+          const detail = entry.action === 'settings.updated' && legacySettingsCount > 1
+            ? `${legacySettingsCount} earlier settings changes were recorded without field details.`
+            : description.detail;
+          return <li key={entry.id}><span className="admin-audit-icon"><ShieldCheck size={13} /></span><div className="min-w-0 flex-1"><div className="admin-audit-title"><p>{description.title}</p><span>{description.category}</span></div><p className="admin-audit-detail">{detail}</p><time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time></div></li>;
+        })}</ol>}
         </div>
         {status && <p role="status" className="community-status">{status}</p>}
         <div className="community-privacy mt-4 flex items-start gap-2 rounded-[13px] border border-secondary/20 bg-secondary-soft/40 p-3"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><p className="text-[10px] leading-relaxed text-content-secondary">Community only. Private workspaces stay private.</p></div>
