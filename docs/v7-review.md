@@ -1,6 +1,6 @@
-# v7.1.0 release review
+# v7.1.1 release review
 
-Release candidate: **v7.1.0 / versionCode 35**, based on the published **v7.0.0 / versionCode 32** baseline. Package, lockfile, in-app version, and Android versionName agree. VersionCode 35 also installs over unpublished 33/34 test builds. A commit or push is not itself a published GitHub Release or proof of a successful phone upgrade.
+Release candidate: **v7.1.1 / versionCode 36**, based on the published **v7.1.0 / versionCode 35** release. Package, lockfile, in-app version, and Android versionName agree. The package ID and permanent signing identity are unchanged, so it installs over v7.1.0 without clearing data. A commit or push is not itself a published GitHub Release.
 
 ## Verified locally
 
@@ -13,6 +13,7 @@ Release candidate: **v7.1.0 / versionCode 35**, based on the published **v7.0.0 
 - First-launch offline entry, the offline Settings card, Forgot password, and the new-password callback were visually checked on an isolated browser origin. Offline mode does not unlock a workspace that is still bound to a signed-out account, and the guest Today screen does not advertise cloud restore.
 - Safety Log now renders human-readable action/effect details. Existing indistinguishable legacy settings rows collapse into one honest summary; the updated SQL emits field-specific entries and ignores no-op saves.
 - Capacitor asset/plugin sync into the Android project passes. Native compilation and the signed APK are delegated to the release/hotfix branch workflow.
+- The signed keyboard-fix candidate from commit `0404080` installed over v7.1.0 on the affected Samsung Android 10 phone with WebView 151.0.7922.199. The owner confirmed the keyboard-sized blank strip disappeared.
 - The final two-column admin panel was visually rechecked in the signed-in preview: no daily-percentage tile or progress bar remains.
 - At the inspected 429px viewport: all three populated Board rows measure 114px; both appearance rows measure 74px; no document-level horizontal overflow.
 - Board, Calendar, Admin Review/Controls, and the empty daily room were inspected visually in the signed-in preview during the preceding UI pass. The admin home now presents only **Active recently** and **Used today**; the redundant daily percentage and progress bar are removed. Both enabled switch thumbs remained inside their tracks, with 48 × 44px touch targets.
@@ -30,9 +31,9 @@ No moderation actions, test messages, or account email changes were submitted ag
 2. Rerun the current saved community setup once to install field-specific audit actions and no-op suppression. The full query remains idempotent and does not delete, duplicate, promote, or demote accounts. Verify a control change produces the matching Safety Log entry; isolated PostgreSQL coverage is not a substitute for that live check.
 3. Add `https://tu-do-psi.vercel.app/?auth=recovery` to Supabase **Redirect URLs** as documented in [the account-link setup](account-links.md). After Vercel deploys the merged build, test one real reset email, the new-password form, and a subsequent sign-in with an account you control. Keep the existing confirmation-page URL and test both inbox confirmations separately.
 4. The owner successfully installed [the account-session functions](account-sessions.md) and verified a two-device listing. Remote revocation still needs a controlled test after the 24-hour trust boundary; it has the normal access-token expiry window.
-5. Recheck the previously reported Android system-bar and keyboard-overlay bugs on affected hardware. A web preview cannot verify those native fixes.
+5. Recheck system bars and a keyboard-open form on Android 15+ when suitable hardware is available; v7.1.1 leaves Capacitor's newer edge-to-edge handling in place there.
 6. The owner has chosen to proceed with release preparation while deferring the missing focus session and unresponsive v6.3.0 phone investigation. This is an accepted unresolved risk, not a verified compatibility fix. Follow [the anonymized incident evidence and safe next checks](focus-session-investigation.md); do not clear app data or invent a duration.
-7. Obtain the signed v7.1.0 APK from the release-branch GitHub Actions build. Verify install-over-v6.3.0 and v7.0.0 on backed-up devices, including one of the affected Samsung Android 10 phones. The workflow checks the permanent signing certificate and matching release versions, and runs typecheck, lint, and tests before building. Keep `main` and public release publication separate from a candidate-branch push.
+7. Obtain the signed v7.1.1 APK from the hotfix-branch GitHub Actions build. Verify its permanent signing certificate and matching release versions before publishing. Install-over-v7.1.0 and the affected Samsung Android 10 behavior were already verified with the signed candidate; the final version-only build should preserve that native code.
 
 Existing build warnings remain: the main app bundle exceeds Vite's 500kB advisory threshold, and Capacitor App has mixed static/dynamic imports. No warnings were suppressed.
 

@@ -1,6 +1,6 @@
 # Android keyboard gap investigation
 
-Status: candidate correction; affected-device verification pending.
+Status: confirmed fixed by the owner on the affected Samsung Android 10 device.
 
 The owner reproduced the blank strip above the keyboard in the published
 v7.1.0 APK on Samsung Android 10. Its height follows the keyboard height.
@@ -23,19 +23,21 @@ The earlier passing web checks and signed APK build did not verify this behavior
 - No dependency files or CSS are patched. Package identity, signing, version,
   account data, and sync behavior are unchanged.
 
-This is a source-backed explanation, not a measurement of the owner's phone.
-The phone's WebView version and a before/after device test are still needed.
+The affected phone uses Android System WebView 151.0.7922.199. The owner
+installed the signed candidate from commit `0404080` over v7.1.0 and confirmed
+that the blank strip is gone. This supplies the device verification missing
+from the v7.1.0 release.
 
 Related upstream reports:
 - https://github.com/ionic-team/capacitor/issues/8412
 - https://github.com/ionic-team/capacitor/issues/8466
 
-## Candidate phone test
+## Verified phone test
 
-Use the signed APK artifact from the candidate branch, not the public release
-asset. Record the GitHub Actions run/commit: the candidate retains v7.1.0/code 35
-until the final release version is chosen. Installing over the existing app must
-use the same signing identity; do not uninstall or clear data to test it.
+The owner used the signed APK artifact from the candidate branch at commit
+`0404080`. That test build retained v7.1.0/code 35 and used the permanent signing
+identity, so it installed over the public release without uninstalling or
+clearing data.
 
 1. Record the phone model, Android version, and Android System WebView version
    from Settings > Apps > Android System WebView (Chrome may be the provider).
@@ -51,6 +53,7 @@ use the same signing identity; do not uninstall or clear data to test it.
 6. Check both available keyboard apps and light/dark themes. Before release,
    also check system bars and a keyboard-open form on Android 15 or newer.
 
-If the strip remains, capture the installed candidate run, WebView version,
-and a keyboard-open screenshot. Do not label the issue fixed or bump/publish
-a new release solely because CI passes.
+The keyboard-sized strip disappeared on the affected phone. Before publishing
+v7.1.1/code 36, CI must still compile and verify the final signed APK. Android
+15+ keeps Capacitor's existing system-bar handling and remains a regression
+check for future device testing.
