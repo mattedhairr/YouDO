@@ -66,14 +66,15 @@ function localBackupPayload() {
   };
 }
 
-function LoadingGate() {
+function LoadingGate({ progress, label }: { progress: number; label: string }) {
   return (
     <div className="min-h-screen min-h-[100dvh] bg-base text-content-primary grid place-items-center px-6" aria-live="polite" aria-label="Opening YouDO">
       <div className="text-center space-y-3">
         <Brand />
-        <div className="mx-auto h-0.5 w-12 overflow-hidden rounded-full bg-border-subtle">
-          <div className="h-full w-1/2 rounded-full bg-primary animate-pulse" />
+        <div className="mx-auto h-0.5 w-16 overflow-hidden rounded-full bg-border-subtle" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+          <div className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out" style={{ width: `${progress}%` }} />
         </div>
+        <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-content-muted">{label}</p>
       </div>
     </div>
   );
@@ -289,6 +290,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [offlineMode, setOfflineMode] = useState(() => readOfflineMode() && !readWorkspaceOwner());
   const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl(window.location.search));
+  const [initialBootComplete, setInitialBootComplete] = useState(false);
 
   useEffect(() => {
     const requestAccount = () => {
@@ -336,7 +338,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [loading, user, fetchCloudBackup]);
 
-  if (loading) return <LoadingGate />;
+  const bootDestinationReady = !loading && (passwordRecovery || !user || gate !== 'checking');
+  useEffect(() => {
+    if (initialBootComplete || !bootDestinationReady) return;
+    // Keep the completed state long enough for the 300ms bar transition to reach 100%.
+    const timer = window.setTimeout(() => setInitialBootComplete(true), 360);
+    return () => window.clearTimeout(timer);
+  }, [bootDestinationReady, initialBootComplete]);
+
+  if (!initialBootComplete) {
+    const progress = bootDestinationReady ? 100 : loading ? 12 : 68;
+    const label = bootDestinationReady ? 'Ready' : loading ? 'Checking session' : 'Checking workspace';
+    return <LoadingGate progress={progress} label={label} />;
+  }
+  if (loading) return <LoadingGate progress={12} label="Checking session" />;
   const leaveRecovery = () => {
     window.history.replaceState(null, '', window.location.pathname);
     setPasswordRecovery(false);
@@ -344,7 +359,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (passwordRecovery) return <PasswordRecoveryGate onComplete={leaveRecovery} onCancel={() => { void supabase.auth.signOut({ scope: 'local' }).finally(leaveRecovery); }} />;
   if (!user && offlineMode && !readWorkspaceOwner()) return <>{children}</>;
   if (!user) return <AuthWelcome allowOffline={!readWorkspaceOwner()} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
-  if (gate === 'checking') return <LoadingGate />;
+  if (gate === 'checking') return <LoadingGate progress={68} label="Checking workspace" />;
   if (gate === 'ready') return <>{children}</>;
 
   const replaceCloud = async (payload: unknown, beforeOpen?: () => void): Promise<boolean> => {
