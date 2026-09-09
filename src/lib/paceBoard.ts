@@ -129,6 +129,16 @@ export function paceWindowBarTargetMs(barHours: number, window: PaceWindow, anch
   return safeHours * paceWindowBarDays(window, anchor) * 60 * 60 * 1000;
 }
 
+export function hasReachedPaceWindowBar(row: PaceRow, window: PaceWindow, anchorISO = todayISO()): boolean {
+  const anchor = new Date(`${anchorISO}T12:00:00`);
+  const targetMs = Math.max(1, paceWindowBarTargetMs(row.barHours, window, anchor));
+  return windowMs(row, window, anchorISO) >= targetMs;
+}
+
+export function canReceiveBoardKudos(row: PaceRow, window: PaceWindow, rank: number | undefined, anchorISO = todayISO()): boolean {
+  return rank != null && rank >= 1 && rank <= 3 && hasReachedPaceWindowBar(row, window, anchorISO);
+}
+
 export function rankedIds(rows: PaceRow[], window: PaceWindow, anchorISO = todayISO()): string[] {
   return rows
     .filter((row) => windowMs(row, window, anchorISO) > 0)

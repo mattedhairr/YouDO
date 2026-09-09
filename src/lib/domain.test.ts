@@ -1126,7 +1126,7 @@ describe('pace board', () => {
   });
 
   it('sets personal bars against the full calendar week or month', async () => {
-    const { paceWindowBarDays, paceWindowBarTargetMs } = await import('./paceBoard');
+    const { canReceiveBoardKudos, hasReachedPaceWindowBar, paceWindowBarDays, paceWindowBarTargetMs } = await import('./paceBoard');
     const september = new Date(2026, 8, 5);
     const februaryLeapYear = new Date(2028, 1, 3);
     expect(paceWindowBarDays('today', september)).toBe(1);
@@ -1135,6 +1135,19 @@ describe('pace board', () => {
     expect(paceWindowBarDays('month', februaryLeapYear)).toBe(29);
     expect(paceWindowBarTargetMs(8, 'week', september)).toBe(56 * 60 * 60 * 1000);
     expect(paceWindowBarTargetMs(8, 'month', september)).toBe(240 * 60 * 60 * 1000);
+
+    const row = {
+      userId: 'a', displayName: 'A', examLabel: '', barHours: 1, streak: 1, updatedAt: '',
+      todayMs: 60 * 60 * 1000, weekMs: 7 * 60 * 60 * 1000, monthMs: 30 * 60 * 60 * 1000,
+      todayKey: '2026-09-05', weekKey: '2026-08-31', monthKey: '2026-09-01',
+    };
+    expect(hasReachedPaceWindowBar(row, 'today', '2026-09-05')).toBe(true);
+    expect(hasReachedPaceWindowBar(row, 'week', '2026-09-05')).toBe(true);
+    expect(hasReachedPaceWindowBar(row, 'month', '2026-09-05')).toBe(true);
+    expect(hasReachedPaceWindowBar({ ...row, todayMs: row.todayMs - 1 }, 'today', '2026-09-05')).toBe(false);
+    expect(canReceiveBoardKudos(row, 'today', 3, '2026-09-05')).toBe(true);
+    expect(canReceiveBoardKudos(row, 'today', 4, '2026-09-05')).toBe(false);
+    expect(canReceiveBoardKudos({ ...row, todayMs: row.todayMs - 1 }, 'today', 2, '2026-09-05')).toBe(false);
   });
 
   it('ranks by total window hours and marks up/down vs the last snapshot', async () => {
