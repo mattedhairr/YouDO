@@ -47,9 +47,13 @@ try {
   await db.exec(sql);
   check(true, 'whole migration runs twice');
   for (let n = 1; n <= 14; n++) {
+    const todayMs = n < 4 ? (4 - n) * 60 * 60 * 1000 : 0;
+    const weekMs = n < 4 ? (4 - n) * 7 * 60 * 60 * 1000 : 0;
+    const monthMs = n < 4 ? (4 - n) * 30 * 60 * 60 * 1000 : 0;
     await db.query('insert into auth.users values ($1)', [id(n)]);
-    await db.query(`insert into public.public_pace(user_id, display_name, today_ms, week_ms, month_ms, today_key, week_key, month_key)
-      values ($1, $2, $3, $3, $3, public.community_today(), date_trunc('week', now() at time zone 'UTC')::date, date_trunc('month', now() at time zone 'UTC')::date)`, [id(n), `Member ${n}`, n < 4 ? (4 - n) * 60_000 : 0]);
+    await db.query(`insert into public.public_pace(user_id, display_name, today_ms, week_ms, month_ms, today_key, week_key, month_key, bar_hours)
+      values ($1, $2, $3, $4, $5, public.community_today(), date_trunc('week', now() at time zone 'UTC')::date, date_trunc('month', now() at time zone 'UTC')::date, 1)`,
+      [id(n), `Member ${n}`, todayMs, weekMs, monthMs]);
   }
   await db.query('insert into public.community_admins(user_id) values ($1)', [id(1)]);
   await as(5);
@@ -57,8 +61,10 @@ try {
   const first = (await rows('select * from public.community_inbox()'))[0];
   check(first?.body === 'Keep going.', 'new message is delivered');
   await db.query('select public.read_community_messages($1)', [[first.id]]);
-  check((await rows('select * from public.community_inbox()')).length === 0, 'read messages disappear on reopening');
-  check((await rows('select * from public.community_inbox($1)', [[first.id]])).length === 1, 'read message remains during same visit');
+  check((await rows('select * from public.community_inbox()')).some((m) => m.id === first.id), 'reading does not shorten the 24-hour lifetime');
+  await db.query('select public.post_community_message($1,$2)', ['Reply with context.', first.id]);
+  const reply = (await rows("select * from public.community_inbox() where body='Reply with context.'"))[0];
+  check(reply?.reply_to === first.id, 'reply references the delivered active message');
   await denied('insert into public.community_messages(author_id, body) values ($1, $2)', [id(1), 'Forged author']);
   await denied('insert into public.community_messages(author_id, body) values ($1, $2)', [id(5), 'Bypass rate limits']);
   await denied('select public.post_community_message($1)', ['https://spam.test']);
@@ -69,15 +75,27 @@ try {
   await db.exec('reset role');
   await db.query("update public.community_messages set day_key = public.community_today() - 1 where id = $1", [first.id]);
   await as(6);
-  check((await rows('select * from public.community_inbox()')).some((m) => m.id === first.id), 'unread survives midnight for another account');
+  check((await rows('select * from public.community_inbox()')).some((m) => m.id === first.id), 'message remains visible across midnight');
   await db.query('select public.read_community_messages($1)', [[first.id]]);
-  check((await rows('select * from public.community_inbox($1)', [[first.id]])).length === 1, 'older catch-up stays open until close');
-  check((await rows('select * from public.community_inbox()')).length === 0, 'older catch-up clears after reading');
+  check((await rows('select * from public.community_inbox()')).some((m) => m.id === first.id), 'message remains visible after reading on another account');
+  await db.exec('reset role');
+  const expired = (await rows("insert into public.community_messages(author_id,body,expires_at) values ($1,'Expired target',now()-interval '1 second') returning id", [id(5)]))[0].id;
+  await as(5);
+  check(!(await rows('select * from public.community_inbox()')).some((m) => m.id === expired), 'message disappears at its rolling expiry');
+  await denied('select public.post_community_message($1,$2)', ['Late reply', expired]);
   await as(5);
   await db.query('select public.give_board_kudos($1, $2)', [id(2), 'today']);
   await db.query('select public.give_board_kudos($1, $2)', [id(2), 'today']);
   check((await rows("select * from public.community_inbox() where message_kind = 'kudos'")).length === 1, 'duplicate kudos makes one note');
   check((await rows('select * from public.board_appreciations where from_user = auth.uid()')).length === 1, 'duplicate kudos makes one acknowledgement');
+  await db.exec('reset role');
+  await db.query('update public.public_pace set today_ms=$2 where user_id=$1', [id(3), 60 * 60 * 1000 - 1]);
+  await as(6);
+  await denied('select public.give_board_kudos($1, $2)', [id(3), 'today']);
+  await db.exec('reset role');
+  await db.query('update public.public_pace set today_ms=$2 where user_id=$1', [id(3), 60 * 60 * 1000]);
+  await db.query('update public.public_pace set today_ms=$2 where user_id=$1', [id(4), 60 * 60 * 1000]);
+  await as(6);
   await denied('select public.give_board_kudos($1, $2)', [id(4), 'today']);
   await denied('select public.give_board_kudos($1, $2)', [id(5), 'today']);
   await denied('select public.give_board_kudos($1, $2)', [id(2), 'invalid']);
@@ -110,20 +128,18 @@ try {
   await as(5);
   check(!(await rows('select * from public.community_inbox()')).some((m) => m.id === first.id), 'rerun does not resurrect read or removed messages');
   await db.exec('reset role');
-  const old = (await rows("insert into public.community_messages(author_id,body,day_key,created_at) values ($1,'Old unread',public.community_today()-9,now()-interval '9 days') returning id", [id(9)]))[0].id;
+  const old = (await rows("insert into public.community_messages(author_id,body,day_key,created_at,expires_at) values ($1,'Old unread',public.community_today()-9,now()-interval '9 days',now()-interval '8 days') returning id", [id(9)]))[0].id;
   await db.query("insert into public.community_messages(author_id,body) values ($1,'Trigger cleanup')", [id(9)]);
-  check((await rows('select id from public.community_messages where id=$1', [old])).length === 1, 'cleanup preserves old unread deliveries');
+  check((await rows('select id from public.community_messages where id=$1', [old])).length === 0, 'expired messages beyond retention are pruned regardless of read state');
+  const beforeJoin = (await rows("insert into public.community_messages(author_id,body) values ($1,'Before membership') returning id", [id(9)]))[0].id;
   await db.query('insert into auth.users values ($1)', [id(15)]);
   await db.query("insert into public.public_pace(user_id,display_name) values ($1,'New member')", [id(15)]);
   await as(15);
-  check((await rows('select * from public.community_inbox($1)', [[old]])).length === 0, 'new members cannot retrieve messages they were not sent');
+  check((await rows('select * from public.community_inbox($1)', [[beforeJoin]])).length === 0, 'new members cannot retrieve messages they were not sent');
   await db.exec('reset role');
-  await db.query('update public.community_deliveries set read_at=now() where message_id=$1', [old]);
-  await db.query("insert into public.community_messages(author_id,body) values ($1,'Cleanup after reading')", [id(9)]);
-  check((await rows('select id from public.community_messages where id=$1', [old])).length === 0, 'read messages older than retention are pruned');
   const reported = (await rows("insert into public.community_messages(author_id,body) values ($1,'Reported evidence') returning id", [id(9)]))[0].id;
   await db.query("insert into public.community_reports(message_id,reporter_id) values ($1,$2)", [reported,id(5)]);
-  await db.query("update public.community_messages set day_key=public.community_today()-9,removed_at=now() where id=$1", [reported]);
+  await db.query("update public.community_messages set day_key=public.community_today()-9,expires_at=now()-interval '8 days',removed_at=now() where id=$1", [reported]);
   await db.query("insert into public.community_messages(author_id,body) values ($1,'Retain open reports')", [id(9)]);
   check((await rows('select id from public.community_messages where id=$1', [reported])).length === 1, 'cleanup preserves unresolved moderation evidence');
   await as(5);
@@ -146,5 +162,5 @@ try {
   await db.query('delete from auth.users where id=$1', [id(16)]);
   check((await rows('select * from public.community_admins where user_id=$1', [id(16)])).length === 0, 'admin account deletion removes its role');
   check((await rows('select admin_id from public.community_audit_log where id=$1', [auditId]))[0]?.admin_id === null, 'admin deletion preserves audit history without a dangling identity');
-  console.log(`PASS: ${checks} isolated PostgreSQL checks (schema, reruns, unread, Kudos, RLS, moderation).`);
+  console.log(`PASS: ${checks} isolated PostgreSQL checks (schema, reruns, 24-hour messages, replies, Kudos, RLS, moderation).`);
 } finally { await db.close(); }

@@ -122,16 +122,16 @@ Selection uses a light tick; session start, pause, completion, and warnings have
 - Join the public Board only if you choose.
 - Compare Today, Week, or Month using net focus as the ranking measure.
 - See a focused Top 10, your own rank, and nearby competitors instead of scrolling through every participant.
-- Give **Kudos** to the top three in the selected Today/Week/Month view. One acknowledgement per sender/recipient per UTC day; never affects rank. Tied focus totals use a stable account-ID order across client and server.
+- Give **Kudos** only when a member is both in the top three and has reached 100% of the displayed Today/Week/Month focus bar. One acknowledgement per sender/recipient per UTC day; never affects rank. Tied focus totals use a stable account-ID order across client and server.
 - Acknowledgements share the focus row, only on the top three. **Community** and **Admin** have separate matching controls. Each new acknowledgement posts one short system note while the room is enabled; retries do not duplicate it.
-- Use the short daily encouragement room without links, private messages, or a permanent user-facing chat history.
+- Use the short encouragement room with familiar left/right chat bubbles and replies, without links, private messages, or permanent user-facing history. Kudos appear as compact room events rather than ordinary messages.
 - Turn Board participation off to remove your public row.
 
 The Board is private by default and runs on an honour system. Community access is limited to opted-in Board members, with rate limits and private reporting. The admin console separates **Review**, **Controls**, and **Safety log** without exposing private workspaces through those tools. Padded hours only cheat the person who still has to sit the exam.
 
 Admin opens with a compact **Community pulse**: **Active recently** (a foreground signal within five minutes) and **Used today** (unique Board members since 00:00 UTC, or 05:30 in India). These are aggregate signals, not exact online counts, and exclude older builds without activity support. Only the latest activity timestamp is stored per participating account; there is no page, device, or task-activity history in this measurement. Turning Board participation off removes that timestamp with the public row.
 
-Opened messages remain for the current visit, then disappear on reopening or at **00:00 UTC**. Unread messages remain in each recipient’s catch-up inbox until opened; removed content never resurfaces. This is a display/read-state rule, not immediate server deletion. Reports, appeals, restrictions, and the safety log persist. See [community setup and verification](docs/community-setup.md) before deploying the new build.
+Each room message remains visible for exactly 24 hours from its send time, regardless of when it is opened or whether midnight passes. Removed content never resurfaces. Expired messages may remain briefly as protected moderation records, while reports, appeals, restrictions, and the safety log persist. See [community setup and verification](docs/community-setup.md) before deploying the new build.
 
 Session completion now waits for a successful local history write; storage failures leave the sitting open with an error. Manual completion controls cannot bypass a running sitting. These safeguards do not establish the cause of the reported v6.3.0 lost-session/frozen-phone incident; see [investigation status](docs/focus-session-investigation.md).
 

@@ -1,4 +1,4 @@
--- YouDO community layer: positive kudos, an ephemeral daily room,
+-- YouDO community layer: earned kudos, a rolling 24-hour room,
 -- and least-privilege moderation. Safe to rerun in the Supabase SQL editor.
 
 begin;
@@ -345,10 +345,7 @@ returns trigger language plpgsql security definer set search_path = public as $$
 begin
   -- Members see a rolling 24-hour room; retain a short moderation window after expiry.
   delete from public.community_messages cm where expires_at < now() - interval '7 days'
-    and not exists (select 1 from public.community_reports r where r.message_id = cm.id and r.status = 'open')
-    and (cm.removed_at is not null or not exists (
-      select 1 from public.community_deliveries d where d.message_id = cm.id and d.read_at is null
-    ));
+    and not exists (select 1 from public.community_reports r where r.message_id = cm.id and r.status = 'open');
   delete from public.board_appreciations where day_key < (now() at time zone 'UTC')::date - 31;
   return null;
 end; $$;
