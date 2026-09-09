@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.2.0] — 2026-09-09 — Community conversations, made natural
+
+- **A familiar community room** — Your messages sit on the right, other members appear on the left, and replies keep conversations understandable without turning Kudos into ordinary chat bubbles.
+- **Predictable disappearing messages** — Every room message now lasts exactly 24 hours from when it was sent instead of changing at midnight or after the room is opened.
+- **Kudos must be earned** — Recognition unlocks only when a member is both in the selected period's top three and has completed 100% of their displayed focus bar.
+- **A steadier Board and startup** — Community and Admin controls load with the Board instead of appearing in blocks, while startup progress follows real session and workspace stages through 100%.
+- **Android APK** — versionName **7.2.0**, versionCode **37**. Installs directly over **v7.1.1** with the same package ID and signing key; no uninstall or data reset is required. The updated community SQL is required for replies, rolling expiry, and server-enforced Kudos eligibility.
+
+---
+
 ## [v7.1.1] — 2026-09-09 — Android keyboard space restored
 
 - **Keyboard-open forms fit correctly** — Android 7–14 no longer reserve the keyboard area twice, removing the keyboard-sized blank strip reported on Samsung Android 10 with WebView 151.

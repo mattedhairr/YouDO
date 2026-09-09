@@ -1,4 +1,4 @@
--- YouDO community layer: positive kudos, an ephemeral daily room,
+-- YouDO community layer: earned kudos, a rolling 24-hour room,
 -- and least-privilege moderation. Safe to rerun in the Supabase SQL editor.
 
 begin;
@@ -62,6 +62,13 @@ create table if not exists public.community_messages (
   created_at timestamptz not null default now()
 );
 alter table public.community_messages add column if not exists message_kind text not null default 'chat';
+alter table public.community_messages add column if not exists expires_at timestamptz;
+update public.community_messages set expires_at = created_at + interval '24 hours' where expires_at is null;
+alter table public.community_messages alter column expires_at set default (now() + interval '24 hours');
+alter table public.community_messages alter column expires_at set not null;
+alter table public.community_messages add column if not exists reply_to uuid references public.community_messages(id) on delete set null;
+create index if not exists community_messages_expiry_idx on public.community_messages(expires_at);
+create index if not exists community_messages_reply_idx on public.community_messages(reply_to) where reply_to is not null;
 
 -- Deliveries are private per-account state, never an admin read-receipt dashboard.
 create table if not exists public.community_deliveries (
@@ -145,6 +152,36 @@ as $$
     )
     and (select count(*) from public.community_messages where author_id = candidate and created_at > now() - interval '1 minute') < 4
     and (select count(*) from public.community_messages where author_id = candidate and day_key = (now() at time zone 'UTC')::date) < 40;
+$$;
+
+-- One round trip for Board controls. Older clients can keep using the individual
+-- tables and helper functions while this migration rolls out.
+create or replace function public.community_context()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select pg_catalog.jsonb_build_object(
+    'day_key', public.community_today(),
+    'is_admin', public.is_community_admin(),
+    'can_join', public.can_join_community(),
+    'can_post', public.can_post_community(),
+    'settings', pg_catalog.jsonb_build_object(
+      'room_enabled', coalesce(s.room_enabled, false),
+      'appreciations_enabled', coalesce(s.appreciations_enabled, false),
+      'announcement', coalesce(s.announcement, '')
+    ),
+    'muted_until', m.muted_until,
+    'banned_at', m.banned_at,
+    'appeal', (
+      select pg_catalog.to_jsonb(a) from (
+        select ca.id, ca.user_id, ca.message, ca.status, ca.admin_response, ca.created_at, ca.reviewed_at
+        from public.community_appeals ca
+        where ca.user_id = auth.uid()
+        order by ca.created_at desc limit 1
+      ) a
+    )
+  )
+  from public.community_settings s
+  left join public.community_members m on m.user_id = auth.uid()
+  where s.id = 1;
 $$;
 
 create or replace function public.set_community_settings(
@@ -306,12 +343,9 @@ end; $$;
 create or replace function public.prune_community_history()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  -- The room disappears daily in the app; keep only a short moderation window.
-  delete from public.community_messages cm where day_key < (now() at time zone 'UTC')::date - 7
-    and not exists (select 1 from public.community_reports r where r.message_id = cm.id and r.status = 'open')
-    and (cm.removed_at is not null or not exists (
-      select 1 from public.community_deliveries d where d.message_id = cm.id and d.read_at is null
-    ));
+  -- Members see a rolling 24-hour room; retain a short moderation window after expiry.
+  delete from public.community_messages cm where expires_at < now() - interval '7 days'
+    and not exists (select 1 from public.community_reports r where r.message_id = cm.id and r.status = 'open');
   delete from public.board_appreciations where day_key < (now() at time zone 'UTC')::date - 31;
   return null;
 end; $$;
@@ -366,7 +400,7 @@ create policy appreciations_delete on public.board_appreciations for delete to a
 drop policy if exists community_messages_read on public.community_messages;
 drop policy if exists community_messages_insert on public.community_messages;
 create policy community_messages_read on public.community_messages for select to authenticated
-  using ((day_key = (now() at time zone 'UTC')::date and removed_at is null and public.can_join_community()) or public.is_community_admin());
+  using ((expires_at > now() and removed_at is null and public.can_join_community()) or public.is_community_admin());
 create policy community_messages_insert on public.community_messages for insert to authenticated with check (
   author_id = (select auth.uid()) and day_key = (now() at time zone 'UTC')::date and public.can_post_community()
   and body !~* '(https?://|www\.|t\.me/)'
@@ -477,20 +511,23 @@ create trigger deliver_community_message after insert on public.community_messag
   for each row execute function public.deliver_community_message();
 revoke execute on function public.deliver_community_message() from public, anon, authenticated;
 
--- One-time current-day catch-up. Reruns never recreate consumed deliveries.
+-- One-time rolling-window catch-up. Reruns never duplicate deliveries.
 insert into public.community_deliveries(user_id, message_id)
 select p.user_id, m.id from public.public_pace p cross join public.community_messages m
-where m.day_key = public.community_today() and m.removed_at is null and public.can_join_community(p.user_id)
+where m.expires_at > now() and m.removed_at is null and public.can_join_community(p.user_id)
 on conflict (user_id, message_id) do nothing;
 
 create or replace function public.community_inbox(keep_visible uuid[] default '{}')
 returns setof public.community_messages language sql stable security definer set search_path = '' as $$
-  select m.* from public.community_messages m
-  join public.community_deliveries d on d.message_id = m.id and d.user_id = auth.uid()
-  where public.can_join_community() and m.removed_at is null
-    and not public.is_community_banned(m.author_id)
-    and (d.read_at is null or m.id = any(keep_visible[1:120]))
-  order by m.created_at, m.id limit 120;
+  select recent.* from (
+    select m.* from public.community_messages m
+    join public.community_deliveries d on d.message_id = m.id and d.user_id = auth.uid()
+    where public.can_join_community() and m.removed_at is null
+      and not public.is_community_banned(m.author_id)
+      and m.expires_at > now()
+    order by m.created_at desc, m.id desc limit 120
+  ) recent
+  order by recent.created_at, recent.id;
 $$;
 
 create or replace function public.read_community_messages(message_ids uuid[])
@@ -501,10 +538,11 @@ begin
   where user_id = auth.uid() and message_id = any(message_ids[1:120]) and read_at is null;
 end; $$;
 
--- App clients cannot forge timestamps, authors, removals, or system notes.
+-- App clients cannot forge timestamps, authors, expiry, removals, or system notes.
 revoke insert on public.community_messages from authenticated;
 drop policy if exists community_messages_insert on public.community_messages;
-create or replace function public.post_community_message(message_body text)
+drop function if exists public.post_community_message(text);
+create or replace function public.post_community_message(message_body text, reply_to_message uuid default null)
 returns void language plpgsql security definer set search_path = '' as $$
 declare clean text := btrim(regexp_replace(coalesce(message_body, ''), '\s+', ' ', 'g'));
 begin
@@ -512,7 +550,13 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(auth.uid()::text, 0));
   if not public.can_post_community() then raise exception 'Posting is paused or rate limited' using errcode = '42501'; end if;
   if char_length(clean) not between 1 and 240 or clean ~* '(https?://|www\.|t\.me/)' then raise exception 'Use 1–240 characters without links'; end if;
-  insert into public.community_messages(author_id, body, message_kind) values (auth.uid(), clean, 'chat');
+  if reply_to_message is not null and not exists (
+    select 1 from public.community_messages m
+    join public.community_deliveries d on d.message_id = m.id and d.user_id = auth.uid()
+    where m.id = reply_to_message and m.removed_at is null and m.expires_at > now()
+  ) then raise exception 'The message you replied to is no longer available'; end if;
+  insert into public.community_messages(author_id, body, message_kind, reply_to)
+    values (auth.uid(), clean, 'chat', reply_to_message);
 end; $$;
 
 -- Acknowledgement + room note commit together, once per sender/recipient/UTC day.
@@ -542,11 +586,17 @@ begin
     select p.user_id, case board_window
       when 'today' then case when coalesce(p.today_key, (p.updated_at at time zone board_timezone)::date) = anchor then p.today_ms else 0 end
       when 'week' then case when coalesce(p.week_key, date_trunc('week', p.updated_at at time zone board_timezone)::date) = date_trunc('week', anchor::timestamp)::date then p.week_ms else 0 end
-      else case when coalesce(p.month_key, date_trunc('month', p.updated_at at time zone board_timezone)::date) = date_trunc('month', anchor::timestamp)::date then p.month_ms else 0 end end as focus
+      else case when coalesce(p.month_key, date_trunc('month', p.updated_at at time zone board_timezone)::date) = date_trunc('month', anchor::timestamp)::date then p.month_ms else 0 end end as focus,
+      greatest(1::numeric, p.bar_hours * case board_window
+        when 'today' then 1
+        when 'week' then 7
+        else extract(day from (date_trunc('month', anchor::timestamp) + interval '1 month - 1 day'))
+      end * 3600000) as bar_target
     from public.public_pace p where not public.is_community_banned(p.user_id) and btrim(p.display_name) <> ''
-  ), leaders as (select user_id from eligible_members where focus > 0 order by focus desc, user_id limit 3)
-  select (select count(*) from eligible_members) >= 10 and exists (select 1 from leaders where user_id = target) into eligible;
-  if not eligible then raise exception 'The top three changed. Refresh the Board and try again.'; end if;
+  ), leaders as (select user_id, focus, bar_target from eligible_members where focus > 0 order by focus desc, user_id limit 3)
+  select (select count(*) from eligible_members) >= 10
+    and exists (select 1 from leaders where user_id = target and focus >= bar_target) into eligible;
+  if not eligible then raise exception 'Kudos unlocks only for a top-three member who reached their focus bar.'; end if;
   if (select count(*) from public.board_appreciations where from_user = auth.uid() and day_key = public.community_today()) >= 12
     then raise exception 'Daily acknowledgement limit reached'; end if;
   insert into public.board_appreciations(day_key, from_user, to_user) values (public.community_today(), auth.uid(), target)
@@ -563,30 +613,34 @@ drop policy if exists appreciations_insert on public.board_appreciations;
 drop policy if exists appreciations_delete on public.board_appreciations;
 revoke insert, delete on public.board_appreciations from authenticated;
 
--- Unread catch-up messages remain reportable after midnight.
+-- Messages remain reportable while they are visible in their 24-hour window.
 drop policy if exists community_reports_insert on public.community_reports;
 create policy community_reports_insert on public.community_reports for insert to authenticated with check (
   reporter_id = (select auth.uid()) and public.can_join_community()
   and exists (select 1 from public.community_messages m where m.id = message_id
-    and m.author_id <> (select auth.uid()) and m.removed_at is null)
+    and m.author_id <> (select auth.uid()) and m.removed_at is null and m.expires_at > now())
 );
--- Read history is not offered by the member API; the current visit uses community_inbox.
+-- Kept for compatibility with v7.1.1 and earlier. Read state no longer controls
+-- visibility; community_inbox uses only each message's 24-hour expiry.
 drop policy if exists community_deliveries_read_self on public.community_deliveries;
 create policy community_deliveries_read_self on public.community_deliveries for select to authenticated using (user_id = (select auth.uid()));
 grant select on public.community_deliveries to authenticated;
 drop policy if exists community_messages_read on public.community_messages;
 create policy community_messages_read on public.community_messages for select to authenticated using (
   public.is_community_admin() or (public.can_join_community() and removed_at is null and not public.is_community_banned(author_id)
+    and expires_at > now()
     and exists (select 1 from public.community_deliveries d where d.message_id = id and d.user_id = (select auth.uid())))
 );
 
+revoke execute on function public.community_context() from public, anon;
 revoke execute on function public.community_inbox(uuid[]) from public, anon;
 revoke execute on function public.read_community_messages(uuid[]) from public, anon;
-revoke execute on function public.post_community_message(text) from public, anon;
+revoke execute on function public.post_community_message(text, uuid) from public, anon;
 revoke execute on function public.give_board_kudos(uuid, text, text) from public, anon;
+grant execute on function public.community_context() to authenticated;
 grant execute on function public.community_inbox(uuid[]) to authenticated;
 grant execute on function public.read_community_messages(uuid[]) to authenticated;
-grant execute on function public.post_community_message(text) to authenticated;
+grant execute on function public.post_community_message(text, uuid) to authenticated;
 grant execute on function public.give_board_kudos(uuid, text, text) to authenticated;
 
 commit;

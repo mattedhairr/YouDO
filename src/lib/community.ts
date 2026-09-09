@@ -77,8 +77,20 @@ export interface CommunityMessage {
   authorId: string;
   body: string;
   createdAt: string;
+  expiresAt: string;
   removedAt?: string;
   kind?: 'chat' | 'kudos';
+  replyToId?: string;
+}
+
+export const COMMUNITY_MESSAGE_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
+function messageExpiry(row: Record<string, unknown>): string {
+  if (typeof row.expires_at === 'string') return row.expires_at;
+  const createdAt = Date.parse(String(row.created_at));
+  return Number.isFinite(createdAt)
+    ? new Date(createdAt + COMMUNITY_MESSAGE_LIFETIME_MS).toISOString()
+    : '';
 }
 
 export interface AppreciationState {
@@ -163,8 +175,53 @@ const defaultContext = (): CommunityContext => ({
   banned: false,
 });
 
+export function parseCommunityContext(data: unknown): CommunityContext | null {
+  if (!data || typeof data !== 'object') return null;
+  const row = data as Record<string, unknown>;
+  if (typeof row.day_key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.day_key)) return null;
+  const settings = row.settings && typeof row.settings === 'object'
+    ? row.settings as Record<string, unknown>
+    : {};
+  const appeal = row.appeal && typeof row.appeal === 'object'
+    ? row.appeal as Record<string, unknown>
+    : null;
+  return {
+    available: true,
+    dayKey: row.day_key,
+    isAdmin: row.is_admin === true,
+    canJoin: row.can_join === true,
+    canPost: row.can_post === true,
+    settings: {
+      roomEnabled: settings.room_enabled === true,
+      appreciationsEnabled: settings.appreciations_enabled === true,
+      announcement: typeof settings.announcement === 'string' ? settings.announcement : '',
+    },
+    mutedUntil: typeof row.muted_until === 'string' ? row.muted_until : undefined,
+    banned: typeof row.banned_at === 'string',
+    appeal: appeal ? {
+      id: String(appeal.id),
+      userId: String(appeal.user_id),
+      message: String(appeal.message),
+      status: appeal.status as CommunityAppeal['status'],
+      adminResponse: String(appeal.admin_response ?? ''),
+      createdAt: String(appeal.created_at),
+      reviewedAt: typeof appeal.reviewed_at === 'string' ? appeal.reviewed_at : undefined,
+    } : undefined,
+  };
+}
+
 export async function fetchCommunityContext(userId?: string): Promise<CommunityContext> {
   if (!userId) return defaultContext();
+  const summary = await supabase.rpc('community_context');
+  if (!summary.error) {
+    const parsed = parseCommunityContext(summary.data);
+    return parsed ?? { ...defaultContext(), error: 'Community access returned an invalid response.' };
+  }
+  if (summary.error.code !== 'PGRST202' && summary.error.code !== '42883') {
+    return { ...defaultContext(), error: 'Could not load community access. Try again.' };
+  }
+
+  // Compatibility path while an existing installation is waiting for the latest SQL.
   const settings = await supabase.from('community_settings').select('room_enabled, appreciations_enabled, announcement').eq('id', 1).maybeSingle();
   if (settings.error) return { ...defaultContext(), error: isCommunityUnavailable(settings.error) ? undefined : 'Could not load community access. Try again.' };
   const [today, admin, join, post, member, appeal] = await Promise.all([
@@ -224,13 +281,20 @@ export async function giveKudos(toUser: string, period: PaceWindow): Promise<{ o
   return error ? { ok: false, error: error.code === 'PGRST202' ? 'Kudos needs the latest community setup.' : error.message } : { ok: true };
 }
 
-export async function fetchCommunityMessages(keepVisible: string[] = []): Promise<CommunityMessage[]> {
-  const { data, error } = await supabase.rpc('community_inbox', { keep_visible: keepVisible.slice(0, 120) });
-  if (error) throw new Error(error.code === 'PGRST202' ? 'Unread catch-up needs the latest community setup.' : 'Could not refresh messages. Try again.');
+export function isCommunityMessageActive(message: Pick<CommunityMessage, 'expiresAt' | 'removedAt'>, now = Date.now()): boolean {
+  const expiry = Date.parse(message.expiresAt);
+  return !message.removedAt && Number.isFinite(expiry) && expiry > now;
+}
+
+export async function fetchCommunityMessages(): Promise<CommunityMessage[]> {
+  const { data, error } = await supabase.rpc('community_inbox', { keep_visible: [] });
+  if (error) throw new Error(error.code === 'PGRST202' ? '24-hour messages need the latest community setup.' : 'Could not refresh messages. Try again.');
   return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
     id: String(row.id), authorId: String(row.author_id), body: String(row.body), createdAt: String(row.created_at),
+    expiresAt: messageExpiry(row),
     removedAt: typeof row.removed_at === 'string' ? row.removed_at : undefined,
     kind: row.message_kind === 'kudos' || row.message_kind === 'admiration' ? 'kudos' : 'chat',
+    replyToId: typeof row.reply_to === 'string' ? row.reply_to : undefined,
   }));
 }
 
@@ -240,12 +304,16 @@ export async function markCommunityRead(ids: string[]): Promise<boolean> {
   return !error;
 }
 
-export async function postCommunityMessage(userId: string, body: string): Promise<{ ok: boolean; error?: string }> {
+export async function postCommunityMessage(userId: string, body: string, replyToId?: string): Promise<{ ok: boolean; error?: string }> {
   const clean = body.trim().replace(/\s+/g, ' ');
   if (!clean || clean.length > 240) return { ok: false, error: 'Keep the message between 1 and 240 characters.' };
   if (/(https?:\/\/|www\.|t\.me\/)/i.test(clean)) return { ok: false, error: 'Links are not allowed in the daily room.' };
   if (!userId) return { ok: false, error: 'Sign in first.' };
-  const { error } = await supabase.rpc('post_community_message', { message_body: clean });
+  let { error } = await supabase.rpc('post_community_message', { message_body: clean, reply_to_message: replyToId ?? null });
+  if (error?.code === 'PGRST202' && !replyToId) {
+    ({ error } = await supabase.rpc('post_community_message', { message_body: clean }));
+  }
+  if (error?.code === 'PGRST202' && replyToId) return { ok: false, error: 'Replies need the latest community setup.' };
   return error ? { ok: false, error: error.message.includes('row-level security') ? 'Posting is unavailable, limited, or paused.' : error.message } : { ok: true };
 }
 
@@ -277,11 +345,12 @@ export async function fetchAdminCommunity(dayKey: string): Promise<{
 export async function fetchReportedMessages(ids: string[]): Promise<CommunityMessage[]> {
   if (!ids.length) return [];
   const { data, error } = await supabase.from('community_messages')
-    .select('id, author_id, body, created_at, removed_at').in('id', [...new Set(ids)]);
+    .select('id, author_id, body, created_at, expires_at, removed_at, reply_to').in('id', [...new Set(ids)]);
   if (error) throw new Error('Could not load reported messages.');
   return (data ?? []).map((row) => ({
     id: String(row.id), authorId: String(row.author_id), body: String(row.body),
-    createdAt: String(row.created_at), removedAt: row.removed_at ?? undefined,
+    createdAt: String(row.created_at), expiresAt: messageExpiry(row), removedAt: row.removed_at ?? undefined,
+    replyToId: row.reply_to ?? undefined,
   }));
 }
 

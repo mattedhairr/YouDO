@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, Check, ChevronDown, Flag, Gauge, Heart, MessageCircle, RefreshCw, Send, ShieldCheck, UserRoundCheck, UserRoundX } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Check, ChevronDown, Flag, Gauge, Heart, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, UserRoundCheck, UserRoundX, X } from 'lucide-react';
 import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
@@ -12,7 +12,7 @@ import {
   type CommunityActivitySummary,
   fetchCommunityContext,
   fetchCommunityMessages,
-  markCommunityRead,
+  isCommunityMessageActive,
   moderateCommunityMember,
   postCommunityMessage,
   removeCommunityMessage,
@@ -45,6 +45,7 @@ const timeLabel = (stamp: string) => new Intl.DateTimeFormat(undefined, { hour: 
 export default function CommunitySheet({ open, onClose, userId, rows, initialContext, startInAdmin = false }: Props) {
   const [context, setContext] = useState(initialContext);
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
+  const [expiryClock, setExpiryClock] = useState(() => Date.now());
   const [activity, setActivity] = useState<CommunityActivitySummary | null>(null);
   const [reportMessages, setReportMessages] = useState<CommunityMessage[]>([]);
   const [refreshError, setRefreshError] = useState('');
@@ -52,14 +53,13 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [adminLoaded, setAdminLoaded] = useState(false);
   const refreshId = useRef(0);
   const invalidateRequests = useCallback(() => { refreshId.current++; }, []);
-  const dayRef = useRef(initialContext.dayKey);
-  const visitIds = useRef<string[]>([]);
-  const readIds = useRef(new Set<string>());
   const [adminTab, setAdminTab] = useState<'review' | 'controls' | 'history'>('review');
   const [savingFeature, setSavingFeature] = useState(false);
   const featureBusy = useRef(false);
   const mode = startInAdmin ? 'admin' : 'room';
   const [draft, setDraft] = useState('');
+  const [replyToId, setReplyToId] = useState<string | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [reports, setReports] = useState<CommunityReport[]>([]);
@@ -94,18 +94,12 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     const nextContext = await fetchCommunityContext(userId);
     if (!current()) return;
     if (nextContext.error) throw new Error(nextContext.error);
-    if (dayRef.current !== nextContext.dayKey) {
-      visitIds.current = []; readIds.current.clear();
-      setMessages([]); setDraft(''); setStatus('');
-      dayRef.current = nextContext.dayKey;
-    }
     setContext(nextContext);
     if (!announcementDirty.current) setAnnouncement(nextContext.settings.announcement);
     if (!nextContext.available) return;
     if (mode === 'room') {
-      const nextMessages = await fetchCommunityMessages(visitIds.current);
+      const nextMessages = await fetchCommunityMessages();
       if (!current()) return;
-      visitIds.current = nextMessages.map((message) => message.id);
       setMessages(nextMessages);
     }
     if (mode === 'admin' && nextContext.isAdmin) {
@@ -130,46 +124,32 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     void refresh();
     const visibleRefresh = () => { if (document.visibilityState === 'visible') void refresh(); };
     const timer = window.setInterval(visibleRefresh, 30_000);
-    let midnight: ReturnType<typeof setTimeout>;
-    const scheduleMidnight = () => {
-      const now = new Date();
-      const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
-      midnight = setTimeout(() => {
-        visitIds.current = []; readIds.current.clear();
-        setMessages([]); setDraft(''); setStatus(''); setActivity(null);
-        void refresh();
-        scheduleMidnight();
-      }, Math.max(50, next - Date.now() + 25));
-    };
-    scheduleMidnight();
     document.addEventListener('visibilitychange', visibleRefresh);
-    return () => { invalidateRequests(); clearTimeout(midnight); window.clearInterval(timer); document.removeEventListener('visibilitychange', visibleRefresh); };
+    return () => { invalidateRequests(); window.clearInterval(timer); document.removeEventListener('visibilitychange', visibleRefresh); };
   }, [open, refresh, startInAdmin, invalidateRequests]);
 
   useEffect(() => {
     setAnnouncementExpanded(false);
   }, [open, context.settings.announcement]);
 
-  // A committed, foreground room view counts as opened. Retain this batch on screen
-  // until close; next visit fetches only unread deliveries. Never mark background loads.
   useEffect(() => {
-    if (!open || mode !== 'room' || !context.settings.roomEnabled) return;
-    const mark = () => {
-      if (document.visibilityState !== 'visible') return;
-      const ids = messages.filter((message) => !readIds.current.has(message.id)).map((message) => message.id);
-      if (!ids.length) return;
-      ids.forEach((id) => readIds.current.add(id));
-      void markCommunityRead(ids).then((ok) => {
-        if (!ok) { ids.forEach((id) => readIds.current.delete(id)); setStatus('Read status was not saved. These messages may appear again.'); }
-      }).catch(() => { ids.forEach((id) => readIds.current.delete(id)); setStatus('Offline: these messages remain unread.'); });
-    };
-    const frame = requestAnimationFrame(mark);
-    document.addEventListener('visibilitychange', mark);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', mark); };
-  }, [open, mode, messages, context.settings.roomEnabled]);
+    if (!open || mode !== 'room') return;
+    const now = Date.now();
+    const nextExpiry = messages.reduce((nearest, message) => {
+      const expiry = Date.parse(message.expiresAt);
+      return Number.isFinite(expiry) && expiry > now ? Math.min(nearest, expiry) : nearest;
+    }, Number.POSITIVE_INFINITY);
+    if (!Number.isFinite(nextExpiry)) return;
+    const timer = window.setTimeout(
+      () => setExpiryClock(Date.now()),
+      Math.min(Math.max(nextExpiry - now + 25, 25), 2_147_483_647),
+    );
+    return () => window.clearTimeout(timer);
+  }, [expiryClock, messages, mode, open]);
 
   if (!open) return null;
-  const visibleMessages = messages.filter((message) => !message.removedAt);
+  const visibleMessages = messages.filter((message) => isCommunityMessageActive(message, expiryClock));
+  const replyTarget = replyToId ? visibleMessages.find((message) => message.id === replyToId) : undefined;
   const activeMembers = members.filter((member) => member.banned || (member.mutedUntil && new Date(member.mutedUntil) > new Date()));
   const appealAvailableAt = communityAppealAvailableAt(context.appeal);
   const canSubmitAppeal = canSubmitCommunityAppeal(context.appeal);
@@ -177,10 +157,14 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const send = async () => {
     if (!userId || busy) return;
     setBusy(true); setStatus('');
-    const result = await postCommunityMessage(userId, draft);
-    if (result.ok) { hapticSuccess(); setDraft(''); setStatus('Sent'); await refresh(); }
+    const result = await postCommunityMessage(userId, draft, replyToId ?? undefined);
+    if (result.ok) { hapticSuccess(); setDraft(''); setReplyToId(null); setStatus('Sent'); await refresh(); }
     else setStatus(result.error ?? 'Could not send.');
     setBusy(false);
+  };
+  const startReply = (messageId: string) => {
+    setReplyToId(messageId);
+    requestAnimationFrame(() => composerRef.current?.focus());
   };
   const saveSettings = async () => {
     setBusy(true);
@@ -248,10 +232,10 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       </main>
       : !context.canJoin && !context.isAdmin ? <div className="m-4 rounded-2xl border border-subtle bg-surface p-6 text-center"><Heart className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Join the Board first</h3><p className="mt-1 text-[11px] text-content-secondary">Only opted-in Board members can react or enter the daily room.</p></div>
       : mode === 'room' ? <>
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-<details className="community-guidelines">
+        <main className="community-room-main min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          <details className="community-guidelines">
             <summary><ShieldCheck size={14} /><span>Encourage the effort.</span><span className="community-guidelines-hint">Room rules</span><ChevronDown size={14} /></summary>
-            <p>Be respectful. No links, spam, personal details, or discouraging remarks. Opened messages disappear on your next visit or at 00:00 UTC. Unread messages wait for you; moderation records may be retained.</p>
+            <p>Be respectful. No links, spam, personal details, or discouraging remarks. Every message disappears 24 hours after it is sent; moderation records may be retained.</p>
           </details>
           {context.settings.announcement && <section className={`community-announcement ${announcementExpanded ? 'is-expanded' : ''}`}>
             <p className="community-announcement-label">From YouDO</p>
@@ -262,19 +246,37 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           </section>}
           {!context.settings.roomEnabled ? <div className="rounded-[14px] border border-subtle bg-surface p-5 text-center"><p className="text-[13px] font-semibold text-content-primary">The room is paused</p><p className="mt-1 text-[10.5px] text-content-secondary">Reactions and the focus Board can still work normally.</p></div>
           : visibleMessages.length === 0 ? <div className="rounded-[14px] border border-dashed border-subtle p-7 text-center"><MessageCircle size={20} className="mx-auto text-content-muted" /><p className="mt-2 text-[12px] font-semibold text-content-secondary">Start today with something useful.</p></div>
-          : <ol className="space-y-2">{visibleMessages.map((message) => {
+          : <ol className="community-thread">{visibleMessages.map((message) => {
             const mine = message.authorId === userId;
-            return <li key={message.id} className={`community-message ${mine ? 'is-mine' : ''} ${message.kind === 'kudos' ? 'is-kudos' : ''}`}>
-              <div className="flex items-center gap-2"><p className="min-w-0 flex-1 truncate text-[11.5px] font-semibold text-content-primary">{names.get(message.authorId) ?? 'Board member'}{mine ? ' · You' : ''}</p><time className="text-[9.5px] text-content-muted">{timeLabel(message.createdAt)}</time>{!mine && <button type="button" onClick={async () => { if (userId && await reportCommunityMessage(message.id, userId)) setStatus('Reported privately for review.'); }} className="community-report-button text-content-muted" aria-label="Report message"><Flag size={12} /></button>}</div>
-              <p className="mt-1 text-[13px] leading-relaxed text-content-secondary break-words">{message.kind === 'kudos' && <Heart size={12} className="mr-1 inline text-primary" />}{message.body}</p>
-              {message.createdAt.slice(0, 10) < context.dayKey && <span className="text-[9px] text-content-muted">Catch-up · {new Date(message.createdAt).toLocaleDateString()}</span>}
+            if (message.kind === 'kudos') return <li key={message.id} className="community-event" aria-label={`Kudos: ${message.body}`}>
+              <Heart size={12} className="fill-current" /><span>{message.body}</span><time dateTime={message.createdAt}>{timeLabel(message.createdAt)}</time>
+            </li>;
+            const repliedTo = message.replyToId ? visibleMessages.find((candidate) => candidate.id === message.replyToId) : undefined;
+            return <li key={message.id} className={`community-message-row ${mine ? 'is-mine' : 'is-theirs'}`}>
+              <article className="community-message-bubble">
+                {!mine && <p className="community-message-author">{names.get(message.authorId) ?? 'Board member'}</p>}
+                {message.replyToId && <div className="community-message-reply">
+                  <strong>{repliedTo ? (repliedTo.authorId === userId ? 'You' : names.get(repliedTo.authorId) ?? 'Board member') : 'Earlier message'}</strong>
+                  <span>{repliedTo?.body ?? 'This message is no longer available.'}</span>
+                </div>}
+                <p className="community-message-copy">{message.body}</p>
+                <div className="community-message-meta">
+                  <time dateTime={message.createdAt}>{message.createdAt.slice(0, 10) < context.dayKey ? `${new Date(message.createdAt).toLocaleDateString()} · ` : ''}{timeLabel(message.createdAt)}</time>
+                  <button type="button" onClick={() => startReply(message.id)} aria-label={`Reply to ${mine ? 'your message' : names.get(message.authorId) ?? 'message'}`}><Reply size={11.5} /></button>
+                  {!mine && <button type="button" onClick={async () => { if (userId && await reportCommunityMessage(message.id, userId)) setStatus('Reported privately for review.'); }} aria-label="Report message"><Flag size={11} /></button>}
+                </div>
+              </article>
             </li>;
           })}</ol>}
-          {visibleMessages.length >= 120 && <button type="button" disabled={refreshing} className="calendar-expand" onClick={() => { visitIds.current = []; void refresh(); }}>Next messages <ChevronDown size={14} /></button>}
+          {visibleMessages.length >= 120 && <p className="community-history-limit">Showing the latest 120 messages.</p>}
         </main>
         <footer className="shrink-0 border-t border-subtle bg-elevated px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
           {status && <p role="status" className="mb-2 text-[10px] text-primary">{status}</p>}
-          <div className="flex items-end gap-2"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={240} rows={2} disabled={!context.canPost || !context.settings.roomEnabled} placeholder={context.banned ? 'Community access is disabled' : context.mutedUntil ? 'Posting is temporarily paused' : 'Share a short encouragement…'} className="min-h-[46px] flex-1 resize-none rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] text-content-primary outline-none focus:border-primary" /><button type="button" onClick={() => void send()} disabled={!draft.trim() || busy || !context.canPost || !context.settings.roomEnabled} className="grid size-11 place-items-center rounded-xl bg-primary text-on-primary disabled:opacity-40" aria-label="Send"><Send size={17} /></button></div>
+          {replyToId && <div className="community-composer-reply">
+            <div><strong>Replying to {replyTarget ? (replyTarget.authorId === userId ? 'yourself' : names.get(replyTarget.authorId) ?? 'a board member') : 'an earlier message'}</strong><span>{replyTarget?.body ?? 'This message may have expired.'}</span></div>
+            <button type="button" onClick={() => setReplyToId(null)} aria-label="Cancel reply"><X size={14} /></button>
+          </div>}
+          <div className="flex items-end gap-2"><textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={240} rows={2} disabled={!context.canPost || !context.settings.roomEnabled} placeholder={context.banned ? 'Community access is disabled' : context.mutedUntil ? 'Posting is temporarily paused' : replyToId ? 'Write a reply…' : 'Share a short encouragement…'} className="min-h-[46px] flex-1 resize-none rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] text-content-primary outline-none focus:border-primary" /><button type="button" onClick={() => void send()} disabled={!draft.trim() || busy || !context.canPost || !context.settings.roomEnabled} className="grid size-11 place-items-center rounded-xl bg-primary text-on-primary disabled:opacity-40" aria-label="Send"><Send size={17} /></button></div>
           <p className="mt-1 text-right text-[9px] text-content-muted">{draft.length}/240</p>
         </footer>
       </> : <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
