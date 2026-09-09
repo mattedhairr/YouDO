@@ -41,85 +41,85 @@ import { closeTopOverlay } from './lib/overlayNavigation';
 // Original YouDO prompts: no invented attribution or pressure to skip rest.
 const MOTIVATIONAL_QUOTES = [
   {
-    "text": "Your plan is a promise. Give it evidence today.",
-    "author": "YouDO"
+    text: 'Your plan is a promise. Give it evidence today.',
+    author: 'YouDO',
   },
   {
-    "text": "The chapter will not finish itself. Begin the next page.",
-    "author": "YouDO"
+    text: 'One day, the deadline will be today. Prepare while preparation is still a choice.',
+    author: 'YouDO',
   },
   {
-    "text": "You do not need a perfect day. You need an honest start.",
-    "author": "YouDO"
+    text: 'You do not need a perfect day. You need an honest start.',
+    author: 'YouDO',
   },
   {
-    "text": "Stop rehearsing the future. Train for it.",
-    "author": "YouDO"
+    text: 'While you negotiate with the next hour, someone else is using theirs.',
+    author: 'YouDO',
   },
   {
-    "text": "The work you avoid is still waiting. Meet it now.",
-    "author": "YouDO"
+    text: 'The deadline does not care whether you felt ready.',
+    author: 'YouDO',
   },
   {
-    "text": "Make your next hour harder to regret.",
-    "author": "YouDO"
+    text: 'You once begged for this chance. Do not treat it like an ordinary day.',
+    author: 'YouDO',
   },
   {
-    "text": "A small task finished beats a grand plan postponed.",
-    "author": "YouDO"
+    text: 'Do the difficult part before you negotiate with it.',
+    author: 'YouDO',
   },
   {
-    "text": "You cannot scroll your way into the life you want.",
-    "author": "YouDO"
+    text: 'This ordinary hour may be the one your result remembers.',
+    author: 'YouDO',
   },
   {
-    "text": "Close the distraction. Open the work.",
-    "author": "YouDO"
+    text: 'Rest on purpose. Return with purpose.',
+    author: 'YouDO',
   },
   {
-    "text": "Earn confidence one finished step at a time.",
-    "author": "YouDO"
+    text: 'Every hour you postpone returns in the exam hall as a question you cannot answer.',
+    author: 'YouDO',
   },
   {
-    "text": "The deadline does not care whether you felt ready.",
-    "author": "YouDO"
+    text: 'Your ambition deserves more than your spare attention.',
+    author: 'YouDO',
   },
   {
-    "text": "Do the difficult part before you negotiate with it.",
-    "author": "YouDO"
+    text: 'Someone with fewer advantages is making better use of this same hour.',
+    author: 'YouDO',
   },
   {
-    "text": "Rest on purpose. Return with purpose.",
-    "author": "YouDO"
+    text: 'Discipline is keeping the next small promise.',
+    author: 'YouDO',
   },
   {
-    "text": "You are not behind forever. Start from where you are.",
-    "author": "YouDO"
+    text: 'The gap between you and them is being built in quiet hours like this one.',
+    author: 'YouDO',
   },
   {
-    "text": "Your ambition deserves more than your spare attention.",
-    "author": "YouDO"
+    text: 'Protect your attention. It is building your future.',
+    author: 'YouDO',
   },
   {
-    "text": "Finish one thing before you redesign the whole plan.",
-    "author": "YouDO"
+    text: 'You are spending a day you will never be given again.',
+    author: 'YouDO',
   },
   {
-    "text": "Discipline is keeping the next small promise.",
-    "author": "YouDO"
+    text: 'Your dream has already cost you comfort. Make that sacrifice mean something.',
+    author: 'YouDO',
   },
   {
-    "text": "Protect your attention. It is building your future.",
-    "author": "YouDO"
+    text: 'Someone made your opportunity possible. Do not spend it carelessly.',
+    author: 'YouDO',
   },
   {
-    "text": "Today is not a rehearsal.",
-    "author": "YouDO"
+    text: 'Nothing hurts like meeting the life you could have built.',
+    author: 'YouDO',
   },
   {
-    "text": "Let your finished work speak louder than your intentions.",
-    "author": "YouDO"
-  }
+    text: 'The worst result is knowing you had the time and watched yourself waste it.',
+    author: 'YouDO',
+  },
 ];
 
 function YouDoIcon({ size = 18 }: { size?: number }) {
@@ -1080,7 +1080,15 @@ function AppInner() {
               </p>
             </div>
             <blockquote className="quote-ticker m-0">
-              <div className="quote-ticker-track">
+              <div
+                className={`quote-ticker-track ${
+                  randomQuote.text.length >= 80
+                    ? 'quote-ticker-track-fast'
+                    : randomQuote.text.length >= 60
+                      ? 'quote-ticker-track-medium'
+                      : 'quote-ticker-track-steady'
+                }`}
+              >
                 {[0, 1].map((copy) => (
                   <p key={copy} className="quote-ticker-item" aria-hidden={copy === 1}>
                     “{randomQuote.text}”
