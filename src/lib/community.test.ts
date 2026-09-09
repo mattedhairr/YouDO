@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { canSubmitCommunityAppeal, communityAppealAvailableAt, describeCommunityAudit, isCommunityUnavailable, parseCommunityActivity, type CommunityAppeal } from './community';
+import {
+  canSubmitCommunityAppeal,
+  communityAppealAvailableAt,
+  describeCommunityAudit,
+  isCommunityMessageActive,
+  isCommunityUnavailable,
+  parseCommunityActivity,
+  parseCommunityContext,
+  type CommunityAppeal,
+  type CommunityMessage,
+} from './community';
 
 describe('admin activity values', () => {
   const sample = { day_key: '2026-09-07', as_of: '2026-09-07T00:00:05Z', active_recently: 2, visited_today: 1, board_members: 14 };
@@ -26,6 +36,42 @@ describe('community availability', () => {
   it('does not hide ordinary service errors as missing setup', () => {
     expect(isCommunityUnavailable({ code: '42501', message: 'permission denied' })).toBe(false);
     expect(isCommunityUnavailable(null)).toBe(false);
+  });
+});
+
+describe('community context', () => {
+  it('parses the single-request Board and admin context', () => {
+    expect(parseCommunityContext({
+      day_key: '2026-09-09', is_admin: true, can_join: true, can_post: false,
+      settings: { room_enabled: true, appreciations_enabled: false, announcement: 'Focus first.' },
+      muted_until: '2026-09-10T00:00:00.000Z', banned_at: null, appeal: null,
+    })).toMatchObject({
+      available: true, dayKey: '2026-09-09', isAdmin: true, canJoin: true, canPost: false,
+      settings: { roomEnabled: true, appreciationsEnabled: false, announcement: 'Focus first.' },
+      mutedUntil: '2026-09-10T00:00:00.000Z', banned: false,
+    });
+  });
+
+  it('rejects malformed context instead of flashing incorrect controls', () => {
+    expect(parseCommunityContext({ day_key: 'today' })).toBeNull();
+    expect(parseCommunityContext(null)).toBeNull();
+  });
+});
+
+describe('24-hour community messages', () => {
+  const message: CommunityMessage = {
+    id: 'message-1', authorId: 'user-1', body: 'Keep going.', kind: 'chat',
+    createdAt: '2026-09-08T18:20:00.000Z', expiresAt: '2026-09-09T18:20:00.000Z',
+  };
+
+  it('keeps a message for its full rolling window instead of clearing at midnight', () => {
+    expect(isCommunityMessageActive(message, Date.parse('2026-09-09T00:00:00.000Z'))).toBe(true);
+    expect(isCommunityMessageActive(message, Date.parse('2026-09-09T18:19:59.999Z'))).toBe(true);
+  });
+
+  it('hides a message at its exact expiry or when moderation removes it', () => {
+    expect(isCommunityMessageActive(message, Date.parse(message.expiresAt))).toBe(false);
+    expect(isCommunityMessageActive({ ...message, removedAt: '2026-09-08T19:00:00.000Z' })).toBe(false);
   });
 });
 

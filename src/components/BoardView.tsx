@@ -30,6 +30,16 @@ const WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'month', label: 'Month' },
 ];
 
+const EMPTY_COMMUNITY_CONTEXT = (): CommunityContext => ({
+  available: false,
+  dayKey: todayISO(),
+  isAdmin: false,
+  canJoin: false,
+  canPost: false,
+  settings: { roomEnabled: false, appreciationsEnabled: false, announcement: '' },
+  banned: false,
+});
+
 function loadSnapshots(): Partial<Record<PaceWindow, string[]>> {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.paceRankSnapshot);
@@ -210,7 +220,7 @@ export default function BoardView() {
   const [anchorISO, setAnchorISO] = useState(todayISO());
   const [communityOpen, setCommunityOpen] = useState(false);
   const [communityStartInAdmin, setCommunityStartInAdmin] = useState(false);
-  const [community, setCommunity] = useState<CommunityContext>({ available: false, dayKey: todayISO(), isAdmin: false, canJoin: false, canPost: false, settings: { roomEnabled: false, appreciationsEnabled: false, announcement: '' }, banned: false });
+  const [community, setCommunity] = useState<CommunityContext>(EMPTY_COMMUNITY_CONTEXT);
   const [appreciations, setAppreciations] = useState<AppreciationState>({ counts: {}, mine: new Set() });
   const appreciationBusy = useRef(false);
   const [savingAppreciation, setSavingAppreciation] = useState(false);
@@ -233,38 +243,42 @@ export default function BoardView() {
     const run = async () => {
       setLoading(true);
       if (user) await publishPublicPace();
-      const res = await fetchPaceRows();
+      const [res, nextCommunity] = await Promise.all([
+        fetchPaceRows(),
+        user ? fetchCommunityContext(user.id) : Promise.resolve(EMPTY_COMMUNITY_CONTEXT()),
+      ]);
       if (cancelled) return;
       if (!res.ok) {
         setMissingTable(!!res.missingTable);
         setRows([]);
+        if (!nextCommunity.error) setCommunity(nextCommunity);
         setLoading(false);
         return;
       }
       setMissingTable(false);
-      setRows(res.rows);
+      setCommunity(nextCommunity.error ? EMPTY_COMMUNITY_CONTEXT() : nextCommunity);
+      setRows(nextCommunity.banned && user
+        ? res.rows.filter((row) => row.userId !== user.id)
+        : res.rows);
       setLoading(false);
+      if (user && nextCommunity.available) {
+        const state = await fetchAppreciations(nextCommunity.dayKey, user.id);
+        if (!cancelled) setAppreciations(state);
+      } else if (!cancelled) setAppreciations({ counts: {}, mine: new Set() });
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [user, publishPublicPace, pacePrefs.optedIn, pacePrefs.displayName]);
+  }, [user, publishPublicPace, pacePrefs.optedIn, pacePrefs.displayName, anchorISO]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const closeCommunity = () => {
+    setCommunityOpen(false);
     if (!user) return;
-    void fetchCommunityContext(user.id).then(async (next) => {
-      if (cancelled || next.error) return;
-      setCommunity(next);
-      if (next.banned) setRows((current) => current.some((row) => row.userId === user.id) ? current.filter((row) => row.userId !== user.id) : current);
-      if (next.available) {
-        const state = await fetchAppreciations(next.dayKey, user.id);
-        if (!cancelled) setAppreciations(state);
-      }
+    void fetchCommunityContext(user.id).then((next) => {
+      if (!next.error) setCommunity(next);
     }).catch(() => { /* Keep the last known Board state during a connection failure. */ });
-    return () => { cancelled = true; };
-  }, [user, rows, communityOpen, anchorISO]);
+  };
 
   const toggleAppreciation = async (targetId: string) => {
     if (!user || appreciationBusy.current || !community.canJoin || !community.settings.appreciationsEnabled || targetId === user.id
@@ -606,7 +620,7 @@ export default function BoardView() {
           )}
         </div>
       )}
-      {communityOpen && <CommunitySheet key={communityStartInAdmin ? 'admin' : 'room'} open onClose={() => setCommunityOpen(false)} userId={user?.id} rows={rows} initialContext={community} startInAdmin={communityStartInAdmin} />}
+      {communityOpen && <CommunitySheet key={communityStartInAdmin ? 'admin' : 'room'} open onClose={closeCommunity} userId={user?.id} rows={rows} initialContext={community} startInAdmin={communityStartInAdmin} />}
     </div>
   );
 }
