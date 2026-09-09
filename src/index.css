@@ -471,7 +471,16 @@ button {
 .quote-ticker-track {
   display: flex;
   width: max-content;
-  animation: quote-ticker 28s linear infinite;
+  animation: quote-ticker 22s linear infinite;
+}
+.quote-ticker-track-steady {
+  animation-duration: 22s;
+}
+.quote-ticker-track-medium {
+  animation-duration: 19s;
+}
+.quote-ticker-track-fast {
+  animation-duration: 16s;
 }
 .quote-ticker:hover .quote-ticker-track,
 .quote-ticker:active .quote-ticker-track {

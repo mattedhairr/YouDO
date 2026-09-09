@@ -7,7 +7,16 @@ export const PACE_BOARD_TOP_LIMIT = 10;
 export const PACE_BOARD_NEARBY_RADIUS = 2;
 
 export const PACE_HONEST_QUOTE =
-  'The board cannot see a lie. You can. Padding hours cheats the only person who has to sit the exam.';
+  'The Board may believe every number you feed it. The exam will believe only what you learned.';
+
+export const PACE_CHEATING_GUIDE = [
+  'Start the timer, then give your attention somewhere else.',
+  'Let scrolling, calls, meals, and long breaks keep counting.',
+  'Mark work complete before you can honestly explain it.',
+  'Call passive staring deep focus because the clock was running.',
+  'Lower the target, cross it, and pretend the smaller promise was the dream.',
+  'Keep polishing the plan so the numbers look serious while the work stays untouched.',
+] as const;
 
 export type PaceWindow = 'today' | 'week' | 'month';
 

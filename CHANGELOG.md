@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.1.1] — 2026-09-09 — Android keyboard space restored
+
+- **Keyboard-open forms fit correctly** — Android 7–14 no longer reserve the keyboard area twice, removing the keyboard-sized blank strip reported on Samsung Android 10 with WebView 151.
+- **Verified on affected hardware** — The signed candidate was installed over v7.1.0 and the owner confirmed the issue is fixed on the reporting device.
+- **Sharper daily perspective** — The quote ticker uses a more urgent curated set at a quicker readable pace, while Public Board settings add an expandable honesty guide about the common ways focus time gets inflated.
+- **Android APK** — versionName **7.1.1**, versionCode **36**. Installs directly over **v7.1.0** with the same package ID and signing key; no uninstall, data reset, or migration is required.
+
+---
+
 ## [v7.1.0] — 2026-09-08 — Access YouDO your way
 
 - **Start locally or sign in** — New users can begin with an on-device workspace, then connect it safely from Settings when they want cloud backup and multi-device sync.

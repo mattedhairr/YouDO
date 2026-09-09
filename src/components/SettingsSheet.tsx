@@ -40,7 +40,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { requestAccountAccess, STORAGE_KEYS } from '../lib/storageKeys';
 import { hapticTick, setHapticsPreference } from '../lib/haptics';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
-import { PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
+import { PACE_CHEATING_GUIDE, PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
 import { todayISO } from '../lib/dates';
 import { checkAppUpdateStatus, type AppRelease } from '../lib/appUpdate';
 import { APP_VERSION } from '../lib/version';
@@ -1123,7 +1123,26 @@ export default function SettingsSheet({
                 </div>
               );
             })()}
-            <p className="text-[12px] leading-relaxed text-content-secondary">{PACE_HONEST_QUOTE}</p>
+            <details className="group overflow-hidden rounded-[12px] border border-subtle bg-base">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="text-[11.5px] font-semibold text-content-primary">How to cheat the Board</p>
+                  <p className="mt-0.5 text-[10px] text-content-muted">A shortcut to a better number and the same preparation.</p>
+                </div>
+                <ChevronRight size={15} className="shrink-0 text-primary transition-transform group-open:rotate-90" />
+              </summary>
+              <div className="border-t border-subtle px-3 pb-3 pt-2.5">
+                <p className="text-[10.5px] font-semibold text-content-secondary">Congratulations. You found the method:</p>
+                <ol className="mt-2 space-y-1.5 pl-4 text-[10.5px] leading-relaxed text-content-muted">
+                  {PACE_CHEATING_GUIDE.map((method) => (
+                    <li key={method} className="list-decimal pl-1">{method}</li>
+                  ))}
+                </ol>
+                <p className="mt-3 border-t border-subtle pt-3 text-[12px] font-semibold leading-relaxed text-content-primary">
+                  {PACE_HONEST_QUOTE}
+                </p>
+              </div>
+            </details>
           </div>
         </section>
 
