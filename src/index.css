@@ -1096,6 +1096,21 @@ input[type='datetime-local'] {
 .calendar-planned-heading { min-height: 36px; margin-bottom: 4px; }
 .calendar-add-task { height: 36px; padding: 0 11px; border-radius: 10px; }
 
+.auth-scroll-page {
+  height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
+.auth-centered-page {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  padding-top: max(1.25rem, var(--safe-area-top));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
 .auth-welcome { padding-top: max(1.25rem, var(--safe-area-top)); padding-bottom: max(1.75rem, env(safe-area-inset-bottom)); }
 .auth-brand { display: flex; justify-content: center; min-height: 48px; }
 .auth-hero { margin-top: 18px; }

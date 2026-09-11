@@ -123,7 +123,7 @@ function AuthWelcome({ allowOffline, onContinueOffline }: { allowOffline: boolea
   };
 
   return (
-    <div className="auth-welcome min-h-screen bg-base text-content-primary px-5 overflow-y-auto">
+    <div className="auth-scroll-page auth-welcome bg-base text-content-primary px-5">
       <div className="mx-auto w-full max-w-sm pb-8">
         <div className="auth-brand"><Brand /></div>
         <div className="auth-hero text-center">
@@ -205,7 +205,8 @@ function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-base px-5 text-content-primary grid place-items-center">
+    <div className="auth-scroll-page bg-base px-5 text-content-primary">
+      <div className="auth-centered-page">
       <div className="w-full max-w-sm rounded-[20px] border border-subtle bg-elevated p-5 shadow-elevated">
         <div className="flex justify-center"><Brand /></div>
         <div className="mt-4 text-center"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Account recovery</p><h1 className="mt-1.5 text-[22px] font-semibold">Choose a new password</h1><p className="mt-2 text-[11px] leading-relaxed text-content-secondary">Use a unique password with at least 10 characters.</p></div>
@@ -215,6 +216,7 @@ function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void
           {complete ? <button type="button" onClick={onComplete} className="flex h-11 w-full items-center justify-center gap-2 rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary">Continue to YouDO <ArrowRight size={15} /></button> : <button disabled={busy} className="h-11 w-full rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary disabled:opacity-50">{busy ? 'Securing account…' : 'Change password'}</button>}
           {!complete && <button type="button" disabled={busy} onClick={onCancel} className="h-10 w-full rounded-[11px] text-[11px] font-medium text-content-secondary">Back to sign in</button>}
         </form>
+      </div>
       </div>
     </div>
   );
@@ -242,7 +244,8 @@ function WorkspaceChoice({
   const summary = useMemo(readLocalWorkspaceSummary, []);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   return (
-    <div className="min-h-screen bg-base text-content-primary px-5 py-8 grid place-items-center">
+    <div className="auth-scroll-page bg-base text-content-primary px-5">
+      <div className="auth-centered-page">
       <div className="w-full max-w-sm rounded-[22px] border border-subtle bg-elevated p-5 shadow-elevated">
         <div className="size-12 rounded-[15px] bg-primary-soft text-primary grid place-items-center"><Cloud size={21} /></div>
         <p className="mt-4 text-[10px] uppercase tracking-[0.18em] text-primary font-semibold">Workspace safety check</p>
@@ -276,6 +279,7 @@ function WorkspaceChoice({
         {error && <p className="mt-3 rounded-[11px] bg-error-soft px-3 py-2.5 text-[11px] text-error">{error}</p>}
         {busy && <p className="mt-3 text-[11px] text-content-muted">Securing your workspace…</p>}
         <button disabled={busy} onClick={onCancel} className="mt-3 w-full h-10 rounded-[11px] border border-subtle text-[11px] text-content-secondary">Sign out</button>
+      </div>
       </div>
     </div>
   );
