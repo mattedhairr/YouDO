@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isAuthRecoveryUrl, resolveAuthRecoveryUrl, resolveAuthRedirectUrl } from '../lib/authRedirect';
+import { authErrorMessage } from '../lib/authError';
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
 import { supabase } from '../lib/supabase';
@@ -113,10 +114,14 @@ function AuthWelcome({ allowOffline, onContinueOffline }: { allowOffline: boolea
           },
         });
         if (error) throw error;
-        if (!data.session) setMessage({ text: 'Account created. Check your email to confirm it, then sign in.' });
+        if (!data.session) {
+          setMessage({
+            text: 'Almost done. Check your inbox and Spam for the YouDO verification email. You cannot sign in until you open its link.',
+          });
+        }
       }
     } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : 'Authentication failed.', error: true });
+      setMessage({ text: authErrorMessage(error, mode), error: true });
     } finally {
       setBusy(false);
     }
@@ -198,7 +203,7 @@ function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void
       setComplete(true);
       setMessage({ text: 'Password changed. Your account is ready.' });
     } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : 'Password could not be changed.', error: true });
+      setMessage({ text: authErrorMessage(error, 'password'), error: true });
     } finally {
       setBusy(false);
     }
