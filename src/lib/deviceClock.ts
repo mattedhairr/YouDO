@@ -6,11 +6,15 @@ export const CLOCK_SKEW_MS = 3 * 60 * 1000;
 /** If monotonic time barely moved, the WebView was frozen (screen lock) — not a clock change. */
 export const CLOCK_SLEEP_MONO_MAX_MS = 60_000;
 export const CLOCK_INCIDENT_KEY = 'youdo-clock-incident-v1';
+const CLOCK_BOUNDARY_KEY = 'youdo-clock-boundary-v1';
 
 let lastWall = Date.now();
 let lastMono = performance.now();
 let primed = false;
 let lastHiddenAt = 0;
+let requestSequence = 0;
+let clockCheck: Promise<ClockCheck> | null = null;
+let suspectedBoundary: number | null = null;
 
 const RECENT_BACKGROUND_MS = 8_000;
 
@@ -43,7 +47,7 @@ export type ClockSampleSource = 'tick' | 'resume' | 'guard';
 
 /**
  * Sleep (WebView frozen) is only trusted after the app was in the background.
- * The same wall/mono gap while visible is a real clock change.
+ * Other gaps are suspicions: suspension can delay visibility events too.
  */
 export function classifyClockGap(
   wallDelta: number,
@@ -68,6 +72,7 @@ export function noteClockSample(source: ClockSampleSource = 'guard'): { jumped: 
   const wall = Date.now();
   const mono = performance.now();
   const wallDelta = wall - lastWall;
+  const previousWall = lastWall;
   const monoDelta = mono - lastMono;
   lastWall = wall;
   lastMono = mono;
@@ -78,12 +83,14 @@ export function noteClockSample(source: ClockSampleSource = 'guard'): { jumped: 
   const effective: ClockSampleSource =
     source === 'resume' || wasRecentlyBackgrounded() ? 'resume' : source;
   const kind = classifyClockGap(wallDelta, monoDelta, effective);
+  if (kind === 'jump' && suspectedBoundary == null) suspectedBoundary = previousWall;
   return { jumped: kind === 'jump', slept: kind === 'sleep' };
 }
 
 export function markClockIncident(): void {
   try {
     localStorage.setItem(CLOCK_INCIDENT_KEY, '1');
+    if (suspectedBoundary != null) localStorage.setItem(CLOCK_BOUNDARY_KEY, String(suspectedBoundary));
   } catch {
     /* ignore */
   }
@@ -98,23 +105,32 @@ export function hasClockIncident(): boolean {
 }
 
 export function clearClockIncident(): void {
+  suspectedBoundary = null;
   try {
     localStorage.removeItem(CLOCK_INCIDENT_KEY);
+    localStorage.removeItem(CLOCK_BOUNDARY_KEY);
   } catch {
     /* ignore */
   }
   window.dispatchEvent(new Event(CLOCK_CLEARED_EVENT));
 }
 
+/** Preserve the sample before the jump, not a heartbeat written while checking. */
+export function clockIncidentBoundary(fallback: number): number {
+  if (!hasClockIncident()) return fallback;
+  let stored: number | null = null;
+  try { const raw = localStorage.getItem(CLOCK_BOUNDARY_KEY); stored = raw ? Number(raw) : null; } catch { /* unavailable */ }
+  const boundary = suspectedBoundary ?? stored;
+  return boundary != null && Number.isFinite(boundary) ? Math.min(fallback, boundary) : fallback;
+}
+
 export function emitClockJump(): void {
-  markClockIncident();
   window.dispatchEvent(new Event(CLOCK_JUMP_EVENT));
 }
 
 /**
- * Returns false only when the clock is already a proven incident, or jumped
- * while the app was actually running (not after screen lock).
- * Sleep gaps must not emit an incident or drop a session.
+ * Only a server-confirmed incident blocks controls. A local discrepancy requests
+ * verification, because WebView suspension can also interrupt monotonic samples.
  */
 export function guardWallClock(source: ClockSampleSource = 'guard'): boolean {
   if (hasClockIncident()) return false;
@@ -122,7 +138,6 @@ export function guardWallClock(source: ClockSampleSource = 'guard'): boolean {
   if (slept) return true;
   if (jumped) {
     emitClockJump();
-    return false;
   }
   return true;
 }
@@ -135,7 +150,7 @@ export async function fetchServerNowMs(): Promise<number | null> {
     const res = await fetchWithTimeout('https://worldtimeapi.org/api/timezone/Etc/UTC');
     if (!res.ok) return null;
     const body = (await res.json()) as { unixtime?: number };
-    if (typeof body.unixtime === 'number') return body.unixtime * 1000;
+    if (typeof body.unixtime === 'number' && Number.isFinite(body.unixtime)) return body.unixtime * 1000;
   } catch {
     /* ignore */
   }
@@ -146,7 +161,9 @@ async function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), ms);
   try {
-    return await fetch(url, { method: 'GET', signal: ctrl.signal });
+    const freshUrl = new URL(url);
+    freshUrl.searchParams.set('_youdo_clock', `${Date.now()}-${++requestSequence}`);
+    return await fetch(freshUrl.toString(), { method: 'GET', cache: 'no-store', signal: ctrl.signal });
   } finally {
     window.clearTimeout(timer);
   }
@@ -155,6 +172,7 @@ async function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
 async function readDateHeader(url: string): Promise<number | null> {
   try {
     const res = await fetchWithTimeout(url);
+    if (Number(res.headers.get('age') ?? 0) > 0) return null;
     const header = res.headers.get('date');
     if (!header) return null;
     const parsed = Date.parse(header);
@@ -171,11 +189,35 @@ export function isDeviceSkewedFromServer(serverMs: number, deviceMs = Date.now()
 export type ClockCheck = 'ok' | 'skewed' | 'unknown';
 
 export async function checkDeviceClock(): Promise<ClockCheck> {
-  const serverMs = await fetchServerNowMs();
-  if (serverMs == null) return 'unknown';
-  if (isDeviceSkewedFromServer(serverMs)) return 'skewed';
-  resetClockSample();
-  return 'ok';
+  if (clockCheck) return clockCheck;
+  clockCheck = (async (): Promise<ClockCheck> => {
+    const sample = async () => {
+      const before = performance.now();
+      const server = await fetchServerNowMs();
+      const elapsed = performance.now() - before;
+      // Long or interrupted requests cannot establish a precise clock offset.
+      return server == null || elapsed < 0 || elapsed > 15_000 ? null : Date.now() - server - elapsed / 2;
+    };
+    const accept = (): ClockCheck => {
+      resetClockSample();
+      suspectedBoundary = null;
+      if (hasClockIncident()) clearClockIncident();
+      return 'ok';
+    };
+    const first = await sample();
+    if (first == null) return 'unknown';
+    if (Math.abs(first) <= CLOCK_SKEW_MS) return accept();
+    const second = await sample();
+    if (second == null) return 'unknown';
+    if (Math.abs(second) <= CLOCK_SKEW_MS) return accept();
+    return Math.sign(first) === Math.sign(second) && Math.abs(first - second) <= 30_000 ? 'skewed' : 'unknown';
+  })();
+  try {
+    const result = await clockCheck;
+    if (result === 'unknown' && !hasClockIncident()) suspectedBoundary = null;
+    return result;
+  }
+  finally { clockCheck = null; }
 }
 
 /** Sign-in / sign-up: block only when the device is proven skewed. CORS often hides Date. */

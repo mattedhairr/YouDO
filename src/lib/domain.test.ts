@@ -474,11 +474,11 @@ describe('session math', () => {
     expect(slices[0].netFocusMs + slices[1].netFocusMs).toBe(end - start);
   });
 
-  it('does not move lastHeartbeat on a stale gap (phone was away)', () => {
+  it('resumes foreground heartbeats after ordinary phone-aside time', () => {
     const stale = { ...base, lastHeartbeat: 1_000_000 };
     const later = 1_000_000 + STALE_HEARTBEAT_MS + 1;
-    expect(tickActiveSession(stale, later)).toBe(stale);
-    expect(shouldOfferSessionRecovery(stale, later)).toBe(true);
+    expect(tickActiveSession(stale, later).lastHeartbeat).toBe(later);
+    expect(shouldOfferSessionRecovery(stale, later)).toBe(false);
   });
 
   it('pauses at 4h of continuous foreground time, not at wake', () => {

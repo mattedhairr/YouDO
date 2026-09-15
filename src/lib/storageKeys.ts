@@ -16,12 +16,13 @@ export const STORAGE_KEYS = {
   workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
   workspaceCloudFingerprint: 'youdo-workspace-cloud-fingerprint-v1',
   workspaceOwner: 'youdo-workspace-owner-v1',
+  workspaceReplacement: 'youdo-workspace-replacement-v1',
   offlineMode: 'youdo-offline-mode-v1',
 } as const;
 
 export const REQUEST_ACCOUNT_ACCESS_EVENT = 'youdo:request-account-access';
 
-const WORKSPACE_KEYS = [
+export const WORKSPACE_KEYS = [
   STORAGE_KEYS.tasks,
   STORAGE_KEYS.goals,
   STORAGE_KEYS.deletedGoals,
@@ -32,6 +33,7 @@ const WORKSPACE_KEYS = [
   STORAGE_KEYS.paceRankSnapshot,
   STORAGE_KEYS.workspaceUpdatedAt,
   STORAGE_KEYS.workspaceCloudFingerprint,
+  STORAGE_KEYS.goalPathIds,
 ] as const;
 
 const LEGACY_ALIASES: Record<string, string[]> = {

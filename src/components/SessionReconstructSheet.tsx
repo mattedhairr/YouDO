@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Check, CheckCircle2, Clock, X } from 'lucide-react';
 import Overlay from './Overlay';
 import type { ActiveSession, Task } from '../types';
-import { computeNetFocusMs, MAX_CONTINUOUS_FOCUS_MS } from '../lib/sessionStats';
+import { computeNetFocusMs, MAX_CONTINUOUS_FOCUS_MS, safetyCapEnd } from '../lib/sessionStats';
 import { formatDuration, formatWallClock } from '../lib/format';
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
 
 export function SessionReconstructSheet({ open, task, session, onCancel, onWasNotWorking, onSave, error }: Props) {
   const openedAt = useMemo(() => Date.now(), []);
-  const span = Math.max(1, openedAt - session.startTime);
+  const span = Math.max(1, safetyCapEnd(session, openedAt) - session.startTime);
   const [t, setT] = useState(() =>
     span <= MAX_CONTINUOUS_FOCUS_MS ? 0.5 : MAX_CONTINUOUS_FOCUS_MS / span,
   );

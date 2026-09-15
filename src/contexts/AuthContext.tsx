@@ -9,7 +9,8 @@ import {
   upsertLiveBackup,
   type VisitSnapshotMeta,
 } from '../lib/cloudBackup';
-import { createCredentialVerificationClient, supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { changeVerifiedCredentials } from '../lib/accountCredentials';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { clearWorkspaceStorage, clearYouDoStorage } from '../lib/storageKeys';
 
@@ -29,10 +30,10 @@ interface AuthContextType {
   changePassword: (currentPassword: string, nextPassword: string) => Promise<AuthActionResult>;
   updateCloudBackup: (
     backupData: unknown,
-    options?: { expectedUpdatedAt?: string | null },
+    options?: { expectedUpdatedAt?: string | null; expectedUserId?: string },
   ) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
-  fetchLiveBackupInfo: () => Promise<{ backupData: string; updatedAt: string } | null>;
+  fetchLiveBackupInfo: (expectedUserId?: string) => Promise<{ backupData: string; updatedAt: string } | null>;
   listVisitSnapshots: () => Promise<VisitSnapshotMeta[]>;
   fetchVisitSnapshot: (snapshotId: string) => Promise<string | null>;
 }
@@ -127,17 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const verifyCurrentPassword = async (password: string): Promise<AuthActionResult> => {
-    const email = user?.email;
-    if (!email) return { ok: false, error: 'No email is attached to this account.' };
-    const verificationClient = createCredentialVerificationClient();
-    const { data, error } = await verificationClient.auth.signInWithPassword({ email, password });
-    if (error || !data.session) return { ok: false, error: 'Current password is incorrect.' };
-    const { error: cleanupError } = await verificationClient.auth.signOut({ scope: 'local' });
-    if (cleanupError) return { ok: false, error: 'Password verified, but the temporary security check could not be closed. Try again.' };
-    return { ok: true };
-  };
-
   const changeEmail = async (currentPassword: string, nextEmail: string): Promise<AuthActionResult> => {
     try {
       const cleanEmail = nextEmail.trim().toLowerCase();
@@ -147,17 +137,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cleanEmail === user?.email?.toLowerCase()) {
         return { ok: false, error: 'That is already your account email.' };
       }
-      const verified = await verifyCurrentPassword(currentPassword);
-      if (!verified.ok) return verified;
+      if (!user) return { ok: false, error: 'Sign in before changing your email.' };
       const emailRedirectTo = resolveAuthRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL);
-      const { data, error } = await supabase.auth.updateUser({ email: cleanEmail }, { emailRedirectTo });
-      if (error) throw error;
-      if (data.user) setUser(data.user);
+      const result = await changeVerifiedCredentials(user, currentPassword, { email: cleanEmail }, { emailRedirectTo });
+      if (!result.ok) return result;
+      const updated = result.user;
+      if (updated) setUser(current => current?.id === updated.id ? updated : current);
       return {
         ok: true,
-        message: data.user?.new_email
+        message: (updated?.new_email
           ? 'Email change requested. Check both your current and new inboxes.'
-          : 'Account email changed.',
+          : 'Account email changed.') + (result.cleanupWarning ? ' The temporary security session could not be closed; review your account sessions when connected.' : ''),
       };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Unable to change email.' };
@@ -168,12 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (nextPassword.length < 10) return { ok: false, error: 'Use at least 10 characters.' };
       if (nextPassword === currentPassword) return { ok: false, error: 'Choose a different password.' };
-      const verified = await verifyCurrentPassword(currentPassword);
-      if (!verified.ok) return verified;
-      const { data, error } = await supabase.auth.updateUser({ password: nextPassword });
-      if (error) throw error;
-      if (data.user) setUser(data.user);
-      return { ok: true, message: 'Password changed.' };
+      if (!user) return { ok: false, error: 'Sign in before changing your password.' };
+      const result = await changeVerifiedCredentials(user, currentPassword, { password: nextPassword });
+      if (!result.ok) return result;
+      const updated = result.user;
+      if (updated) setUser(current => current?.id === updated.id ? updated : current);
+      return { ok: true, message: 'Password changed. Use your new password when asked to sign in again.' + (result.cleanupWarning ? ' The temporary security session could not be closed; review your account sessions when connected.' : '') };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Unable to change password.' };
     }
@@ -181,11 +171,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateCloudBackup = async (
     backupData: unknown,
-    options?: { expectedUpdatedAt?: string | null },
+    options?: { expectedUpdatedAt?: string | null; expectedUserId?: string },
   ): Promise<{ ok: boolean; error?: string }> => {
     try {
       const userId = await currentUserId();
       if (!userId) return { ok: false, error: 'No active user session found. Please sign in again.' };
+      if (userId !== (options?.expectedUserId ?? user?.id)) return { ok: false, error: 'Account changed. This workspace was not uploaded.' };
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
       return await upsertLiveBackup(userId, jsonStr, options);
     } catch (err: unknown) {
@@ -206,10 +197,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchLiveBackupInfo = async () => {
+  const fetchLiveBackupInfo = async (expectedUserId?: string) => {
     const userId = await currentUserId();
+    if (expectedUserId && userId !== expectedUserId) throw new Error('Account changed. Cloud inspection stopped.');
     if (!userId) return null;
-    return fetchLiveBackupMeta(userId);
+    const result = await fetchLiveBackupMeta(userId);
+    if (await currentUserId() !== userId) throw new Error('Account changed. Cloud inspection stopped.');
+    return result;
   };
 
   const listVisitSnapshotsForUser = async () => {

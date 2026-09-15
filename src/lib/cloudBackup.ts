@@ -38,6 +38,7 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
     freezeState = { userId, done: false };
   }
   if (freezeState.done) return;
+  const visit = freezeState;
 
   const { data: live, error: liveErr } = await supabase
     .from('user_backups')
@@ -47,7 +48,7 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
 
   if (liveErr) return;
   if (!live?.backup_data) {
-    freezeState.done = true;
+    visit.done = true;
     return;
   }
 
@@ -62,7 +63,7 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
   const latestFingerprint = latest?.backup_data ? backupContentFingerprint(latest.backup_data) : null;
   const liveFingerprint = backupContentFingerprint(live.backup_data);
   if (latestFingerprint && liveFingerprint && latestFingerprint === liveFingerprint) {
-    freezeState.done = true;
+    visit.done = true;
     return;
   }
 
@@ -75,12 +76,12 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
     const missing = /does not exist|schema cache/i.test(insertErr.message);
     if (missing) {
       console.warn('[YouDO] user_backup_snapshots table not found — visit snapshots unavailable.');
-      freezeState.done = true;
+      visit.done = true;
     }
     return;
   }
   await pruneVisitSnapshots(userId);
-  freezeState.done = true;
+  visit.done = true;
 }
 
 const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
@@ -90,14 +91,21 @@ export async function upsertLiveBackup(
   jsonStr: string,
   options?: { expectedUpdatedAt?: string | null },
 ): Promise<{ ok: boolean; error?: string }> {
-  if (jsonStr.length > MAX_BACKUP_BYTES) {
+  const bytes = new TextEncoder().encode(jsonStr).byteLength;
+  if (bytes > MAX_BACKUP_BYTES) {
     return {
       ok: false,
-      error: `Backup is too large (${(jsonStr.length / 1024 / 1024).toFixed(1)} MB). In Settings, trim sittings older than 90 days, then tap Sync now.`,
+      error: `Backup is too large (${(bytes / 1024 / 1024).toFixed(1)} MB). In Settings, trim sittings older than 90 days, then tap Sync now.`,
     };
   }
 
+  const matchesAccount = async () => {
+    const { data, error } = await supabase.auth.getSession();
+    return !error && data.session?.user.id === userId;
+  };
+  if (!await matchesAccount()) return { ok: false, error: 'Account changed. Sync stopped before uploading this workspace.' };
   await freezeLiveBackupForVisit(userId);
+  if (!await matchesAccount()) return { ok: false, error: 'Account changed. Sync stopped before uploading this workspace.' };
   const now = new Date().toISOString();
   if (options && 'expectedUpdatedAt' in options) {
     if (options.expectedUpdatedAt) {
@@ -186,7 +194,8 @@ export async function fetchLiveBackupMeta(
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error || !data?.backup_data) return null;
+  if (error) throw new Error('Could not read the cloud backup. Reconnect and try again; the device copy was preserved.');
+  if (!data?.backup_data) return null;
   return { backupData: data.backup_data as string, updatedAt: data.updated_at as string };
 }
 

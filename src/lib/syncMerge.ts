@@ -108,16 +108,21 @@ function goalIdSet(nodes: GoalNode[]): Set<string> {
   return ids;
 }
 
-function keepTasksForRecoveredBranches(primary: WorkspaceSlice, secondary: WorkspaceSlice, goals: GoalNode[]): Task[] {
+function keepTasksForRecoveredBranches(primary: WorkspaceSlice, secondary: WorkspaceSlice, goals: GoalNode[], deleted: Set<string>): Task[] {
   const result = [...(primary.tasks ?? [])];
   const taskIds = new Set(result.map((task) => task.id));
   const primaryGoalIds = goalIdSet(primary.goals ?? []);
   const mergedGoalIds = goalIdSet(goals);
   for (const task of secondary.tasks ?? []) {
-    if (!task?.id || taskIds.has(task.id) || !task.goalNodeId) continue;
-    if (mergedGoalIds.has(task.goalNodeId) && !primaryGoalIds.has(task.goalNodeId)) {
+    if (!task?.id || taskIds.has(task.id) || (task.goalNodeId && deleted.has(task.goalNodeId))) continue;
+    if (task.goalNodeId && mergedGoalIds.has(task.goalNodeId) && !primaryGoalIds.has(task.goalNodeId)) {
       result.push(task);
       taskIds.add(task.id);
+    } else {
+      // Legacy backups have no per-task deletion markers. Absence could mean a
+      // deletion OR independent work; neither silently dropping nor restoring it
+      // is justified. Keep both copies unchanged for an explicit restore decision.
+      throw new Error('YouDO cannot safely combine these copies because a task exists on only one device. Export both copies before choosing which workspace to keep. Nothing was replaced.');
     }
   }
   return result;
@@ -150,7 +155,7 @@ export function mergeSessionHistories(
  */
 export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): WorkspaceSlice {
   const trash = mergeTrash(local.recentlyDeletedGoals ?? [], remote.recentlyDeletedGoals ?? []);
-  const deleted = deletedNodeIds(trash);
+  const deleted = deletedNodeIds([...(local.recentlyDeletedGoals ?? []), ...(remote.recentlyDeletedGoals ?? [])]);
   const sessionHistory = mergeSessionHistories(local.sessionHistory, remote.sessionHistory);
 
   const localAt = local.updatedAt ?? 0;
@@ -162,7 +167,7 @@ export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): W
     const primary = localAt >= remoteAt ? local : remote;
     const secondary = primary === local ? remote : local;
     goals = mergeGoalLists(primary.goals ?? [], secondary.goals ?? []);
-    tasks = keepTasksForRecoveredBranches(primary, secondary, goals);
+    tasks = keepTasksForRecoveredBranches(primary, secondary, goals, deleted);
   } else {
     goals = unionGoalList(local.goals ?? [], remote.goals ?? []);
     tasks = unionTasks(local.tasks ?? [], remote.tasks ?? []);

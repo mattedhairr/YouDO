@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,11 +12,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { isAuthRecoveryUrl, resolveAuthRecoveryUrl, resolveAuthRedirectUrl } from '../lib/authRedirect';
+import { authErrorMessage } from '../lib/authError';
+import { canOpenAccountWorkspace } from '../lib/workspaceAccess';
+import { assertWorkspaceUnchanged, captureWorkspace, commitWorkspaceReplacement, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from '../lib/workspaceReplacement';
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
 import { supabase } from '../lib/supabase';
 import {
-  clearWorkspaceStorage,
   readOfflineMode,
   readLocalWorkspaceSummary,
   readStorageRaw,
@@ -28,7 +30,7 @@ import {
   writeWorkspaceOwner,
 } from '../lib/storageKeys';
 
-type GateState = 'checking' | 'ready' | 'legacy' | 'mismatch';
+type GateState = 'checking' | 'ready' | 'legacy' | 'mismatch' | 'failed';
 
 function Brand() {
   return (
@@ -47,7 +49,7 @@ function readJson(key: string, fallback: unknown): unknown {
     const raw = readStorageRaw(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return fallback;
+    throw new Error('Part of the device workspace is unreadable. It was not uploaded. Keep app data intact and seek help before trying a replacement.');
   }
 }
 
@@ -113,17 +115,21 @@ function AuthWelcome({ allowOffline, onContinueOffline }: { allowOffline: boolea
           },
         });
         if (error) throw error;
-        if (!data.session) setMessage({ text: 'Account created. Check your email to confirm it, then sign in.' });
+        if (!data.session) {
+          setMessage({
+            text: 'Almost done. Check your inbox and Spam for the YouDO verification email. You cannot sign in until you open its link.',
+          });
+        }
       }
     } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : 'Authentication failed.', error: true });
+      setMessage({ text: authErrorMessage(error, mode), error: true });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="auth-welcome min-h-screen bg-base text-content-primary px-5 overflow-y-auto">
+    <div className="auth-scroll-page auth-welcome bg-base text-content-primary px-5">
       <div className="mx-auto w-full max-w-sm pb-8">
         <div className="auth-brand"><Brand /></div>
         <div className="auth-hero text-center">
@@ -198,14 +204,15 @@ function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void
       setComplete(true);
       setMessage({ text: 'Password changed. Your account is ready.' });
     } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : 'Password could not be changed.', error: true });
+      setMessage({ text: authErrorMessage(error, 'password'), error: true });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-base px-5 text-content-primary grid place-items-center">
+    <div className="auth-scroll-page bg-base px-5 text-content-primary">
+      <div className="auth-centered-page">
       <div className="w-full max-w-sm rounded-[20px] border border-subtle bg-elevated p-5 shadow-elevated">
         <div className="flex justify-center"><Brand /></div>
         <div className="mt-4 text-center"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Account recovery</p><h1 className="mt-1.5 text-[22px] font-semibold">Choose a new password</h1><p className="mt-2 text-[11px] leading-relaxed text-content-secondary">Use a unique password with at least 10 characters.</p></div>
@@ -215,6 +222,7 @@ function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void
           {complete ? <button type="button" onClick={onComplete} className="flex h-11 w-full items-center justify-center gap-2 rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary">Continue to YouDO <ArrowRight size={15} /></button> : <button disabled={busy} className="h-11 w-full rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary disabled:opacity-50">{busy ? 'Securing account…' : 'Change password'}</button>}
           {!complete && <button type="button" disabled={busy} onClick={onCancel} className="h-10 w-full rounded-[11px] text-[11px] font-medium text-content-secondary">Back to sign in</button>}
         </form>
+      </div>
       </div>
     </div>
   );
@@ -242,7 +250,8 @@ function WorkspaceChoice({
   const summary = useMemo(readLocalWorkspaceSummary, []);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   return (
-    <div className="min-h-screen bg-base text-content-primary px-5 py-8 grid place-items-center">
+    <div className="auth-scroll-page bg-base text-content-primary px-5">
+      <div className="auth-centered-page">
       <div className="w-full max-w-sm rounded-[22px] border border-subtle bg-elevated p-5 shadow-elevated">
         <div className="size-12 rounded-[15px] bg-primary-soft text-primary grid place-items-center"><Cloud size={21} /></div>
         <p className="mt-4 text-[10px] uppercase tracking-[0.18em] text-primary font-semibold">Workspace safety check</p>
@@ -260,7 +269,7 @@ function WorkspaceChoice({
 
         <div className="mt-5 space-y-2.5">
           {!mismatch && <button disabled={busy} onClick={onUseDevice} className="w-full rounded-[14px] border border-primary/30 bg-primary-soft p-3.5 text-left disabled:opacity-60"><span className="flex items-center gap-2 text-[13px] font-semibold"><ShieldCheck size={16} className="text-primary" /> Keep this device plan</span><span className="block mt-1 text-[11px] text-content-secondary">Securely replaces this account’s cloud workspace with the plan on this device.</span></button>}
-          {remoteAvailable && <button disabled={busy || summary.activeSession} onClick={onRestore} className="w-full rounded-[14px] border border-subtle bg-surface p-3.5 text-left disabled:opacity-40"><span className="flex items-center gap-2 text-[13px] font-semibold"><Cloud size={16} className="text-secondary" /> Restore cloud workspace</span><span className="block mt-1 text-[11px] text-content-secondary">Clears this device cache, then downloads the signed-in account's copy.</span></button>}
+          {remoteAvailable && <button disabled={busy || summary.activeSession} onClick={onRestore} className="w-full rounded-[14px] border border-subtle bg-surface p-3.5 text-left disabled:opacity-40"><span className="flex items-center gap-2 text-[13px] font-semibold"><Cloud size={16} className="text-secondary" /> Restore cloud workspace</span><span className="block mt-1 text-[11px] text-content-secondary">Downloads and checks your cloud copy before safely replacing this device workspace.</span></button>}
           {!remoteAvailable && mismatch && <button disabled={busy || summary.activeSession} onClick={() => setConfirmEmpty(true)} className="w-full rounded-[14px] border border-primary/30 bg-primary-soft p-3.5 text-left disabled:opacity-40"><span className="flex items-center gap-2 text-[13px] font-semibold"><CheckCircle2 size={16} className="text-primary" /> Start this account clean</span><span className="block mt-1 text-[11px] text-content-secondary">Removes the other account's device cache and opens an empty workspace.</span></button>}
           {!mismatch && <button disabled={busy || summary.activeSession} onClick={() => setConfirmEmpty(true)} className="w-full h-10 text-[11px] text-content-muted disabled:opacity-40">Start empty instead</button>}
         </div>
@@ -277,20 +286,32 @@ function WorkspaceChoice({
         {busy && <p className="mt-3 text-[11px] text-content-muted">Securing your workspace…</p>}
         <button disabled={busy} onClick={onCancel} className="mt-3 w-full h-10 rounded-[11px] border border-subtle text-[11px] text-content-secondary">Sign out</button>
       </div>
+      </div>
     </div>
   );
 }
 
 export default function AuthGate({ children }: { children: ReactNode }) {
-  const { user, loading, signOut, updateCloudBackup, fetchCloudBackup } = useAuth();
+  const { user, loading, signOut, updateCloudBackup, fetchLiveBackupInfo } = useAuth();
   useTheme();
   const [gate, setGate] = useState<GateState>('checking');
+  const [inspectedUserId, setInspectedUserId] = useState<string | null>(null);
+  const [inspectionRevision, setInspectionRevision] = useState(0);
+  const currentUserId = useRef(user?.id ?? null);
+  currentUserId.current = user?.id ?? null;
   const [remoteAvailable, setRemoteAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineMode, setOfflineMode] = useState(() => readOfflineMode() && !readWorkspaceOwner());
   const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl(window.location.search));
   const [initialBootComplete, setInitialBootComplete] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(() => {
+    try { recoverWorkspaceReplacement(); return null; }
+    catch (failure) { return failure instanceof Error ? failure.message : 'YouDO could not read device storage. Keep app data intact and retry.'; }
+  });
+  const operationRef = useRef(false);
+
+  useEffect(() => { setBusy(false); setError(null); }, [user?.id]);
 
   useEffect(() => {
     const requestAccount = () => {
@@ -309,34 +330,60 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    if (loading || !user) {
+    if (loading || !user || recoveryError) {
       setGate('checking');
       return () => { cancelled = true; };
     }
 
     const inspect = async () => {
+      const finish = (next: GateState) => {
+        if (!cancelled) { setInspectedUserId(user.id); setGate(next); }
+      };
       const owner = readWorkspaceOwner();
       const summary = readLocalWorkspaceSummary();
       if (owner === user.id) {
-        if (!cancelled) setGate('ready');
+        finish('ready');
         return;
       }
       if (owner && owner !== user.id) {
-        const remote = await fetchCloudBackup();
-        if (!cancelled) { setRemoteAvailable(Boolean(remote)); setGate('mismatch'); }
+        const remote = await fetchLiveBackupInfo(user.id);
+        if (!cancelled) { setRemoteAvailable(Boolean(remote)); finish('mismatch'); }
         return;
       }
       if (summary.hasData) {
-        const remote = await fetchCloudBackup();
-        if (!cancelled) { setRemoteAvailable(Boolean(remote)); setGate('legacy'); }
+        const remote = await fetchLiveBackupInfo(user.id);
+        if (!cancelled) { setRemoteAvailable(Boolean(remote)); finish('legacy'); }
         return;
       }
       writeWorkspaceOwner(user.id);
-      if (!cancelled) setGate('ready');
+      finish('ready');
     };
-    void inspect();
+    void inspect().catch(failure => {
+      if (!cancelled) {
+        setError(failure instanceof Error ? failure.message : 'Could not check the cloud copy. Your device data has not been cleared.');
+        setInspectedUserId(user.id);
+        setGate('failed');
+      }
+    });
     return () => { cancelled = true; };
-  }, [loading, user, fetchCloudBackup]);
+  }, [loading, user, fetchLiveBackupInfo, inspectionRevision, recoveryError]);
+
+  useEffect(() => {
+    const recheckOwner = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== STORAGE_KEYS.workspaceOwner && event.key !== STORAGE_KEYS.workspaceReplacement) return;
+      // Another window may still be writing. Do not roll its checkpoint back;
+      // stay closed until that window finishes or the user explicitly retries.
+      try {
+        setRecoveryError(localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null
+          ? 'A workspace replacement is pending. Close other YouDO windows before retrying recovery here.' : null);
+      } catch { setRecoveryError('Device storage is unavailable. Keep app data intact and retry.'); }
+      setGate('checking');
+      setInspectedUserId(null);
+      setInspectionRevision(value => value + 1);
+    };
+    window.addEventListener('storage', recheckOwner);
+    return () => window.removeEventListener('storage', recheckOwner);
+  }, []);
 
   const bootDestinationReady = !loading && (passwordRecovery || !user || gate !== 'checking');
   useEffect(() => {
@@ -346,6 +393,13 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [bootDestinationReady, initialBootComplete]);
 
+  const retryInspection = () => {
+    try { recoverWorkspaceReplacement(); setRecoveryError(null); setError(null); setGate('checking'); setInspectionRevision(value => value + 1); }
+    catch (failure) { setRecoveryError(failure instanceof Error ? failure.message : 'Device recovery could not finish.'); }
+  };
+  if (recoveryError || gate === 'failed') {
+    return <div className="auth-scroll-page bg-base px-5 text-content-primary"><div className="auth-centered-page"><main className="w-full max-w-sm rounded-[20px] border border-subtle bg-elevated p-5"><h1 className="text-xl font-semibold">Workspace check paused</h1><p role="alert" className="my-4 text-sm leading-relaxed text-content-secondary">{recoveryError || error}</p><p className="mb-4 text-xs text-content-muted">Do not clear app data or reinstall. Close other YouDO windows before retrying.</p><button className="w-full rounded-xl bg-primary p-3 font-semibold text-on-primary" onClick={retryInspection}>Retry safely</button></main></div></div>;
+  }
   if (!initialBootComplete) {
     const progress = bootDestinationReady ? 100 : loading ? 12 : 68;
     const label = bootDestinationReady ? 'Ready' : loading ? 'Checking session' : 'Checking workspace';
@@ -357,31 +411,83 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     setPasswordRecovery(false);
   };
   if (passwordRecovery) return <PasswordRecoveryGate onComplete={leaveRecovery} onCancel={() => { void supabase.auth.signOut({ scope: 'local' }).finally(leaveRecovery); }} />;
-  if (!user && offlineMode && !readWorkspaceOwner()) return <>{children}</>;
+  if (!user && offlineMode && !readWorkspaceOwner()) return <Fragment key="offline">{children}</Fragment>;
   if (!user) return <AuthWelcome allowOffline={!readWorkspaceOwner()} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
-  if (gate === 'checking') return <LoadingGate progress={68} label="Checking workspace" />;
-  if (gate === 'ready') return <>{children}</>;
+  if (gate === 'checking' || inspectedUserId !== user.id) return <LoadingGate progress={68} label="Checking workspace" />;
+  if (gate === 'ready') {
+    if (canOpenAccountWorkspace(user.id, inspectedUserId, readWorkspaceOwner())) return <Fragment key={user.id}>{children}</Fragment>;
+    return <div className="auth-screen"><main className="m-auto max-w-md p-6 text-center"><h1 className="text-xl font-semibold">Workspace could not be opened</h1><p className="my-4 text-content-secondary">The account boundary could not be saved on this device. Your existing data has not been cleared. Allow device storage, then retry.</p><button className="rounded-xl bg-primary p-3 text-on-primary" onClick={() => { setGate('checking'); setInspectionRevision(value => value + 1); }}>Retry</button></main></div>;
+  }
 
-  const replaceCloud = async (payload: unknown, beforeOpen?: () => void): Promise<boolean> => {
-    setBusy(true);
-    setError(null);
-    const result = await updateCloudBackup(payload);
-    if (!result.ok) {
-      setError(result.error || 'Could not secure this workspace.');
-      setBusy(false);
-      return false;
-    }
-    beforeOpen?.();
-    writeWorkspaceOwner(user.id);
-    setBusy(false);
-    setGate('ready');
-    return true;
+  const reportChoiceFailure = (failure: unknown) => {
+    setError(failure instanceof Error ? failure.message : 'Could not save this workspace on the device.');
+    try {
+      if (localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null) setRecoveryError('The previous device copy needs recovery. Close other YouDO windows and retry safely.');
+    } catch { setRecoveryError('Device storage is unavailable. Keep app data intact and retry.'); }
   };
 
-  const startEmpty = () => replaceCloud({
-    app: 'YouDO', version: APP_VERSION, exportedAt: new Date().toISOString(), updatedAt: Date.now(),
-    tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], streakMeta: null, pacePrefs: null,
-  }, () => clearWorkspaceStorage());
+  const replaceCloud = async (empty: boolean): Promise<boolean> => {
+    if (operationRef.current) return false;
+    operationRef.current = true;
+    setBusy(true);
+    setError(null);
+    const targetUserId = user.id;
+    try {
+      const payload = empty
+        ? { app: 'YouDO', version: APP_VERSION, exportedAt: new Date().toISOString(), updatedAt: Date.now(),
+          tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], streakMeta: null, pacePrefs: null }
+        : localBackupPayload();
+      const before = captureWorkspace();
+      assertWorkspaceUnchanged(before);
+      if (!empty && before[STORAGE_KEYS.workspaceOwner] !== null && before[STORAGE_KEYS.workspaceOwner] !== targetUserId) {
+        throw new Error('Another account now owns this device copy. Nothing was uploaded. Reopen YouDO to review the account choice.');
+      }
+      if (empty && before[STORAGE_KEYS.activeSession] !== null && before[STORAGE_KEYS.activeSession] !== 'null') {
+        throw new Error('Finish the saved focus session before choosing an empty workspace.');
+      }
+      const next = empty ? prepareWorkspaceReplacement(JSON.stringify(payload), targetUserId) : null;
+      const remote = await fetchLiveBackupInfo(targetUserId);
+      if (currentUserId.current !== targetUserId) return false;
+      assertWorkspaceUnchanged(before);
+      const result = await updateCloudBackup(payload, { expectedUserId: targetUserId, expectedUpdatedAt: remote?.updatedAt ?? null });
+      if (currentUserId.current !== targetUserId) return false;
+      if (!result.ok) throw new Error(result.error || 'Could not secure this workspace.');
+      assertWorkspaceUnchanged(before);
+      if (next) commitWorkspaceReplacement(before, next);
+      // Unlike the permissive preference helper, a failed owner write must not
+      // let the gate claim that the account has been attached successfully.
+      else localStorage.setItem(STORAGE_KEYS.workspaceOwner, targetUserId);
+      setGate('ready');
+      return true;
+    } catch (failure) {
+      if (currentUserId.current === targetUserId) {
+        reportChoiceFailure(failure);
+      }
+      return false;
+    } finally {
+      operationRef.current = false;
+      if (currentUserId.current === targetUserId) setBusy(false);
+    }
+  };
+
+  const restoreCloud = async () => {
+    if (operationRef.current) return;
+    operationRef.current = true;
+    const targetUserId = user.id;
+    setBusy(true); setError(null);
+    try {
+      await restoreAccountWorkspace({ accountId: targetUserId, currentAccountId: () => currentUserId.current,
+        fetchBackup: async () => (await fetchLiveBackupInfo(targetUserId))?.backupData ?? null });
+      setGate('ready');
+    } catch (failure) {
+      if (currentUserId.current === targetUserId) {
+        reportChoiceFailure(failure);
+      }
+    } finally {
+      operationRef.current = false;
+      if (currentUserId.current === targetUserId) setBusy(false);
+    }
+  };
 
   return (
     <WorkspaceChoice
@@ -389,9 +495,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       remoteAvailable={remoteAvailable}
       busy={busy}
       error={error}
-      onUseDevice={() => void replaceCloud(localBackupPayload())}
-      onRestore={() => { clearWorkspaceStorage(); writeWorkspaceOwner(user.id); setGate('ready'); }}
-      onStartEmpty={() => void startEmpty()}
+      onUseDevice={() => void replaceCloud(false)}
+      onRestore={() => void restoreCloud()}
+      onStartEmpty={() => void replaceCloud(true)}
       onCancel={() => void signOut({ clearWorkspace: false })}
     />
   );

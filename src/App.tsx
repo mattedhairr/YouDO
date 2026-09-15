@@ -32,7 +32,7 @@ import { SessionStopDialog } from './components/SessionStopDialog';
 import { SessionReconstructSheet } from './components/SessionReconstructSheet';
 import { useTheme } from './hooks/useTheme';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
-import { assertDeviceClock, clearClockIncident } from './lib/deviceClock';
+import { checkDeviceClock, clearClockIncident } from './lib/deviceClock';
 import UpdateNotice from './components/UpdateNotice';
 import { useCommunityActivity } from './hooks/useCommunityActivity';
 import { useAuth } from './contexts/AuthContext';
@@ -226,6 +226,7 @@ function AppInner() {
 
   const {
     activeSession,
+    sessionStorageError,
     startSession,
     pauseSession,
     resumeSession,
@@ -1039,6 +1040,10 @@ function AppInner() {
 
   return (
     <div className="min-h-screen">
+      {sessionStorageError && <div role="alert" className="fixed left-4 right-4 top-[max(1rem,var(--safe-area-top))] z-[10000] mx-auto max-w-md rounded-2xl border border-error/40 bg-surface p-4 text-sm text-content-primary shadow-elevated">
+        <p className="mb-1 font-semibold text-error">Timer change could not be saved</p>
+        <p>{sessionStorageError}</p>
+      </div>}
       {sessionBootHold && (
         <div
           className="fixed inset-0 z-[2000] bg-base"
@@ -1714,10 +1719,10 @@ function AppInner() {
                 onClick={async () => {
                   setClockVerifyError(null);
                   setClockVerifyBusy(true);
-                  const clock = await assertDeviceClock();
+                  const clock = await checkDeviceClock();
                   setClockVerifyBusy(false);
-                  if (!clock.ok) {
-                    setClockVerifyError(clock.reason ?? 'Still mismatched. Set automatic date & time.');
+                  if (clock !== 'ok') {
+                    setClockVerifyError(clock === 'unknown' ? 'Server time could not be checked. Reconnect and try again, or choose Continue anyway.' : 'Still mismatched. Set automatic date & time.');
                     return;
                   }
                   clearClockIncident();
@@ -1728,7 +1733,7 @@ function AppInner() {
                 {clockVerifyBusy ? 'Checking…' : 'I fixed date & time'}
               </button>
               <button
-                onClick={() => setClockBlocked(false)}
+                onClick={() => { clearClockIncident(); setClockVerifyError(null); setClockBlocked(false); }}
                 className="w-full py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs"
               >
                 Continue anyway

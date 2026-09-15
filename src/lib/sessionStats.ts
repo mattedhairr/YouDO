@@ -51,18 +51,14 @@ export function createManualStepSession(
 }
 
 export function lastResumeAt(session: ActiveSession): number {
-  if (session.returnedAt) return session.returnedAt;
-  for (let i = session.pauses.length - 1; i >= 0; i--) {
-    const end = session.pauses[i].end;
-    if (end) return end;
-  }
-  return session.startTime;
+  return Math.max(session.startTime, session.returnedAt || session.startTime,
+    ...session.pauses.map(pause => Number.isFinite(pause?.end) ? pause.end! : session.startTime));
 }
 
 export function shouldOfferSessionRecovery(session: ActiveSession, now: number): boolean {
   if (session.isPaused) return false;
-  if (!session.lastHeartbeat) return false;
-  return now - session.lastHeartbeat > STALE_HEARTBEAT_MS;
+  // A missing foreground heartbeat is expected while the phone is put aside.
+  return now - lastResumeAt(session) >= MAX_CONTINUOUS_FOCUS_MS;
 }
 
 /**
@@ -79,19 +75,16 @@ export function safetyCapEnd(session: ActiveSession, endAt: number): number {
 export function resolvePersistEndAt(
   session: ActiveSession,
   now: number,
-  opts?: { userEnd?: number; clockIncident?: boolean },
+  opts?: { userEnd?: number; clockIncident?: boolean; recordedBoundary?: number },
 ): number {
-  if (opts?.userEnd != null) return clampSessionEnd(session.startTime, opts.userEnd);
-  const raw = opts?.clockIncident ? session.lastHeartbeat || session.startTime : now;
-  return safetyCapEnd(session, raw);
+  if (opts?.clockIncident) return safetyCapEnd(session, Math.min(opts.userEnd ?? Infinity, opts.recordedBoundary ?? session.lastHeartbeat ?? session.startTime));
+  if (opts?.userEnd != null) return safetyCapEnd(session, Math.min(now, opts.userEnd));
+  return safetyCapEnd(session, now);
 }
 
 /** Heartbeat while the app is in the foreground. Never call this when the clock sample failed. */
 export function tickActiveSession(session: ActiveSession, now: number): ActiveSession {
-  const lastBeat = session.lastHeartbeat || session.startTime;
-  if (now - lastBeat > STALE_HEARTBEAT_MS) {
-    return session;
-  }
+  if (!Number.isFinite(now) || now < (session.lastHeartbeat || session.startTime)) return session;
   if (!session.isPaused && now - lastResumeAt(session) >= MAX_CONTINUOUS_FOCUS_MS) {
     const pauseAt = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
     return {
@@ -124,9 +117,15 @@ export function continueAfterInterruption(session: ActiveSession, now: number): 
 
 export function computePausedMs(session: ActiveSession, now: number, ignoreOpenPause = false): number {
   const end = clampSessionEnd(session.startTime, now);
-  const open =
-    !ignoreOpenPause && session.isPaused && session.pauseStart ? Math.max(0, end - session.pauseStart) : 0;
-  return Math.max(0, session.pausedDuration + open);
+  const closed = session.pauses.filter(pause => pause && Number.isFinite(pause.end));
+  // Older native sessions may carry aggregate paused time without its intervals.
+  const documented = pauseOverlapMs(closed, session.startTime, session.startTime + MAX_PLAUSIBLE_SESSION_MS);
+  const legacy = Math.max(0, session.pausedDuration - documented);
+  const intervals = [...closed];
+  if (!ignoreOpenPause && session.isPaused && session.pauseStart != null) {
+    intervals.push({ start: session.pauseStart, end, wallClockStart: '' });
+  }
+  return Math.min(end - session.startTime, legacy + pauseOverlapMs(intervals, session.startTime, end));
 }
 
 export function computeNetFocusMs(session: ActiveSession, now: number, ignoreOpenPause = false): number {
@@ -172,7 +171,7 @@ export function finalizeSession(
     : closeOpenPause(prev, end);
 
   return {
-    id: uid('sess'),
+    id: `sess-${prev.taskId}-${prev.startTime}`,
     taskId: prev.taskId,
     goalNodeId,
     startTime: prev.startTime,
@@ -189,13 +188,21 @@ export function finalizeSession(
 
 export function pauseOverlapMs(pauses: SessionPause[] | undefined, a: number, b: number): number {
   if (!pauses?.length || b <= a) return 0;
-  let n = 0;
+  const intervals: [number, number][] = [];
   for (const p of pauses) {
-    if (p.start == null) continue;
+    if (!p || !Number.isFinite(p.start)) continue;
     const pe = p.end ?? b;
+    if (!Number.isFinite(pe)) continue;
     const start = Math.max(a, p.start);
     const stop = Math.min(b, pe);
-    if (stop > start) n += stop - start;
+    if (stop > start) intervals.push([start, stop]);
+  }
+  intervals.sort((x, y) => x[0] - y[0]);
+  let n = 0;
+  let until = a;
+  for (const [start, stop] of intervals) {
+    n += Math.max(0, stop - Math.max(start, until));
+    until = Math.max(until, stop);
   }
   return n;
 }
@@ -221,19 +228,24 @@ export function splitSessionByLocalDate(s: {
   const totalWall = end - start;
   const slices: SessionDaySlice[] = [];
   let cursor = start;
-  const usePauses = (s.pauses?.length ?? 0) > 0;
+  const target = Math.max(0, Math.min(Number.isFinite(s.netFocusMs) ? s.netFocusMs : 0, totalWall));
+  const documentedNet = totalWall - pauseOverlapMs(s.pauses, start, end);
+  // Legacy/imported aggregates are authoritative when their pause ledger is incomplete.
+  const usePauses = (s.pauses?.length ?? 0) > 0 && Math.abs(documentedNet - target) < 1;
+  let allocated = 0;
 
   while (cursor < end) {
     const sliceEnd = Math.min(end, nextLocalMidnight(cursor));
     const durationMs = sliceEnd - cursor;
     const netFocusMs = usePauses
       ? Math.max(0, durationMs - pauseOverlapMs(s.pauses, cursor, sliceEnd))
-      : Math.round(s.netFocusMs * (durationMs / totalWall));
+      : Math.round(target * ((sliceEnd - start) / totalWall)) - allocated;
     slices.push({
       date: localISODate(new Date(cursor)),
       durationMs,
       netFocusMs,
     });
+    allocated += netFocusMs;
     cursor = sliceEnd;
   }
   return slices;
@@ -266,7 +278,13 @@ export function sanitizeSession(raw: unknown): TaskSession | null {
     startTime: s.startTime,
     endTime: end,
     pausedDuration,
-    pauses: Array.isArray(s.pauses) ? (s.pauses as TaskSession['pauses']) : [],
+    pauses: Array.isArray(s.pauses) ? s.pauses.filter(p => p && Number.isFinite(p.start)
+      && (p.end == null || Number.isFinite(p.end)) && (p.end ?? end) > p.start)
+      .map(p => ({ start: Math.max(s.startTime!, p.start), end: Math.min(end, p.end ?? end),
+        wallClockStart: typeof p.wallClockStart === 'string' ? p.wallClockStart : '',
+        wallClockEnd: typeof p.wallClockEnd === 'string' ? p.wallClockEnd : '',
+        durationMs: Math.max(0, Math.min(end, p.end ?? end) - Math.max(s.startTime!, p.start)) }))
+      .filter(p => p.end > p.start) : [],
     netFocusMs: net,
     wallClockStart: typeof s.wallClockStart === 'string' ? s.wallClockStart : '',
     wallClockEnd: typeof s.wallClockEnd === 'string' ? s.wallClockEnd : '',
