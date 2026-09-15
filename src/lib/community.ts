@@ -37,6 +37,8 @@ export interface CommunitySettings {
 }
 
 export interface CommunityContext {
+  chatV2?: boolean;
+  unread?: { chat: number; direct: number };
   error?: string;
   available: boolean;
   dayKey: string;
@@ -187,6 +189,11 @@ export function parseCommunityContext(data: unknown): CommunityContext | null {
     : null;
   return {
     available: true,
+    chatV2: row.chat_v2 === true,
+    unread: row.unread && typeof row.unread === 'object' ? {
+      chat: Math.max(0, Number((row.unread as Record<string, unknown>).chat) || 0),
+      direct: Math.max(0, Number((row.unread as Record<string, unknown>).direct) || 0),
+    } : undefined,
     dayKey: row.day_key,
     isAdmin: row.is_admin === true,
     canJoin: row.can_join === true,

@@ -30,6 +30,8 @@ import {
 import Overlay from './Overlay';
 import Toggle from './Toggle';
 import { hapticSuccess, hapticTick, hapticWarn } from '../lib/haptics';
+import CommunityChat from './community/CommunityChat';
+import { clearChatCache } from '../lib/communityChat';
 
 interface Props {
   open: boolean;
@@ -97,7 +99,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     setContext(nextContext);
     if (!announcementDirty.current) setAnnouncement(nextContext.settings.announcement);
     if (!nextContext.available) return;
-    if (mode === 'room') {
+    if (!nextContext.canJoin) clearChatCache(userId);
+    if (mode === 'room' && !nextContext.chatV2) {
       const nextMessages = await fetchCommunityMessages();
       if (!current()) return;
       setMessages(nextMessages);
@@ -231,6 +234,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         {status && <p role="status" className="mt-3 text-[10.5px] text-primary">{status}</p>}
       </main>
       : !context.canJoin && !context.isAdmin ? <div className="m-4 rounded-2xl border border-subtle bg-surface p-6 text-center"><Heart className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Join the Board first</h3><p className="mt-1 text-[11px] text-content-secondary">Only opted-in Board members can react or enter the daily room.</p></div>
+      : mode === 'room' && context.chatV2 && userId ? <CommunityChat key={userId} userId={userId} context={context} names={names} />
       : mode === 'room' ? <>
         <main className="community-room-main min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <details className="community-guidelines">

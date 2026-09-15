@@ -972,6 +972,8 @@ input[type='datetime-local'] {
   background: var(--bg-elevated); color: var(--primary); text-align: left;
 }
 .board-community-link > span:first-of-type { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.board-unread { width:8px;height:8px;flex-shrink:0;border-radius:50%;background:var(--secondary); }
+.board-unread.is-direct { display:grid;place-items:center;width:24px;height:24px;background:var(--primary-soft);color:var(--primary);font-size:14px;font-weight:700; }
 .board-room-status { font-size: 10px; color: var(--text-muted); }
 .board-community-actions.with-admin { display: grid; grid-template-columns: minmax(0,1fr) 84px; gap: 8px; }
 .board-admin-link { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-elevated); color: var(--secondary); font-size: 11px; font-weight: 600; }

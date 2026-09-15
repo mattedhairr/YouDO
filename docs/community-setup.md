@@ -1,5 +1,17 @@
 # Community setup and final verification
 
+## Paged-chat upgrade (unreleased)
+
+The `codex/integrity-community` branch adds `supabase/community_chat.sql` after the base setup. This has been tested only in isolated PostgreSQL and a browser fixture; it has not been applied to the hosted project.
+
+Migration order is `public_pace.sql` → `community.sql` → `community_chat.sql`. Apply the final file as a whole transaction before deploying its client. If the base Community setup is rerun later, rerun the chat upgrade immediately afterwards: the base file otherwise reinstates the legacy inbox and message-delivery trigger. Keep a database backup before changing a live project, and check the RPCs through the hosted API in a staging project first.
+
+The upgrade adds server ordering, 30-message pages, one read cursor per member, idempotent sends, account-bound retries, 15-minute edits, and author deletion. The server continues enforcing participation and moderation permissions. Old inbox/post/read RPCs remain available; the new client selects the new chat only when `community_context` returns `chat_v2: true`.
+
+Unlike the legacy implementation described below, new messages no longer create a delivery row for every member. Existing delivery rows are retained, but visibility and unread counts use membership start time and the shared message sequence. Migration initializes existing members as caught up, without hiding their active history. Leaving and rejoining resets that membership boundary. Background fetching does not advance the read cursor; expiry, removal, and banned-author filtering also apply to unread counts. This removes message-insert fan-out, not all polling, database, or realtime costs.
+
+Run `node scripts/test-community-chat-sql.mjs` in addition to the baseline suites. Verify legacy-client reads/posts, hosted grants, account switching, cross-device unread state, room restrictions, and moderation after the upgrade. SQL-level checks do not establish real-device performance. No image storage or Community push notifications are enabled by this upgrade.
+
 Local implementation is not a live migration. The new activity functions and cleanup changes require the updated SQL file; do not assume they are installed because the older community room works.
 
 ## Update the existing saved query
