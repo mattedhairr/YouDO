@@ -5,7 +5,6 @@ import App from './App.tsx';
 import { StoreProvider } from './store';
 import { AuthProvider } from './contexts/AuthContext';
 import AuthGate from './components/AuthGate';
-import { clearYouDoStorage } from './lib/storageKeys';
 import './index.css';
 import ExperiencePreferences from './components/ExperiencePreferences';
 
@@ -32,11 +31,6 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
     console.error('App crashed with ErrorBoundary:', error, errorInfo);
   }
 
-  handleReset = () => {
-    clearYouDoStorage();
-    window.location.reload();
-  };
-
   render() {
     if (this.state.hasError) {
       return (
@@ -48,18 +42,15 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, ErrorBounda
           <p className="text-xs text-content-secondary max-w-xs mb-6 leading-relaxed">
             An unhandled runtime error occurred on startup: {this.state.error?.message || 'Unknown error'}
           </p>
+          <p className="text-sm text-content-secondary max-w-xs mb-6 leading-relaxed">
+            Your saved data has not been cleared. Try reloading. If this keeps happening, contact support before clearing app data or reinstalling.
+          </p>
           <div className="flex gap-3 w-full max-w-xs">
             <button
               onClick={() => window.location.reload()}
               className="flex-1 py-3 px-4 rounded-xl bg-primary hover:bg-primary-glow font-bold text-xs text-white transition"
             >
               Reload App
-            </button>
-            <button
-              onClick={this.handleReset}
-              className="flex-1 py-3 px-4 rounded-xl bg-surface hover:bg-elevated border border-subtle font-bold text-xs text-content-primary transition"
-            >
-              Reset Data
             </button>
           </div>
         </div>
