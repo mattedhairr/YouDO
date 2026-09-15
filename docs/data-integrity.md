@@ -13,6 +13,7 @@ This is a maintainer contract for the staged integrity work, not a release-readi
 - Backup parsing refuses unrelated documents, malformed collection containers, and tasks or goal branches that would otherwise be silently dropped. Existing valid compact backups remain readable. Session sanitization still validates individual records separately.
 - Cloud backups are snapshots, not a second independent counter. Failed reads are not empty backups. Upload size is measured in UTF-8 bytes. Fingerprints detect differences; they do not prove that either copy is more trustworthy.
 - Public focus totals are still client-calculated and honour-based. Authentication proves account access, not attention, and elapsed-time checks do not prove studying.
+- Settings password/email changes check the current account before and after password verification, then update through that verified account's non-persistent client. They never borrow the app's mutable session for the update. Temporary-session cleanup follows the update, and cleanup failure does not report a confirmed password change as failed. UI user updates are conditional on the account still matching. Password changes can end other sessions; see [Supabase session behavior](https://supabase.com/docs/guides/auth/sessions). Verification and update require live integration testing before release; they are not proof of the hosted project's configuration.
 
 ## Session behavior
 
@@ -38,5 +39,6 @@ All supplied goal-deletion records are considered before limiting the visible tr
 - Physical Android tests for termination, notification actions, background safety caps, clock changes, keyboard resizing, and install-over behavior. Native wall-clock ordering is not a monotonic event journal.
 - Simultaneous browser-tab writers. The timer and replacement compare-before-write checks detect stale copies but are not atomic cross-process locks. Pending replacement events close other gates; that does not make older clients or uncoordinated writes transactional.
 - Hosted authentication/RLS and backward-compatible migration checks; public totals remain forgeable by a modified client.
+- Finish account-switch review for profile edits, password-recovery completion, and account deletion, not just Settings credential changes and backup operations.
 
 These are unresolved audit items, not completed fixes. Data-loss or permission failures block release. The broad Community feature plan, media usage checks, and repository cleanup remain separate stages.
