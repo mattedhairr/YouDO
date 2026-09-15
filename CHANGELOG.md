@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.2.1] — 2026-09-16 — Your study time and workspace stay protected
+
+- **Sessions survive time away from YouDO** — Backgrounding or suspending the app no longer treats an uninterrupted study period as stopped, while durable recovery protects an active sitting if the app closes.
+- **Safer account and cloud boundaries** — Workspace reads, writes, restores, and credential changes stay attached to the account that started them, even if authentication changes while work is in progress.
+- **Work is preserved when copies disagree** — Ambiguous task merges stop for review instead of guessing and silently dropping one copy.
+- **Recovery cannot replace good device data** — Invalid or failed cloud replacements roll back safely, and a startup crash no longer offers a destructive reset path.
+- **Account screens fit smaller phones** — Sign-in, sign-up, recovery, and workspace choices scroll correctly with clearer authentication feedback.
+- **Android APK** — versionName **7.2.1**, versionCode **38**. Installs directly over **v7.2.0** with the same package ID and signing key; no uninstall, data reset, or database migration is required.
+
+---
+
 ## [v7.2.0] — 2026-09-09 — Community conversations, made natural
 
 - **A familiar community room** — Your messages sit on the right, other members appear on the left, and replies keep conversations understandable without turning Kudos into ordinary chat bubbles.
