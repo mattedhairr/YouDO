@@ -29,7 +29,7 @@ interface AuthContextType {
   changePassword: (currentPassword: string, nextPassword: string) => Promise<AuthActionResult>;
   updateCloudBackup: (
     backupData: unknown,
-    options?: { expectedUpdatedAt?: string | null },
+    options?: { expectedUpdatedAt?: string | null; expectedUserId?: string },
   ) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
   fetchLiveBackupInfo: () => Promise<{ backupData: string; updatedAt: string } | null>;
@@ -181,11 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateCloudBackup = async (
     backupData: unknown,
-    options?: { expectedUpdatedAt?: string | null },
+    options?: { expectedUpdatedAt?: string | null; expectedUserId?: string },
   ): Promise<{ ok: boolean; error?: string }> => {
     try {
       const userId = await currentUserId();
       if (!userId) return { ok: false, error: 'No active user session found. Please sign in again.' };
+      if (userId !== (options?.expectedUserId ?? user?.id)) return { ok: false, error: 'Account changed. This workspace was not uploaded.' };
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
       return await upsertLiveBackup(userId, jsonStr, options);
     } catch (err: unknown) {

@@ -68,7 +68,7 @@ import {
   writeWorkspaceCloudFingerprint,
   writeWorkspaceUpdatedAt,
 } from './lib/storageKeys';
-import { mergeWorkspace, workspaceFingerprint, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
+import { mergeWorkspace, workspaceFingerprint, workspaceSignature, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
 import { decideSyncAction, type SyncConflictStrategy } from './lib/syncDecision';
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
@@ -344,6 +344,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   pacePrefsRef.current = sanitizePacePrefs(pacePrefs);
   const userIdRef = useRef(user?.id ?? null);
   userIdRef.current = user?.id ?? null;
+  const workspaceScopeRef = useRef(0);
+  useEffect(() => () => { workspaceScopeRef.current++; }, []);
   const paceCloudTimerRef = useRef<number>(0);
   const recentlyDeletedRef = useRef(recentlyDeletedGoals);
   recentlyDeletedRef.current = recentlyDeletedGoals;
@@ -1199,9 +1201,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const endAt = resolvePersistEndAt(prev, Date.now(), {
         userEnd: options?.endTime,
         clockIncident: hasClockIncident(),
+        recordedBoundary: clockIncidentBoundary(prev.lastHeartbeat || prev.startTime),
       });
       const task = tasksRef.current.find((t) => t.id === prev.taskId);
-        recordedBoundary: clockIncidentBoundary(prev.lastHeartbeat || prev.startTime),
       const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
       });
@@ -1551,6 +1553,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const performCloudSync = useCallback(async (opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
+    const syncUserId = userIdRef.current;
+    const scope = workspaceScopeRef.current;
+    const stillCurrent = () => Boolean(syncUserId) && scope === workspaceScopeRef.current && userIdRef.current === syncUserId;
+    const accountChanged = { ok: false, error: 'Account changed. Sync stopped without applying the previous workspace.' };
+    if (!stillCurrent()) return accountChanged;
     const currentSlice = (): WorkspaceSlice => ({
       tasks: tasksRef.current,
       goals: goalsRef.current,
@@ -1561,7 +1568,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updatedAt: workspaceUpdatedAtRef.current,
     });
     const remoteInfo = await fetchLiveBackupInfo();
+    if (!stillCurrent()) return accountChanged;
     const remoteParsed = remoteInfo ? parseBackupPayload(remoteInfo.backupData) : null;
+    if (remoteInfo && !remoteParsed) return { ok: false, error: 'The cloud backup could not be read. Neither copy was replaced.' };
     const remoteSlice: WorkspaceSlice | null = remoteParsed
       ? {
           tasks: remoteParsed.tasks,
@@ -1616,6 +1625,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const pushCurrent = async () => {
+      if (!stillCurrent()) return accountChanged;
       const payload = {
         app: 'YouDO',
         version: APP_VERSION,
@@ -1629,7 +1639,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pacePrefs: pacePrefsRef.current,
       };
       const fingerprint = canonicalWorkspaceFingerprint(payload, todayISO());
-      const result = await updateCloudBackup(payload, { expectedUpdatedAt: remoteInfo?.updatedAt ?? null });
+      const result = await updateCloudBackup(payload, { expectedUpdatedAt: remoteInfo?.updatedAt ?? null, expectedUserId: syncUserId! });
+      if (!stillCurrent()) return accountChanged;
       if (result.ok) {
         writeWorkspaceCloudFingerprint(fingerprint);
         setCloudSyncConflict(false);
@@ -1714,14 +1725,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const run = syncQueueRef.current.then(
       () => performCloudSync(opts),
       () => performCloudSync(opts),
-    );
+    ).catch((error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : 'Sync could not finish. Your device copy was preserved.' }));
     syncQueueRef.current = run.then(() => undefined, () => undefined);
     return run;
   }, [performCloudSync]);
 
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
+    const owner = userIdRef.current;
+    const scope = workspaceScopeRef.current;
+    const before = workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current });
     const jsonStr = await fetchCloudBackup();
-    if (!jsonStr) return false;
+    if (!jsonStr || !owner || userIdRef.current !== owner || scope !== workspaceScopeRef.current) return false;
+    if (before !== workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current })) return false;
     try {
       const parsed = parseBackupPayload(jsonStr);
       if (!parsed) return false;
@@ -1746,8 +1761,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [fetchCloudBackup, importBackup]);
 
   const restoreFromVisitSnapshot = useCallback(async (snapshotId: string): Promise<boolean> => {
+    const owner = userIdRef.current;
+    const scope = workspaceScopeRef.current;
+    const before = workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current });
     const jsonStr = await fetchVisitSnapshot(snapshotId);
-    if (!jsonStr) return false;
+    if (!jsonStr || !owner || userIdRef.current !== owner || scope !== workspaceScopeRef.current) return false;
+    if (before !== workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current })) return false;
     try {
       const parsed = parseBackupPayload(jsonStr);
       if (!parsed) return false;

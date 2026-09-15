@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { isAuthRecoveryUrl, resolveAuthRecoveryUrl, resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { authErrorMessage } from '../lib/authError';
+import { canOpenAccountWorkspace } from '../lib/workspaceAccess';
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
 import { supabase } from '../lib/supabase';
@@ -294,12 +295,18 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const { user, loading, signOut, updateCloudBackup, fetchCloudBackup } = useAuth();
   useTheme();
   const [gate, setGate] = useState<GateState>('checking');
+  const [inspectedUserId, setInspectedUserId] = useState<string | null>(null);
+  const [inspectionRevision, setInspectionRevision] = useState(0);
+  const currentUserId = useRef(user?.id ?? null);
+  currentUserId.current = user?.id ?? null;
   const [remoteAvailable, setRemoteAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offlineMode, setOfflineMode] = useState(() => readOfflineMode() && !readWorkspaceOwner());
   const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl(window.location.search));
   const [initialBootComplete, setInitialBootComplete] = useState(false);
+
+  useEffect(() => { setBusy(false); setError(null); }, [user?.id]);
 
   useEffect(() => {
     const requestAccount = () => {
@@ -324,28 +331,42 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     }
 
     const inspect = async () => {
+      const finish = (next: GateState) => {
+        if (!cancelled) { setInspectedUserId(user.id); setGate(next); }
+      };
       const owner = readWorkspaceOwner();
       const summary = readLocalWorkspaceSummary();
       if (owner === user.id) {
-        if (!cancelled) setGate('ready');
+        finish('ready');
         return;
       }
       if (owner && owner !== user.id) {
         const remote = await fetchCloudBackup();
-        if (!cancelled) { setRemoteAvailable(Boolean(remote)); setGate('mismatch'); }
+        if (!cancelled) { setRemoteAvailable(Boolean(remote)); finish('mismatch'); }
         return;
       }
       if (summary.hasData) {
         const remote = await fetchCloudBackup();
-        if (!cancelled) { setRemoteAvailable(Boolean(remote)); setGate('legacy'); }
+        if (!cancelled) { setRemoteAvailable(Boolean(remote)); finish('legacy'); }
         return;
       }
       writeWorkspaceOwner(user.id);
-      if (!cancelled) setGate('ready');
+      finish('ready');
     };
     void inspect();
     return () => { cancelled = true; };
-  }, [loading, user, fetchCloudBackup]);
+  }, [loading, user, fetchCloudBackup, inspectionRevision]);
+
+  useEffect(() => {
+    const recheckOwner = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== STORAGE_KEYS.workspaceOwner) return;
+      setGate('checking');
+      setInspectedUserId(null);
+      setInspectionRevision(value => value + 1);
+    };
+    window.addEventListener('storage', recheckOwner);
+    return () => window.removeEventListener('storage', recheckOwner);
+  }, []);
 
   const bootDestinationReady = !loading && (passwordRecovery || !user || gate !== 'checking');
   useEffect(() => {
@@ -366,15 +387,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     setPasswordRecovery(false);
   };
   if (passwordRecovery) return <PasswordRecoveryGate onComplete={leaveRecovery} onCancel={() => { void supabase.auth.signOut({ scope: 'local' }).finally(leaveRecovery); }} />;
-  if (!user && offlineMode && !readWorkspaceOwner()) return <>{children}</>;
+  if (!user && offlineMode && !readWorkspaceOwner()) return <Fragment key="offline">{children}</Fragment>;
   if (!user) return <AuthWelcome allowOffline={!readWorkspaceOwner()} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
-  if (gate === 'checking') return <LoadingGate progress={68} label="Checking workspace" />;
-  if (gate === 'ready') return <>{children}</>;
+  if (gate === 'checking' || inspectedUserId !== user.id) return <LoadingGate progress={68} label="Checking workspace" />;
+  if (gate === 'ready') {
+    if (canOpenAccountWorkspace(user.id, inspectedUserId, readWorkspaceOwner())) return <Fragment key={user.id}>{children}</Fragment>;
+    return <div className="auth-screen"><main className="m-auto max-w-md p-6 text-center"><h1 className="text-xl font-semibold">Workspace could not be opened</h1><p className="my-4 text-content-secondary">The account boundary could not be saved on this device. Your existing data has not been cleared. Allow device storage, then retry.</p><button className="rounded-xl bg-primary p-3 text-on-primary" onClick={() => { setGate('checking'); setInspectionRevision(value => value + 1); }}>Retry</button></main></div>;
+  }
 
   const replaceCloud = async (payload: unknown, beforeOpen?: () => void): Promise<boolean> => {
     setBusy(true);
     setError(null);
-    const result = await updateCloudBackup(payload);
+    const targetUserId = user.id;
+    const result = await updateCloudBackup(payload, { expectedUserId: targetUserId });
+    if (currentUserId.current !== targetUserId) return false;
     if (!result.ok) {
       setError(result.error || 'Could not secure this workspace.');
       setBusy(false);
