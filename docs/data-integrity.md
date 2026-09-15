@@ -9,6 +9,8 @@ This is a maintainer contract for the staged integrity work, not a release-readi
 - Completed session history owns recorded focus time and step evidence. Save history before clearing the active timer. Stable completion IDs prevent a retry creating a second row. A completed-history record takes precedence over a stale native or local active timer.
 - Daily focus allocation must conserve a session's saved net duration. Overlapping pauses count once. Imported records with incomplete pause metadata use a bounded proportional allocation rather than inventing extra focus.
 - AuthGate readiness belongs to the inspected account and the device workspace owner. Account changes remount the store. Async sync/restore work is bound to its starting account and store lifetime; restore also refuses to replace work edited while its download was pending.
+- AuthGate's cloud choice downloads and validates before replacing the device copy. A synchronous recovery checkpoint preserves all previous workspace keys until the new copy and owner have been saved. Failed writes roll back; an incomplete rollback keeps the gate closed until recovery succeeds. Startup recovery runs before opening private or signed-in work. Explicitly starting empty uses the same device checkpoint, but a completed, user-requested cloud replacement is not rolled back with the device.
+- Backup parsing refuses unrelated documents, malformed collection containers, and tasks or goal branches that would otherwise be silently dropped. Existing valid compact backups remain readable. Session sanitization still validates individual records separately.
 - Cloud backups are snapshots, not a second independent counter. Failed reads are not empty backups. Upload size is measured in UTF-8 bytes. Fingerprints detect differences; they do not prove that either copy is more trustworthy.
 - Public focus totals are still client-calculated and honour-based. Authentication proves account access, not attention, and elapsed-time checks do not prove studying.
 
@@ -32,9 +34,9 @@ All supplied goal-deletion records are considered before limiting the visible tr
 
 - Atomic persistence for multi-key Goals/Today/history changes and workspace replacement; the ordinary local-storage hook still uses React effects and does not surface quota failures.
 - A durable item-level conflict/deletion model; timestamp/fingerprint comparisons alone cannot infer intent or fully handle equal timestamps.
-- Review AuthGate's cloud-choice replacement path: it currently clears the device workspace before the store's subsequent cloud restore. A failed later download must not lose the previous local copy.
+- Extend the recovery approach beyond AuthGate: Settings imports and automatic cloud application still write multiple React-backed keys independently. AuthGate's checkpoint is not a transaction spanning local storage and the hosted database.
 - Physical Android tests for termination, notification actions, background safety caps, clock changes, keyboard resizing, and install-over behavior. Native wall-clock ordering is not a monotonic event journal.
-- Simultaneous browser-tab writers. The timer's compare-before-write detects stale copies but is not an atomic cross-process lock.
+- Simultaneous browser-tab writers. The timer and replacement compare-before-write checks detect stale copies but are not atomic cross-process locks. Pending replacement events close other gates; that does not make older clients or uncoordinated writes transactional.
 - Hosted authentication/RLS and backward-compatible migration checks; public totals remain forgeable by a modified client.
 
 These are unresolved audit items, not completed fixes. Data-loss or permission failures block release. The broad Community feature plan, media usage checks, and repository cleanup remain separate stages.

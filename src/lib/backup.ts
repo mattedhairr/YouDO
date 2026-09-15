@@ -4,7 +4,7 @@ import { uid } from './ids';
 const VALID_KINDS = new Set(['goal', 'node', 'phase', 'section', 'task', 'sub', 'leaf']);
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
 function asString(value: unknown, fallback = ''): string {
@@ -64,10 +64,12 @@ export function normalizeImportedGoal(raw: unknown): GoalNode | null {
   const kindRaw = asString(g.kind || g.k, 'goal');
   const kind: GoalKind = VALID_KINDS.has(kindRaw) ? (kindRaw as GoalKind) : 'goal';
   const children: GoalNode[] = [];
+  if (('children' in g && !Array.isArray(g.children)) || ('c' in g && !Array.isArray(g.c))) return null;
   const rawChildren = Array.isArray(g.children) ? g.children : Array.isArray(g.c) ? g.c : [];
   for (const child of rawChildren) {
     const norm = normalizeImportedGoal(child);
-    if (norm) children.push(norm);
+    if (!norm) return null;
+    children.push(norm);
   }
 
   return {
@@ -100,19 +102,30 @@ export function parseBackupPayload(jsonData: string): {
     const parsed = JSON.parse(jsonData) as unknown;
     const obj = asRecord(parsed);
     if (!obj) return null;
+    // A damaged document must not become an apparently valid empty workspace.
+    const collections = ['tasks', 't', 'goals', 'g'];
+    if (!collections.some(key => key in obj)) return null;
+    if (collections.some(key => key in obj && !Array.isArray(obj[key]))) return null;
+    if (obj.sessionHistory != null) {
+      const history = asRecord(obj.sessionHistory);
+      if (!history || Object.values(history).some(rows => !Array.isArray(rows))) return null;
+    }
+    if (obj.recentlyDeletedGoals != null && !Array.isArray(obj.recentlyDeletedGoals)) return null;
 
     const rawTasks = Array.isArray(obj.tasks) ? obj.tasks : Array.isArray(obj.t) ? obj.t : [];
     const importedTasks: Task[] = [];
     for (const t of rawTasks) {
       const norm = normalizeImportedTask(t);
-      if (norm) importedTasks.push(norm);
+      if (!norm) return null;
+      importedTasks.push(norm);
     }
 
     const rawGoals = Array.isArray(obj.goals) ? obj.goals : Array.isArray(obj.g) ? obj.g : [];
     const importedGoals: GoalNode[] = [];
     for (const g of rawGoals) {
       const norm = normalizeImportedGoal(g);
-      if (norm) importedGoals.push(norm);
+      if (!norm) return null;
+      importedGoals.push(norm);
     }
 
     const updatedAt = asNumber(obj.updatedAt, 0);

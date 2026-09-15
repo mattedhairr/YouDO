@@ -32,7 +32,7 @@ interface AuthContextType {
     options?: { expectedUpdatedAt?: string | null; expectedUserId?: string },
   ) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
-  fetchLiveBackupInfo: () => Promise<{ backupData: string; updatedAt: string } | null>;
+  fetchLiveBackupInfo: (expectedUserId?: string) => Promise<{ backupData: string; updatedAt: string } | null>;
   listVisitSnapshots: () => Promise<VisitSnapshotMeta[]>;
   fetchVisitSnapshot: (snapshotId: string) => Promise<string | null>;
 }
@@ -207,10 +207,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchLiveBackupInfo = async () => {
+  const fetchLiveBackupInfo = async (expectedUserId?: string) => {
     const userId = await currentUserId();
+    if (expectedUserId && userId !== expectedUserId) throw new Error('Account changed. Cloud inspection stopped.');
     if (!userId) return null;
-    return fetchLiveBackupMeta(userId);
+    const result = await fetchLiveBackupMeta(userId);
+    if (await currentUserId() !== userId) throw new Error('Account changed. Cloud inspection stopped.');
+    return result;
   };
 
   const listVisitSnapshotsForUser = async () => {
