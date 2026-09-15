@@ -4,27 +4,96 @@ begin;
 
 alter table public.community_messages add column if not exists sequence bigint generated always as identity;
 alter table public.community_messages add column if not exists edited_at timestamptz;
-alter table public.community_messages add column if not exists mention_ids uuid[] not null default '{}';
 create unique index if not exists community_messages_sequence_idx on public.community_messages(sequence desc);
+
+-- Staff permissions remain private. Both roles use the same public "Admin" label;
+-- only the single owner may manage administrator access.
+alter table public.community_admins add column if not exists role text not null default 'admin';
+alter table public.community_admins add column if not exists badge_visible boolean not null default true;
+do $community_staff_constraint$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_constraint
+    where conname='community_admins_role_check' and conrelid='public.community_admins'::regclass
+  ) then
+    alter table public.community_admins add constraint community_admins_role_check check (role in ('owner','admin'));
+  end if;
+end $community_staff_constraint$;
+create unique index if not exists community_admins_single_owner_idx on public.community_admins(role) where role='owner';
+
+create or replace function public.is_community_owner(candidate uuid default auth.uid())
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.community_admins where user_id=candidate and role='owner');
+$$;
+create or replace function public.is_community_admin(candidate uuid default auth.uid())
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.community_admins where user_id=candidate and role in ('owner','admin'));
+$$;
+
+create or replace function public.set_community_staff(target_email text, desired_role text default 'admin', show_badge boolean default true)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare target_id uuid;
+declare clean_role text := lower(btrim(coalesce(desired_role,'')));
+begin
+  if auth.uid() is not null and not public.is_community_owner() then
+    raise exception 'Only the community owner can manage administrators' using errcode='42501';
+  end if;
+  if clean_role not in ('owner','admin') then raise exception 'Role must be owner or admin'; end if;
+  if clean_role='owner' and auth.uid() is not null then
+    raise exception 'Owner assignment is restricted to the SQL Editor' using errcode='42501';
+  end if;
+  select id into target_id from auth.users where lower(email)=lower(btrim(coalesce(target_email,''))) limit 1;
+  if target_id is null then raise exception 'No account exists for that email'; end if;
+  insert into public.community_admins(user_id,role,badge_visible)
+  values(target_id,clean_role,coalesce(show_badge,true))
+  on conflict(user_id) do update set role=excluded.role,badge_visible=excluded.badge_visible;
+  return target_id;
+end; $$;
+
+create or replace function public.remove_community_staff(target_email text)
+returns void language plpgsql security definer set search_path = '' as $$
+declare target_id uuid;
+declare target_role text;
+begin
+  if auth.uid() is not null and not public.is_community_owner() then
+    raise exception 'Only the community owner can remove administrators' using errcode='42501';
+  end if;
+  select a.user_id,a.role into target_id,target_role from public.community_admins a
+  join auth.users u on u.id=a.user_id where lower(u.email)=lower(btrim(coalesce(target_email,''))) limit 1;
+  if target_id is null then return; end if;
+  if target_role='owner' then raise exception 'The owner cannot be removed by this operation' using errcode='42501'; end if;
+  delete from public.community_admins where user_id=target_id;
+end; $$;
+
+-- SQL Editor examples (safe to rerun for the same email):
+-- select public.set_community_staff('owner@example.com', 'owner', true);
+-- select public.set_community_staff('moderator@example.com', 'admin', true);
+-- select public.set_community_staff('moderator@example.com', 'admin', false); -- hide only the public badge
 
 -- One cursor per member replaces one delivery row per member PER message.
 -- Migration reads start at the present; historical messages do not become new.
 create table if not exists public.community_read_state (
   user_id uuid primary key references public.public_pace(user_id) on delete cascade,
   visible_from timestamptz not null default now(),
-  chat_read_sequence bigint not null default 0
+  chat_read_sequence bigint not null default 0,
+  updates_read_revision bigint not null default 0
 );
+alter table public.community_read_state add column if not exists updates_read_revision bigint not null default 0;
+alter table public.community_settings add column if not exists announcement_revision bigint not null default 0;
+alter table public.community_settings add column if not exists announcement_updated_at timestamptz;
 alter table public.community_read_state enable row level security;
 revoke all on public.community_read_state from public, anon, authenticated;
-insert into public.community_read_state(user_id, visible_from, chat_read_sequence)
-select user_id, '-infinity'::timestamptz, coalesce((select max(sequence) from public.community_messages),0)
+insert into public.community_read_state(user_id, visible_from, chat_read_sequence, updates_read_revision)
+select user_id, '-infinity'::timestamptz, coalesce((select max(sequence) from public.community_messages),0),
+  coalesce((select announcement_revision from public.community_settings where id=1),0)
 from public.public_pace on conflict (user_id) do nothing;
 
 create or replace function public.community_enroll_reader()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  insert into public.community_read_state(user_id, chat_read_sequence)
-  values (new.user_id, coalesce((select max(sequence) from public.community_messages),0))
+  insert into public.community_read_state(user_id, chat_read_sequence, updates_read_revision)
+  values (new.user_id, coalesce((select max(sequence) from public.community_messages),0),
+    coalesce((select announcement_revision from public.community_settings where id=1),0))
   on conflict (user_id) do nothing;
   return new;
 end; $$;
@@ -68,10 +137,11 @@ returns jsonb language sql stable security definer set search_path = '' as $$
   ), unread as (
     select m.* from recent m join public.community_read_state s on s.user_id=auth.uid()
     where m.sequence>s.chat_read_sequence and m.author_id<>auth.uid()
-  ) select jsonb_build_object('chat', count(*), 'direct', count(*) filter (
-    where auth.uid()=any(mention_ids) or exists (
-      select 1 from public.community_messages parent where parent.id=unread.reply_to and parent.author_id=auth.uid()
-    ))) from unread;
+  ) select jsonb_build_object(
+    'chat', (select count(*) from unread),
+    'updates', coalesce((select case when s.announcement<>'' and r.updates_read_revision<s.announcement_revision then 1 else 0 end
+      from public.community_read_state r cross join public.community_settings s where r.user_id=auth.uid() and s.id=1),0)
+  );
 $$;
 
 create or replace function public.read_community_messages(message_ids uuid[])
@@ -83,12 +153,19 @@ begin
   ), 0)) where user_id=auth.uid();
 end; $$;
 
+create or replace function public.read_community_updates()
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.can_join_community() then raise exception 'Board membership required' using errcode='42501'; end if;
+  update public.community_read_state r set updates_read_revision=s.announcement_revision
+  from public.community_settings s where r.user_id=auth.uid() and s.id=1;
+end; $$;
+
 create or replace function public.send_community_message(
-  client_id uuid, message_body text, reply_to_message uuid default null, recipients uuid[] default '{}', expected_author uuid default null
+  client_id uuid, message_body text, reply_to_message uuid default null, expected_author uuid default null
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
-declare clean text := btrim(regexp_replace(coalesce(message_body,''), '\s+', ' ', 'g'));
-declare existing public.community_messages;
-declare mentions uuid[];
+  declare clean text := btrim(regexp_replace(coalesce(message_body,''), '\s+', ' ', 'g'));
+  declare existing public.community_messages;
 begin
   if expected_author is not null and expected_author is distinct from auth.uid() then raise exception 'Account changed; message was not sent' using errcode='42501'; end if;
   if auth.uid() is null or not public.can_join_community() then raise exception 'Board membership required' using errcode='42501'; end if;
@@ -101,14 +178,11 @@ begin
   end if;
   if not public.can_post_community() then raise exception 'Posting is paused or rate limited' using errcode='42501'; end if;
   if char_length(clean) not between 1 and 240 or clean ~* '(https?://|www\.|t\.me/)' then raise exception 'Use 1–240 characters without links'; end if;
-  if coalesce(cardinality(recipients),0)>5 then raise exception 'Mention up to five members'; end if;
-  select coalesce(array_agg(distinct candidate),'{}'::uuid[]) into mentions from unnest(recipients) candidate where candidate<>auth.uid();
-  if exists(select 1 from unnest(mentions) candidate where not public.can_join_community(candidate)) then raise exception 'A mentioned member is unavailable'; end if;
   if reply_to_message is not null and not exists (
     select 1 from public.community_messages m where m.id=reply_to_message and public.community_chat_visible(m)
   ) then raise exception 'The message you replied to is no longer available'; end if;
-  insert into public.community_messages(id,author_id,body,message_kind,reply_to,mention_ids)
-  values(client_id,auth.uid(),clean,'chat',reply_to_message,mentions) returning * into existing;
+  insert into public.community_messages(id,author_id,body,message_kind,reply_to)
+  values(client_id,auth.uid(),clean,'chat',reply_to_message) returning * into existing;
   return to_jsonb(existing);
 end; $$;
 
@@ -138,8 +212,67 @@ returns void language plpgsql security definer set search_path = '' as $$
 declare item public.community_messages;
 begin
   select * into item from public.community_messages where id=target_message for update;
-  if item.id is null or item.author_id<>auth.uid() or not public.community_chat_visible(item) then raise exception 'Only your visible messages can be deleted' using errcode='42501'; end if;
+  if item.id is null or item.author_id<>auth.uid() or not public.community_chat_visible(item) or item.message_kind<>'chat'
+    or item.created_at<now()-interval '15 minutes' then raise exception 'Only your normal messages from the last 15 minutes can be deleted' using errcode='42501'; end if;
   update public.community_messages set removed_at=now(),removed_by=auth.uid() where id=target_message;
+end; $$;
+
+create or replace function public.report_community_message(target_message uuid, report_reason text default 'Unhelpful or disrespectful')
+returns void language plpgsql security definer set search_path = '' as $$
+declare item public.community_messages;
+declare clean_reason text := btrim(regexp_replace(coalesce(report_reason,''), '\s+', ' ', 'g'));
+begin
+  if auth.uid() is null or not public.can_join_community() then raise exception 'Board membership required' using errcode='42501'; end if;
+  if char_length(clean_reason) not between 3 and 280 then raise exception 'Write a report reason of 3–280 characters'; end if;
+  select * into item from public.community_messages where id=target_message;
+  if item.id is null or item.author_id=auth.uid() or not public.community_chat_visible(item) then
+    raise exception 'Only another member''s visible message can be reported' using errcode='42501';
+  end if;
+  insert into public.community_reports(message_id,reporter_id,reason)
+  values(target_message,auth.uid(),clean_reason)
+  on conflict(message_id,reporter_id) do nothing;
+end; $$;
+
+create or replace function public.set_community_settings(
+  next_room_enabled boolean,
+  next_appreciations_enabled boolean,
+  next_announcement text
+) returns void language plpgsql security definer set search_path = '' as $$
+declare current_settings public.community_settings%rowtype;
+declare clean_announcement text := btrim(coalesce(next_announcement,''));
+declare announcement_changed boolean;
+begin
+  if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
+  select * into current_settings from public.community_settings where id=1 for update;
+  announcement_changed := current_settings.announcement is distinct from clean_announcement;
+  if current_settings.room_enabled is distinct from next_room_enabled then
+    insert into public.community_audit_log(admin_id,action)
+    values(auth.uid(),case when next_room_enabled then 'settings.room.enabled' else 'settings.room.disabled' end);
+  end if;
+  if current_settings.appreciations_enabled is distinct from next_appreciations_enabled then
+    insert into public.community_audit_log(admin_id,action)
+    values(auth.uid(),case when next_appreciations_enabled then 'settings.kudos.enabled' else 'settings.kudos.disabled' end);
+  end if;
+  if announcement_changed then
+    insert into public.community_audit_log(admin_id,action)
+    values(auth.uid(),case when clean_announcement='' then 'settings.announcement.cleared' else 'settings.announcement.published' end);
+  end if;
+  if current_settings.room_enabled is not distinct from next_room_enabled
+    and current_settings.appreciations_enabled is not distinct from next_appreciations_enabled
+    and not announcement_changed then return; end if;
+  update public.community_settings set
+    room_enabled=next_room_enabled,
+    appreciations_enabled=next_appreciations_enabled,
+    announcement=clean_announcement,
+    announcement_revision=announcement_revision + case when announcement_changed then 1 else 0 end,
+    announcement_updated_at=case when announcement_changed then now() else announcement_updated_at end,
+    updated_by=auth.uid(),updated_at=now()
+  where id=1;
+  if announcement_changed then
+    update public.community_read_state set updates_read_revision=(
+      select announcement_revision from public.community_settings where id=1
+    ) where user_id=auth.uid();
+  end if;
 end; $$;
 
 create or replace function public.remove_community_message(target_message uuid, note text default '')
@@ -166,14 +299,23 @@ revoke insert, update, delete on public.community_messages from authenticated;
 
 revoke execute on function public.community_chat_page(bigint) from public,anon;
 revoke execute on function public.community_chat_state() from public,anon;
-revoke execute on function public.send_community_message(uuid,text,uuid,uuid[],uuid) from public,anon;
+revoke execute on function public.read_community_updates() from public,anon;
+revoke execute on function public.send_community_message(uuid,text,uuid,uuid) from public,anon;
 revoke execute on function public.edit_community_message(uuid,text) from public,anon;
 revoke execute on function public.delete_community_message(uuid) from public,anon;
+revoke execute on function public.report_community_message(uuid,text) from public,anon;
+revoke execute on function public.is_community_owner(uuid) from public,anon,authenticated;
+revoke execute on function public.set_community_staff(text,text,boolean) from public,anon;
+revoke execute on function public.remove_community_staff(text) from public,anon;
 grant execute on function public.community_chat_page(bigint) to authenticated;
 grant execute on function public.community_chat_state() to authenticated;
-grant execute on function public.send_community_message(uuid,text,uuid,uuid[],uuid) to authenticated;
+grant execute on function public.read_community_updates() to authenticated;
+grant execute on function public.send_community_message(uuid,text,uuid,uuid) to authenticated;
 grant execute on function public.edit_community_message(uuid,text) to authenticated;
 grant execute on function public.delete_community_message(uuid) to authenticated;
+grant execute on function public.report_community_message(uuid,text) to authenticated;
+grant execute on function public.set_community_staff(text,text,boolean) to authenticated;
+grant execute on function public.remove_community_staff(text) to authenticated;
 
 create or replace function public.community_context()
 returns jsonb language sql stable security definer set search_path = '' as $$
@@ -181,7 +323,11 @@ returns jsonb language sql stable security definer set search_path = '' as $$
     'day_key', public.community_today(), 'is_admin', public.is_community_admin(),
     'can_join', public.can_join_community(), 'can_post', public.can_post_community(),
     'chat_v2', true, 'unread', public.community_chat_state(),
-    'settings', jsonb_build_object('room_enabled',s.room_enabled,'appreciations_enabled',s.appreciations_enabled,'announcement',s.announcement),
+    'staff_ids', coalesce((select jsonb_agg(a.user_id order by a.created_at) from public.community_admins a where a.badge_visible),'[]'::jsonb),
+    'settings', jsonb_build_object(
+      'room_enabled',s.room_enabled,'appreciations_enabled',s.appreciations_enabled,
+      'announcement',s.announcement,'announcement_updated_at',s.announcement_updated_at
+    ),
     'muted_until',m.muted_until,'banned_at',m.banned_at,
     'appeal',(select to_jsonb(a) from (select ca.id,ca.user_id,ca.message,ca.status,ca.admin_response,ca.created_at,ca.reviewed_at
       from public.community_appeals ca where ca.user_id=auth.uid() order by ca.created_at desc limit 1) a)

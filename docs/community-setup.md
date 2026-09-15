@@ -1,16 +1,31 @@
 # Community setup and final verification
 
-## Paged-chat upgrade (unreleased)
+## Community Essentials upgrade (unreleased)
 
-The `codex/integrity-community` branch adds `supabase/community_chat.sql` after the base setup. This has been tested only in isolated PostgreSQL and a browser fixture; it has not been applied to the hosted project.
+The `codex/community-essentials` branch adds `supabase/community_chat.sql` after the base setup. Until the hosted checks in this guide are recorded, it remains an unreleased migration.
 
 Migration order is `public_pace.sql` → `community.sql` → `community_chat.sql`. Apply the final file as a whole transaction before deploying its client. If the base Community setup is rerun later, rerun the chat upgrade immediately afterwards: the base file otherwise reinstates the legacy inbox and message-delivery trigger. Keep a database backup before changing a live project, and check the RPCs through the hosted API in a staging project first.
 
-The upgrade adds server ordering, 30-message pages, one read cursor per member, idempotent sends, account-bound retries, 15-minute edits, and author deletion. The server continues enforcing participation and moderation permissions. Old inbox/post/read RPCs remain available; the new client selects the new chat only when `community_context` returns `chat_v2: true`.
+The upgrade adds server ordering, 30-message pages, one read cursor per member, idempotent sends, account-bound retries, replies, and server-enforced 15-minute edit and delete windows. Reports and administrator removals use protected operations; removals require a reason and retain one moderation record. Old inbox/post/read RPCs remain available; the new client selects the new chat only when `community_context` returns `chat_v2: true`.
 
-Unlike the legacy implementation described below, new messages no longer create a delivery row for every member. Existing delivery rows are retained, but visibility and unread counts use membership start time and the shared message sequence. Migration initializes existing members as caught up, without hiding their active history. Leaving and rejoining resets that membership boundary. Background fetching does not advance the read cursor; expiry, removal, and banned-author filtering also apply to unread counts. This removes message-insert fan-out, not all polling, database, or realtime costs.
+Unlike the legacy implementation described below, new messages no longer create a delivery row for every member. Existing delivery rows are retained, but visibility and the Chat dot use membership start time and the shared message sequence. Migration initializes existing members as caught up, without hiding their active history. Leaving and rejoining resets that membership boundary. Background fetching does not advance the read cursor; expiry, removal, and banned-author filtering also apply to unread state. Broadcasts use a separate revision cursor and clear only after Updates is displayed. This removes message-insert fan-out, not all polling, database, or realtime costs.
 
-Run `node scripts/test-community-chat-sql.mjs` in addition to the baseline suites. Verify legacy-client reads/posts, hosted grants, account switching, cross-device unread state, room restrictions, and moderation after the upgrade. SQL-level checks do not establish real-device performance. No image storage or Community push notifications are enabled by this upgrade.
+Run `node scripts/test-community-chat-sql.mjs` in addition to the baseline suites. Verify legacy-client reads/posts, hosted grants, account switching, cross-device Chat and Updates dots, room restrictions, and moderation after the upgrade. SQL-level checks do not establish real-device performance. Mentions, numeric counts, image storage, and Community push notifications are not enabled by this upgrade.
+
+### Configure the private staff roles
+
+The migration keeps one private `owner` role and any number of `admin` roles. Both appear publicly only as **Admin**; the owner distinction is never returned to the client. Only the owner can appoint or remove admins through the protected operations. SQL Editor is the trusted bootstrap path for the first owner.
+
+Run only the statements you need, replacing the example addresses. Repeating an assignment for the same account updates its existing row and never creates a duplicate:
+
+```sql
+select public.set_community_staff('owner@example.com', 'owner', true);
+select public.set_community_staff('moderator@example.com', 'admin', true);
+select public.set_community_staff('moderator@example.com', 'admin', false); -- keep permission, hide public badge
+select public.remove_community_staff('moderator@example.com');
+```
+
+There can be only one owner. Assigning another owner fails instead of silently replacing the current owner. Email is used only to find the account; the stored permission is tied to its immutable Auth user ID.
 
 Local implementation is not a live migration. The new activity functions and cleanup changes require the updated SQL file; do not assume they are installed because the older community room works.
 
@@ -20,7 +35,7 @@ Local implementation is not a live migration. The new activity functions and cle
 2. Replace its contents with the complete current `supabase/community.sql` from this repository. Keep the saved name.
 3. Save, then run the whole query without a partial text selection. It is transactional and uses repeatable table/index creation and policy/function replacement.
 4. Confirm success. If there is an error, stop and inspect it; do not run individual remaining statements.
-5. Do not rerun promotion or demotion merely to update the setup. Existing admin rows are retained.
+5. Existing administrator rows are retained as admins. Configure the single owner once with the idempotent statement above; do not edit the table directly.
 6. Deploy/reload the matching new YouDO build. **Board → Admin** opens moderation; **Community** opens the room. The older preview's direct chat/reaction writes are replaced by protected RPCs, so update the SQL and preview together. Released v6.3.0 has no community UI.
 
 This migration does not access private workspace backups or delete user accounts. Cleanup runs through insert triggers on messages and acknowledgements, not a midnight job. Message visibility is determined by each message's own 24-hour expiry. Installing/rerunning the setup does not itself prune history.

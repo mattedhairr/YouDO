@@ -52,7 +52,7 @@ describe('chat delivery and cache',()=>{
     expect(readChatCache('a').messages).toHaveLength(1);
   });
   it('keeps pending messages after server-ordered messages even with a slow device clock',()=>{
-    const pending=pendingChatMessage('a','New message',undefined,[],now-3600000);
+    const pending=pendingChatMessage('a','New message',undefined,now-3600000);
     expect(mergeChatPage([parseChatMessage(row)],[pending]).map(m=>m.id)).toEqual([row.id,pending.id]);
   });
   it('offers a safe retry instead of leaving interrupted sends stuck',()=>{

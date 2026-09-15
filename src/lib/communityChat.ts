@@ -4,7 +4,6 @@ import type { CommunityMessage } from './community';
 export interface ChatMessage extends CommunityMessage {
   sequence: number;
   editedAt?: string;
-  mentionIds: string[];
   delivery: 'pending' | 'sent' | 'failed';
   error?: string;
 }
@@ -56,7 +55,6 @@ export function parseChatMessage(input: unknown): ChatMessage {
     removedAt: typeof row.removed_at === 'string' ? row.removed_at : undefined,
     replyToId: typeof row.reply_to === 'string' ? row.reply_to : undefined,
     kind: row.message_kind === 'kudos' ? 'kudos' : 'chat', delivery: 'sent',
-    mentionIds: Array.isArray(row.mention_ids) ? row.mention_ids.filter((id): id is string => typeof id === 'string') : [],
   };
 }
 export function mergeChatPage(current: ChatMessage[], page: ChatMessage[]): ChatMessage[] {
@@ -71,8 +69,8 @@ export function mergeChatPage(current: ChatMessage[], page: ChatMessage[]): Chat
     return Date.parse(a.createdAt)-Date.parse(b.createdAt) || a.id.localeCompare(b.id);
   }).slice(-CHAT_HISTORY_LIMIT);
 }
-export function pendingChatMessage(userId: string, body: string, replyToId?: string, mentionIds: string[] = [], now = Date.now()): ChatMessage {
-  return { id: crypto.randomUUID(), authorId: userId, body: body.trim().replace(/\s+/g,' '), replyToId, mentionIds,
+export function pendingChatMessage(userId: string, body: string, replyToId?: string, now = Date.now()): ChatMessage {
+  return { id: crypto.randomUUID(), authorId: userId, body: body.trim().replace(/\s+/g,' '), replyToId,
     createdAt: new Date(now).toISOString(), expiresAt: new Date(now+86_400_000).toISOString(), sequence: 0, kind: 'chat', delivery: 'pending' };
 }
 export async function fetchChatPage(beforeSequence?: number): Promise<ChatMessage[]> {
@@ -83,7 +81,7 @@ export async function fetchChatPage(beforeSequence?: number): Promise<ChatMessag
 export async function sendChatMessage(message: ChatMessage): Promise<ChatMessage> {
   const { data, error } = await supabase.rpc('send_community_message', {
     client_id: message.id, message_body: message.body, reply_to_message: message.replyToId ?? null,
-    recipients: message.mentionIds, expected_author: message.authorId,
+    expected_author: message.authorId,
   });
   if (error) throw new Error(error.message || 'Could not send. Tap Retry.');
   return parseChatMessage(data);

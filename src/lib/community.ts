@@ -34,11 +34,13 @@ export interface CommunitySettings {
   roomEnabled: boolean;
   appreciationsEnabled: boolean;
   announcement: string;
+  announcementUpdatedAt?: string;
 }
 
 export interface CommunityContext {
   chatV2?: boolean;
-  unread?: { chat: number; direct: number };
+  unread?: { chat: number; updates: number };
+  staffIds: string[];
   error?: string;
   available: boolean;
   dayKey: string;
@@ -174,6 +176,7 @@ const defaultContext = (): CommunityContext => ({
   canJoin: false,
   canPost: false,
   settings: { roomEnabled: false, appreciationsEnabled: false, announcement: '' },
+  staffIds: [],
   banned: false,
 });
 
@@ -192,8 +195,9 @@ export function parseCommunityContext(data: unknown): CommunityContext | null {
     chatV2: row.chat_v2 === true,
     unread: row.unread && typeof row.unread === 'object' ? {
       chat: Math.max(0, Number((row.unread as Record<string, unknown>).chat) || 0),
-      direct: Math.max(0, Number((row.unread as Record<string, unknown>).direct) || 0),
+      updates: Math.max(0, Number((row.unread as Record<string, unknown>).updates) || 0),
     } : undefined,
+    staffIds: Array.isArray(row.staff_ids) ? row.staff_ids.filter((id): id is string => typeof id === 'string') : [],
     dayKey: row.day_key,
     isAdmin: row.is_admin === true,
     canJoin: row.can_join === true,
@@ -202,6 +206,7 @@ export function parseCommunityContext(data: unknown): CommunityContext | null {
       roomEnabled: settings.room_enabled === true,
       appreciationsEnabled: settings.appreciations_enabled === true,
       announcement: typeof settings.announcement === 'string' ? settings.announcement : '',
+      announcementUpdatedAt: typeof settings.announcement_updated_at === 'string' ? settings.announcement_updated_at : undefined,
     },
     mutedUntil: typeof row.muted_until === 'string' ? row.muted_until : undefined,
     banned: typeof row.banned_at === 'string',
@@ -250,6 +255,7 @@ export async function fetchCommunityContext(userId?: string): Promise<CommunityC
     isAdmin: admin.data === true,
     canJoin: join.data === true,
     canPost: post.data === true,
+    staffIds: [],
     settings: {
       roomEnabled: row?.room_enabled === true,
       appreciationsEnabled: row?.appreciations_enabled === true,
@@ -311,6 +317,11 @@ export async function markCommunityRead(ids: string[]): Promise<boolean> {
   return !error;
 }
 
+export async function markCommunityUpdatesRead(): Promise<boolean> {
+  const { error } = await supabase.rpc('read_community_updates');
+  return !error;
+}
+
 export async function postCommunityMessage(userId: string, body: string, replyToId?: string): Promise<{ ok: boolean; error?: string }> {
   const clean = body.trim().replace(/\s+/g, ' ');
   if (!clean || clean.length > 240) return { ok: false, error: 'Keep the message between 1 and 240 characters.' };
@@ -324,8 +335,11 @@ export async function postCommunityMessage(userId: string, body: string, replyTo
   return error ? { ok: false, error: error.message.includes('row-level security') ? 'Posting is unavailable, limited, or paused.' : error.message } : { ok: true };
 }
 
-export async function reportCommunityMessage(messageId: string, reporterId: string): Promise<boolean> {
-  const { error } = await supabase.from('community_reports').upsert({ message_id: messageId, reporter_id: reporterId, reason: 'Unhelpful or disrespectful' }, { onConflict: 'message_id,reporter_id', ignoreDuplicates: true });
+export async function reportCommunityMessage(messageId: string): Promise<boolean> {
+  const { error } = await supabase.rpc('report_community_message', {
+    target_message: messageId,
+    report_reason: 'Unhelpful or disrespectful',
+  });
   return !error;
 }
 
