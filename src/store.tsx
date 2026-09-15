@@ -10,11 +10,12 @@ import {
 } from 'react';
 import type { ActiveSession, GoalNode, SessionStopOutcome, Task, TaskSession } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useSessionJournal } from './hooks/useSessionJournal';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
 import { parseBackupPayload, summarizeBackupPayload, type BackupSummary } from './lib/backup';
-import { guardWallClock, hasClockIncident } from './lib/deviceClock';
+import { clockIncidentBoundary, guardWallClock, hasClockIncident } from './lib/deviceClock';
 import { formatWallClock } from './lib/format';
 import {
   finalizeSession,
@@ -28,7 +29,7 @@ import {
   SESSION_HISTORY_KEEP_MS,
 } from './lib/sessionStats';
 import { attachSessionNotificationActions, pullNativeSession, syncSessionNotification } from './lib/sessionNotification';
-import { nativeSessionIsFinished, persistSessionRecord } from './lib/sessionPersistence';
+import { nativeSessionIsFinished, persistSessionRecord, selectNativeSession } from './lib/sessionPersistence';
 import {
   clearRollupCache,
   cloneNode,
@@ -222,9 +223,10 @@ interface Store {
   /* ── Session Timer ─────────────────────────────────────────────────────── */
   /** The currently live session (null if none active) */
   activeSession: ActiveSession | null;
+  sessionStorageError: string;
   /** Full session history keyed by taskId */
   sessionHistory: Record<string, TaskSession[]>;
-  /** Start a new session for a task (auto-pauses any existing session) */
+  /** Start a new session only if no session is already active. */
   startSession: (taskId: string) => void;
   /** Pause the active session */
   pauseSession: () => void;
@@ -248,6 +250,7 @@ interface Store {
 type DataStore = Omit<
   Store,
   | 'activeSession'
+  | 'sessionStorageError'
   | 'startSession'
   | 'pauseSession'
   | 'resumeSession'
@@ -260,6 +263,7 @@ type DataStore = Omit<
 type SessionStore = Pick<
   Store,
   | 'activeSession'
+  | 'sessionStorageError'
   | 'startSession'
   | 'pauseSession'
   | 'resumeSession'
@@ -293,7 +297,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useLocalStorage<GoalNode[]>(STORAGE_KEYS.goals, SEED_GOALS);
   const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>(STORAGE_KEYS.deletedGoals, []);
   const [lastDeletedNotification, setLastDeletedNotification] = useState<{ id: string; title: string } | null>(null);
-  const [activeSession, setActiveSession] = useLocalStorage<ActiveSession | null>(STORAGE_KEYS.activeSession, null);
+  const { activeSession, activeSessionRef, setActiveSession, clearRecordedSession, sessionStorageError } = useSessionJournal();
   const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>(STORAGE_KEYS.sessionHistory, {});
   const [streakMeta, setStreakMeta] = useLocalStorage<StreakMeta>(
     STORAGE_KEYS.streakMeta,
@@ -343,16 +347,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const paceCloudTimerRef = useRef<number>(0);
   const recentlyDeletedRef = useRef(recentlyDeletedGoals);
   recentlyDeletedRef.current = recentlyDeletedGoals;
-  const activeSessionRef = useRef(activeSession);
-  activeSessionRef.current = activeSession;
   // A crash between saving history and clearing the timer must not restart
   // an already recorded sitting on the next launch.
   useEffect(() => {
     if (activeSession && nativeSessionIsFinished(activeSession, sessionHistory)) {
-      activeSessionRef.current = null;
-      setActiveSession(null);
+      clearRecordedSession();
     }
-  }, [activeSession, sessionHistory, setActiveSession]);
+  }, [activeSession, sessionHistory, clearRecordedSession]);
   const goalTreeTransactionsRef = useRef(new Map<string, {
     beforeGoals: GoalNode[];
     beforeTasks: Task[];
@@ -482,7 +483,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       else if (completed) hapticSuccess();
       else hapticTick();
     },
-    [setTasks, setGoals, recordManualSteps],
+    [activeSessionRef, setTasks, setGoals, recordManualSteps],
   );
 
   const undo = useCallback(
@@ -535,7 +536,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const removeTask = useCallback((id: string) => {
     if (activeSessionRef.current?.taskId === id) return;
     setTasks((prev) => prev.filter((t) => t.id !== id));
-  }, [setTasks]);
+  }, [activeSessionRef, setTasks]);
 
   const reorder = useCallback(
     (fromId: string, toId: string) => {
@@ -612,7 +613,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       hapticSuccess();
       return { ok: true, token };
     },
-    [setGoals, setTasks],
+    [activeSessionRef, setGoals, setTasks],
   );
 
   const undoGoalTreeChange = useCallback(
@@ -696,7 +697,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setGoals((prev) => prev.map((root) => (root.id === rootId ? removeNode(root, nodeId) : root)));
       }
     },
-    [setGoals, setTasks, setRecentlyDeletedGoals],
+    [activeSessionRef, setGoals, setTasks, setRecentlyDeletedGoals],
   );
 
   /* ---------- Plan task (push to a date) ---------- */
@@ -757,7 +758,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         prev.map((root) => updateNode(root, target.id, (n) => ({ ...n, todayTaskId: taskId }))),
       );
     },
-    [setTasks, setGoals],
+    [activeSessionRef, setTasks, setGoals],
   );
 
   const planBatch = useCallback(
@@ -826,7 +827,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       );
     },
-    [setTasks, setGoals],
+    [activeSessionRef, setTasks, setGoals],
   );
 
   const unlinkTask = useCallback(
@@ -843,7 +844,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       );
     },
-    [setTasks, setGoals],
+    [activeSessionRef, setTasks, setGoals],
   );
 
   const toggleGoalStep = useCallback(
@@ -894,7 +895,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         else hapticTick();
       }
     },
-    [setGoals, setTasks, recordManualSteps, removeManualStepEvidence],
+    [activeSessionRef, setGoals, setTasks, recordManualSteps, removeManualStepEvidence],
   );
 
   const togglePin = useCallback(
@@ -984,7 +985,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         recordManualSteps(linkedTask, remainingIndices, true);
       }
     },
-    [setGoals, setTasks, recordManualSteps, removeManualStepEvidence],
+    [activeSessionRef, setGoals, setTasks, recordManualSteps, removeManualStepEvidence],
   );
 
   const [clipboard, setClipboard] = useState<GoalNode[]>([]);
@@ -1079,7 +1080,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setGoals((prev) => prev.map((root) => removeNodes(root, idSet)).filter((r) => !idSet.has(r.id)));
     },
-    [setGoals, setTasks, setRecentlyDeletedGoals],
+    [activeSessionRef, setGoals, setTasks, setRecentlyDeletedGoals],
   );
 
   const clearDeletedNotification = useCallback(() => {
@@ -1200,10 +1201,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         clockIncident: hasClockIncident(),
       });
       const task = tasksRef.current.find((t) => t.id === prev.taskId);
+        recordedBoundary: clockIncidentBoundary(prev.lastHeartbeat || prev.startTime),
       const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
       });
-      if (!record) return { ok: false, error: 'There is not enough verified time to save this sitting yet. Keep it open, or discard it explicitly. If device time changed, review the interrupted sitting first.' };
+      if (!record) return { ok: false, error: 'There is not enough recorded time to save this sitting yet. Keep it open, or discard it explicitly. If device time changed, review the interrupted sitting first.' };
       if (record) {
         let nextHist: Record<string, TaskSession[]>;
         try {
@@ -1215,11 +1217,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSessionHistory(nextHist);
         void publishPublicPace(nextHist);
       }
-      activeSessionRef.current = null;
-      setActiveSession(null);
+      clearRecordedSession();
       return { ok: true };
     },
-    [setActiveSession, setSessionHistory, publishPublicPace],
+    [activeSessionRef, clearRecordedSession, setSessionHistory, publishPublicPace],
   );
 
   const startSession = useCallback((taskId: string) => {
@@ -1241,7 +1242,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       wallClockStart: formatWallClock(now),
     };
     setActiveSession(session);
-  }, [setActiveSession]);
+  }, [activeSessionRef, setActiveSession]);
 
   const pauseSession = useCallback(() => {
     setActiveSession((prev) => {
@@ -1313,7 +1314,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       return result;
     },
-    [persistActiveSession, setTasks],
+    [activeSessionRef, persistActiveSession, setTasks],
   );
 
   const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
@@ -1342,14 +1343,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void pullNativeSession().then((session) => {
       if (cancelled || !session || nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
       if (!tasksRef.current.some((task) => task.id === session.taskId)) return;
-      if (activeSessionRef.current && (activeSessionRef.current.taskId !== session.taskId || activeSessionRef.current.startTime !== session.startTime)) return;
-      setActiveSession(session);
+      setActiveSession(selectNativeSession(activeSessionRef.current, session, sessionHistoryRef.current));
     });
     void attachSessionNotificationActions((session) => {
       if (cancelled || nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
       const current = activeSessionRef.current;
       if (!current || current.taskId !== session.taskId || current.startTime !== session.startTime) return;
-      setActiveSession(session);
+      setActiveSession(selectNativeSession(current, session, sessionHistoryRef.current));
     }).then((h) => {
       if (cancelled) {
         void h?.remove();
@@ -1361,7 +1361,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       void handle?.remove();
     };
-  }, [setActiveSession]);
+  }, [activeSessionRef, setActiveSession]);
 
   const sessionTaskTitle = activeSession
     ? tasks.find((t) => t.id === activeSession.taskId)?.title
@@ -1540,7 +1540,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       clearRollupCache();
       return true;
     },
-    [setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs],
+    [activeSessionRef, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs],
   );
 
   const setStreakBarHours = useCallback(
@@ -1707,7 +1707,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? 'Sync paused: this device and another device both changed. Nothing was overwritten.'
           : 'Sync paused for a one-time safety check because this device and cloud contain different work.',
     };
-  }, [updateCloudBackup, fetchLiveBackupInfo, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs]);
+  }, [activeSessionRef, updateCloudBackup, fetchLiveBackupInfo, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs]);
 
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const syncToCloud = useCallback((opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
@@ -1876,11 +1876,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const sessionValue = useMemo<SessionStore>(
     () => ({
-      activeSession,
+      activeSession, sessionStorageError,
       startSession, pauseSession, resumeSession, stopSession,
       discardSession, continueInterruptedSession, heartbeatSession,
     }),
-    [activeSession, startSession, pauseSession, resumeSession, stopSession,
+    [activeSession, sessionStorageError, startSession, pauseSession, resumeSession, stopSession,
       discardSession, continueInterruptedSession, heartbeatSession],
   );
 
