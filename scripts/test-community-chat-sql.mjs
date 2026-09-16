@@ -15,16 +15,23 @@ const state = async () => (await rows('select public.community_chat_state() as s
 const send = async (n,body,reply=null,author=null) => (await rows('select public.send_community_message($1,$2,$3,$4) as m',[id(1000+n),body,reply,author ? id(author) : null]))[0].m;
 try {
   await db.exec(`create role anon nologin; create role authenticated nologin;
-    create schema auth; create table auth.users(id uuid primary key,email text unique);
+    create schema auth; create table auth.users(
+      id uuid primary key,
+      email text unique,
+      created_at timestamptz not null default now(),
+      email_confirmed_at timestamptz,
+      last_sign_in_at timestamptz
+    );
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     grant usage on schema public,auth to authenticated,anon;
     alter default privileges in schema public grant all on tables to authenticated;
     alter default privileges in schema public grant usage,select on sequences to authenticated;`);
-  for (const file of ['public_pace','community']) await db.exec((await readFile(new URL(`../supabase/${file}.sql`,import.meta.url),'utf8')).replace('create extension if not exists pgcrypto;',''));
+  for (const file of ['user_backups','public_pace','community']) await db.exec((await readFile(new URL(`../supabase/${file}.sql`,import.meta.url),'utf8')).replace('create extension if not exists pgcrypto;',''));
   for(let n=1;n<=14;n++) {
-    await db.query('insert into auth.users values($1,$2)',[id(n),`member${n}@example.com`]);
+    await db.query('insert into auth.users(id,email) values($1,$2)',[id(n),`member${n}@example.com`]);
     await db.query('insert into public.public_pace(user_id,display_name) values($1,$2)',[id(n),`Member ${n}`]);
   }
+  await db.query("insert into public.user_backups(user_id,backup_data,updated_at) values($1,'{}',now()+interval '1 minute')",[id(2)]);
   await db.query('insert into public.community_admins(user_id) values($1)',[id(1)]);
   await as(2); await db.query("select public.post_community_message('Before upgrade')");
   await asSystem();
@@ -34,6 +41,9 @@ try {
   await db.exec(sql);
   await db.exec(await readFile(new URL('../supabase/operations/manage_community_staff.sql',import.meta.url),'utf8'));
   check(true,'private staff-management query parses without changing its default inspect target');
+  const usage=await rows(await readFile(new URL('../supabase/operations/inspect_app_usage.sql',import.meta.url),'utf8'));
+  check(usage.length===14 && usage[0].email==='member2@example.com' && usage[0].total_accounts===14 && usage[0].accounts_with_cloud_backup===1,
+    'private app-usage diagnostic is read-only, complete, and newest-first');
   await asSystem(); await rows("select public.set_community_staff('member1@example.com','owner',true)");
   await rows("select public.set_community_staff('member1@example.com','owner',true)");
   await db.exec(sql); check(true,'upgrade is rerunnable and preserves configured staff');

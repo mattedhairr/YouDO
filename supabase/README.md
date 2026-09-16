@@ -13,6 +13,7 @@ files in this directory.
 - **YouDO — Account Sessions** → `account_sessions.sql`
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`
 - **YouDO — Manage Community Staff** → `operations/manage_community_staff.sql`
+- **YouDO — Diagnostic — App Usage** → `operations/inspect_app_usage.sql`
 
 Copy the complete repository file into the matching private saved query. Do not
 run a selected fragment of a setup or upgrade file. `community_chat.sql` must be
@@ -24,8 +25,9 @@ applied after `public_pace.sql` and `community.sql`, before its client is releas
   Admin** with the single **YouDO — Manage Community Staff** query. It is the
   reusable, idempotent source for owner bootstrap, admin promotion/demotion, and
   public badge visibility.
-- **YouDO — Inspect Backup Owners** is a private diagnostic, not an installation
-  migration. Keep it only if it remains useful; it has no repository counterpart.
+- Replace **YouDO — Inspect Backup Owners** with **YouDO — Diagnostic — App
+  Usage**. Its canonical query is read-only, orders recent server activity first,
+  and does not pretend that Supabase can observe offline-only app use.
 - **YouDO — Enforce One Live Backup Per User** should be compared with
   `user_backups.sql`. Replace it with the complete current file and rename it to
   **YouDO — Cloud Backup Setup** so its purpose is unambiguous.

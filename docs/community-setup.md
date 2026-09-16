@@ -49,6 +49,12 @@ Follow the canonical query names and repository mapping in
 [`supabase/README.md`](../supabase/README.md); the number shown in the SQL Editor
 sidebar is not expected to equal the number of repository SQL files.
 
+The private **YouDO — Diagnostic — App Usage** query combines authentication,
+backup, Board, and Community timestamps and orders the newest server signal
+first. It is an operational diagnostic, not product analytics: local/offline use
+is invisible to Supabase, so an old or missing signal must not be presented as
+proof that a person stopped using YouDO.
+
 Admin Board broadcasts are not shortened by the client or setup function. Long broadcasts remain folded to three lines in the community room until a member expands them. Ordinary member messages keep their 240-character limit to prevent the daily room from becoming difficult to scan.
 
 ## What the activity figures mean
