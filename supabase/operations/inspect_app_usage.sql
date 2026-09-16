@@ -59,25 +59,25 @@ with latest_snapshots as (
   select
     0 as sort_group,
     'SUMMARY'::text as row_type,
-    total_accounts,
-    confirmed_accounts,
-    accounts_with_cloud_backup,
-    accounts_with_server_activity_7d,
-    accounts_with_server_activity_30d,
-    null::text as email,
-    null::text as activity_status,
-    null::timestamptz as latest_server_activity_at,
-    null::timestamptz as account_created_at,
-    null::timestamptz as email_confirmed_at,
-    null::timestamptz as last_sign_in_at,
-    null::timestamptz as backup_updated_at,
-    null::integer as backup_bytes,
-    null::timestamptz as last_snapshot_at,
-    null::timestamptz as board_updated_at,
-    null::timestamptz as community_last_seen_at,
-    null::timestamptz as last_message_at,
-    null::boolean as has_cloud_backup,
-    null::boolean as has_board_profile
+    total_accounts::text,
+    confirmed_accounts::text,
+    accounts_with_cloud_backup::text,
+    accounts_with_server_activity_7d::text,
+    accounts_with_server_activity_30d::text,
+    ''::text as email,
+    ''::text as activity_status,
+    ''::text as latest_server_activity_at,
+    ''::text as account_created_at,
+    ''::text as email_confirmed_at,
+    ''::text as last_sign_in_at,
+    ''::text as backup_updated_at,
+    ''::text as backup_bytes,
+    ''::text as last_snapshot_at,
+    ''::text as board_updated_at,
+    ''::text as community_last_seen_at,
+    ''::text as last_message_at,
+    ''::text as has_cloud_backup,
+    ''::text as has_board_profile
   from summary
 
   union all
@@ -85,12 +85,12 @@ with latest_snapshots as (
   select
     1,
     'ACCOUNT',
-    null::bigint,
-    null::bigint,
-    null::bigint,
-    null::bigint,
-    null::bigint,
-    email,
+    '',
+    '',
+    '',
+    '',
+    '',
+    coalesce(email, ''),
     case
       when email_confirmed_at is null then 'unverified'
       when latest_server_activity_at >= now() - interval '7 days' then 'server activity within 7 days'
@@ -98,18 +98,18 @@ with latest_snapshots as (
       when latest_server_activity_at is not null then 'older server activity'
       else 'no server activity recorded'
     end,
-    latest_server_activity_at,
-    account_created_at,
-    email_confirmed_at,
-    last_sign_in_at,
-    backup_updated_at,
-    backup_bytes,
-    last_snapshot_at,
-    board_updated_at,
-    community_last_seen_at,
-    last_message_at,
-    has_cloud_backup,
-    has_board_profile
+    coalesce(latest_server_activity_at::text, ''),
+    coalesce(account_created_at::text, ''),
+    coalesce(email_confirmed_at::text, ''),
+    coalesce(last_sign_in_at::text, ''),
+    coalesce(backup_updated_at::text, ''),
+    coalesce(backup_bytes::text, ''),
+    coalesce(last_snapshot_at::text, ''),
+    coalesce(board_updated_at::text, ''),
+    coalesce(community_last_seen_at::text, ''),
+    coalesce(last_message_at::text, ''),
+    case when has_cloud_backup then 'yes' else 'no' end,
+    case when has_board_profile then 'yes' else 'no' end
   from account_signals
 )
 select
@@ -134,4 +134,4 @@ select
   has_cloud_backup,
   has_board_profile
 from result_rows
-order by sort_group, latest_server_activity_at desc nulls last, account_created_at desc;
+order by sort_group, latest_server_activity_at desc, account_created_at desc;

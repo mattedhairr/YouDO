@@ -42,9 +42,10 @@ try {
   await db.exec(await readFile(new URL('../supabase/operations/manage_community_staff.sql',import.meta.url),'utf8'));
   check(true,'private staff-management query parses without changing its default inspect target');
   const usage=await rows(await readFile(new URL('../supabase/operations/inspect_app_usage.sql',import.meta.url),'utf8'));
-  check(usage.length===15 && usage[0].row_type==='SUMMARY' && usage[0].total_accounts===14 && usage[0].accounts_with_cloud_backup===1 &&
-    usage[1].row_type==='ACCOUNT' && usage[1].email==='member2@example.com' && usage[1].total_accounts===null,
-    'private app-usage diagnostic returns one summary followed by newest-first accounts');
+  check(usage.length===15 && usage[0].row_type==='SUMMARY' && usage[0].total_accounts==='14' && usage[0].accounts_with_cloud_backup==='1' &&
+    usage[1].row_type==='ACCOUNT' && usage[1].email==='member2@example.com' && usage[1].total_accounts==='' &&
+    usage.every(row=>Object.values(row).every(value=>value!==null)),
+    'private app-usage diagnostic returns one summary then newest-first accounts without NULL display cells');
   await asSystem(); await rows("select public.set_community_staff('member1@example.com','owner',true)");
   await rows("select public.set_community_staff('member1@example.com','owner',true)");
   await db.exec(sql); check(true,'upgrade is rerunnable and preserves configured staff');
