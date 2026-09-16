@@ -65,10 +65,8 @@ begin
   delete from public.community_admins where user_id=target_id;
 end; $$;
 
--- SQL Editor examples (safe to rerun for the same email):
--- select public.set_community_staff('owner@example.com', 'owner', true);
--- select public.set_community_staff('moderator@example.com', 'admin', true);
--- select public.set_community_staff('moderator@example.com', 'admin', false); -- hide only the public badge
+-- Use operations/manage_community_staff.sql as the canonical private SQL Editor
+-- query for owner bootstrap, admin changes, and public badge visibility.
 
 -- One cursor per member replaces one delivery row per member PER message.
 -- Migration reads start at the present; historical messages do not become new.

@@ -32,9 +32,12 @@ try {
   check(fanout===14,'baseline allocates fourteen delivery rows per message');
   const sql=await readFile(new URL('../supabase/community_chat.sql',import.meta.url),'utf8');
   await db.exec(sql);
+  await db.exec(await readFile(new URL('../supabase/operations/manage_community_staff.sql',import.meta.url),'utf8'));
+  check(true,'private staff-management query parses without changing its default inspect target');
   await asSystem(); await rows("select public.set_community_staff('member1@example.com','owner',true)");
+  await rows("select public.set_community_staff('member1@example.com','owner',true)");
   await db.exec(sql); check(true,'upgrade is rerunnable and preserves configured staff');
-  check((await rows("select count(*)::int n from public.community_admins where role='owner'"))[0].n===1,'exactly one owner is configured');
+  check((await rows("select count(*)::int n from public.community_admins where role='owner'"))[0].n===1,'repeating owner bootstrap preserves exactly one owner row');
   await denied("select public.set_community_staff('member2@example.com','owner',true)");
   await as(1); await rows("select public.set_community_staff('member6@example.com','admin',true)");
   await rows("select public.set_community_staff('member6@example.com','admin',false)");
