@@ -43,29 +43,84 @@ with latest_snapshots as (
   left join public.public_pace p on p.user_id = u.id
   left join public.community_activity a on a.user_id = u.id
   left join latest_messages m on m.user_id = u.id
+), summary as (
+  select
+    count(*) as total_accounts,
+    count(*) filter (where email_confirmed_at is not null) as confirmed_accounts,
+    count(*) filter (where has_cloud_backup) as accounts_with_cloud_backup,
+    count(*) filter (
+      where latest_server_activity_at >= now() - interval '7 days'
+    ) as accounts_with_server_activity_7d,
+    count(*) filter (
+      where latest_server_activity_at >= now() - interval '30 days'
+    ) as accounts_with_server_activity_30d
+  from account_signals
+), result_rows as (
+  select
+    0 as sort_group,
+    'SUMMARY'::text as row_type,
+    total_accounts,
+    confirmed_accounts,
+    accounts_with_cloud_backup,
+    accounts_with_server_activity_7d,
+    accounts_with_server_activity_30d,
+    null::text as email,
+    null::text as activity_status,
+    null::timestamptz as latest_server_activity_at,
+    null::timestamptz as account_created_at,
+    null::timestamptz as email_confirmed_at,
+    null::timestamptz as last_sign_in_at,
+    null::timestamptz as backup_updated_at,
+    null::integer as backup_bytes,
+    null::timestamptz as last_snapshot_at,
+    null::timestamptz as board_updated_at,
+    null::timestamptz as community_last_seen_at,
+    null::timestamptz as last_message_at,
+    null::boolean as has_cloud_backup,
+    null::boolean as has_board_profile
+  from summary
+
+  union all
+
+  select
+    1,
+    'ACCOUNT',
+    null::bigint,
+    null::bigint,
+    null::bigint,
+    null::bigint,
+    null::bigint,
+    email,
+    case
+      when email_confirmed_at is null then 'unverified'
+      when latest_server_activity_at >= now() - interval '7 days' then 'server activity within 7 days'
+      when latest_server_activity_at >= now() - interval '30 days' then 'server activity within 30 days'
+      when latest_server_activity_at is not null then 'older server activity'
+      else 'no server activity recorded'
+    end,
+    latest_server_activity_at,
+    account_created_at,
+    email_confirmed_at,
+    last_sign_in_at,
+    backup_updated_at,
+    backup_bytes,
+    last_snapshot_at,
+    board_updated_at,
+    community_last_seen_at,
+    last_message_at,
+    has_cloud_backup,
+    has_board_profile
+  from account_signals
 )
 select
-  count(*) over () as total_accounts,
-  count(*) filter (
-    where email_confirmed_at is not null
-  ) over () as confirmed_accounts,
-  count(*) filter (
-    where has_cloud_backup
-  ) over () as accounts_with_cloud_backup,
-  count(*) filter (
-    where latest_server_activity_at >= now() - interval '7 days'
-  ) over () as accounts_with_server_activity_7d,
-  count(*) filter (
-    where latest_server_activity_at >= now() - interval '30 days'
-  ) over () as accounts_with_server_activity_30d,
+  row_type,
+  total_accounts,
+  confirmed_accounts,
+  accounts_with_cloud_backup,
+  accounts_with_server_activity_7d,
+  accounts_with_server_activity_30d,
   email,
-  case
-    when email_confirmed_at is null then 'unverified'
-    when latest_server_activity_at >= now() - interval '7 days' then 'server activity within 7 days'
-    when latest_server_activity_at >= now() - interval '30 days' then 'server activity within 30 days'
-    when latest_server_activity_at is not null then 'older server activity'
-    else 'no server activity recorded'
-  end as activity_status,
+  activity_status,
   latest_server_activity_at,
   account_created_at,
   email_confirmed_at,
@@ -78,5 +133,5 @@ select
   last_message_at,
   has_cloud_backup,
   has_board_profile
-from account_signals
-order by latest_server_activity_at desc nulls last, account_created_at desc;
+from result_rows
+order by sort_group, latest_server_activity_at desc nulls last, account_created_at desc;
