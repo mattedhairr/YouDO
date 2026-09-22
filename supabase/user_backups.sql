@@ -1,5 +1,7 @@
 -- Run this SQL in your Supabase Dashboard > SQL Editor
 
+begin;
+
 create table if not exists public.user_backups (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -82,3 +84,5 @@ create policy "Users can insert their own snapshots"
 create policy "Users can delete their own snapshots"
   on public.user_backup_snapshots for delete to authenticated
   using ((select auth.uid()) = user_id);
+
+commit;
