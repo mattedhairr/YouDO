@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowDown, Check, Heart, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
-import { markCommunityRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
+import { ArrowDown, Check, ChevronDown, Heart, Megaphone, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
+import { markCommunityRead, markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
 import Overlay from '../Overlay';
 import './community.css';
@@ -26,6 +26,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
   const [actionBusy,setActionBusy] = useState(false);
   const [actionError,setActionError] = useState('');
   const [newBelow,setNewBelow] = useState(false);
+  const [updateOpen,setUpdateOpen] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
   const scrollPosition = useRef(initial.scrollTop);
   const composer = useRef<HTMLTextAreaElement>(null);
@@ -35,6 +36,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
   const fetching = useRef(false);
   const inFlight = useRef(new Set<string>());
   const acknowledged = useRef(new Set<string>());
+  const updateReading = useRef(false);
   const pressTimer = useRef<number>();
   const press = useRef<{ id:string;x:number;y:number;triggered:boolean }|null>(null);
   const lastTap = useRef<{ id:string;at:number }|null>(null);
@@ -108,6 +110,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     };
   },[refresh,userId]);
   useEffect(()=>()=>{if(pressTimer.current)window.clearTimeout(pressTimer.current);},[]);
+  useEffect(()=>setUpdateOpen(false),[context.settings.announcement,context.settings.announcementUpdatedAt]);
   useEffect(()=>{if(!context.canJoin){clearChatCache(userId);setMessages([]);}},[context.canJoin,userId]);
   useEffect(()=>{
     const nearest=Math.min(...messages.map(message=>Date.parse(message.expiresAt)));
@@ -215,12 +218,30 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     }catch(e){if(mounted.current)setActionError(e instanceof Error?e.message:'Action could not finish.');}
     finally{if(mounted.current)setActionBusy(false);}
   };
+  const toggleUpdate=()=>{
+    const next=!updateOpen;
+    setUpdateOpen(next);
+    if(!next || !(context.unread?.updates ?? 0) || updateReading.current)return;
+    updateReading.current=true;
+    void markCommunityUpdatesRead().then(ok=>{
+      if(ok)window.dispatchEvent(new Event('youdo-community-read'));
+      else if(mounted.current)setError('The update opened, but its unread marker could not be cleared.');
+    }).finally(()=>{updateReading.current=false;});
+  };
   const selectedCanModify=!!selected && selected.authorId===userId && selected.kind==='chat' && selected.delivery==='sent'
     && Date.now()-Date.parse(selected.createdAt)<MESSAGE_ACTION_WINDOW_MS;
   return <section className="c-chat" aria-label="Chat">
     <div className="c-chat-scroll" ref={scroll} onScroll={()=>{const root=scroll.current;if(root){scrollPosition.current=root.scrollTop;if(root.clientWidth===viewport.current.width && root.clientHeight===viewport.current.height){follow.current=root.scrollHeight-root.scrollTop-root.clientHeight<72;if(follow.current)setNewBelow(false);}}}}>
       <details className="c-guidance"><summary><ShieldCheck size={16}/> A little encouragement goes a long way</summary><p>Be respectful. No spam, links or personal details. Chat disappears after 24 hours. Doubts have their own home.</p></details>
-      {context.settings.announcement && <details className="c-announcement"><summary>From YouDO</summary><p>{context.settings.announcement}</p></details>}
+      {context.settings.announcement && <section className={`c-update-event ${context.unread?.updates?'is-new':''} ${updateOpen?'is-open':''}`}>
+        <button type="button" aria-expanded={updateOpen} onClick={toggleUpdate}>
+          <span className="c-update-icon"><Megaphone size={15}/></span>
+          <span className="c-update-summary"><strong>{context.unread?.updates?'New update':'Latest update'}</strong><small>{context.settings.announcement}</small></span>
+          {!!context.unread?.updates && <span className="c-update-new">New</span>}
+          <ChevronDown className="c-update-chevron" size={15}/>
+        </button>
+        {updateOpen && <div className="c-update-body"><p>{context.settings.announcement}</p>{context.settings.announcementUpdatedAt && <time dateTime={context.settings.announcementUpdatedAt}>{new Date(context.settings.announcementUpdatedAt).toLocaleString()}</time>}</div>}
+      </section>}
       {hasOlder && <button className="c-text-button c-load" disabled={loading} onClick={()=>void loadOlder()}>{loading?'Loading…':'Earlier messages'}</button>}
       {loading && messages.length===0 ? <div className="c-skeleton" role="status" aria-label="Loading chat"><i/><i/><i/></div>
         : messages.length===0 && !error ? <div className="c-empty"><Heart size={28}/><h3>A quiet room. A shared ambition.</h3><p>Share a useful thought or encourage a fellow aspirant.</p></div>:null}

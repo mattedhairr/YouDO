@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, Check, ChevronDown, Flag, Gauge, Heart, Megaphone, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, UserRoundCheck, UserRoundX, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Check, ChevronDown, Flag, Gauge, Heart, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, UserRoundCheck, UserRoundX, X } from 'lucide-react';
 import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
@@ -13,7 +13,6 @@ import {
   fetchCommunityContext,
   fetchCommunityMessages,
   isCommunityMessageActive,
-  markCommunityUpdatesRead,
   moderateCommunityMember,
   postCommunityMessage,
   removeCommunityMessage,
@@ -71,8 +70,6 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [audit, setAudit] = useState<CommunityAuditEntry[]>([]);
   const [announcement, setAnnouncement] = useState(initialContext.settings.announcement);
   const [announcementExpanded, setAnnouncementExpanded] = useState(false);
-  const [roomTab, setRoomTab] = useState<'chat' | 'updates'>('chat');
-  const updatesReading = useRef(false);
   const announcementDirty = useRef(false);
   const [pendingBan, setPendingBan] = useState<string | null>(null);
   const [appealDraft, setAppealDraft] = useState('');
@@ -140,17 +137,6 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     window.addEventListener('youdo-community-read', afterRead);
     return () => window.removeEventListener('youdo-community-read', afterRead);
   }, [open, refresh]);
-
-  useEffect(() => {
-    if (!open || mode !== 'room' || roomTab !== 'updates' || !context.canJoin
-      || !context.settings.announcement || !(context.unread?.updates ?? 0) || updatesReading.current) return;
-    updatesReading.current = true;
-    void markCommunityUpdatesRead().then((ok) => {
-      if (!ok) return;
-      setContext((current) => ({ ...current, unread: { chat: current.unread?.chat ?? 0, updates: 0 } }));
-      window.dispatchEvent(new Event('youdo-community-read'));
-    }).finally(() => { updatesReading.current = false; });
-  }, [context.canJoin, context.settings.announcement, context.unread?.updates, mode, open, roomTab]);
 
   useEffect(() => {
     setAnnouncementExpanded(false);
@@ -245,11 +231,6 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         <button type="button" disabled={refreshing} onClick={() => void refresh()} className="grid size-9 place-items-center rounded-xl text-content-muted" aria-label="Refresh"><RefreshCw size={15} /></button>
       </header>
 
-      {mode === 'room' && context.chatV2 && context.canJoin && <nav className="community-sections" aria-label="Community sections">
-        <button type="button" aria-current={roomTab === 'chat' ? 'page' : undefined} onClick={() => setRoomTab('chat')}><MessageCircle size={15}/><span>Chat</span>{(context.unread?.chat ?? 0)>0 && <i aria-label="New chat activity"/>}</button>
-        <button type="button" aria-current={roomTab === 'updates' ? 'page' : undefined} onClick={() => setRoomTab('updates')}><Megaphone size={15}/><span>Updates</span>{(context.unread?.updates ?? 0)>0 && <i aria-label="New update"/>}</button>
-      </nav>}
-
       {refreshError && <p role="status" className="mx-4 mt-3 text-[12px] text-error">{refreshError}</p>}
 
       {!context.available ? <div className="m-4 rounded-2xl border border-dashed border-subtle bg-surface p-6 text-center"><ShieldCheck className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Community setup is pending</h3><p className="mt-1 text-[11px] text-content-secondary">Install the protected community database migration to turn this on.</p></div>
@@ -260,17 +241,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         {status && <p role="status" className="mt-3 text-[10.5px] text-primary">{status}</p>}
       </main>
       : !context.canJoin && !context.isAdmin ? <div className="m-4 rounded-2xl border border-subtle bg-surface p-6 text-center"><Heart className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Join the Board first</h3><p className="mt-1 text-[11px] text-content-secondary">Only opted-in Board members can react or enter the daily room.</p></div>
-      : mode === 'room' && context.chatV2 && userId ? roomTab === 'chat'
+      : mode === 'room' && context.chatV2 && userId
         ? <CommunityChat key={userId} userId={userId} context={context} names={names} />
-        : <main className="community-updates">
-          {context.settings.announcement ? <article className="community-update-card">
-            <div className="community-update-icon"><Megaphone size={17}/></div>
-            <div className="min-w-0"><p className="community-update-label">From YouDO</p><h3>Latest update</h3>
-              <p className="community-update-copy">{context.settings.announcement}</p>
-              {context.settings.announcementUpdatedAt && <time dateTime={context.settings.announcementUpdatedAt}>{new Date(context.settings.announcementUpdatedAt).toLocaleString()}</time>}
-            </div>
-          </article> : <div className="community-updates-empty"><Megaphone size={25}/><h3>No updates right now</h3><p>Important messages from YouDO will appear here.</p></div>}
-        </main>
       : mode === 'room' ? <>
         <main className="community-room-main min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <details className="community-guidelines">

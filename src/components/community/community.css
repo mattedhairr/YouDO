@@ -4,8 +4,14 @@
 .c-guidance { color:var(--text-secondary);font-size:12px;line-height:1.6;margin-bottom:16px; }
 .c-guidance summary { display:flex;align-items:center;gap:8px;min-height:40px;cursor:pointer;list-style:none; }
 .c-guidance svg { color:var(--secondary);flex-shrink:0; }
-.c-announcement { padding:12px 14px;background:var(--secondary-soft);border-radius:16px;margin-bottom:16px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere; }
-.c-announcement summary { min-height:28px;cursor:pointer;font-weight:650;color:var(--secondary); }
+.c-update-event { overflow:hidden;margin:0 0 14px;border:1px solid color-mix(in srgb,var(--secondary) 18%,var(--border-subtle));border-radius:15px;background:linear-gradient(115deg,color-mix(in srgb,var(--secondary-soft) 55%,transparent),color-mix(in srgb,var(--bg-surface) 72%,transparent)); }
+.c-update-event.is-new { border-color:color-mix(in srgb,var(--secondary) 42%,var(--border-subtle));box-shadow:0 5px 18px color-mix(in srgb,var(--secondary) 9%,transparent); }
+.c-update-event>button { display:grid;grid-template-columns:32px minmax(0,1fr) auto 16px;align-items:center;gap:9px;width:100%;min-height:54px;padding:8px 11px;text-align:left; }
+.c-update-icon { display:grid;width:32px;height:32px;place-items:center;border:1px solid color-mix(in srgb,var(--secondary) 24%,transparent);border-radius:10px;background:color-mix(in srgb,var(--secondary-soft) 78%,var(--bg-elevated));color:var(--secondary); }
+.c-update-summary { display:grid;min-width:0;gap:1px; }.c-update-summary strong { color:var(--text-primary);font-size:11.5px;font-weight:700; }.c-update-summary small { overflow:hidden;color:var(--text-secondary);font-size:10px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap; }
+.c-update-new { border-radius:999px;padding:3px 6px;background:var(--secondary);color:var(--bg-base);font-size:7.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase; }
+.c-update-chevron { color:var(--text-muted);transition:transform 160ms ease; }.c-update-event.is-open .c-update-chevron { transform:rotate(180deg); }
+.c-update-body { border-top:1px solid color-mix(in srgb,var(--secondary) 16%,transparent);padding:11px 13px 12px; }.c-update-body p { color:var(--text-primary);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere; }.c-update-body time { display:block;margin-top:8px;color:var(--text-muted);font-size:9px; }
 .c-messages { display:flex;flex-direction:column;gap:6px;list-style:none;padding:0;margin:0; }
 .c-message { display:flex;justify-content:flex-start; }
 .c-message.is-mine { justify-content:flex-end; }

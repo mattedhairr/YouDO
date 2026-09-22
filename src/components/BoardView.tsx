@@ -225,6 +225,8 @@ export default function BoardView() {
   const [communityOpen, setCommunityOpen] = useState(false);
   const [communityStartInAdmin, setCommunityStartInAdmin] = useState(false);
   const [community, setCommunity] = useState<CommunityContext>(EMPTY_COMMUNITY_CONTEXT);
+  const hasCommunityUnread = !community.banned
+    && ((community.unread?.chat ?? 0) > 0 || (community.unread?.updates ?? 0) > 0);
   const [appreciations, setAppreciations] = useState<AppreciationState>({ counts: {}, mine: new Set() });
   const appreciationBusy = useRef(false);
   const [savingAppreciation, setSavingAppreciation] = useState(false);
@@ -406,11 +408,9 @@ export default function BoardView() {
         <span className="shrink-0">Ranked by net focus</span>
       </div>
 
-      {community.available && (community.canJoin || community.isAdmin || community.banned) && <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}><button type="button" onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }} className="board-community-link">
-        {community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}
-        <span>{community.banned ? 'Community access · Request a review' : 'Community'}</span>
-        {!community.banned && ((community.unread?.chat ?? 0)>0 || (community.unread?.updates ?? 0)>0)
-          ? <span className="board-unread" aria-label="Unread Community activity"/> : null}
+      {community.available && (community.canJoin || community.isAdmin || community.banned) && <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}><button type="button" aria-label={hasCommunityUnread ? 'Community, new activity' : 'Community'} onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }} className="board-community-link">
+        <span className="board-community-icon" aria-hidden="true">{community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}{hasCommunityUnread && <span className="board-unread" />}</span>
+        <span className="board-community-label">{community.banned ? 'Community access · Request a review' : 'Community'}</span>
         <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Open' : 'Paused'}</span>
         <ChevronDown size={14} className="-rotate-90" />
       </button>{community.isAdmin && <button type="button" onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }} className="board-admin-link" aria-label="Open community admin"><Gauge size={16} /><span>Admin</span></button>}</div>}

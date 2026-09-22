@@ -8,9 +8,9 @@ Migration order is `public_pace.sql` → `community.sql` → `community_chat.sql
 
 The upgrade adds server ordering, 30-message pages, one read cursor per member, idempotent sends, account-bound retries, replies, and server-enforced 15-minute edit and delete windows. Reports and administrator removals use protected operations; removals require a reason and retain one moderation record. Old inbox/post/read RPCs remain available; the new client selects the new chat only when `community_context` returns `chat_v2: true`.
 
-Unlike the legacy implementation described below, new messages no longer create a delivery row for every member. Existing delivery rows are retained, but visibility and the Chat dot use membership start time and the shared message sequence. Migration initializes existing members as caught up, without hiding their active history. Leaving and rejoining resets that membership boundary. Background fetching does not advance the read cursor; expiry, removal, and banned-author filtering also apply to unread state. Broadcasts use a separate revision cursor and clear only after Updates is displayed. This removes message-insert fan-out, not all polling, database, or realtime costs.
+Unlike the legacy implementation described below, new messages no longer create a delivery row for every member. Existing delivery rows are retained, but visibility and the Chat dot use membership start time and the shared message sequence. Migration initializes existing members as caught up, without hiding their active history. Leaving and rejoining resets that membership boundary. Background fetching does not advance the read cursor; expiry, removal, and banned-author filtering also apply to unread state. Broadcasts use a separate revision cursor and clear only after the compact update event is opened in Chat. This removes message-insert fan-out, not all polling, database, or realtime costs.
 
-Run `node scripts/test-community-chat-sql.mjs` in addition to the baseline suites. Verify legacy-client reads/posts, hosted grants, account switching, cross-device Chat and Updates dots, room restrictions, and moderation after the upgrade. SQL-level checks do not establish real-device performance. Mentions, numeric counts, image storage, and Community push notifications are not enabled by this upgrade.
+Run `node scripts/test-community-chat-sql.mjs` in addition to the baseline suites. Verify legacy-client reads/posts, hosted grants, account switching, cross-device message and broadcast unread state, room restrictions, and moderation after the upgrade. SQL-level checks do not establish real-device performance. Mentions, numeric counts, image storage, and Community push notifications are not enabled by this upgrade.
 
 ### Configure the private staff roles
 
@@ -55,7 +55,7 @@ first. It is an operational diagnostic, not product analytics: local/offline use
 is invisible to Supabase, so an old or missing signal must not be presented as
 proof that a person stopped using YouDO.
 
-Admin Board broadcasts are not shortened by the client or setup function. Long broadcasts remain folded to three lines in the community room until a member expands them. Ordinary member messages keep their 240-character limit to prevent the daily room from becoming difficult to scan.
+Admin Board broadcasts are not shortened by the client or setup function. Chat shows the latest broadcast as one compact event with a short preview; opening it reveals the complete text and marks that revision as read. Ordinary member messages keep their 240-character limit to prevent the daily room from becoming difficult to scan.
 
 ## What the activity figures mean
 
