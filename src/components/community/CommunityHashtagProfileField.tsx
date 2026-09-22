@@ -46,11 +46,11 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
     return false;
   };
 
-  const choose = async (id: string) => {
-    if (!ensureBoard() || busy) return;
+  const choose = async (id?: string) => {
+    if (busy || (id && !ensureBoard())) return;
     setBusy(true); setError('');
     try {
-      await onBeforeChoose();
+      if (id) await onBeforeChoose();
       await chooseCommunityHashtag(id);
       await refresh();
       setPanel(null);
@@ -77,7 +77,7 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
       <div className="settings-hashtag-copy">
         <span>Exam community</span>
         <strong>{context.mine ? `#${context.mine.label}` : 'Choose an approved hashtag'}</strong>
-        <small>{context.mine ? 'Shown on your Board profile and leaderboard.' : 'Connect your profile with aspirants preparing for the same exam.'}</small>
+        <small>{context.mine ? 'Shown on your Board profile and leaderboard.' : 'General chat stays available; choose one to unlock exam chats.'}</small>
       </div>
       <button type="button" onClick={() => { setError(''); setPanel('choose'); }}>
         {context.mine ? 'Change' : 'Choose'}
@@ -87,8 +87,10 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
       <section className="c-hashtag-sheet settings-hashtag-sheet">
         <header><div><span>PUBLIC PROFILE</span><h3>{panel === 'request' ? 'Request an exam hashtag' : 'Choose your exam'}</h3></div><button type="button" onClick={() => setPanel(null)} aria-label="Close"><X size={17}/></button></header>
         {panel === 'choose' ? <>
-          <p className="c-hashtag-help">Choose one approved exam. You can change it later; the same hashtag appears in Community and on the Board.</p>
-          {context.hashtags.length > 0 ? <div className="c-hashtag-choices">{context.hashtags.map((tag) => <button type="button" disabled={busy} key={tag.id} onClick={() => void choose(tag.id)}>
+          <p className="c-hashtag-help">Choose one approved exam for your Board profile and exam chat. You can change or remove it later.</p>
+          {context.hashtags.length > 0 ? <div className="c-hashtag-choices">{context.mine && <button type="button" className="c-hashtag-none" disabled={busy} onClick={() => void choose()}>
+            <span>No exam hashtag</span><small>Use General chat only</small>
+          </button>}{context.hashtags.map((tag) => <button type="button" disabled={busy} key={tag.id} onClick={() => void choose(tag.id)}>
             <span>#{tag.label}</span>{context.mine?.id === tag.id ? <Check size={13}/> : <small>{tag.memberCount} member{tag.memberCount === 1 ? '' : 's'}</small>}
           </button>)}</div> : <p className="settings-hashtag-empty">No exam hashtags have been approved yet.</p>}
           <button type="button" className="c-hashtag-link" onClick={() => { setError(''); setPanel('request'); }}><Plus size={12}/> My exam is not listed</button>

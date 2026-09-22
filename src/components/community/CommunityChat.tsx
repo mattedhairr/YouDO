@@ -7,12 +7,12 @@ import Overlay from '../Overlay';
 import CommunityHashtagBar from './CommunityHashtagBar';
 import './community.css';
 
-interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void }
+interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void }
 const clock = new Intl.DateTimeFormat(undefined,{ hour:'numeric',minute:'2-digit' });
 const MESSAGE_ACTION_WINDOW_MS = 15 * 60 * 1000;
 const LONG_PRESS_MS = 460;
 const DOUBLE_TAP_MS = 320;
-export default function CommunityChat({ userId, context, names, onProfile }: Props) {
+export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings }: Props) {
   const initial = useMemo(() => readChatCache(userId),[userId]);
   const cacheLease = useRef(chatCacheGeneration());
   const [messages,setMessages] = useState(initial.messages);
@@ -282,7 +282,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     </div>
     {newBelow && <button className="c-new" onClick={()=>{follow.current=true;if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;setNewBelow(false);}}>New messages <ArrowDown size={15}/></button>}
     <footer className="c-composer">
-      <CommunityHashtagBar selectedId={selectedHashtag} onSelect={setSelectedHashtag} onMembershipChange={setOwnHashtag}/>
+      <CommunityHashtagBar selectedId={selectedHashtag} onSelect={setSelectedHashtag} onMembershipChange={setOwnHashtag} onOpenBoardSettings={onOpenBoardSettings}/>
       {error && <p role="status" className="c-feedback">{error} <button onClick={()=>void refresh()} aria-label="Refresh chat"><RefreshCw size={15}/></button></p>}
       {(reply || editing) && <div className="c-replying"><Reply size={16}/><span><strong>{editing?'Editing your message':'Replying'}</strong>{(editing??reply)?.body}</span><button aria-label="Cancel reply or edit" onClick={()=>{setReply(null);if(editing)setDraft('');setEditing(null);}}><X size={18}/></button></div>}
       {!canWriteFilter&&<p className="c-hashtag-readonly"><Lock size={11}/> Browse-only feed · switch to General or your exam to post</p>}

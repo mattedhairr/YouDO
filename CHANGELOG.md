@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.2] — 2026-09-23 — Clearer exam-chat access
+
+- **Hashtags are optional** — Remove your selected exam hashtag from Public Board settings whenever you want and continue using General chat normally.
+- **Locked chats explain the next step** — If no exam is selected, tapping an exam chat now explains why it is locked and opens the correct Public Board setting directly.
+- **Predictable chat filters** — General shows messages from everyone, while an exam chat shows only messages from members currently using that exam hashtag.
+- **Android APK** — versionName **7.5.2**, versionCode **43**. Installs directly over **v7.5.1** with the same package ID and signing key; no uninstall or device-data reset is required.
+
+---
+
 ## [v7.5.1] — 2026-09-22 — Cleaner exam communities and managed quotes
 
 - **Every exam request stays visible** — Members can request more than one exam community without a newer request replacing an earlier one, and Admin can approve, answer, or reject each request individually.

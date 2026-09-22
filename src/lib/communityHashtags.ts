@@ -48,8 +48,8 @@ export async function fetchCommunityHashtags(): Promise<CommunityHashtagContext>
   if(error)throw new Error(error.message||'Could not load exam hashtags.');
   return parseHashtagContext(data);
 }
-export async function chooseCommunityHashtag(id:string): Promise<void> {
-  const {error}=await supabase.rpc('set_community_hashtag',{selected_hashtag:id});
+export async function chooseCommunityHashtag(id?:string): Promise<void> {
+  const {error}=await supabase.rpc('set_community_hashtag',{selected_hashtag:id??null});
   if(error)throw new Error(error.message||'Could not save your exam hashtag.');
 }
 export async function requestCommunityHashtag(examName:string,details:string): Promise<void> {

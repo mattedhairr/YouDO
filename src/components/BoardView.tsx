@@ -212,7 +212,7 @@ function EmptyRankSlot({ rank }: { rank: number }) {
   );
 }
 
-export default function BoardView() {
+export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings: () => void }) {
   const { user } = useAuth();
   const { publishPublicPace, pacePrefs } = useStore();
   const [paceWindow, setPaceWindow] = useState<PaceWindow>('today');
@@ -648,7 +648,7 @@ export default function BoardView() {
           )}
         </div>
       )}
-      {communityOpen && <CommunitySheet key={communityStartInAdmin ? 'admin' : 'room'} open onClose={closeCommunity} userId={user?.id} rows={rows} initialContext={community} startInAdmin={communityStartInAdmin} />}
+      {communityOpen && <CommunitySheet key={communityStartInAdmin ? 'admin' : 'room'} open onClose={closeCommunity} userId={user?.id} rows={rows} initialContext={community} startInAdmin={communityStartInAdmin} onOpenBoardSettings={() => { closeCommunity(); onOpenBoardSettings(); }} />}
     </div>
   );
 }

@@ -51,6 +51,7 @@ import type { CommunityHashtagContext } from '../lib/communityHashtags';
 interface Props {
   open: boolean;
   onClose: () => void;
+  focusSection?: 'public-board';
   streakBarHours: number;
   onStreakBarHoursChange: (hours: number) => void;
 }
@@ -83,6 +84,7 @@ function backupSummaryText(summary: BackupSummary | null): string {
 export default function SettingsSheet({
   open,
   onClose,
+  focusSection,
   streakBarHours,
   onStreakBarHoursChange,
 }: Props) {
@@ -109,6 +111,7 @@ export default function SettingsSheet({
   const { activeSession } = useSessionStore();
   const [theme, setTheme] = useTheme();
   const [reducedEffects, setReducedEffects] = useReducedEffects();
+  const publicBoardRef = useRef<HTMLElement>(null);
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [confirmImport, setConfirmImport] = useState(false);
@@ -206,6 +209,14 @@ export default function SettingsSheet({
       });
     return () => { cancelled = true; };
   }, [open, updateCheckKey]);
+
+  useEffect(() => {
+    if (!open || focusSection !== 'public-board') return;
+    const frame = window.requestAnimationFrame(() => {
+      publicBoardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, focusSection]);
 
   if (!open) return null;
 
@@ -1064,7 +1075,7 @@ export default function SettingsSheet({
           </div>
         </section>
 
-        <section>
+        <section ref={publicBoardRef}>
           <SectionLabel>PUBLIC BOARD</SectionLabel>
           <div className="settings-card settings-board-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
             <div className="flex items-start gap-3">

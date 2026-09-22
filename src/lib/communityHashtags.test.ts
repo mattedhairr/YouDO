@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks=vi.hoisted(()=>({rpc:vi.fn()}));
 vi.mock('./supabase',()=>({supabase:{rpc:mocks.rpc}}));
-import { fetchAdminHashtagRequests, parseAdminHashtagRequest, parseHashtagContext, requestCommunityHashtag, reviewCommunityHashtagRequest } from './communityHashtags';
+import { chooseCommunityHashtag, fetchAdminHashtagRequests, parseAdminHashtagRequest, parseHashtagContext, requestCommunityHashtag, reviewCommunityHashtagRequest } from './communityHashtags';
 
 beforeEach(()=>mocks.rpc.mockReset());
 
@@ -30,6 +30,9 @@ describe('community hashtag contracts',()=>{
     expect(parseAdminHashtagRequest({id:'r2',status:'approved'})).toBeUndefined();
   });
   it('uses protected RPCs for member and admin operations',async()=>{
+    mocks.rpc.mockResolvedValueOnce({data:null,error:null});
+    await chooseCommunityHashtag();
+    expect(mocks.rpc).toHaveBeenCalledWith('set_community_hashtag',{selected_hashtag:null});
     mocks.rpc.mockResolvedValueOnce({data:null,error:null});
     await requestCommunityHashtag('GATE','CS');
     expect(mocks.rpc).toHaveBeenCalledWith('request_community_hashtag',{requested_exam:'GATE',request_details:'CS'});

@@ -75,6 +75,11 @@ try{
   await system();const neetId=(await rows("select id from public.community_hashtags where normalized_label='neetpg'"))[0].id;await as(2);
   await rows('select public.set_community_hashtag($1)',[neetId]);
   check((await rows('select hashtag_label from public.board_pace_rows() where user_id=$1',[id(2)]))[0].hashtag_label==='NEET-PG','Board rows expose the current approved hashtag');
+  await rows('select public.set_community_hashtag(null)');
+  context=(await rows('select public.community_hashtag_context() c'))[0].c;
+  check(context.mine===null,'a member can remove their exam hashtag');
+  check((await rows('select hashtag_label from public.board_pace_rows() where user_id=$1',[id(2)]))[0].hashtag_label===null,'removing a hashtag clears it from the Board profile');
+  await denied('select * from public.community_chat_page_by_hashtag(null,$1)',[neetId]);
   const general=await rows('select * from public.community_chat_page_by_hashtag(null,null)');
   check(general.length===3,'General retains every visible message');
   await as(1);await rows("select public.moderate_community_member($1,'ban')",[id(2)]);
