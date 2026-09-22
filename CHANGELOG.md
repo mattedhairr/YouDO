@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.1] — 2026-09-22 — Cleaner exam communities and managed quotes
+
+- **Every exam request stays visible** — Members can request more than one exam community without a newer request replacing an earlier one, and Admin can approve, answer, or reject each request individually.
+- **Approved exam identity** — Board settings use approved exam hashtags instead of free text, with a direct path to request a missing exam; the selected hashtag also appears on the focus Board and Account & Sync card.
+- **Clearer Admin review** — Exam requests are grouped and visually separated so different people and decisions remain easy to understand on a small screen.
+- **Quotes managed inside YouDO** — Admin can add, edit, hide, restore, and delete the motivational lines shown in the app header, while bundled quotes remain available offline.
+- **Android APK** — versionName **7.5.1**, versionCode **42**. Installs directly over **v7.5.0** with the same package ID and signing key; no uninstall or device-data reset is required. Apply the updated `community_hashtags.sql` and the additive `app_quotes.sql` before publishing this client.
+
+---
+
 ## [v7.5.0] — 2026-09-22 — Build a blueprint with AI
 
 - **Plan with the AI you prefer** — Describe an exam, timeline, available study time, current preparation, resources, and constraints; YouDO assembles a detailed setup prompt for ChatGPT, Claude, or Gemini without sending anything automatically.
