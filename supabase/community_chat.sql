@@ -312,6 +312,10 @@ grant execute on function public.send_community_message(uuid,text,uuid,uuid) to 
 grant execute on function public.edit_community_message(uuid,text) to authenticated;
 grant execute on function public.delete_community_message(uuid) to authenticated;
 grant execute on function public.report_community_message(uuid,text) to authenticated;
+-- The message SELECT policy invokes this helper as the authenticated caller.
+-- Keep it executable just as the base Community migration does; the function
+-- only exposes the same public Admin identity returned by community_context.
+grant execute on function public.is_community_admin(uuid) to authenticated;
 grant execute on function public.set_community_staff(text,text,boolean) to authenticated;
 grant execute on function public.remove_community_staff(text) to authenticated;
 

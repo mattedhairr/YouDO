@@ -55,6 +55,8 @@ try {
   check(fanout===14,'baseline allocates fourteen delivery rows per message');
   const sql=await readFile(new URL('../supabase/community_chat.sql',import.meta.url),'utf8');
   await db.exec(sql);
+  check((await rows("select has_function_privilege('authenticated','public.is_community_admin(uuid)','execute') as allowed"))[0].allowed===true,
+    'authenticated message reads retain permission to evaluate the admin-aware RLS policy');
   await db.exec(await readFile(new URL('../supabase/operations/manage_community_staff.sql',import.meta.url),'utf8'));
   check(true,'private staff-management query parses without changing its default inspect target');
   const usage=await rows(await readFile(new URL('../supabase/operations/inspect_app_usage.sql',import.meta.url),'utf8'));
