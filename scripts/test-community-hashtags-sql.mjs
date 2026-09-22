@@ -1,0 +1,77 @@
+// Isolated PostgreSQL contract tests for the additive hashtag migration.
+import { PGlite } from '../node_modules/.cache/community-db-test/node_modules/@electric-sql/pglite/dist/index.js';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+
+const db=new PGlite();
+const id=n=>`20000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
+const rows=async(sql,args=[])=>(await db.query(sql,args)).rows;
+const as=async n=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[n?id(n):'']);await db.exec('set role authenticated');};
+const system=async()=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub','',false)");};
+let checks=0;
+const check=(ok,label)=>{assert.ok(ok,label);checks++;};
+const denied=async(sql,args=[])=>{let failed=false;try{await db.query(sql,args);}catch{failed=true;}check(failed,`Expected denial: ${sql}`);};
+try{
+  await db.exec(`create role anon nologin;create role authenticated nologin;create schema auth;
+    create table auth.users(id uuid primary key,email text unique,created_at timestamptz not null default now(),email_confirmed_at timestamptz,last_sign_in_at timestamptz);
+    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+    grant usage on schema public,auth to authenticated,anon;
+    alter default privileges in schema public grant all on tables to authenticated;
+    alter default privileges in schema public grant usage,select on sequences to authenticated;`);
+  await db.exec(`create table public.user_backups(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,backup_data text not null,updated_at timestamptz not null default now(),constraint user_backups_user_id_key unique(user_id));`);
+  for(const file of ['user_backups','public_pace','community','community_chat','community_hashtags']){
+    await db.exec((await readFile(new URL(`../supabase/${file}.sql`,import.meta.url),'utf8')).replace('create extension if not exists pgcrypto;',''));
+  }
+  await db.exec(await readFile(new URL('../supabase/community_hashtags.sql',import.meta.url),'utf8'));
+  check(true,'migration is rerunnable');
+  for(let n=1;n<=6;n++){
+    await db.query('insert into auth.users(id,email) values($1,$2)',[id(n),`member${n}@example.com`]);
+    await db.query('insert into public.public_pace(user_id,display_name) values($1,$2)',[id(n),`Member ${n}`]);
+  }
+  await system();await rows("select public.set_community_staff('member1@example.com','owner',true)");
+  await as(3);await rows("select public.request_community_hashtag('GATE','Computer Science')");
+  await rows("select public.request_community_hashtag(' GATE ','Updated context')");
+  await system();
+  check((await rows('select count(*)::int n from public.community_hashtag_requests where requester_id=$1',[id(3)]))[0].n===1,'a member has one unresolved request');
+  await as(3);
+  await denied('select * from public.community_hashtag_requests');
+  await as(4);await rows("select public.request_community_hashtag('gate','Mechanical')");
+  await as(5);await rows("select public.request_community_hashtag('NEET PG','Medicine')");
+  await denied('select * from public.community_chat_page_by_hashtag(null,$1)',[id(90)]);
+  await as(6);await denied('select * from public.admin_community_hashtag_requests()');
+  await as(1);let requests=await rows('select * from public.admin_community_hashtag_requests()');
+  check(requests.length===3,'admin sees all unresolved requests');
+  let gate=requests.find(row=>row.normalized_exam==='gate');
+  await rows("select public.review_community_hashtag_request($1,'wait','Waiting for more GATE aspirants',null)",[gate.id]);
+  await as(3);let context=(await rows('select public.community_hashtag_context() c'))[0].c;
+  check(context.request.status==='waiting'&&context.request.admin_response.includes('Waiting'),'matching requesters see the private group response');
+  await as(4);context=(await rows('select public.community_hashtag_context() c'))[0].c;
+  check(context.request.status==='waiting','one admin reply updates every matching unresolved request');
+  await as(1);requests=await rows('select * from public.admin_community_hashtag_requests()');
+  gate=requests.find(row=>row.normalized_exam==='gate');
+  const neet=requests.find(row=>row.normalized_exam==='neetpg');
+  await rows("select public.review_community_hashtag_request($1,'create','Approved','GATE')",[gate.id]);
+  await rows("select public.review_community_hashtag_request($1,'create','Approved','NEET PG')",[neet.id]);
+  await system();
+  check((await rows("select count(*)::int n from public.community_hashtag_requests where status='approved'"))[0].n===3,'creating a hashtag closes matching requests together');
+  check((await rows('select count(*)::int n from public.community_hashtag_memberships'))[0].n===3,'matching requesters are assigned automatically');
+  await as(3);context=(await rows('select public.community_hashtag_context() c'))[0].c;
+  const gateId=context.mine.id;check(context.mine.label==='GATE','approved requester receives the hashtag');
+  await rows('select public.send_community_message($1,$2)',[id(101),'GATE message']);
+  await as(5);await rows('select public.send_community_message($1,$2)',[id(102),'NEET message']);
+  await as(2);await rows('select public.send_community_message($1,$2)',[id(103),'General message']);
+  await denied('select * from public.community_chat_page_by_hashtag(null,$1)',[gateId]);
+  await rows('select public.set_community_hashtag($1)',[gateId]);
+  const filtered=await rows('select * from public.community_chat_page_by_hashtag(null,$1)',[gateId]);
+  check(filtered.length===2&&filtered.every(row=>['GATE message','General message'].includes(row.body)),'exam feed contains only current members of that hashtag');
+  await system();const neetId=(await rows("select id from public.community_hashtags where normalized_label='neetpg'"))[0].id;await as(2);
+  await denied('select public.set_community_hashtag($1)',[neetId]);
+  const general=await rows('select * from public.community_chat_page_by_hashtag(null,null)');
+  check(general.length===3,'General retains every visible message');
+  await as(1);await rows("select public.moderate_community_member($1,'ban')",[id(2)]);
+  await as(2);check((await rows('select * from public.community_chat_page_by_hashtag(null,$1)',[gateId])).length===0,'banned members cannot browse an exam feed');
+  await denied('select public.request_community_hashtag($1)',["ESE"]);
+  await as(1);await rows("select public.moderate_community_member($1,'restore')",[id(2)]);
+  await db.exec('reset role;set role anon');await denied('select public.community_hashtag_context()');
+  console.log(`${checks} community hashtag SQL checks passed.`);
+}finally{await db.close();}

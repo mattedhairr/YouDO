@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.4.0] — 2026-09-22 — Find your exam community
+
+- **Focused exam conversations** — Choose one approved exam hashtag for your Community profile, then switch between General and exam-filtered conversations from a compact control above the composer.
+- **Requests stay organized** — Ask for a missing exam hashtag with optional context; grouped demand appears in Admin Review, where admins can reply privately or approve a shared hashtag.
+- **Compact by default** — Exam filters stay collapsed as a small General control until opened, preserving chat space on smaller phones.
+- **Protected membership and review** — Profile assignment, filtered reads, requests, and admin decisions use additive server operations without changing existing General Chat.
+- **Android APK** — versionName **7.4.0**, versionCode **40**. Installs directly over **v7.3.0** with the same package ID and signing key; no uninstall or device-data reset is required. Apply `community_hashtags.sql` before publishing this client.
+
+---
+
 ## [v7.3.0] — 2026-09-22 — A clearer, more responsive Community
 
 - **Know when Community has something new** — A stable icon badge signals new activity without shifting the Board layout, and broadcasts appear as compact expandable events inside Chat instead of occupying a separate section.

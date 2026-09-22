@@ -4,13 +4,21 @@
 
 YouDO v7.3.0 adds `supabase/community_chat.sql` after the base setup. Apply the current file before publishing the dependent client, and complete the hosted checks in this guide before treating the release candidate as ready.
 
-Migration order is `public_pace.sql` → `community.sql` → `community_chat.sql`. Apply the final file as a whole transaction before deploying its client. If the base Community setup is rerun later, rerun the chat upgrade immediately afterwards: the base file otherwise reinstates the legacy inbox and message-delivery trigger. Keep a database backup before changing a live project, and check the RPCs through the hosted API in a staging project first.
+Migration order is `public_pace.sql` → `community.sql` → `community_chat.sql` → `community_hashtags.sql`. Apply each required file as a whole transaction before deploying its dependent client. If the base Community setup is rerun later, rerun the chat upgrade and then the hashtag upgrade: the base file otherwise reinstates the legacy inbox and message-delivery trigger. Keep a database backup before changing a live project, and check the RPCs through the hosted API in a staging project first.
 
 The upgrade adds server ordering, 30-message pages, one read cursor per member, idempotent sends, account-bound retries, replies, and server-enforced 15-minute edit and delete windows. Reports and administrator removals use protected operations; removals require a reason and retain one moderation record. Old inbox/post/read RPCs remain available; the new client selects the new chat only when `community_context` returns `chat_v2: true`.
 
 Unlike the legacy implementation described below, new messages no longer create a delivery row for every member. Existing delivery rows are retained, but visibility and the Chat dot use membership start time and the shared message sequence. Migration initializes existing members as caught up, without hiding their active history. Leaving and rejoining resets that membership boundary. Background fetching does not advance the read cursor; expiry, removal, and banned-author filtering also apply to unread state. Broadcasts use a separate revision cursor and clear only after the compact update event is opened in Chat. This removes message-insert fan-out, not all polling, database, or realtime costs.
 
 Run `node scripts/test-community-chat-sql.mjs` in addition to the baseline suites. Verify legacy-client reads/posts, hosted grants, account switching, cross-device message and broadcast unread state, room restrictions, and moderation after the upgrade. SQL-level checks do not establish real-device performance. Mentions, numeric counts, image storage, and Community push notifications are not enabled by this upgrade.
+
+## Exam hashtag upgrade
+
+`supabase/community_hashtags.sql` adds one optional exam classification per Board member, protected hashtag requests, grouped admin review, and filtered chat pages. General Chat remains unchanged and visible to every eligible Board member. A member must choose an approved profile hashtag before opening exam-filtered feeds; General and their own exam feed are writable, while other exam feeds are browse-only.
+
+Creating a hashtag from Admin → Review closes every unresolved request with the same normalized exam name and assigns those requesters to the new hashtag. A waiting reply reaches only the matching requesters and remains private from the public room. The migration does not rewrite messages: filtered feeds derive membership from each author's current profile hashtag and retain Chat's existing 24-hour visibility, moderation, and 120-message ceiling.
+
+Run `node scripts/test-community-hashtags-sql.mjs`. Before releasing the client, verify the hosted migration with a member without a hashtag, two members requesting the same exam, an admin wait reply, grouped approval, a banned member, and direct-table/RPC permission checks. Apply the migration before the client; older clients continue using General Chat.
 
 ### Configure the private staff roles
 

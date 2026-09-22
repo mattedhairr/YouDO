@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks=vi.hoisted(()=>({rpc:vi.fn(),onAuthStateChange:vi.fn()}));
 vi.mock('./supabase',()=>({supabase:{rpc:mocks.rpc,auth:{onAuthStateChange:mocks.onAuthStateChange}}}));
-import { chatCacheGeneration, clearChatCache, mergeChatPage, parseChatMessage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage } from './communityChat';
+import { chatCacheGeneration, clearChatCache, fetchChatPage, mergeChatPage, parseChatMessage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage } from './communityChat';
 const now=Date.now();
 const row={id:'m1',author_id:'a',body:'Revision',sequence:1,created_at:new Date(now).toISOString(),expires_at:new Date(now+86400000).toISOString()};
 const authChanged=(event:string, userId?:string)=>mocks.onAuthStateChange.mock.calls[0][0](event,userId?{user:{id:userId}}:null);
@@ -33,6 +33,19 @@ describe('chat delivery and cache',()=>{
     saveChatCache('a',{messages:[parseChatMessage(row)],hasOlder:false});
     expect(readChatCache('b').messages).toEqual([]);
     authChanged('SIGNED_IN','b');saveChatCache('b',{messages:[],hasOlder:false});expect(readChatCache('a').messages).toEqual([]);
+  });
+  it('uses the protected filtered page only when an exam is selected',async()=>{
+    mocks.rpc.mockResolvedValue({data:[],error:null});
+    await fetchChatPage(undefined,'gate-id');
+    expect(mocks.rpc).toHaveBeenLastCalledWith('community_chat_page_by_hashtag',{before_sequence:null,selected_hashtag:'gate-id'});
+    await fetchChatPage(42);
+    expect(mocks.rpc).toHaveBeenLastCalledWith('community_chat_page',{before_sequence:42});
+  });
+  it('keeps General and exam-filtered caches separate',()=>{
+    saveChatCache('a',{messages:[parseChatMessage(row)],hasOlder:false},chatCacheGeneration(),'general');
+    saveChatCache('a',{messages:[parseChatMessage({...row,id:'gate'})],hasOlder:false},chatCacheGeneration(),'gate');
+    expect(readChatCache('a','general').messages.map(message=>message.id)).toEqual(['m1']);
+    expect(readChatCache('a','gate').messages.map(message=>message.id)).toEqual(['gate']);
   });
   it('rejects unmount cleanup from a signed-out account',()=>{
     const generation=chatCacheGeneration();

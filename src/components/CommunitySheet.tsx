@@ -31,7 +31,9 @@ import Overlay from './Overlay';
 import Toggle from './Toggle';
 import { hapticSuccess, hapticTick, hapticWarn } from '../lib/haptics';
 import CommunityChat from './community/CommunityChat';
+import CommunityHashtagAdmin from './community/CommunityHashtagAdmin';
 import { clearChatCache } from '../lib/communityChat';
+import { fetchAdminHashtagRequests, type CommunityHashtagRequest } from '../lib/communityHashtags';
 
 interface Props {
   open: boolean;
@@ -68,6 +70,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [appeals, setAppeals] = useState<CommunityAppeal[]>([]);
   const [members, setMembers] = useState<CommunityMemberState[]>([]);
   const [audit, setAudit] = useState<CommunityAuditEntry[]>([]);
+  const [hashtagRequests, setHashtagRequests] = useState<CommunityHashtagRequest[]>([]);
   const [announcement, setAnnouncement] = useState(initialContext.settings.announcement);
   const [announcementExpanded, setAnnouncementExpanded] = useState(false);
   const announcementDirty = useRef(false);
@@ -106,12 +109,15 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       setMessages(nextMessages);
     }
     if (mode === 'admin' && nextContext.isAdmin) {
-      const [admin, nextActivity] = await Promise.all([fetchAdminCommunity(nextContext.dayKey), fetchCommunityActivity()]);
+      const [admin, nextActivity, nextHashtagRequests] = await Promise.all([
+        fetchAdminCommunity(nextContext.dayKey), fetchCommunityActivity(), fetchAdminHashtagRequests(),
+      ]);
       const reported = await fetchReportedMessages(admin.reports.map((report) => report.messageId));
       if (!current()) return;
       setReportMessages(reported);
       setActivity(nextActivity);
       setReports(admin.reports); setMembers(admin.members); setAppeals(admin.appeals); setAudit(admin.audit);
+      setHashtagRequests(nextHashtagRequests);
       setAdminLoaded(true);
     }
     setRefreshError('');
@@ -302,7 +308,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             <details><summary>How pulse works <ChevronDown size={12} /></summary><p>Opted-in Board members using a supported build. Recent activity means the app was open within five minutes; someone may have since left. Used today resets at 00:00 UTC (05:30 in India). Updated {timeLabel(activity.asOf)}.</p></details>
           </> : <p className="px-4 pb-4 text-[12px] text-content-muted">{refreshing ? 'Loading activity…' : 'Activity is unavailable. Refresh to try again.'}</p>}
         </section>
-        <nav className="admin-nav" aria-label="Admin sections">{(['review', 'controls', 'history'] as const).map((tab) => <button key={tab} type="button" aria-pressed={adminTab === tab} onClick={() => { setAdminTab(tab); setStatus(''); }}>{tab === 'review' ? 'Review' : tab === 'controls' ? 'Controls' : 'Safety log'}{tab === 'review' && reports.length + appeals.length > 0 && <span>{reports.length + appeals.length}</span>}</button>)}</nav>
+        <nav className="admin-nav" aria-label="Admin sections">{(['review', 'controls', 'history'] as const).map((tab) => <button key={tab} type="button" aria-pressed={adminTab === tab} onClick={() => { setAdminTab(tab); setStatus(''); }}>{tab === 'review' ? 'Review' : tab === 'controls' ? 'Controls' : 'Safety log'}{tab === 'review' && reports.length + appeals.length + hashtagRequests.length > 0 && <span>{reports.length + appeals.length + hashtagRequests.length}</span>}</button>)}</nav>
         {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
         <div hidden={adminTab !== 'controls'}>
         <section className="admin-control-list">
@@ -313,6 +319,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         <section className="mt-4 rounded-[15px] border border-subtle bg-surface p-3.5"><label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Board broadcast</label><textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="mt-2 w-full resize-y rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] outline-none focus:border-primary" /><p className="mt-1.5 text-[9.5px] leading-relaxed text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p><button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || announcement.trim() === context.settings.announcement} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-on-primary"><Check size={14} /> Publish</button></section>
         </div>
         <div hidden={adminTab !== 'review' || !adminLoaded}>
+        <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
         {appeals.length > 0 && <section className="mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Appeals</p><h3 className="text-[14px] font-semibold text-content-primary">Private review requests</h3></div><span className="rounded-full bg-secondary-soft px-2 py-1 text-[10px] font-bold text-secondary">{appeals.length}</span></div><div className="space-y-2">{appeals.map((appeal) => { const member = members.find((item) => item.userId === appeal.userId); const name = names.get(appeal.userId) || member?.displayName || appeal.userId.slice(0, 8); const expanded = reviewingAppeal === appeal.id; return <article key={appeal.id} className="rounded-[14px] border border-secondary/20 bg-secondary-soft/15 p-3"><div className="flex items-start gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><div className="min-w-0 flex-1"><p className="text-[11.5px] font-semibold text-content-primary">{name}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{appeal.message}</p><p className="mt-1.5 text-[9px] text-content-muted">Sent {new Date(appeal.createdAt).toLocaleString()}</p></div></div>{!expanded ? <button type="button" onClick={() => { setReviewingAppeal(appeal.id); setAppealResponse(''); }} className="mt-2 h-8 rounded-lg border border-secondary/25 px-3 text-[10px] font-semibold text-secondary">Review</button> : <div className="mt-3 border-t border-subtle pt-3"><textarea value={appealResponse} onChange={(event) => setAppealResponse(event.target.value)} maxLength={600} rows={3} placeholder="Private note to this user" className="w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2 text-[10.5px] outline-none focus:border-primary" /><div className="mt-2 flex flex-wrap gap-1.5"><button type="button" disabled={busy} onClick={() => void reviewAppeal(appeal, 'approve')} className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-on-secondary">Approve & restore</button><button type="button" disabled={busy || appealResponse.trim().length < 5} onClick={() => void reviewAppeal(appeal, 'decline')} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error disabled:opacity-40">Decline</button><button type="button" onClick={() => setReviewingAppeal(null)} className="px-2 text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div></section>}
         <section className="mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-primary">Report queue</p><h3 className="text-[14px] font-semibold text-content-primary">Needs a decision</h3></div><span className="rounded-full bg-error-soft px-2 py-1 text-[10px] font-bold text-error">{reports.length}</span></div>
           {reports.length === 0 ? <div className="rounded-[14px] border border-dashed border-subtle p-5 text-center text-[11px] text-content-muted">Nothing waiting. Nice and quiet.</div>
