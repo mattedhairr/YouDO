@@ -90,6 +90,8 @@ export type PaceRow = {
   userId: string;
   displayName: string;
   examLabel: string;
+  hashtagId?: string;
+  hashtagLabel?: string;
   todayMs: number;
   weekMs: number;
   monthMs: number;

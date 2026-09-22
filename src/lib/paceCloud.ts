@@ -31,6 +31,8 @@ function asRow(raw: Record<string, unknown>): PaceRow | null {
     userId,
     displayName: displayName.slice(0, 40),
     examLabel: typeof raw.exam_label === 'string' ? raw.exam_label.slice(0, 40) : '',
+    hashtagId: typeof raw.hashtag_id === 'string' ? raw.hashtag_id : undefined,
+    hashtagLabel: typeof raw.hashtag_label === 'string' ? raw.hashtag_label.slice(0, 24) : undefined,
     todayMs: num(raw.today_ms),
     weekMs: num(raw.week_ms),
     monthMs: num(raw.month_ms),
@@ -53,6 +55,13 @@ function isWindowKeyMissing(error: { code?: string; message?: string } | null): 
 export async function fetchPaceRows(): Promise<
   { ok: true; rows: PaceRow[] } | { ok: false; missingTable: boolean }
 > {
+  const joined = await supabase.rpc('board_pace_rows');
+  if (!joined.error) {
+    const rows = (Array.isArray(joined.data) ? joined.data : [])
+      .map((row) => asRow(row as Record<string, unknown>))
+      .filter((row): row is PaceRow => !!row);
+    return { ok: true, rows };
+  }
   const current = await supabase
     .from('public_pace')
     .select(CURRENT_FIELDS);

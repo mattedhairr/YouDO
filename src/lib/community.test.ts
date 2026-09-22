@@ -97,6 +97,12 @@ describe('community audit descriptions', () => {
   it('labels legacy vague records honestly', () => {
     expect(describeCommunityAudit({ ...entry, action: 'settings.updated' }).detail).toContain('earlier app version');
   });
+
+  it('turns hashtag decisions into readable history', () => {
+    expect(describeCommunityAudit({ ...entry, action: 'hashtag.request.rejected', reason: '#ESE' }, 'Asha')).toMatchObject({
+      title: 'Rejected Asha’s exam request', detail: '#ESE',
+    });
+  });
 });
 
 describe('community appeal cooldown', () => {

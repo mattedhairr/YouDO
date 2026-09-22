@@ -32,8 +32,10 @@ import Toggle from './Toggle';
 import { hapticSuccess, hapticTick, hapticWarn } from '../lib/haptics';
 import CommunityChat from './community/CommunityChat';
 import CommunityHashtagAdmin from './community/CommunityHashtagAdmin';
+import CommunityQuoteAdmin from './community/CommunityQuoteAdmin';
 import { clearChatCache } from '../lib/communityChat';
 import { fetchAdminHashtagRequests, type CommunityHashtagRequest } from '../lib/communityHashtags';
+import { fetchAdminAppQuotes, type AdminAppQuote } from '../lib/appQuotes';
 
 interface Props {
   open: boolean;
@@ -57,7 +59,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [adminLoaded, setAdminLoaded] = useState(false);
   const refreshId = useRef(0);
   const invalidateRequests = useCallback(() => { refreshId.current++; }, []);
-  const [adminTab, setAdminTab] = useState<'review' | 'controls' | 'history'>('review');
+  const [adminTab, setAdminTab] = useState<'review' | 'controls' | 'quotes' | 'history'>('review');
   const [savingFeature, setSavingFeature] = useState(false);
   const featureBusy = useRef(false);
   const mode = startInAdmin ? 'admin' : 'room';
@@ -71,6 +73,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [members, setMembers] = useState<CommunityMemberState[]>([]);
   const [audit, setAudit] = useState<CommunityAuditEntry[]>([]);
   const [hashtagRequests, setHashtagRequests] = useState<CommunityHashtagRequest[]>([]);
+  const [quotes, setQuotes] = useState<AdminAppQuote[]>([]);
+  const [quoteLoadError, setQuoteLoadError] = useState('');
   const [announcement, setAnnouncement] = useState(initialContext.settings.announcement);
   const [announcementExpanded, setAnnouncementExpanded] = useState(false);
   const announcementDirty = useRef(false);
@@ -109,8 +113,9 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       setMessages(nextMessages);
     }
     if (mode === 'admin' && nextContext.isAdmin) {
-      const [admin, nextActivity, nextHashtagRequests] = await Promise.all([
+      const [admin, nextActivity, nextHashtagRequests, quoteResult] = await Promise.all([
         fetchAdminCommunity(nextContext.dayKey), fetchCommunityActivity(), fetchAdminHashtagRequests(),
+        fetchAdminAppQuotes().then((value) => ({ value, error: '' })).catch((error: unknown) => ({ value: [] as AdminAppQuote[], error: error instanceof Error ? error.message : 'Managed quotes are unavailable.' })),
       ]);
       const reported = await fetchReportedMessages(admin.reports.map((report) => report.messageId));
       if (!current()) return;
@@ -118,6 +123,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       setActivity(nextActivity);
       setReports(admin.reports); setMembers(admin.members); setAppeals(admin.appeals); setAudit(admin.audit);
       setHashtagRequests(nextHashtagRequests);
+      setQuotes(quoteResult.value);
+      setQuoteLoadError(quoteResult.error);
       setAdminLoaded(true);
     }
     setRefreshError('');
@@ -308,7 +315,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             <details><summary>How pulse works <ChevronDown size={12} /></summary><p>Opted-in Board members using a supported build. Recent activity means the app was open within five minutes; someone may have since left. Used today resets at 00:00 UTC (05:30 in India). Updated {timeLabel(activity.asOf)}.</p></details>
           </> : <p className="px-4 pb-4 text-[12px] text-content-muted">{refreshing ? 'Loading activity…' : 'Activity is unavailable. Refresh to try again.'}</p>}
         </section>
-        <nav className="admin-nav" aria-label="Admin sections">{(['review', 'controls', 'history'] as const).map((tab) => <button key={tab} type="button" aria-pressed={adminTab === tab} onClick={() => { setAdminTab(tab); setStatus(''); }}>{tab === 'review' ? 'Review' : tab === 'controls' ? 'Controls' : 'Safety log'}{tab === 'review' && reports.length + appeals.length + hashtagRequests.length > 0 && <span>{reports.length + appeals.length + hashtagRequests.length}</span>}</button>)}</nav>
+        <nav className="admin-nav" aria-label="Admin sections">{(['review', 'controls', 'quotes', 'history'] as const).map((tab) => <button key={tab} type="button" aria-pressed={adminTab === tab} onClick={() => { setAdminTab(tab); setStatus(''); }}>{tab === 'review' ? 'Review' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Safety log'}{tab === 'review' && reports.length + appeals.length + hashtagRequests.length > 0 && <span>{reports.length + appeals.length + hashtagRequests.length}</span>}</button>)}</nav>
         {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
         <div hidden={adminTab !== 'controls'}>
         <section className="admin-control-list">
@@ -318,10 +325,13 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </section>
         <section className="mt-4 rounded-[15px] border border-subtle bg-surface p-3.5"><label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Board broadcast</label><textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="mt-2 w-full resize-y rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] outline-none focus:border-primary" /><p className="mt-1.5 text-[9.5px] leading-relaxed text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p><button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || announcement.trim() === context.settings.announcement} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-on-primary"><Check size={14} /> Publish</button></section>
         </div>
-        <div hidden={adminTab !== 'review' || !adminLoaded}>
+        <div hidden={adminTab !== 'quotes' || !adminLoaded}>
+          <CommunityQuoteAdmin quotes={quotes} busy={busy} setupError={quoteLoadError} onRefresh={refresh}/>
+        </div>
+        <div className="admin-review-stack" hidden={adminTab !== 'review' || !adminLoaded}>
         <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
-        {appeals.length > 0 && <section className="mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Appeals</p><h3 className="text-[14px] font-semibold text-content-primary">Private review requests</h3></div><span className="rounded-full bg-secondary-soft px-2 py-1 text-[10px] font-bold text-secondary">{appeals.length}</span></div><div className="space-y-2">{appeals.map((appeal) => { const member = members.find((item) => item.userId === appeal.userId); const name = names.get(appeal.userId) || member?.displayName || appeal.userId.slice(0, 8); const expanded = reviewingAppeal === appeal.id; return <article key={appeal.id} className="rounded-[14px] border border-secondary/20 bg-secondary-soft/15 p-3"><div className="flex items-start gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><div className="min-w-0 flex-1"><p className="text-[11.5px] font-semibold text-content-primary">{name}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{appeal.message}</p><p className="mt-1.5 text-[9px] text-content-muted">Sent {new Date(appeal.createdAt).toLocaleString()}</p></div></div>{!expanded ? <button type="button" onClick={() => { setReviewingAppeal(appeal.id); setAppealResponse(''); }} className="mt-2 h-8 rounded-lg border border-secondary/25 px-3 text-[10px] font-semibold text-secondary">Review</button> : <div className="mt-3 border-t border-subtle pt-3"><textarea value={appealResponse} onChange={(event) => setAppealResponse(event.target.value)} maxLength={600} rows={3} placeholder="Private note to this user" className="w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2 text-[10.5px] outline-none focus:border-primary" /><div className="mt-2 flex flex-wrap gap-1.5"><button type="button" disabled={busy} onClick={() => void reviewAppeal(appeal, 'approve')} className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-on-secondary">Approve & restore</button><button type="button" disabled={busy || appealResponse.trim().length < 5} onClick={() => void reviewAppeal(appeal, 'decline')} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error disabled:opacity-40">Decline</button><button type="button" onClick={() => setReviewingAppeal(null)} className="px-2 text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div></section>}
-        <section className="mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-primary">Report queue</p><h3 className="text-[14px] font-semibold text-content-primary">Needs a decision</h3></div><span className="rounded-full bg-error-soft px-2 py-1 text-[10px] font-bold text-error">{reports.length}</span></div>
+        {appeals.length > 0 && <section className="admin-review-section mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Appeals</p><h3 className="text-[14px] font-semibold text-content-primary">Private review requests</h3></div><span className="rounded-full bg-secondary-soft px-2 py-1 text-[10px] font-bold text-secondary">{appeals.length}</span></div><div className="space-y-2">{appeals.map((appeal) => { const member = members.find((item) => item.userId === appeal.userId); const name = names.get(appeal.userId) || member?.displayName || appeal.userId.slice(0, 8); const expanded = reviewingAppeal === appeal.id; return <article key={appeal.id} className="rounded-[14px] border border-secondary/20 bg-secondary-soft/15 p-3"><div className="flex items-start gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><div className="min-w-0 flex-1"><p className="text-[11.5px] font-semibold text-content-primary">{name}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{appeal.message}</p><p className="mt-1.5 text-[9px] text-content-muted">Sent {new Date(appeal.createdAt).toLocaleString()}</p></div></div>{!expanded ? <button type="button" onClick={() => { setReviewingAppeal(appeal.id); setAppealResponse(''); }} className="mt-2 h-8 rounded-lg border border-secondary/25 px-3 text-[10px] font-semibold text-secondary">Review</button> : <div className="mt-3 border-t border-subtle pt-3"><textarea value={appealResponse} onChange={(event) => setAppealResponse(event.target.value)} maxLength={600} rows={3} placeholder="Private note to this user" className="w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2 text-[10.5px] outline-none focus:border-primary" /><div className="mt-2 flex flex-wrap gap-1.5"><button type="button" disabled={busy} onClick={() => void reviewAppeal(appeal, 'approve')} className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-on-secondary">Approve & restore</button><button type="button" disabled={busy || appealResponse.trim().length < 5} onClick={() => void reviewAppeal(appeal, 'decline')} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error disabled:opacity-40">Decline</button><button type="button" onClick={() => setReviewingAppeal(null)} className="px-2 text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div></section>}
+        <section className="admin-review-section admin-report-section mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-primary">Report queue</p><h3 className="text-[14px] font-semibold text-content-primary">Needs a decision</h3></div><span className="rounded-full bg-error-soft px-2 py-1 text-[10px] font-bold text-error">{reports.length}</span></div>
           {reports.length === 0 ? <div className="rounded-[14px] border border-dashed border-subtle p-5 text-center text-[11px] text-content-muted">Nothing waiting. Nice and quiet.</div>
           : <div className="space-y-2">{reports.map((report) => { const message = reportMessages.find((item) => item.id === report.messageId); return <article key={report.id} className="rounded-[14px] border border-error/25 bg-error-soft/20 p-3"><div className="flex gap-2"><AlertTriangle size={14} className="mt-0.5 shrink-0 text-error" /><div className="min-w-0 flex-1"><p className="text-[11px] font-semibold text-content-primary">{names.get(message?.authorId ?? '') ?? 'Board member'}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{message?.body ?? 'Message unavailable'}</p></div></div><div className="mt-3 flex flex-wrap gap-1.5"><button type="button" onClick={async () => { await dismissCommunityReport(report.id); await refresh(); }} className="rounded-lg border border-subtle px-2.5 py-1.5 text-[10px] text-content-secondary">Dismiss</button>{message && <><button type="button" onClick={async () => { await removeCommunityMessage(message.id, 'Reported message'); await refresh(); }} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error">Remove</button><button type="button" onClick={() => void moderate(message.authorId, 'mute_24h')} className="rounded-lg bg-primary-soft px-2.5 py-1.5 text-[10px] font-semibold text-primary">Mute 24h</button><button type="button" onClick={() => setPendingBan(message.authorId)} className="rounded-lg border border-error/30 px-2.5 py-1.5 text-[10px] text-error">Ban</button></>}</div>{pendingBan === message?.authorId && <div className="mt-2 rounded-lg border border-error/25 bg-base p-2"><p className="text-[10px] text-content-secondary">Ban this account from community features? Private workspace data is untouched.</p><div className="mt-2 flex gap-2"><button type="button" disabled={busy} onClick={() => void moderate(message!.authorId, 'ban')} className="rounded-md bg-error px-2.5 py-1.5 text-[10px] font-bold text-white">Confirm ban</button><button type="button" onClick={() => setPendingBan(null)} className="text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div>}
         </section>

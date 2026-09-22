@@ -8,7 +8,7 @@ export interface CommunityHashtagRequest {
 export interface CommunityHashtagContext {
   hashtags: CommunityHashtag[];
   mine?: Pick<CommunityHashtag,'id'|'label'>;
-  request?: CommunityHashtagRequest;
+  requests: CommunityHashtagRequest[];
 }
 
 const record = (value: unknown): Record<string,unknown> | undefined => value && typeof value === 'object' ? value as Record<string,unknown> : undefined;
@@ -21,13 +21,18 @@ export function parseHashtagContext(value: unknown): CommunityHashtagContext {
     return id && label ? [{id,label,memberCount:Math.max(0,Number(item?.member_count)||0)}] : [];
   }) : [];
   const mineRow=record(row?.mine); const mineId=text(mineRow?.id), mineLabel=text(mineRow?.label);
-  const requestRow=record(row?.request); const requestId=text(requestRow?.id), examName=text(requestRow?.exam_name);
-  const status=text(requestRow?.status);
-  const request = requestId && examName && ['open','waiting','approved','declined'].includes(status) ? {
-    id:requestId, examName, details:text(requestRow?.details), status:status as CommunityHashtagRequest['status'],
-    adminResponse:text(requestRow?.admin_response), createdAt:text(requestRow?.created_at),
-  } : undefined;
-  return {hashtags,mine:mineId&&mineLabel?{id:mineId,label:mineLabel}:undefined,request};
+  const parseRequest=(value:unknown):CommunityHashtagRequest|undefined=>{
+    const requestRow=record(value); const requestId=text(requestRow?.id), examName=text(requestRow?.exam_name);
+    const status=text(requestRow?.status);
+    return requestId && examName && ['open','waiting','approved','declined'].includes(status) ? {
+      id:requestId, examName, details:text(requestRow?.details), status:status as CommunityHashtagRequest['status'],
+      adminResponse:text(requestRow?.admin_response), createdAt:text(requestRow?.created_at),
+    } : undefined;
+  };
+  const requests=Array.isArray(row?.requests)
+    ? row.requests.flatMap(value=>{const request=parseRequest(value);return request?[request]:[];})
+    : (()=>{const request=parseRequest(row?.request);return request?[request]:[];})();
+  return {hashtags,mine:mineId&&mineLabel?{id:mineId,label:mineLabel}:undefined,requests};
 }
 
 export function parseAdminHashtagRequest(value: unknown): CommunityHashtagRequest | undefined {
@@ -56,7 +61,7 @@ export async function fetchAdminHashtagRequests(): Promise<CommunityHashtagReque
   if(error)throw new Error(error.message||'Could not load hashtag requests.');
   return (Array.isArray(data)?data:[]).flatMap(value=>{const item=parseAdminHashtagRequest(value);return item?[item]:[];});
 }
-export async function reviewCommunityHashtagRequest(id:string,decision:'wait'|'create',response:string,label=''): Promise<void> {
+export async function reviewCommunityHashtagRequest(id:string,decision:'wait'|'create'|'reject',response:string,label=''): Promise<void> {
   const {error}=await supabase.rpc('review_community_hashtag_request',{
     target_request:id,decision,response_note:response,hashtag_label:label||null,
   });

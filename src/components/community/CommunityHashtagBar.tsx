@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function CommunityHashtagBar({selectedId,onSelect,onMembershipChange}:Props) {
-  const [context,setContext]=useState<CommunityHashtagContext>({hashtags:[]});
+  const [context,setContext]=useState<CommunityHashtagContext>({hashtags:[],requests:[]});
   const [panel,setPanel]=useState<'choose'|'request'|null>(null);
   const [exam,setExam]=useState('');
   const [details,setDetails]=useState('');
@@ -65,7 +65,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onMembershipCha
           <div className="c-hashtag-choices">{context.hashtags.map(tag=><button type="button" disabled={busy} key={tag.id} onClick={()=>void choose(tag.id)}>#{tag.label}<small>{tag.memberCount} member{tag.memberCount===1?'':'s'}</small></button>)}</div>
           <button type="button" className="c-hashtag-link" onClick={()=>setPanel('request')}>My exam is not listed</button>
         </>:<>
-          {context.request&&['open','waiting'].includes(context.request.status)&&<div className="c-hashtag-request-state"><strong>{context.request.status==='waiting'?'Admin replied':'Request sent'}</strong><span>#{context.request.examName}</span>{context.request.adminResponse&&<p>{context.request.adminResponse}</p>}</div>}
+          {context.requests.length>0&&<div className="c-hashtag-request-list">{context.requests.map(item=><div className={`c-hashtag-request-state is-${item.status}`} key={item.id}><strong>{item.status==='waiting'?'Admin replied':item.status==='declined'?'Not approved':'Request sent'}</strong><span>#{item.examName}</span>{item.adminResponse&&<p>{item.adminResponse}</p>}</div>)}</div>}
           <label>Exam name<input value={exam} onChange={e=>setExam(e.target.value)} maxLength={50} placeholder="e.g. GATE, NEET PG, UPSC CSE" /></label>
           <label>Helpful context <small>optional</small><textarea value={details} onChange={e=>setDetails(e.target.value)} maxLength={240} rows={3} placeholder="Branch, stage, or anything the admin should know" /></label>
           <button type="button" className="c-hashtag-submit" disabled={busy||exam.trim().length<2} onClick={()=>void request()}>{busy?'Sending…':'Send request'}</button>

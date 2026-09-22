@@ -165,7 +165,7 @@ function BoardRowCard({
             {!locked && delta === 'up' && <ArrowUp size={14} className="shrink-0 text-success" strokeWidth={2.6} />}
             {!locked && delta === 'down' && <ArrowDown size={14} className="shrink-0 text-error" strokeWidth={2.6} />}
           </div>
-          <p className="mt-0.5 truncate text-[11px] text-content-muted">{row.examLabel || 'Independent preparation'}</p>
+          <p className={`mt-0.5 truncate text-[11px] ${row.hashtagLabel ? 'text-secondary' : 'text-content-muted'}`}>{row.hashtagLabel ? `#${row.hashtagLabel}` : 'Independent preparation'}</p>
           <p className="board-person-meta">{row.streak}d streak · {formatStreakHours(row.barHours)}/day</p>
         </div>
         <div className="board-person-score">

@@ -1029,8 +1029,8 @@ input[type='datetime-local'] {
 .admin-stat:last-child { border-right: 0; }
 .admin-stat p { font-size: 11px; line-height: 16px; color: var(--text-muted); }
 .admin-stat strong { font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-primary); }
-.admin-nav { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border-bottom: 1px solid var(--border-subtle); margin: 12px 0 16px; }
-.admin-nav button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; font-size: 12px; color: var(--text-muted); border-bottom: 2px solid transparent; }
+.admin-nav { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-bottom: 1px solid var(--border-subtle); margin: 12px 0 16px; }
+.admin-nav button { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding-inline:2px;font-size: 10.5px; color: var(--text-muted); border-bottom: 2px solid transparent; }
 .admin-nav button[aria-pressed='true'] { color: var(--primary); border-bottom-color: var(--primary); }
 .admin-nav button span { font-size: 10px; font-variant-numeric: tabular-nums; }
 .admin-control-list { border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--bg-elevated); padding: 4px 14px; }
@@ -1185,6 +1185,36 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
 }
 
 .settings-account-card .ambient-orb { display: none; }
+
+.settings-account-hashtag {
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-subtle));
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.settings-hashtag-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  border: 1px solid color-mix(in srgb, var(--secondary) 18%, var(--border-subtle));
+  border-radius: 14px;
+  padding: 11px 12px;
+  background: color-mix(in srgb, var(--bg-base) 84%, var(--secondary-soft));
+}
+
+.settings-hashtag-copy { display: grid; min-width: 0; gap: 2px; }
+.settings-hashtag-copy > span { color: var(--text-muted); font-size: 9px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+.settings-hashtag-copy > strong { overflow: hidden; color: var(--text-primary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.settings-hashtag-copy > small { color: var(--text-muted); font-size: 9px; line-height: 1.35; }
+.settings-hashtag-field > button { min-height: 34px; border: 1px solid color-mix(in srgb, var(--secondary) 28%, var(--border-subtle)); border-radius: 10px; padding: 0 11px; color: var(--secondary); font-size: 10px; font-weight: 700; }
+.settings-hashtag-sheet .c-hashtag-link { display: inline-flex; align-items: center; gap: 5px; }
+.settings-hashtag-empty { border: 1px dashed var(--border-subtle); border-radius: 12px; padding: 14px; color: var(--text-muted); font-size: 10.5px; text-align: center; }
 
 .settings-guest-card {
   background: linear-gradient(145deg, color-mix(in srgb, var(--primary-soft) 20%, transparent), transparent 58%);

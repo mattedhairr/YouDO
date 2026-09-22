@@ -45,6 +45,8 @@ import { todayISO } from '../lib/dates';
 import { checkAppUpdateStatus, type AppRelease } from '../lib/appUpdate';
 import { APP_VERSION } from '../lib/version';
 import SignedInDevices from './SignedInDevices';
+import CommunityHashtagProfileField from './community/CommunityHashtagProfileField';
+import type { CommunityHashtagContext } from '../lib/communityHashtags';
 
 interface Props {
   open: boolean;
@@ -101,6 +103,7 @@ export default function SettingsSheet({
     sessionHistory,
     pacePrefs,
     updatePacePrefs,
+    publishPublicPace,
   } = useStore();
   const { user, signOut, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
   const { activeSession } = useSessionStore();
@@ -132,6 +135,7 @@ export default function SettingsSheet({
   const [nextPassword, setNextPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [securityBusy, setSecurityBusy] = useState(false);
+  const [hashtagContext, setHashtagContext] = useState<CommunityHashtagContext>({ hashtags: [], requests: [] });
 
   const [confirmTrimSessions, setConfirmTrimSessions] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState<AppRelease | null>(null);
@@ -385,6 +389,9 @@ export default function SettingsSheet({
                         : 'text-secondary bg-secondary-soft border-secondary/25'
                     }`}>
                       {cloudSyncConflict ? 'Sync paused safely' : 'Cloud live'}
+                    </span>
+                    <span className="settings-account-hashtag">
+                      {hashtagContext.mine ? `#${hashtagContext.mine.label}` : 'Exam hashtag not set'}
                     </span>
                   </div>
 
@@ -1093,16 +1100,11 @@ export default function SettingsSheet({
                 className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
               />
             </label>
-            <label className="block">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Preparing for (optional)</span>
-              <input
-                value={pacePrefs.examLabel}
-                maxLength={40}
-                placeholder="Exam, course, or focus area"
-                onChange={(e) => updatePacePrefs({ examLabel: e.target.value })}
-                className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
-              />
-            </label>
+            {user && <CommunityHashtagProfileField
+              boardEnabled={pacePrefs.optedIn}
+              onBeforeChoose={publishPublicPace}
+              onContextChange={setHashtagContext}
+            />}
             {(() => {
               const preview = paceWindowTotals(Object.values(sessionHistory).flat(), todayISO());
               const name = pacePrefs.displayName.trim() || 'Your name';
@@ -1112,8 +1114,8 @@ export default function SettingsSheet({
                   <div className="mt-1.5 flex items-baseline justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[13px] font-semibold text-content-primary truncate">{name}</p>
-                      {pacePrefs.examLabel.trim() ? (
-                        <p className="text-[11px] text-content-muted truncate">{pacePrefs.examLabel.trim()}</p>
+                      {hashtagContext.mine ? (
+                        <p className="text-[11px] text-secondary truncate">#{hashtagContext.mine.label}</p>
                       ) : null}
                     </div>
                     <p className="text-[13px] font-semibold tabular-nums text-content-primary shrink-0">

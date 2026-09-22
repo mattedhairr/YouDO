@@ -41,8 +41,13 @@ create table if not exists public.community_hashtag_requests (
   constraint community_hashtag_requests_exam_length check (char_length(exam_name) between 2 and 50),
   constraint community_hashtag_requests_details_length check (char_length(details) <= 240)
 );
-create unique index if not exists community_hashtag_requests_one_pending_idx
-  on public.community_hashtag_requests(requester_id) where status in ('open','waiting');
+-- Earlier builds allowed only one pending request per account, which caused a
+-- second exam request to overwrite the first. Pending requests are now unique
+-- per account and normalized exam instead.
+drop index if exists public.community_hashtag_requests_one_pending_idx;
+create unique index if not exists community_hashtag_requests_one_pending_exam_idx
+  on public.community_hashtag_requests(requester_id, normalized_exam)
+  where status in ('open','waiting');
 create index if not exists community_hashtag_requests_review_idx
   on public.community_hashtag_requests(status, normalized_exam, created_at);
 
@@ -71,14 +76,24 @@ returns jsonb language sql stable security definer set search_path = '' as $$
       join public.community_hashtags h on h.id=m.hashtag_id and h.active
       where m.user_id=auth.uid()
     ),
+    -- Keep the singular key for older clients while new clients render every
+    -- active or declined request independently.
     'request', (
       select pg_catalog.jsonb_build_object(
         'id',r.id,'exam_name',r.exam_name,'details',r.details,'status',r.status,
         'admin_response',r.admin_response,'created_at',r.created_at
       ) from public.community_hashtag_requests r
       where r.requester_id=auth.uid() order by r.created_at desc limit 1
-    )
-  ) where public.can_join_community();
+    ),
+    'requests', coalesce((
+      select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'id',r.id,'exam_name',r.exam_name,'details',r.details,'status',r.status,
+        'admin_response',r.admin_response,'created_at',r.created_at
+      ) order by r.created_at desc)
+      from public.community_hashtag_requests r
+      where r.requester_id=auth.uid() and r.status in ('open','waiting','declined')
+    ), '[]'::jsonb)
+  ) where auth.uid() is not null;
 $$;
 
 create or replace function public.set_community_hashtag(selected_hashtag uuid)
@@ -88,9 +103,6 @@ begin
   if not public.can_join_community() then raise exception 'Board membership required' using errcode='42501'; end if;
   select * into selected from public.community_hashtags where id=selected_hashtag and active;
   if selected.id is null then raise exception 'This exam hashtag is unavailable'; end if;
-  if exists(select 1 from public.community_hashtag_memberships where user_id=auth.uid() and hashtag_id<>selected.id) then
-    raise exception 'Your profile already has an exam hashtag; request a change from an admin' using errcode='42501';
-  end if;
   insert into public.community_hashtag_memberships(user_id,hashtag_id)
   values(auth.uid(),selected.id)
   on conflict(user_id) do update set hashtag_id=excluded.hashtag_id,updated_at=now();
@@ -111,9 +123,9 @@ begin
   if char_length(normalized)<2 then raise exception 'Write a recognisable exam name'; end if;
   perform pg_advisory_xact_lock(hashtextextended(auth.uid()::text,11));
   select * into item from public.community_hashtag_requests
-    where requester_id=auth.uid() and status in ('open','waiting') for update;
+    where requester_id=auth.uid() and normalized_exam=normalized and status in ('open','waiting') for update;
   if found then
-    update public.community_hashtag_requests set exam_name=clean_exam,normalized_exam=normalized,
+    update public.community_hashtag_requests set exam_name=clean_exam,
       details=clean_details,status='open',admin_response='',reviewed_by=null,reviewed_at=null,updated_at=now()
       where id=item.id returning * into item;
   else
@@ -146,9 +158,19 @@ declare normalized_tag text;
 declare tag public.community_hashtags;
 begin
   if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
-  if decision not in ('wait','create') then raise exception 'Unknown hashtag request decision'; end if;
+  if decision not in ('wait','create','reject') then raise exception 'Unknown hashtag request decision'; end if;
   select * into item from public.community_hashtag_requests where id=target_request and status in ('open','waiting') for update;
   if item.id is null then raise exception 'Request is no longer waiting'; end if;
+  if char_length(clean_response)>240 then raise exception 'Private reply must be 240 characters or fewer'; end if;
+  if decision='reject' then
+    update public.community_hashtag_requests set status='declined',admin_response=clean_response,
+      reviewed_by=auth.uid(),reviewed_at=now(),updated_at=now()
+      where id=item.id returning * into item;
+    insert into public.community_audit_log(admin_id,action,target_user_id,reason)
+      values(auth.uid(),'hashtag.request.rejected',item.requester_id,
+        case when clean_response='' then '#'||item.exam_name else '#'||item.exam_name||' · '||clean_response end);
+    return pg_catalog.to_jsonb(item);
+  end if;
   if decision='wait' then
     if char_length(clean_response) not between 5 and 240 then raise exception 'Write a private reply of 5–240 characters'; end if;
     update public.community_hashtag_requests set status='waiting',admin_response=clean_response,
@@ -176,6 +198,24 @@ begin
   insert into public.community_audit_log(admin_id,action,target_user_id,reason)
     values(auth.uid(),'hashtag.created',item.requester_id,'#'||tag.label);
   return pg_catalog.jsonb_build_object('id',tag.id,'label',tag.label);
+end; $$;
+
+-- Board readers receive the approved profile hashtag without exposing the
+-- protected membership table or duplicating it into local Board preferences.
+create or replace function public.board_pace_rows()
+returns table(
+  user_id uuid, display_name text, exam_label text, hashtag_id uuid, hashtag_label text,
+  today_ms bigint, week_ms bigint, month_ms bigint, today_key date, week_key date,
+  month_key date, streak integer, bar_hours numeric, updated_at timestamptz
+) language plpgsql stable security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then raise exception 'Authentication required' using errcode='42501'; end if;
+  return query
+    select p.user_id,p.display_name,p.exam_label,h.id,h.label,p.today_ms,p.week_ms,p.month_ms,
+      p.today_key,p.week_key,p.month_key,p.streak,p.bar_hours,p.updated_at
+    from public.public_pace p
+    left join public.community_hashtag_memberships m on m.user_id=p.user_id
+    left join public.community_hashtags h on h.id=m.hashtag_id and h.active;
 end; $$;
 
 create or replace function public.community_chat_page_by_hashtag(before_sequence bigint default null, selected_hashtag uuid default null)
@@ -207,11 +247,13 @@ revoke execute on function public.request_community_hashtag(text,text) from publ
 revoke execute on function public.admin_community_hashtag_requests() from public,anon;
 revoke execute on function public.review_community_hashtag_request(uuid,text,text,text) from public,anon;
 revoke execute on function public.community_chat_page_by_hashtag(bigint,uuid) from public,anon;
+revoke execute on function public.board_pace_rows() from public,anon;
 grant execute on function public.community_hashtag_context() to authenticated;
 grant execute on function public.set_community_hashtag(uuid) to authenticated;
 grant execute on function public.request_community_hashtag(text,text) to authenticated;
 grant execute on function public.admin_community_hashtag_requests() to authenticated;
 grant execute on function public.review_community_hashtag_request(uuid,text,text,text) to authenticated;
 grant execute on function public.community_chat_page_by_hashtag(bigint,uuid) to authenticated;
+grant execute on function public.board_pace_rows() to authenticated;
 
 commit;

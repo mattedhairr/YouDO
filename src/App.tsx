@@ -37,90 +37,11 @@ import UpdateNotice from './components/UpdateNotice';
 import { useCommunityActivity } from './hooks/useCommunityActivity';
 import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
+import { FALLBACK_APP_QUOTES, fetchAppQuotes, loadCachedAppQuotes, type AppQuote } from './lib/appQuotes';
 
-// Original YouDO prompts: no invented attribution or pressure to skip rest.
-const MOTIVATIONAL_QUOTES = [
-  {
-    text: 'Your plan is a promise. Give it evidence today.',
-    author: 'YouDO',
-  },
-  {
-    text: 'One day, the deadline will be today. Prepare while preparation is still a choice.',
-    author: 'YouDO',
-  },
-  {
-    text: 'You do not need a perfect day. You need an honest start.',
-    author: 'YouDO',
-  },
-  {
-    text: 'While you negotiate with the next hour, someone else is using theirs.',
-    author: 'YouDO',
-  },
-  {
-    text: 'The deadline does not care whether you felt ready.',
-    author: 'YouDO',
-  },
-  {
-    text: 'You once begged for this chance. Do not treat it like an ordinary day.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Do the difficult part before you negotiate with it.',
-    author: 'YouDO',
-  },
-  {
-    text: 'This ordinary hour may be the one your result remembers.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Rest on purpose. Return with purpose.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Every hour you postpone returns in the exam hall as a question you cannot answer.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Your ambition deserves more than your spare attention.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Someone with fewer advantages is making better use of this same hour.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Discipline is keeping the next small promise.',
-    author: 'YouDO',
-  },
-  {
-    text: 'The gap between you and them is being built in quiet hours like this one.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Protect your attention. It is building your future.',
-    author: 'YouDO',
-  },
-  {
-    text: 'You are spending a day you will never be given again.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Your dream has already cost you comfort. Make that sacrifice mean something.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Someone made your opportunity possible. Do not spend it carelessly.',
-    author: 'YouDO',
-  },
-  {
-    text: 'Nothing hurts like meeting the life you could have built.',
-    author: 'YouDO',
-  },
-  {
-    text: 'The worst result is knowing you had the time and watched yourself waste it.',
-    author: 'YouDO',
-  },
-];
+const pickQuote = (quotes: AppQuote[]): AppQuote | null => quotes.length
+  ? quotes[Math.floor(Math.random() * quotes.length)]
+  : null;
 
 function YouDoIcon({ size = 18 }: { size?: number }) {
   return (
@@ -534,10 +455,15 @@ function AppInner() {
     if (window.history.state?.modal) window.history.back();
   }, []);
 
-  const [randomQuote] = useState(() => {
-      const idx = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
-      return MOTIVATIONAL_QUOTES[idx];
-    });
+  const [randomQuote,setRandomQuote] = useState<AppQuote|null>(() =>
+    pickQuote(loadCachedAppQuotes() ?? FALLBACK_APP_QUOTES));
+  useEffect(()=>{
+    let cancelled=false;
+    const refresh=()=>{void fetchAppQuotes().then(quotes=>{if(!cancelled)setRandomQuote(pickQuote(quotes));}).catch(()=>{/* Keep cached or bundled quotes offline. */});};
+    refresh();
+    window.addEventListener('youdo-quotes-updated',refresh);
+    return()=>{cancelled=true;window.removeEventListener('youdo-quotes-updated',refresh);};
+  },[]);
 
   // Open Today's glance before paint when there is no stored session.
   // If a sitting is already paused, skip recovery — the user paused on purpose.
@@ -1084,7 +1010,7 @@ function AppInner() {
                         })}
               </p>
             </div>
-            <blockquote className="quote-ticker m-0">
+            {randomQuote&&<blockquote className="quote-ticker m-0">
               <div
                 className={`quote-ticker-track ${
                   randomQuote.text.length >= 80
@@ -1106,7 +1032,7 @@ function AppInner() {
                   </p>
                 ))}
               </div>
-            </blockquote>
+            </blockquote>}
 
             {view === 'tasks' && (
               <div

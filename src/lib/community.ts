@@ -152,6 +152,12 @@ export function describeCommunityAudit(entry: CommunityAuditEntry, targetName?: 
     'appeal.decline': { category: 'Appeal', title: `Declined ${subject}’s appeal`, detail: entry.reason || 'The restriction remains in place.' },
     'message.removed': { category: 'Message', title: `Removed ${subject}’s message`, detail: entry.reason || 'The message was removed from the community room.' },
     'report.dismissed': { category: 'Report', title: 'Report dismissed', detail: 'The report was reviewed and closed without restricting a member.' },
+    'hashtag.request.waiting': { category: 'Admin', title: `Replied to ${subject}’s exam request`, detail: entry.reason || 'The request remains open.' },
+    'hashtag.request.rejected': { category: 'Admin', title: `Rejected ${subject}’s exam request`, detail: entry.reason || 'The requested exam hashtag was not approved.' },
+    'hashtag.created': { category: 'Admin', title: 'Approved an exam community', detail: entry.reason || 'A requested hashtag was created or reactivated.' },
+    'quotes.created': { category: 'Admin', title: 'Added an app quote', detail: entry.reason || 'A new motivational quote was added.' },
+    'quotes.updated': { category: 'Admin', title: 'Edited an app quote', detail: entry.reason || 'A motivational quote was updated.' },
+    'quotes.deleted': { category: 'Admin', title: 'Deleted an app quote', detail: entry.reason || 'A motivational quote was removed.' },
   };
   if (descriptions[entry.action]) return descriptions[entry.action];
   const readable = entry.action.split('.').filter(Boolean).join(' ');
