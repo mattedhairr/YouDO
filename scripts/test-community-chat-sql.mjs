@@ -26,7 +26,23 @@ try {
     grant usage on schema public,auth to authenticated,anon;
     alter default privileges in schema public grant all on tables to authenticated;
     alter default privileges in schema public grant usage,select on sequences to authenticated;`);
+  await db.exec(`create table public.user_backups(
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users(id) on delete cascade,
+    backup_data text not null,
+    updated_at timestamptz not null default now(),
+    constraint user_backups_user_id_key unique(user_id)
+  );`);
   for (const file of ['user_backups','public_pace','community']) await db.exec((await readFile(new URL(`../supabase/${file}.sql`,import.meta.url),'utf8')).replace('create extension if not exists pgcrypto;',''));
+  await db.exec(await readFile(new URL('../supabase/user_backups.sql',import.meta.url),'utf8'));
+  const backupUniqueIndexes=await rows(`select count(*)::int n
+    from pg_catalog.pg_index i
+    join pg_catalog.pg_class t on t.oid=i.indrelid
+    join pg_catalog.pg_namespace n on n.oid=t.relnamespace
+    join pg_catalog.pg_attribute a on a.attrelid=t.oid and a.attname='user_id'
+    where n.nspname='public' and t.relname='user_backups' and i.indisunique
+      and i.indnkeyatts=1 and a.attnum=any(i.indkey::smallint[])`);
+  check(backupUniqueIndexes[0].n===1,'backup setup reuses a legacy unique constraint without adding a duplicate index');
   for(let n=1;n<=14;n++) {
     await db.query('insert into auth.users(id,email) values($1,$2)',[id(n),`member${n}@example.com`]);
     await db.query('insert into public.public_pace(user_id,display_name) values($1,$2)',[id(n),`Member ${n}`]);
