@@ -17,13 +17,14 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
-## [v7.4.0] — 2026-09-22 — Find your exam community
+## [v7.5.0] — 2026-09-22 — Build a blueprint with AI
 
-- **Focused exam conversations** — Choose one approved exam hashtag for your Community profile, then switch between General and exam-filtered conversations from a compact control above the composer.
-- **Requests stay organized** — Ask for a missing exam hashtag with optional context; grouped demand appears in Admin Review, where admins can reply privately or approve a shared hashtag.
-- **Compact by default** — Exam filters stay collapsed as a small General control until opened, preserving chat space on smaller phones.
-- **Protected membership and review** — Profile assignment, filtered reads, requests, and admin decisions use additive server operations without changing existing General Chat.
-- **Android APK** — versionName **7.4.0**, versionCode **40**. Installs directly over **v7.3.0** with the same package ID and signing key; no uninstall or device-data reset is required. Apply `community_hashtags.sql` before publishing this client.
+- **Plan with the AI you prefer** — Describe an exam, timeline, available study time, current preparation, resources, and constraints; YouDO assembles a detailed setup prompt for ChatGPT, Claude, or Gemini without sending anything automatically.
+- **Safe plan return** — Paste the AI's JSON into Blueprint Studio for strict validation, a compact summary, and an expandable tree preview before it can enter the draft.
+- **Existing work stays untouched** — Generated plans receive fresh local identities and arrive as one undoable draft change; they cannot import completion, schedules, pins, history, settings, or account data.
+- **Focused exam conversations** — Choose one approved exam hashtag, switch between General and exam-filtered Chat, or request a missing exam for Admin review.
+- **Compact on small phones** — Both the AI planning flow and collapsed exam-chat selector preserve working space on narrow Android displays.
+- **Android APK** — versionName **7.5.0**, versionCode **41**. Installs directly over the published **v7.3.0** with the same package ID and signing key; no uninstall or device-data reset is required. Apply `community_hashtags.sql` before publishing this client.
 
 ---
 

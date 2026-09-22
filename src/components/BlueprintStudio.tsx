@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, Folder, FolderOpen, ListChecks, MoreHorizontal, Pencil, Pin, Plus, Redo2, Search, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, Folder, FolderOpen, ListChecks, MoreHorizontal, Pencil, Pin, Plus, Redo2, Search, Sparkles, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
 import type { GoalNode } from '../types';
 import type { GoalTreeChangeResult } from '../store';
 import { countBlueprintNodes, findBlueprintPath, removeBlueprintNodes } from '../lib/blueprintStudio';
@@ -7,13 +7,14 @@ import { findGoal, hasGoalExecutionState, isGoalEndpoint, recomputeCompleted } f
 import { duplicateStudioItems, patchStudioItems, reorderStudioItems, studioItemPath, topStudioSelection } from '../lib/studioWorkspace';
 import { StudioButton, StudioPanel, StudioTargets } from './studio/StudioControls';
 import { StudioAction, StudioAddForm, StudioChangeReview, StudioChecklistForm, StudioEditForm, StudioMoveForm, StudioReviewTree, StudioSelectionList } from './studio/StudioForms';
+import AIPlanFlow from './studio/AIPlanFlow';
 import Overlay from './Overlay';
 import './studio/studio.css';
 
 type Panel =
   | { type: 'add'; ids: string[]; kind: 'goal' | 'items' | 'steps' }
   | { type: 'edit' | 'checklist' | 'more' | 'move' | 'remove'; ids: string[] }
-  | { type: 'selection' | 'review' };
+  | { type: 'selection' | 'review' | 'ai-plan' };
 type DraftChange = { before: GoalNode[]; after: GoalNode[]; summary: string };
 interface Props {
   open: boolean; goals: GoalNode[]; initialPathIds?: string[]; activeGoalNodeId?: string;
@@ -196,7 +197,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
     : panel?.type === 'edit' ? panelNodes.length === 1 ? 'Edit item' : `Edit ${panelNodes.length} items`
     : panel?.type === 'checklist' ? 'Edit checklist' : panel?.type === 'more' ? 'More actions'
     : panel?.type === 'move' ? 'Move items' : panel?.type === 'remove' ? 'Remove from blueprint?'
-    : panel?.type === 'selection' ? `${selected.length} selected` : 'Review blueprint';
+    : panel?.type === 'selection' ? `${selected.length} selected` : panel?.type === 'ai-plan' ? 'Plan with AI' : 'Review blueprint';
   const removeRoots = topStudioSelection(draft, panelIds);
   const removeCount = countBlueprintNodes(nodesAt(draft, removeRoots));
   const removeLocked = removeRoots.some((id) => activePath.includes(id));
@@ -226,6 +227,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
           {current?.description && <p className="studio-parent-description">{current.description}</p>}
           <div className="studio-toolbar">
             <StudioButton onClick={addHere} disabled={parents.some((node) => !canAddInside(node))}><Plus size={16} />{multi ? `Add to ${parents.length} branches` : current ? 'Add item' : 'Add goal'}</StudioButton>
+            {!current && !multi && <StudioButton quiet onClick={() => openPanel({ type: 'ai-plan' })}><Sparkles size={15} /> Plan with AI</StudioButton>}
             <StudioButton quiet onClick={() => { setSelecting(!selecting); setSelected([]); }}>{selecting ? 'Done selecting' : 'Select'}</StudioButton>
           </div>
           {current && !canAddInside(current) && <p className="studio-context">This task has recorded work or checklist steps. Edit its checklist below.</p>}
@@ -260,6 +262,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
         {panel.type === 'checklist' && <StudioChecklistForm goals={draft} ids={panel.ids} onApply={apply} onDirty={markDirty} />}
         {panel.type === 'move' && <StudioMoveForm goals={draft} ids={panel.ids} onApply={apply} />}
         {panel.type === 'selection' && <StudioSelectionList goals={draft} ids={selected} onToggle={toggle} />}
+        {panel.type === 'ai-plan' && <AIPlanFlow goals={draft} onApply={apply} onDirty={markDirty} />}
         {panel.type === 'more' && <div className="studio-panel-body"><StudioTargets goals={draft} nodes={panelNodes} /><div className="studio-actions">
           {panelNodes.every((node) => node.kind !== 'goal' && isGoalEndpoint(node)) && <><StudioAction icon={<ListChecks size={17} />} label="Edit checklist steps" onClick={() => openPanel({ type: 'checklist', ids: panelIds })} /><StudioAction icon={<Plus size={17} />} label="Add checklist steps" onClick={() => openPanel({ type: 'add', ids: panelIds, kind: 'steps' })} /></>}
           <StudioAction icon={<Copy size={17} />} label="Duplicate" detail="Fresh copies, without completion or schedules" onClick={() => apply(duplicateStudioItems(draft, panelIds), `Duplicated ${topStudioSelection(draft, panelIds).length} items`)} />

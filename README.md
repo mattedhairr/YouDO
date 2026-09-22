@@ -69,6 +69,8 @@ Blueprint Studio is one focused workspace for creating and reshaping large plans
 - Open Studio at the exact item you are already viewing.
 - Browse compact rows with breadcrumbs; item names open their contents and pencil buttons edit their details.
 - Add one item, a list, or a numbered range. Optional descriptions stay tucked away.
+- Use **Plan with AI** to describe an exam, copy a private setup prompt, and paste the resulting JSON back into a validated tree preview.
+- AI-generated plans enter Studio as one undoable draft change. YouDO never sends the prompt automatically and never replaces existing goals, Today cards, or history.
 - Select branches and choose **Open** to inspect their existing contents under separate parent headings. Filter names and select matches for repeated edits.
 - Choose **Edit** for one shared name, description, or date change; switch to **Individually** for per-item forms with full parent paths.
 - Use **More** for duplication, moving, reordering, pins, removal, and checklist tools. Completed or scheduled checklist steps cannot be deleted; active focus tasks stay protected.
