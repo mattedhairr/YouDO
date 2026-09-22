@@ -202,13 +202,13 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_AUTH_REDIRECT_URL=https://your-public-site.example/auth-confirm.html
 ```
 
-Apply the SQL files in `supabase/`, then deploy `supabase/functions/delete-account` with JWT verification enabled. Its service-role key remains server-side in the Edge Function environment and must never be added to the app.
+Apply the required SQL files using the ordered inventory in [`supabase/README.md`](supabase/README.md), then deploy `supabase/functions/delete-account` with JWT verification enabled. Its service-role key remains server-side in the Edge Function environment and must never be added to the app.
 
 For an existing YouDO Supabase project, run `supabase/optimize_auth_rls_policies.sql` once in the SQL Editor. It atomically preserves the same ownership rules while removing the Auth RLS Initialization Plan performance warnings. Set the Auth minimum password length to 10 as well; existing passwords remain valid for sign-in, while new accounts and future password changes use the stronger rule.
 
 The calendar-boundary Board fix needs three nullable date markers. The current `supabase/community.sql` already installs them; use `supabase/add_pace_window_keys.sql` only when installing the Board without community. These additions do not rewrite rankings or focus history.
 
-Before enabling the Board community, run `supabase/community.sql`. It is idempotent: rerun the whole file after pulling a newer version to install additions such as appeals safely. Then promote the owner’s existing account with the commented email-based statement at the bottom of that file. The same account remains a normal YouDO user; the role only unlocks the separate moderation console. A community ban hides public participation but leaves private study work intact; account deletion remains the user-owned, permanently destructive flow.
+Before enabling the Board community, run `supabase/community.sql`. It is idempotent: rerun the whole file after pulling a newer version to install additions such as appeals safely. Community Essentials additionally requires `supabase/community_chat.sql`, followed by the private reusable `supabase/operations/manage_community_staff.sql` query to bootstrap the owner or manage admins. The same accounts remain normal YouDO users; the role only unlocks moderation. A community ban hides public participation but leaves private study work intact; account deletion remains the user-owned, permanently destructive flow.
 
 Keep Supabase **Confirm Email** and **Secure email change** enabled, and set the server-side minimum password length to 10. YouDO’s signed-in security panel verifies the current password before requesting an email or password change. These settings do not retroactively prove ownership of previously auto-confirmed addresses.
 

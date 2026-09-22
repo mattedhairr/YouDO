@@ -30,6 +30,8 @@ import {
 import Overlay from './Overlay';
 import Toggle from './Toggle';
 import { hapticSuccess, hapticTick, hapticWarn } from '../lib/haptics';
+import CommunityChat from './community/CommunityChat';
+import { clearChatCache } from '../lib/communityChat';
 
 interface Props {
   open: boolean;
@@ -97,7 +99,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     setContext(nextContext);
     if (!announcementDirty.current) setAnnouncement(nextContext.settings.announcement);
     if (!nextContext.available) return;
-    if (mode === 'room') {
+    if (!nextContext.canJoin) clearChatCache(userId);
+    if (mode === 'room' && !nextContext.chatV2) {
       const nextMessages = await fetchCommunityMessages();
       if (!current()) return;
       setMessages(nextMessages);
@@ -127,6 +130,13 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     document.addEventListener('visibilitychange', visibleRefresh);
     return () => { invalidateRequests(); window.clearInterval(timer); document.removeEventListener('visibilitychange', visibleRefresh); };
   }, [open, refresh, startInAdmin, invalidateRequests]);
+
+  useEffect(() => {
+    if (!open) return;
+    const afterRead = () => { void refresh(); };
+    window.addEventListener('youdo-community-read', afterRead);
+    return () => window.removeEventListener('youdo-community-read', afterRead);
+  }, [open, refresh]);
 
   useEffect(() => {
     setAnnouncementExpanded(false);
@@ -217,7 +227,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       <header className="flex shrink-0 items-center gap-2 border-b border-subtle bg-elevated px-3 pb-3 pt-[max(0.75rem,var(--safe-area-top))]">
         <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-content-secondary hover:bg-surface" aria-label="Close community"><ArrowLeft size={19} /></button>
         <span className="grid size-9 place-items-center rounded-xl border border-primary/20 bg-primary-soft text-primary">{mode === 'admin' ? <Gauge size={17} /> : <MessageCircle size={17} />}</span>
-        <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p><h2 className="text-[16px] font-bold text-content-primary">{mode === 'admin' ? 'Community admin' : 'Daily room'}</h2></div>
+        <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p><h2 className="text-[16px] font-bold text-content-primary">{mode === 'admin' ? 'Community admin' : 'Community'}</h2></div>
         <button type="button" disabled={refreshing} onClick={() => void refresh()} className="grid size-9 place-items-center rounded-xl text-content-muted" aria-label="Refresh"><RefreshCw size={15} /></button>
       </header>
 
@@ -231,6 +241,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         {status && <p role="status" className="mt-3 text-[10.5px] text-primary">{status}</p>}
       </main>
       : !context.canJoin && !context.isAdmin ? <div className="m-4 rounded-2xl border border-subtle bg-surface p-6 text-center"><Heart className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Join the Board first</h3><p className="mt-1 text-[11px] text-content-secondary">Only opted-in Board members can react or enter the daily room.</p></div>
+      : mode === 'room' && context.chatV2 && userId
+        ? <CommunityChat key={userId} userId={userId} context={context} names={names} />
       : mode === 'room' ? <>
         <main className="community-room-main min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <details className="community-guidelines">
@@ -263,7 +275,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
                 <div className="community-message-meta">
                   <time dateTime={message.createdAt}>{message.createdAt.slice(0, 10) < context.dayKey ? `${new Date(message.createdAt).toLocaleDateString()} · ` : ''}{timeLabel(message.createdAt)}</time>
                   <button type="button" onClick={() => startReply(message.id)} aria-label={`Reply to ${mine ? 'your message' : names.get(message.authorId) ?? 'message'}`}><Reply size={11.5} /></button>
-                  {!mine && <button type="button" onClick={async () => { if (userId && await reportCommunityMessage(message.id, userId)) setStatus('Reported privately for review.'); }} aria-label="Report message"><Flag size={11} /></button>}
+                  {!mine && <button type="button" onClick={async () => { if (userId && await reportCommunityMessage(message.id)) setStatus('Reported privately for review.'); }} aria-label="Report message"><Flag size={11} /></button>}
                 </div>
               </article>
             </li>;

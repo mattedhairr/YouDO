@@ -971,7 +971,9 @@ input[type='datetime-local'] {
   border: 1px solid var(--border-subtle); border-radius: 12px;
   background: var(--bg-elevated); color: var(--primary); text-align: left;
 }
-.board-community-link > span:first-of-type { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.board-community-icon { position: relative; display: grid; width: 18px; height: 18px; place-items: center; }
+.board-community-label { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.board-unread { position:absolute;right:-4px;top:-4px;width:7px;height:7px;border:2px solid var(--bg-elevated);border-radius:50%;background:var(--secondary);box-sizing:content-box;box-shadow:0 0 0 2px color-mix(in srgb,var(--secondary) 12%,transparent); }
 .board-room-status { font-size: 10px; color: var(--text-muted); }
 .board-community-actions.with-admin { display: grid; grid-template-columns: minmax(0,1fr) 84px; gap: 8px; }
 .board-admin-link { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-elevated); color: var(--secondary); font-size: 11px; font-weight: 600; }

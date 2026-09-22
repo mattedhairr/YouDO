@@ -43,11 +43,13 @@ describe('community context', () => {
   it('parses the single-request Board and admin context', () => {
     expect(parseCommunityContext({
       day_key: '2026-09-09', is_admin: true, can_join: true, can_post: false,
-      settings: { room_enabled: true, appreciations_enabled: false, announcement: 'Focus first.' },
+      chat_v2: true, unread: { chat: 3, updates: 1 }, staff_ids: ['staff-1'],
+      settings: { room_enabled: true, appreciations_enabled: false, announcement: 'Focus first.', announcement_updated_at: '2026-09-09T12:00:00.000Z' },
       muted_until: '2026-09-10T00:00:00.000Z', banned_at: null, appeal: null,
     })).toMatchObject({
       available: true, dayKey: '2026-09-09', isAdmin: true, canJoin: true, canPost: false,
-      settings: { roomEnabled: true, appreciationsEnabled: false, announcement: 'Focus first.' },
+      chatV2: true, unread: { chat: 3, updates: 1 }, staffIds: ['staff-1'],
+      settings: { roomEnabled: true, appreciationsEnabled: false, announcement: 'Focus first.', announcementUpdatedAt: '2026-09-09T12:00:00.000Z' },
       mutedUntil: '2026-09-10T00:00:00.000Z', banned: false,
     });
   });

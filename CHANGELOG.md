@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.3.0] — 2026-09-22 — A clearer, more responsive Community
+
+- **Know when Community has something new** — A stable icon badge signals new activity without shifting the Board layout, and broadcasts appear as compact expandable events inside Chat instead of occupying a separate section.
+- **Chat responds immediately** — Recent messages reopen from the current app visit, conversations load in pages, and sent messages appear at once with clear sending, failed, and duplicate-safe retry states.
+- **More useful conversations** — Reply by double-tapping, hold a message for actions, edit or delete your own recent messages, and privately report content that needs review.
+- **Safer moderation** — Admins can remove inappropriate messages with a recorded reason, while one private owner controls administrator access and all staff appear publicly as Admin.
+- **Android APK** — versionName **7.3.0**, versionCode **39**. Installs directly over **v7.2.1** with the same package ID and signing key; no uninstall or device-data reset is required. Apply the current `community_chat.sql` upgrade before publishing this client.
+
+---
+
 ## [v7.2.1] — 2026-09-16 — Your study time and workspace stay protected
 
 - **Sessions survive time away from YouDO** — Backgrounding or suspending the app no longer treats an uninterrupted study period as stopped, while durable recovery protects an active sitting if the app closes.
