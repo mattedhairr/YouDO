@@ -1,8 +1,8 @@
 # Community setup and final verification
 
-## Community Essentials upgrade (unreleased)
+## Community Essentials upgrade (v7.3.0)
 
-The `codex/community-essentials` branch adds `supabase/community_chat.sql` after the base setup. Until the hosted checks in this guide are recorded, it remains an unreleased migration.
+YouDO v7.3.0 adds `supabase/community_chat.sql` after the base setup. Apply the current file before publishing the dependent client, and complete the hosted checks in this guide before treating the release candidate as ready.
 
 Migration order is `public_pace.sql` → `community.sql` → `community_chat.sql`. Apply the final file as a whole transaction before deploying its client. If the base Community setup is rerun later, rerun the chat upgrade immediately afterwards: the base file otherwise reinstates the legacy inbox and message-delivery trigger. Keep a database backup before changing a live project, and check the RPCs through the hosted API in a staging project first.
 
