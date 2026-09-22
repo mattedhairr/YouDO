@@ -239,7 +239,11 @@ Open the `android` directory in Android Studio or use the repository's GitHub Ac
 
 ## Maintainer
 
-Current promotional artwork: [universal goal-tree poster](docs/media/youdo-promo-poster-v7.png). Older fixed-layer artwork is historical, not current product guidance.
+The `docs` directory contains public maintainer runbooks and integrity notes,
+not end-user instructions. Private working plans, release drafts, and temporary
+artifacts belong only in the Git-ignored `.cache` directory.
+
+Current release artwork: [universal goal-tree poster](docs/media/youdo-promo-poster-v7.png).
 
 Built and maintained by **Jatin Parmar** ([@mattedhairr](https://github.com/mattedhairr)).
 
