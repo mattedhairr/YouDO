@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Lock, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Lock, Plus, X } from 'lucide-react';
 import {
   chooseCommunityHashtag,
   fetchCommunityHashtags,
@@ -19,6 +19,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onMembershipCha
   const [panel,setPanel]=useState<'choose'|'request'|null>(null);
   const [exam,setExam]=useState('');
   const [details,setDetails]=useState('');
+  const [expanded,setExpanded]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const refresh=useCallback(async()=>{
@@ -29,7 +30,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onMembershipCha
 
   const choose=async(id:string)=>{
     setBusy(true);setError('');
-    try{await chooseCommunityHashtag(id);await refresh();onSelect(id);setPanel(null);}
+    try{await chooseCommunityHashtag(id);await refresh();onSelect(id);setExpanded(false);setPanel(null);}
     catch(e){setError(e instanceof Error?e.message:'Could not save your exam.');}
     finally{setBusy(false);}
   };
@@ -42,17 +43,19 @@ export default function CommunityHashtagBar({selectedId,onSelect,onMembershipCha
   };
   const tap=(id:string)=>{
     if(!context.mine){setPanel('choose');return;}
-    onSelect(selectedId===id?undefined:id);
+    onSelect(selectedId===id?undefined:id);setExpanded(false);
   };
+  const selectedLabel=context.hashtags.find(tag=>tag.id===selectedId)?.label;
   return <>
-    <div className="c-hashtag-rail" aria-label="Chat exam filters">
-      <span className="c-hashtag-label">CHAT</span>
-      <button type="button" className={!selectedId?'is-active':''} onClick={()=>onSelect(undefined)}>General</button>
-      {context.hashtags.map(tag=><button type="button" key={tag.id} className={selectedId===tag.id?'is-active':''} onClick={()=>tap(tag.id)}>
+    {!expanded?<div className="c-hashtag-collapsed"><button type="button" onClick={()=>setExpanded(true)} aria-expanded="false" aria-label={`Open exam chats. Current: ${selectedLabel?`#${selectedLabel}`:'General'}`}><span>{selectedLabel?`#${selectedLabel}`:'General'}</span><ChevronUp size={13}/></button></div>
+    :<div className="c-hashtag-rail" aria-label="Exam chat filters">
+      <button type="button" className="c-hashtag-collapse" onClick={()=>setExpanded(false)} aria-label="Collapse exam chats"><ChevronDown size={13}/></button>
+      <button type="button" className={!selectedId?'is-active':''} aria-pressed={!selectedId} onClick={()=>{onSelect(undefined);setExpanded(false);}}>General</button>
+      {context.hashtags.map(tag=><button type="button" key={tag.id} aria-pressed={selectedId===tag.id} className={selectedId===tag.id?'is-active':''} onClick={()=>tap(tag.id)}>
         {!context.mine&&<Lock size={9}/>}#{tag.label}{context.mine?.id===tag.id&&<Check size={10}/>}<small>{tag.memberCount}</small>
       </button>)}
       <button type="button" className="c-hashtag-request" onClick={()=>{setError('');setPanel('request');}}><Plus size={11}/> Request</button>
-    </div>
+    </div>}
     {error&&!panel&&<p className="c-hashtag-inline-error">{error}</p>}
     <Overlay open={panel!==null} onClose={()=>setPanel(null)} align="bottom">
       <section className="c-hashtag-sheet">

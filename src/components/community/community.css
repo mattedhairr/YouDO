@@ -36,12 +36,16 @@
 .c-empty { display:grid;justify-items:center;gap:10px;padding:44px 16px;text-align:center;color:var(--text-secondary); }
 .c-empty svg { color:var(--secondary); }.c-empty h3 { font-size:17px;color:var(--text-primary);font-weight:650; }.c-empty p { font-size:13px;line-height:1.65;max-width:260px; }
 .c-composer { padding:10px 14px max(12px,env(safe-area-inset-bottom,0px));border-top:1px solid var(--border-subtle);background:var(--bg-elevated);flex-shrink:0; }
+.c-hashtag-collapsed { display:flex;justify-content:center;height:22px;margin:-7px 0 5px; }
+.c-hashtag-collapsed button { display:inline-flex;align-items:center;gap:4px;height:22px;border:0;border-radius:0 0 9px 9px;padding:0 9px;background:color-mix(in srgb,var(--bg-base) 72%,transparent);color:var(--text-muted);font-size:9px;font-weight:650; }
+.c-hashtag-collapsed button span { max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.c-hashtag-collapsed button svg { color:var(--primary); }
 .c-hashtag-rail { display:flex;align-items:center;gap:6px;width:100%;margin:-2px 0 8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;white-space:nowrap; }
 .c-hashtag-rail::-webkit-scrollbar { display:none; }
-.c-hashtag-label { flex:0 0 auto;padding-right:7px;border-right:1px solid var(--border-subtle);color:var(--text-muted);font-size:8px;font-weight:800;letter-spacing:.15em; }
 .c-hashtag-rail button { display:inline-flex;flex:0 0 auto;align-items:center;gap:4px;height:29px;border:1px solid var(--border-subtle);border-radius:10px;padding:0 9px;background:var(--bg-base);color:var(--text-secondary);font-size:10.5px;font-weight:650; }
 .c-hashtag-rail button.is-active { border-color:color-mix(in srgb,var(--primary) 42%,var(--border-subtle));background:var(--primary-soft);color:var(--primary);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 8%,transparent); }
 .c-hashtag-rail button small { min-width:13px;color:var(--text-muted);font-size:8px;text-align:center; }
+.c-hashtag-rail .c-hashtag-collapse { width:29px;padding:0;justify-content:center;border-style:dashed;color:var(--primary); }
 .c-hashtag-rail .c-hashtag-request { border-style:dashed;color:var(--secondary); }
 .c-hashtag-inline-error,.c-hashtag-readonly { display:flex;align-items:center;gap:5px;margin:-2px 0 7px;color:var(--text-muted);font-size:9px;line-height:1.35; }
 .c-hashtag-inline-error { color:var(--error); }
