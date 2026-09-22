@@ -232,7 +232,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     && Date.now()-Date.parse(selected.createdAt)<MESSAGE_ACTION_WINDOW_MS;
   return <section className="c-chat" aria-label="Chat">
     <div className="c-chat-scroll" ref={scroll} onScroll={()=>{const root=scroll.current;if(root){scrollPosition.current=root.scrollTop;if(root.clientWidth===viewport.current.width && root.clientHeight===viewport.current.height){follow.current=root.scrollHeight-root.scrollTop-root.clientHeight<72;if(follow.current)setNewBelow(false);}}}}>
-      <details className="c-guidance"><summary><ShieldCheck size={16}/> A little encouragement goes a long way</summary><p>Be respectful. No spam, links or personal details. Chat disappears after 24 hours. Doubts have their own home.</p></details>
+      <details className="c-guidance"><summary><ShieldCheck size={16}/> A little encouragement goes a long way</summary><p>Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.</p></details>
       {context.settings.announcement && <section className={`c-update-event ${context.unread?.updates?'is-new':''} ${updateOpen?'is-open':''}`}>
         <button type="button" aria-expanded={updateOpen} onClick={toggleUpdate}>
           <span className="c-update-icon"><Megaphone size={15}/></span>
