@@ -13,27 +13,29 @@ let cacheGeneration = 0;
 let cacheAccount: string | null | undefined;
 export const CHAT_PAGE_SIZE = 30;
 export const CHAT_HISTORY_LIMIT = 120;
+const cacheKey = (userId: string, scope = 'general') => `${userId}:${scope}`;
 
 export function chatCacheGeneration() { return cacheGeneration; }
 export function clearChatCache(userId?: string) {
   cacheGeneration++;
-  if (userId) cache.delete(userId); else cache.clear();
+  if (userId) for (const key of cache.keys()) { if (key.startsWith(`${userId}:`)) cache.delete(key); }
+  else cache.clear();
 }
 export function activeChatMessages(messages: ChatMessage[], now = Date.now()): ChatMessage[] {
   return messages.filter(message => !message.removedAt && Date.parse(message.expiresAt) > now);
 }
-export function readChatCache(userId: string): ChatSnapshot {
-  const saved = cache.get(userId);
+export function readChatCache(userId: string, scope = 'general'): ChatSnapshot {
+  const saved = cache.get(cacheKey(userId,scope));
   return saved ? { ...saved, messages: activeChatMessages(saved.messages).map(message=>message.delivery==='pending'
     ? {...message,delivery:'failed' as const,error:'Send status is unknown. Retrying will not send a duplicate.'}:message) } : { messages: [], hasOlder: false };
 }
-export function saveChatCache(userId: string, snapshot: ChatSnapshot, generation = cacheGeneration) {
+export function saveChatCache(userId: string, snapshot: ChatSnapshot, generation = cacheGeneration, scope = 'general') {
   // A component may unmount after sign-out or membership revocation. Its cleanup
   // must not repopulate a cache that the access boundary has already cleared.
   if (generation !== cacheGeneration || (cacheAccount !== undefined && cacheAccount !== userId)) return;
   // Only the current account is cached. Sign-out/account switch clears it below.
-  for (const key of cache.keys()) if (key !== userId) cache.delete(key);
-  cache.set(userId, { ...snapshot, messages: activeChatMessages(snapshot.messages).slice(-CHAT_HISTORY_LIMIT) });
+  for (const key of cache.keys()) if (!key.startsWith(`${userId}:`)) cache.delete(key);
+  cache.set(cacheKey(userId,scope), { ...snapshot, messages: activeChatMessages(snapshot.messages).slice(-CHAT_HISTORY_LIMIT) });
 }
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
@@ -73,8 +75,10 @@ export function pendingChatMessage(userId: string, body: string, replyToId?: str
   return { id: crypto.randomUUID(), authorId: userId, body: body.trim().replace(/\s+/g,' '), replyToId,
     createdAt: new Date(now).toISOString(), expiresAt: new Date(now+86_400_000).toISOString(), sequence: 0, kind: 'chat', delivery: 'pending' };
 }
-export async function fetchChatPage(beforeSequence?: number): Promise<ChatMessage[]> {
-  const { data, error } = await supabase.rpc('community_chat_page', { before_sequence: beforeSequence ?? null });
+export async function fetchChatPage(beforeSequence?: number, hashtagId?: string): Promise<ChatMessage[]> {
+  const { data, error } = hashtagId
+    ? await supabase.rpc('community_chat_page_by_hashtag', { before_sequence: beforeSequence ?? null, selected_hashtag: hashtagId })
+    : await supabase.rpc('community_chat_page', { before_sequence: beforeSequence ?? null });
   if (error) throw new Error('Could not refresh chat. Your conversation has not been cleared.');
   return (Array.isArray(data) ? data : []).map(parseChatMessage);
 }

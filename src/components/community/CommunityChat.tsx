@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowDown, Check, ChevronDown, Heart, Megaphone, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
 import { markCommunityRead, markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
 import Overlay from '../Overlay';
+import CommunityHashtagBar from './CommunityHashtagBar';
 import './community.css';
 
 interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void }
@@ -27,6 +28,10 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
   const [actionError,setActionError] = useState('');
   const [newBelow,setNewBelow] = useState(false);
   const [updateOpen,setUpdateOpen] = useState(false);
+  const [selectedHashtag,setSelectedHashtag] = useState<string>();
+  const [ownHashtag,setOwnHashtag] = useState<string>();
+  const filterScope=selectedHashtag??'general';
+  const canWriteFilter=!selectedHashtag||selectedHashtag===ownHashtag;
   const scroll = useRef<HTMLDivElement>(null);
   const scrollPosition = useRef(initial.scrollTop);
   const composer = useRef<HTMLTextAreaElement>(null);
@@ -34,6 +39,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
   const follow = useRef(initial.scrollTop==null);
   const viewport = useRef({ width: 0, height: 0 });
   const fetching = useRef(false);
+  const refreshVersion = useRef(0);
   const inFlight = useRef(new Set<string>());
   const acknowledged = useRef(new Set<string>());
   const updateReading = useRef(false);
@@ -79,17 +85,18 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
 
   const refresh=useCallback(async()=>{
     if(fetching.current || !context.canJoin)return;
+    const version=refreshVersion.current;
     fetching.current=true;
     try {
       const fresh:ChatMessage[]=[];
       let before:number|undefined;
       let full=false;
       for(let n=0;n<Math.ceil(loadedCount.current/CHAT_PAGE_SIZE);n++){
-        const page=await fetchChatPage(before);
+        const page=await fetchChatPage(before,selectedHashtag);
         fresh.push(...page);full=page.length===CHAT_PAGE_SIZE;
         if(!full)break;before=page[page.length-1]?.sequence;
       }
-      if(!mounted.current)return;
+      if(!mounted.current||version!==refreshVersion.current)return;
       capturePosition();
       if(!follow.current && fresh.some(m=>!messagesRef.current.some(old=>old.id===m.id)))setNewBelow(true);
       // Refresh the entire loaded window, so removals and bans leave no ghosts.
@@ -97,18 +104,23 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
       setHasOlder(full && fresh.length<CHAT_HISTORY_LIMIT);setError('');
     } catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Could not refresh chat.');}
     finally{fetching.current=false;if(mounted.current)setLoading(false);}
-  },[capturePosition,context.canJoin]);
+  },[capturePosition,context.canJoin,selectedHashtag]);
   useEffect(()=>{
-    mounted.current=true;void refresh();
+    mounted.current=true;refreshVersion.current++;fetching.current=false;
+    const saved=readChatCache(userId,filterScope);
+    messagesRef.current=saved.messages;olderRef.current=saved.hasOlder;
+    setMessages(saved.messages);setHasOlder(saved.hasOlder);setLoading(saved.messages.length===0);
+    scrollPosition.current=saved.scrollTop;follow.current=saved.scrollTop==null;loadedCount.current=Math.max(CHAT_PAGE_SIZE,saved.messages.filter(m=>m.delivery==='sent').length);
+    acknowledged.current.clear();setNewBelow(false);setError('');void refresh();
     const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
     const timer=window.setInterval(onVisible,30_000);
     document.addEventListener('visibilitychange',onVisible);window.addEventListener('online',onVisible);
     const generation=cacheLease.current;
     return()=>{
       mounted.current=false;clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);window.removeEventListener('online',onVisible);
-      saveChatCache(userId,{messages:messagesRef.current,scrollTop:scrollPosition.current,hasOlder:olderRef.current},generation);
+      saveChatCache(userId,{messages:messagesRef.current,scrollTop:scrollPosition.current,hasOlder:olderRef.current},generation,filterScope);
     };
-  },[refresh,userId]);
+  },[refresh,userId,filterScope]);
   useEffect(()=>()=>{if(pressTimer.current)window.clearTimeout(pressTimer.current);},[]);
   useEffect(()=>setUpdateOpen(false),[context.settings.announcement,context.settings.announcementUpdatedAt]);
   useEffect(()=>{if(!context.canJoin){clearChatCache(userId);setMessages([]);}},[context.canJoin,userId]);
@@ -119,7 +131,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     return()=>clearTimeout(timer);
   },[messages]);
   useEffect(()=>{
-    const root=scroll.current;if(!root || !context.canJoin)return;
+    const root=scroll.current;if(!root || !context.canJoin || selectedHashtag)return;
     const seen=new Set<string>();let timer:number|undefined;
     const observer=new IntersectionObserver(entries=>{
       for(const entry of entries){
@@ -136,7 +148,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     },{root,threshold:0.6});
     root.querySelectorAll('[data-message]').forEach(node=>observer.observe(node));
     return()=>{observer.disconnect();if(timer)clearTimeout(timer);};
-  },[map,context.canJoin]);
+  },[map,context.canJoin,selectedHashtag]);
 
   const transmit=async(message:ChatMessage)=>{
     if(inFlight.current.has(message.id))return;
@@ -149,7 +161,7 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     finally{inFlight.current.delete(message.id);}
   };
   const send=()=>{
-    if(!draft.trim() || !context.canPost || actionBusy)return;
+    if(!draft.trim() || !context.canPost || !canWriteFilter || actionBusy)return;
     setError('');
     if(editing){
       setActionBusy(true);
@@ -165,9 +177,10 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
   const loadOlder=async()=>{
     if(fetching.current)return;
     const oldest=messages.find(m=>m.delivery==='sent');if(!oldest)return;
+    const version=refreshVersion.current;
     fetching.current=true;setLoading(true);
     try{
-      const page=await fetchChatPage(oldest.sequence);if(!mounted.current)return;
+      const page=await fetchChatPage(oldest.sequence,selectedHashtag);if(!mounted.current||version!==refreshVersion.current)return;
       capturePosition();loadedCount.current=Math.min(CHAT_HISTORY_LIMIT,loadedCount.current+CHAT_PAGE_SIZE);
       setMessages(current=>mergeChatPage(current,page));setHasOlder(page.length===CHAT_PAGE_SIZE && loadedCount.current<CHAT_HISTORY_LIMIT);
     }catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Could not load older messages.');}
@@ -269,9 +282,11 @@ export default function CommunityChat({ userId, context, names, onProfile }: Pro
     </div>
     {newBelow && <button className="c-new" onClick={()=>{follow.current=true;if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;setNewBelow(false);}}>New messages <ArrowDown size={15}/></button>}
     <footer className="c-composer">
+      <CommunityHashtagBar selectedId={selectedHashtag} onSelect={setSelectedHashtag} onMembershipChange={setOwnHashtag}/>
       {error && <p role="status" className="c-feedback">{error} <button onClick={()=>void refresh()} aria-label="Refresh chat"><RefreshCw size={15}/></button></p>}
       {(reply || editing) && <div className="c-replying"><Reply size={16}/><span><strong>{editing?'Editing your message':'Replying'}</strong>{(editing??reply)?.body}</span><button aria-label="Cancel reply or edit" onClick={()=>{setReply(null);if(editing)setDraft('');setEditing(null);}}><X size={18}/></button></div>}
-      <div className="c-composer-row"><textarea ref={composer} aria-label={editing?'Edit message':'Message'} rows={1} maxLength={240} value={draft} disabled={!context.canPost} placeholder={context.canPost?'Share something useful…':'Posting is paused for now'} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();send();}}}/><button className="c-primary c-send" aria-label={editing?'Save edit':'Send message'} disabled={!draft.trim()||!context.canPost||actionBusy} onClick={send}>{editing?<Check size={19}/>:<Send size={19}/>}</button></div>
+      {!canWriteFilter&&<p className="c-hashtag-readonly"><Lock size={11}/> Browse-only feed · switch to General or your exam to post</p>}
+      <div className="c-composer-row"><textarea ref={composer} aria-label={editing?'Edit message':'Message'} rows={1} maxLength={240} value={draft} disabled={!context.canPost||!canWriteFilter} placeholder={!canWriteFilter?'Viewing another exam…':context.canPost?'Share something useful…':'Posting is paused for now'} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();send();}}}/><button className="c-primary c-send" aria-label={editing?'Save edit':'Send message'} disabled={!draft.trim()||!context.canPost||!canWriteFilter||actionBusy} onClick={send}>{editing?<Check size={19}/>:<Send size={19}/>}</button></div>
       <p className="c-composer-note">Hold for options · double-tap to reply<span>{draft.length}/240</span></p>
     </footer>
     {selected && <Overlay open onClose={()=>{if(!actionBusy)setSelected(null);}} align="bottom"><div className="c-action-sheet">
