@@ -3,13 +3,22 @@ import { todayISO } from './dates';
 import { defaultStreakMeta, sanitizeStreakMeta } from './focusTrends';
 import { sanitizePacePrefs } from './paceBoard';
 import { sanitizeSessionHistory } from './sessionStats';
-import { STORAGE_KEYS, WORKSPACE_KEYS } from './storageKeys';
+import { sanitizeTreeAndTasks } from './goalTree';
+import { STORAGE_KEYS, WORKSPACE_ALIAS_KEYS, WORKSPACE_KEYS } from './storageKeys';
 import { canonicalWorkspaceFingerprint } from './syncPayload';
-import type { TrashRecord } from './syncMerge';
+import type { TrashRecord, WorkspaceSlice } from './syncMerge';
 
 type DeviceStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 // Include old aliases so an intentionally empty replacement cannot revive them.
-const REPLACEMENT_KEYS = [...WORKSPACE_KEYS, 'tudo-tasks-v3', 'tudo-goals-v3', 'todo.goalPathIds', STORAGE_KEYS.workspaceOwner];
+const REPLACEMENT_KEYS = [...WORKSPACE_KEYS, ...WORKSPACE_ALIAS_KEYS, STORAGE_KEYS.workspaceOwner];
+const MUTATION_KEYS = [
+  STORAGE_KEYS.tasks, STORAGE_KEYS.goals, STORAGE_KEYS.deletedGoals,
+  STORAGE_KEYS.sessionHistory, STORAGE_KEYS.streakMeta, STORAGE_KEYS.pacePrefs,
+  STORAGE_KEYS.workspaceUpdatedAt, STORAGE_KEYS.workspaceCloudFingerprint,
+  ...WORKSPACE_ALIAS_KEYS,
+] as const;
+type MutationKey = typeof MUTATION_KEYS[number];
+type WorkspaceMutation = Partial<Record<MutationKey, string | null>>;
 type WorkspaceSnapshot = Record<string, string | null>;
 const pendingMessage = 'YouDO could not finish recovering the previous device copy. Keep app data intact, free some device storage, then retry.';
 
@@ -34,17 +43,54 @@ export function recoverWorkspaceReplacement(storage: DeviceStorage = localStorag
   if (raw === null) return;
   try {
     const saved = JSON.parse(raw) as { version: number; before: WorkspaceSnapshot };
-    if (saved?.version !== 1 || !saved.before || Array.isArray(saved.before)
-      || Object.keys(saved.before).length !== REPLACEMENT_KEYS.length
-      || REPLACEMENT_KEYS.some(key => !(key in saved.before) || (saved.before[key] !== null && typeof saved.before[key] !== 'string'))) {
+    const keys = saved?.before && typeof saved.before === 'object' && !Array.isArray(saved.before)
+      ? Object.keys(saved.before) : [];
+    const validFull = saved?.version === 1 && keys.length === REPLACEMENT_KEYS.length
+      && REPLACEMENT_KEYS.every(key => Object.prototype.hasOwnProperty.call(saved.before, key));
+    const validMutation = saved?.version === 2 && keys.length > 0
+      && keys.every(key => MUTATION_KEYS.includes(key as MutationKey));
+    if ((!validFull && !validMutation) || keys.some(key => saved.before[key] !== null && typeof saved.before[key] !== 'string')) {
       throw new Error('Invalid checkpoint');
     }
-    writeSnapshot(saved.before, storage);
+    if (validFull) writeSnapshot(saved.before, storage);
+    else for (const key of keys) {
+      const value = saved.before[key];
+      if (value === null) storage.removeItem(key);
+      else storage.setItem(key, value);
+    }
     storage.removeItem(STORAGE_KEYS.workspaceReplacement);
   } catch {
     // Retain the checkpoint when recovery cannot finish. AuthGate stays closed.
     throw new Error(pendingMessage);
   }
+}
+
+/** Commit related ordinary workspace keys under the same startup-recovery gate
+ * used by account replacement. No React state should advance until this returns.
+ * This protects one browser window's writes, not concurrent writers in other tabs.
+ */
+export function commitWorkspaceMutation(next: WorkspaceMutation, storage: DeviceStorage = localStorage): boolean {
+  if (storage.getItem(STORAGE_KEYS.workspaceReplacement) !== null) throw new Error(pendingMessage);
+  const entries = Object.entries(next);
+  if (entries.some(([key, value]) => !MUTATION_KEYS.includes(key as MutationKey) || (value !== null && typeof value !== 'string'))) {
+    throw new Error('Invalid workspace mutation');
+  }
+  const changed = entries.filter(([key, value]) => storage.getItem(key) !== value);
+  if (changed.length === 0) return false;
+  const before = Object.fromEntries(changed.map(([key]) => [key, storage.getItem(key)]));
+  try { storage.setItem(STORAGE_KEYS.workspaceReplacement, JSON.stringify({ version: 2, before })); }
+  catch { throw new Error('There is not enough device storage to protect this save. Your previous copy is unchanged.'); }
+  try {
+    for (const [key, value] of changed) {
+      if (value === null) storage.removeItem(key);
+      else if (typeof value === 'string') storage.setItem(key, value);
+    }
+    storage.removeItem(STORAGE_KEYS.workspaceReplacement);
+  } catch {
+    recoverWorkspaceReplacement(storage);
+    throw new Error('This change could not be saved. The previous device copy was restored. Free some storage, then retry.');
+  }
+  return true;
 }
 
 export function assertWorkspaceUnchanged(before: WorkspaceSnapshot, storage: DeviceStorage = localStorage) {
@@ -57,6 +103,25 @@ export function assertWorkspaceUnchanged(before: WorkspaceSnapshot, storage: Dev
 function assertNoTimer(before: WorkspaceSnapshot) {
   const timer = before[STORAGE_KEYS.activeSession];
   if (timer !== null && timer !== 'null') throw new Error('Finish the saved focus session in its workspace before replacing this device copy.');
+}
+
+/** Full Settings import is replacement, never a merge with optional fields
+ * from the previous workspace. Validation finishes before any device write.
+ */
+export function prepareSettingsImport(json: string): WorkspaceSlice | null {
+  const parsed = parseBackupPayload(json);
+  if (!parsed) return null;
+  const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(parsed.goals, parsed.tasks);
+  const today = todayISO();
+  return {
+    tasks: cleanedTasks,
+    goals: cleanedGoals,
+    sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
+    recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals) ? parsed.recentlyDeletedGoals as TrashRecord[] : [],
+    streakMeta: sanitizeStreakMeta(parsed.streakMeta, today) ?? defaultStreakMeta(today),
+    pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
+    updatedAt: parsed.updatedAt,
+  };
 }
 
 export function prepareWorkspaceReplacement(json: string, accountId: string): WorkspaceSnapshot {

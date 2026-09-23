@@ -235,15 +235,22 @@ export default function SettingsSheet({
     if (!file) return;
     setConfirmImport(false);
     const reader = new FileReader();
-    reader.onload = () => {
-      const ok = importBackup(reader.result as string);
-      if (ok && user) syncToCloud();
-      setMsg(
-        ok
-          ? { text: '✓ Backup restored & synced to cloud!' }
-          : { text: '✗ Invalid or corrupted backup file.', error: true },
-      );
+    reader.onload = async () => {
+      const ok = typeof reader.result === 'string' && importBackup(reader.result);
+      if (!ok) {
+        setMsg({ text: 'Backup was not imported. Check the file and available device storage; your previous copy remains intact.', error: true });
+        return;
+      }
+      if (!user) {
+        setMsg({ text: 'Backup restored on this device.' });
+        return;
+      }
+      const sync = await syncToCloud();
+      setMsg(sync.ok
+        ? { text: 'Backup restored on this device and synced to cloud.' }
+        : { text: 'Backup restored on this device. Cloud sync needs review: ' + (sync.error ?? 'try again later.'), error: true });
     };
+    reader.onerror = () => setMsg({ text: 'Could not read that backup file. Nothing was replaced.', error: true });
     reader.readAsText(file);
   };
 

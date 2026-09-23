@@ -144,6 +144,7 @@ function AppInner() {
     setStreakBarHours,
     publishPublicPace,
     cloudSyncConflict,
+    workspaceStorageError,
   } = useStore();
 
   const {
@@ -981,9 +982,9 @@ function AppInner() {
 
   return (
     <div className="min-h-screen">
-      {sessionStorageError && <div role="alert" className="fixed left-4 right-4 top-[max(1rem,var(--safe-area-top))] z-[10000] mx-auto max-w-md rounded-2xl border border-error/40 bg-surface p-4 text-sm text-content-primary shadow-elevated">
-        <p className="mb-1 font-semibold text-error">Timer change could not be saved</p>
-        <p>{sessionStorageError}</p>
+      {(workspaceStorageError || sessionStorageError) && <div role="alert" className="fixed left-4 right-4 top-[max(1rem,var(--safe-area-top))] z-[10000] mx-auto max-w-md rounded-2xl border border-error/40 bg-surface p-4 text-sm text-content-primary shadow-elevated">
+        <p className="mb-1 font-semibold text-error">{workspaceStorageError ? 'Workspace change could not be saved' : 'Timer change could not be saved'}</p>
+        <p>{workspaceStorageError || sessionStorageError}</p>
       </div>}
       {sessionBootHold && (
         <div

@@ -46,30 +46,46 @@ const LEGACY_ALIASES: Record<string, string[]> = {
   [STORAGE_KEYS.haptics]: ['youdo_haptics_enabled'],
 };
 
-export function readWorkspaceUpdatedAt(): number {
-  const raw = readStorageRaw(STORAGE_KEYS.workspaceUpdatedAt);
-  const n = raw ? Number(raw) : 0;
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
+export const WORKSPACE_ALIAS_KEYS = [
+  ...LEGACY_ALIASES[STORAGE_KEYS.tasks],
+  ...LEGACY_ALIASES[STORAGE_KEYS.goals],
+  ...LEGACY_ALIASES[STORAGE_KEYS.goalPathIds],
+] as const;
 
-export function writeWorkspaceUpdatedAt(value: number): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.workspaceUpdatedAt, String(value));
-  } catch {
-    /* ignore */
-  }
+export function readWorkspaceUpdatedAt(): number {
+  const raw = readWorkspaceRawStrict(STORAGE_KEYS.workspaceUpdatedAt);
+  const n = raw ? Number(raw) : 0;
+  if (raw !== null && (!Number.isFinite(n) || n < 0)) throw new Error('Saved workspace sync time is invalid. Keep app data intact and retry.');
+  return n > 0 ? n : 0;
 }
 
 export function readWorkspaceCloudFingerprint(): string | null {
-  return readStorageRaw(STORAGE_KEYS.workspaceCloudFingerprint);
+  return readWorkspaceRawStrict(STORAGE_KEYS.workspaceCloudFingerprint);
 }
 
-export function writeWorkspaceCloudFingerprint(value: string): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.workspaceCloudFingerprint, value);
-  } catch {
-    /* ignore */
+/** Check only fields required for safe traversal; older optional fields remain valid. */
+export function isStoredTaskList(value: unknown): boolean {
+  return Array.isArray(value) && value.every(task => task !== null && typeof task === 'object' && !Array.isArray(task)
+    && typeof task.id === 'string' && typeof task.title === 'string');
+}
+
+export function isStoredSessionHistory(value: unknown): boolean {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.values(value).every(rows => Array.isArray(rows)
+      && rows.every(row => row !== null && typeof row === 'object' && !Array.isArray(row)));
+}
+
+export function isStoredGoalTree(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  const pending: unknown[] = [...value];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === null || typeof node !== 'object' || Array.isArray(node)) return false;
+    const goal = node as Record<string, unknown>;
+    if (typeof goal.id !== 'string' || typeof goal.title !== 'string' || !Array.isArray(goal.children)) return false;
+    pending.push(...goal.children);
   }
+  return true;
 }
 
 export function readStorageRaw(key: string): string | null {
@@ -92,28 +108,42 @@ export function readStorageRaw(key: string): string | null {
   return null;
 }
 
-function readArrayCount(key: string): number {
+/** Workspace hydration must distinguish an empty key from inaccessible storage.
+ * Read legacy aliases without deleting them until a durable canonical save.
+ */
+export function readWorkspaceRawStrict(key: string): string | null {
+  const current = localStorage.getItem(key);
+  if (current !== null) return current;
+  for (const alias of LEGACY_ALIASES[key] ?? []) {
+    const legacy = localStorage.getItem(alias);
+    if (legacy !== null) return legacy;
+  }
+  return null;
+}
+
+export function readWorkspaceJsonStrict<T>(key: string, initial: T, validate: (value: unknown) => boolean): T {
   try {
-    const raw = readStorageRaw(key);
-    if (!raw) return 0;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.length : 0;
+    const raw = readWorkspaceRawStrict(key);
+    if (raw === null) return initial;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!validate(parsed)) throw new Error('Invalid saved shape');
+    return parsed as T;
   } catch {
-    return 0;
+    const collection = ({
+      [STORAGE_KEYS.tasks]: 'Today tasks',
+      [STORAGE_KEYS.goals]: 'Goals',
+      [STORAGE_KEYS.deletedGoals]: 'Recently Deleted goals',
+      [STORAGE_KEYS.sessionHistory]: 'focus history',
+      [STORAGE_KEYS.activeSession]: 'active session',
+      [STORAGE_KEYS.streakMeta]: 'streak settings',
+      [STORAGE_KEYS.pacePrefs]: 'pace settings',
+    } as Record<string, string>)[key] ?? 'workspace';
+    throw new Error(`Saved YouDO ${collection} data cannot be read safely. Do not clear app data or reinstall; retry after checking device storage.`);
   }
 }
 
-function readObjectCount(key: string): number {
-  try {
-    const raw = readStorageRaw(key);
-    if (!raw) return 0;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? Object.keys(parsed).length
-      : 0;
-  } catch {
-    return 0;
-  }
+function readArrayCount(key: string): number {
+  return readWorkspaceJsonStrict<unknown[]>(key, [], Array.isArray).length;
 }
 
 export interface LocalWorkspaceSummary {
@@ -127,21 +157,15 @@ export interface LocalWorkspaceSummary {
 export function readLocalWorkspaceSummary(): LocalWorkspaceSummary {
   const tasks = readArrayCount(STORAGE_KEYS.tasks);
   const goals = readArrayCount(STORAGE_KEYS.goals);
-  let sessions = 0;
-  try {
-    const raw = readStorageRaw(STORAGE_KEYS.sessionHistory);
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      sessions = Object.values(parsed as Record<string, unknown>).reduce<number>(
-        (total, rows) => total + (Array.isArray(rows) ? rows.length : 0),
-        0,
-      );
-    }
-  } catch {
-    sessions = 0;
-  }
+  const history = readWorkspaceJsonStrict<Record<string, unknown>>(STORAGE_KEYS.sessionHistory, {},
+    value => value !== null && typeof value === 'object' && !Array.isArray(value)
+      && Object.values(value).every(Array.isArray));
+  const sessions = Object.values(history).reduce<number>((total, rows) => total + (rows as unknown[]).length, 0);
   const deleted = readArrayCount(STORAGE_KEYS.deletedGoals);
-  const activeSession = readObjectCount(STORAGE_KEYS.activeSession) > 0;
+  // Clearing a timer intentionally writes JSON `null`; it is not corruption.
+  const savedTimer = readWorkspaceJsonStrict<Record<string, unknown> | null>(STORAGE_KEYS.activeSession, null,
+    value => value === null || (typeof value === 'object' && !Array.isArray(value)));
+  const activeSession = savedTimer !== null && Object.keys(savedTimer).length > 0;
   return { tasks, goals, sessions, activeSession, hasData: tasks + goals + sessions + deleted > 0 || activeSession };
 }
 
@@ -149,7 +173,7 @@ export function readWorkspaceOwner(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEYS.workspaceOwner);
   } catch {
-    return null;
+    throw new Error('The account workspace cannot be read from device storage. Keep app data intact and retry.');
   }
 }
 
@@ -181,7 +205,7 @@ export function requestAccountAccess(): void {
 /** Remove account-owned work while preserving device preferences such as theme and haptics. */
 export function clearWorkspaceStorage(options?: { keepOwner?: boolean }): void {
   try {
-    WORKSPACE_KEYS.forEach((key) => localStorage.removeItem(key));
+    [...WORKSPACE_KEYS, ...WORKSPACE_ALIAS_KEYS].forEach((key) => localStorage.removeItem(key));
     if (!options?.keepOwner) localStorage.removeItem(STORAGE_KEYS.workspaceOwner);
   } catch {
     /* caller handles the signed-out gate even if storage is unavailable */

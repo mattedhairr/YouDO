@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.5] — 2026-09-23 — Safer device saves
+
+- **Recoverable workspace saves** — Goals, Today, and related local changes now save under a device checkpoint; a failed write restores the previous copy instead of leaving a mixture.
+- **Safer backup restore** — Settings imports and cloud copies validate before replacing local work. Missing optional sections in an imported backup start clean rather than retaining the previous workspace's data.
+- **Visible storage trouble** — YouDO pauses on unreadable saved work and reports failed saves, so a full device is not mistaken for a successful edit.
+- **Android APK** — versionName **7.5.5**, versionCode **46**. Prepared to install over released **v7.5.3** or the unpublished **v7.5.4** candidate with the same package ID and signing key. No data reset or Supabase migration is planned; install-over verification and publication are still pending.
+
+---
+
 ## [v7.5.4] — 2026-09-23 — More reliable planning and recovery
 
 - **Safer goal recovery** — Restoring a newly deleted goal reconnects its unfinished Today plans. Completed Calendar cards stay in history; plans in older trash records recover as standalone cards rather than risk a wrong link.

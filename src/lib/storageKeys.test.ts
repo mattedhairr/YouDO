@@ -4,6 +4,12 @@ import {
   readOfflineMode,
   readLocalWorkspaceSummary,
   readWorkspaceOwner,
+  readWorkspaceJsonStrict,
+  readWorkspaceCloudFingerprint,
+  readWorkspaceUpdatedAt,
+  isStoredGoalTree,
+  isStoredTaskList,
+  isStoredSessionHistory,
   requestAccountAccess,
   REQUEST_ACCOUNT_ACCESS_EVENT,
   STORAGE_KEYS,
@@ -84,5 +90,64 @@ describe('account-owned local workspace', () => {
     requestAccountAccess();
     expect(listener).toHaveBeenCalledOnce();
     window.removeEventListener(REQUEST_ACCOUNT_ACCESS_EVENT, listener);
+  });
+
+  it('treats a completed timer saved as JSON null as an empty timer', () => {
+    localStorage.setItem(STORAGE_KEYS.activeSession, 'null');
+    expect(readLocalWorkspaceSummary().activeSession).toBe(false);
+    expect(readLocalWorkspaceSummary().hasData).toBe(false);
+  });
+
+  it('does not misclassify corrupted private data as an empty workspace', () => {
+    localStorage.setItem(STORAGE_KEYS.tasks, '{broken');
+    expect(() => readLocalWorkspaceSummary()).toThrow('Today tasks');
+    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.tasks, [], Array.isArray)).toThrow('Today tasks');
+  });
+
+  it('rejects the wrong saved collection shape during hydration', () => {
+    localStorage.setItem(STORAGE_KEYS.goals, '{}');
+    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.goals, [], Array.isArray)).toThrow('Goals');
+  });
+
+  it('reads a legacy key without deleting it before a durable save', () => {
+    localStorage.setItem('tudo-tasks-v3', '[{"id":"old"}]');
+    expect(readWorkspaceJsonStrict(STORAGE_KEYS.tasks, [], Array.isArray)).toEqual([{ id: 'old' }]);
+    expect(localStorage.getItem('tudo-tasks-v3')).not.toBeNull();
+  });
+
+  it('does not let old aliases resurrect work after the workspace is cleared', () => {
+    localStorage.setItem('tudo-tasks-v3', '[{"id":"old"}]');
+    localStorage.setItem('tudo-goals-v3', '[{"id":"old-goal"}]');
+    clearWorkspaceStorage();
+    expect(readWorkspaceJsonStrict(STORAGE_KEYS.tasks, [], Array.isArray)).toEqual([]);
+    expect(readWorkspaceJsonStrict(STORAGE_KEYS.goals, [], Array.isArray)).toEqual([]);
+  });
+
+  it('does not mistake unavailable owner storage for a signed-out workspace', () => {
+    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('unavailable'); } });
+    expect(() => readWorkspaceOwner()).toThrow('workspace');
+  });
+
+  it('rejects nested corruption before startup tree repair can traverse it', () => {
+    expect(isStoredGoalTree([{ id: 'g', title: 'Goal', children: [null] }])).toBe(false);
+    expect(isStoredGoalTree([{ id: 'g', title: 'Goal', children: {} }])).toBe(false);
+    expect(isStoredGoalTree([{ id: 'g', title: 'Goal', children: [{ id: 'n', title: 'Node', children: [] }] }])).toBe(true);
+    expect(isStoredTaskList([{ id: 't', title: 'Task' }])).toBe(true);
+    expect(isStoredTaskList([null])).toBe(false);
+    expect(isStoredSessionHistory({ task: [{}] })).toBe(true);
+    expect(isStoredSessionHistory({ task: {} })).toBe(false);
+    localStorage.setItem(STORAGE_KEYS.goals, '[{"id":"g","title":"Goal","children":[null]}]');
+    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.goals, [], isStoredGoalTree)).toThrow('Goals');
+  });
+
+  it('does not interpret inaccessible sync metadata as an empty cloud base', () => {
+    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('unavailable'); } });
+    expect(() => readWorkspaceUpdatedAt()).toThrow('unavailable');
+    expect(() => readWorkspaceCloudFingerprint()).toThrow('unavailable');
+  });
+
+  it('rejects a corrupt saved workspace timestamp', () => {
+    localStorage.setItem(STORAGE_KEYS.workspaceUpdatedAt, 'not-a-timestamp');
+    expect(() => readWorkspaceUpdatedAt()).toThrow('sync time');
   });
 });
