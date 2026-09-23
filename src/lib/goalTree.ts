@@ -39,10 +39,10 @@ export function countCompletedDirectChildren(node: GoalNode): number {
   return node.children.filter((c) => c.completed || rollupPct(c) === 100).length;
 }
 
-const rollupCache = new Map<string, number>();
+let rollupCache = new WeakMap<GoalNode, number>();
 
 export function clearRollupCache() {
-  rollupCache.clear();
+  rollupCache = new WeakMap<GoalNode, number>();
 }
 
 /**
@@ -51,7 +51,7 @@ export function clearRollupCache() {
  * other branches are still empty or untouched.
  */
 export function rollupPct(node: GoalNode): number {
-  const cached = rollupCache.get(node.id);
+  const cached = rollupCache.get(node);
   if (cached !== undefined) return cached;
   let pct: number;
   if (node.children.length > 0) {
@@ -61,7 +61,7 @@ export function rollupPct(node: GoalNode): number {
   } else {
     pct = node.completed ? 100 : 0;
   }
-  rollupCache.set(node.id, pct);
+  rollupCache.set(node, pct);
   return pct;
 }
 
@@ -164,7 +164,7 @@ export function goalBranchContainsTask(node: GoalNode, task: Task): boolean {
 }
 
 export function sanitizeTreeAndTasks(goals: GoalNode[], tasks: Task[]): { cleanedGoals: GoalNode[]; cleanedTasks: Task[] } {
-  const existingTaskIds = new Set(tasks.map((t) => t.id));
+  const taskOwnerById = new Map(tasks.map((task) => [task.id, task.goalNodeId]));
   const seenNodeIds = new Set<string>();
 
   function sanitizeNode(node: GoalNode): GoalNode {
@@ -173,7 +173,7 @@ export function sanitizeTreeAndTasks(goals: GoalNode[], tasks: Task[]): { cleane
     seenNodeIds.add(id);
 
     let todayTaskId = node.todayTaskId;
-    if (todayTaskId && !existingTaskIds.has(todayTaskId)) todayTaskId = null;
+    if (todayTaskId && taskOwnerById.get(todayTaskId) !== id) todayTaskId = null;
 
     return {
       ...node,
@@ -218,6 +218,8 @@ export function cloneNode(node: GoalNode): GoalNode {
     id: uid('n'),
     todayTaskId: null,
     pinned: false,
+    completed: false,
+    stepDone: node.steps?.map(() => false),
     createdAt: Date.now(),
     children: node.children.map(cloneNode),
   };
@@ -358,6 +360,17 @@ export function isMutableGoalPlan(task: Task, node: GoalNode, today = todayISO()
   if (!isTaskComplete(task)) return true;
   if (!task.targetDate) return true;
   return task.targetDate >= today;
+}
+
+/** A live linked card may have non-prefix checklist completion; old cards are snapshots. */
+export function taskStepStates(task: Task, node: GoalNode | null, today = todayISO()): boolean[] {
+  if (node && node.steps?.length && isMutableGoalPlan(task, node, today)) {
+    const slice = task.stepSlice ?? node.steps.map((_, index) => index);
+    if (slice.length === task.steps.length) {
+      return slice.map((index) => Boolean(node.stepDone?.[index]));
+    }
+  }
+  return task.steps.map((_, index) => index < task.progress);
 }
 
 /** When overdue work is finished today, stamp today as the clear date and keep the miss for calendar/stats. */

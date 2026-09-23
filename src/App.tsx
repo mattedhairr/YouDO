@@ -38,6 +38,7 @@ import { useCommunityActivity } from './hooks/useCommunityActivity';
 import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
 import { FALLBACK_APP_QUOTES, fetchAppQuotes, loadCachedAppQuotes, type AppQuote } from './lib/appQuotes';
+import { taskStepStates } from './lib/goalTree';
 
 const pickQuote = (quotes: AppQuote[]): AppQuote | null => quotes.length
   ? quotes[Math.floor(Math.random() * quotes.length)]
@@ -795,6 +796,11 @@ function AppInner() {
     [originNodesMap],
   );
 
+  const stepStatesFor = useCallback(
+    (task: Task) => taskStepStates(task, task.goalNodeId ? findGoal(goals, task.goalNodeId) : null),
+    [goals],
+  );
+
   const getTaskSessions = useCallback(
     (taskId: string): TaskSession[] => sessionHistory[taskId] || [],
     [sessionHistory],
@@ -1204,6 +1210,7 @@ function AppInner() {
                           <div key={t.id} className={isOtherTaskDimmed ? 'card-dimmed transition-all' : 'transition-all'}>
                             <TaskCard
                               task={t}
+                              stepDone={stepStatesFor(t)}
                               activeSession={activeSession}
                               onAdvance={advance}
                               onUndo={undo}
@@ -1294,6 +1301,7 @@ function AppInner() {
                             <div className="space-y-2">
                               <TaskCard
                                 task={activeBacklogTask}
+                                stepDone={stepStatesFor(activeBacklogTask)}
                                 activeSession={activeSession}
                                 onAdvance={advance}
                                 onUndo={undo}
@@ -1340,6 +1348,7 @@ function AppInner() {
                               <TaskCard
                                 key={t.id}
                                 task={t}
+                                stepDone={stepStatesFor(t)}
                                 activeSession={activeSession}
                                 onAdvance={advance}
                                 onUndo={undo}
@@ -1404,6 +1413,7 @@ function AppInner() {
                               <div key={t.id} className={isOtherTaskDimmed ? 'card-dimmed transition-all' : 'transition-all'}>
                                 <TaskCard
                                   task={t}
+                                  stepDone={stepStatesFor(t)}
                                   activeSession={activeSession}
                                   onAdvance={advance}
                                   onUndo={undo}

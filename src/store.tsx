@@ -33,21 +33,16 @@ import { nativeSessionIsFinished, persistSessionRecord, selectNativeSession } fr
 import {
   clearRollupCache,
   cloneNode,
-  collectDescendantTaskIds,
-  countSlicedDone,
   duplicateTaskAsFresh,
   findGoal,
   findNode,
   goalBranchContainsTask,
-  hasGoalExecutionState,
   isGoalEndpoint,
   isMutableGoalPlan,
   isTaskComplete,
   clearBacklogIfComplete,
-  rescheduleOpenBacklogTask,
   restoreBacklogIfIncomplete,
   moveNodeInArray,
-  removeNode,
   removeNodes,
   reorderNodesArray,
   sameTasks,
@@ -82,6 +77,17 @@ import { todayISO } from './lib/dates';
 import { defaultPacePrefs, sanitizePacePrefs, type PacePrefs } from './lib/paceBoard';
 import { syncPublicPaceRow, withdrawPublicPace } from './lib/pacePublish';
 import { reconcileBlueprintTasks } from './lib/blueprintStudio';
+import { topStudioSelection } from './lib/studioWorkspace';
+import {
+  activePlansForDeletedBranch,
+  appendGoalChild,
+  buildGoalPlanTask,
+  goalDeletionLocation,
+  removeGoalBranch,
+  rescheduleExistingGoalPlan,
+  restoreDeletedBranch,
+  type DeletedBranchSnapshot,
+} from './lib/planningIntegrity';
 
 export {
   todayISO,
@@ -119,14 +125,9 @@ export {
   updateNode,
 } from './lib/goalTree';
 
-export interface DeletedGoalRecord {
+export interface DeletedGoalRecord extends DeletedBranchSnapshot {
   id: string;
-  node: GoalNode;
   deletedAt: number;
-  parentRootId: string | null;
-  /** Direct parent node id. Null when deleted from root level. Used for accurate deep restore. */
-  parentNodeId?: string | null;
-  tasks: Task[];
 }
 
 export interface GoalTreeChangeResult {
@@ -564,12 +565,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addChildNode = useCallback(
     (parentId: string, node: GoalNode) => {
-      setGoals((prev) =>
-        prev.map((root) => updateNode(root, parentId, (n) => {
-          if (n.kind !== 'goal' && isGoalEndpoint(n) && hasGoalExecutionState(n)) return n;
-          return { ...n, children: [...n.children, node] };
-        })),
-      );
+      setGoals((prev) => appendGoalChild(prev, parentId, node));
     },
     [setGoals],
   );
@@ -656,48 +652,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteGoalNode = useCallback(
     (rootId: string, nodeId: string) => {
-      const node = findGoal(goalsRef.current, nodeId);
-      if (!node) return;
-
-      // Find the direct parent node so restore can put the node back in its exact location.
-      let parentNodeId: string | null = null;
-      if (rootId !== nodeId) {
-        const rootGoal = goalsRef.current.find((r) => r.id === rootId);
-        if (rootGoal) {
-          const [, directParent] = findNode(rootGoal, nodeId);
-          parentNodeId = directParent?.id ?? null;
-        }
-      }
-
-      const descendantTaskIds = collectDescendantTaskIds(node);
+      const location = goalDeletionLocation(goalsRef.current, rootId, nodeId);
+      if (!location) return;
+      const { node, parentRootId, parentNodeId } = location;
       const activeTask = activeSessionRef.current
         ? tasksRef.current.find((task) => task.id === activeSessionRef.current?.taskId)
         : undefined;
       if (activeTask && goalBranchContainsTask(node, activeTask)) return;
-      const associatedTasks = tasksRef.current.filter((t) => descendantTaskIds.includes(t.id));
+      const associatedTasks = activePlansForDeletedBranch(node, tasksRef.current);
 
       const record: DeletedGoalRecord = {
         id: uid('del'),
-        node: cloneNode(node),
+        node,
         deletedAt: Date.now(),
-        parentRootId: rootId === nodeId ? null : rootId,
+        parentRootId,
         parentNodeId,
         tasks: associatedTasks,
+        linkageVersion: 1,
       };
 
       setRecentlyDeletedGoals((prev) => [record, ...prev].slice(0, 20));
       setLastDeletedNotification({ id: record.id, title: node.title });
       hapticWarn();
 
-      if (descendantTaskIds.length > 0) {
-        const removeSet = new Set(descendantTaskIds);
+      if (associatedTasks.length > 0) {
+        const removeSet = new Set(associatedTasks.map((task) => task.id));
         setTasks((prev) => prev.filter((t) => !removeSet.has(t.id)));
       }
-      if (rootId === nodeId) {
-        setGoals((prev) => prev.filter((root) => root.id !== rootId));
-      } else {
-        setGoals((prev) => prev.map((root) => (root.id === rootId ? removeNode(root, nodeId) : root)));
-      }
+      setGoals((prev) => removeGoalBranch(prev, rootId, nodeId));
     },
     [activeSessionRef, setGoals, setTasks, setRecentlyDeletedGoals],
   );
@@ -715,29 +697,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const masterSteps = target.steps ?? [];
       const slice = stepSlice ?? masterSteps.map((_, i) => i);
-      const slicedStepLabels = slice.map((idx) => masterSteps[idx] ?? `Step ${idx + 1}`);
-      const slicedDoneCount = countSlicedDone(target, slice.length === masterSteps.length ? undefined : slice);
       const existing = target.todayTaskId
-        ? tasksRef.current.find((task) => task.id === target.todayTaskId)
+        ? tasksRef.current.find((task) => task.id === target.todayTaskId && task.goalNodeId === target.id)
         : undefined;
       const rescheduled = existing
-        ? rescheduleOpenBacklogTask(existing, targetDate)
+        ? rescheduleExistingGoalPlan(existing, targetDate, todayISO())
         : null;
       const taskId = rescheduled?.id ?? uid('task');
-      const taskBase = {
-        ...(rescheduled ?? {}),
-        id: taskId,
-        title: target.title,
-        description: target.description ?? '',
-        priority: 'medium' as const,
-        targetDate,
-        deadline: null,
-        steps: slicedStepLabels,
-        progress: slicedDoneCount,
-        createdAt: rescheduled?.createdAt ?? Date.now(),
-        goalNodeId: target.id,
-        stepSlice: slice.length === masterSteps.length ? undefined : slice,
-      };
+      const taskBase = buildGoalPlanTask(
+        target, targetDate, slice, rescheduled, taskId,
+        rescheduled?.order ?? tasksRef.current.length,
+        rescheduled?.createdAt ?? Date.now(),
+      );
 
       setTasks((prev) => {
         if (rescheduled) {
@@ -750,7 +721,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         let filtered = prev;
         if (target.todayTaskId) {
           const old = prev.find((t) => t.id === target.todayTaskId);
-          if (old && !isTaskComplete(old)) {
+          if (old && old.goalNodeId === target.id && !isTaskComplete(old)) {
             filtered = prev.filter((t) => t.id !== target.todayTaskId);
           }
         }
@@ -770,7 +741,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const patches: { id: string; taskId: string }[] = [];
       let orderBase = tasksRef.current.length;
       const replaceIds = new Set<string>();
-      for (const id of nodeIds) {
+      for (const id of new Set(nodeIds)) {
         const target = findGoal(goalsRef.current, id);
         if (!target || target.kind === 'goal' || !isGoalEndpoint(target)) continue;
         const activeTask = activeSessionRef.current
@@ -780,34 +751,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         const masterSteps = target.steps ?? [];
         const slice = masterSteps.map((_, i) => i);
-        const slicedStepLabels = slice.map((idx) => masterSteps[idx] ?? `Step ${idx + 1}`);
-        const slicedDoneCount = countSlicedDone(target, undefined);
 
         const existing = target.todayTaskId
-          ? tasksRef.current.find((task) => task.id === target.todayTaskId)
+          ? tasksRef.current.find((task) => task.id === target.todayTaskId && task.goalNodeId === target.id)
           : undefined;
         const rescheduled = existing
-          ? rescheduleOpenBacklogTask(existing, targetDate)
+          ? rescheduleExistingGoalPlan(existing, targetDate, todayISO())
           : null;
         const taskId = rescheduled?.id ?? uid('task');
         if (target.todayTaskId) {
           const old = existing;
           if (old && !isTaskComplete(old)) replaceIds.add(target.todayTaskId);
         }
-        const plannedTask: Task = {
-          ...(rescheduled ?? {}),
-          id: taskId,
-          title: target.title,
-          description: target.description ?? '',
-          priority: 'medium',
-          targetDate,
-          deadline: null,
-          steps: slicedStepLabels,
-          progress: slicedDoneCount,
-          createdAt: rescheduled?.createdAt ?? Date.now(),
-          order: rescheduled?.order ?? orderBase++,
-          goalNodeId: target.id,
-        };
+        const plannedTask = buildGoalPlanTask(
+          target, targetDate, slice, rescheduled, taskId,
+          rescheduled?.order ?? orderBase++,
+          rescheduled?.createdAt ?? Date.now(),
+        );
         if (rescheduled) rescheduledTasks.set(rescheduled.id, plannedTask);
         else newTasks.push(plannedTask);
         patches.push({ id: target.id, taskId });
@@ -1020,9 +980,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (parentId === null) {
         setGoals((prev) => [...prev, ...clones]);
       } else {
-        setGoals((prev) =>
-          prev.map((root) => updateNode(root, parentId, (n) => ({ ...n, children: [...n.children, ...clones] }))),
-        );
+        setGoals((prev) => clones.reduce((next, clone) => appendGoalChild(next, parentId, clone), prev));
       }
     },
     [clipboard, setGoals],
@@ -1032,18 +990,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteGoalNodes = useCallback(
     (nodeIds: string[]) => {
-      const idSet = new Set(nodeIds);
+      const selectedIds = topStudioSelection(goalsRef.current, nodeIds);
+      const idSet = new Set(selectedIds);
       const taskIdsToRemove: string[] = [];
       const selectedBranches: GoalNode[] = [];
       const recordsToStore: DeletedGoalRecord[] = [];
 
-      for (const id of nodeIds) {
+      for (const id of selectedIds) {
         const node = findGoal(goalsRef.current, id);
         if (!node) continue;
         selectedBranches.push(node);
-        const descendantTaskIds = collectDescendantTaskIds(node);
-        taskIdsToRemove.push(...descendantTaskIds);
-        const associated = tasksRef.current.filter((t) => descendantTaskIds.includes(t.id));
+        const associated = activePlansForDeletedBranch(node, tasksRef.current);
+        taskIdsToRemove.push(...associated.map((task) => task.id));
 
         let parentRootId: string | null = null;
         let parentNodeId: string | null = null;
@@ -1057,11 +1015,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         recordsToStore.push({
           id: uid('del'),
-          node: cloneNode(node),
+          node,
           deletedAt: Date.now(),
           parentRootId,
           parentNodeId,
           tasks: associated,
+          linkageVersion: 1,
         });
       }
 
@@ -1080,7 +1039,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const removeTaskSet = new Set(taskIdsToRemove);
         setTasks((prev) => prev.filter((t) => !removeTaskSet.has(t.id)));
       }
-      setGoals((prev) => prev.map((root) => removeNodes(root, idSet)).filter((r) => !idSet.has(r.id)));
+      setGoals((prev) => prev.map((root) => recomputeCompleted(removeNodes(root, idSet))).filter((r) => !idSet.has(r.id)));
     },
     [activeSessionRef, setGoals, setTasks, setRecentlyDeletedGoals],
   );
@@ -1093,48 +1052,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (recordId: string): boolean => {
       const record = recentlyDeletedGoals.find((r) => r.id === recordId);
       if (!record) return false;
-
-      const restoredNode = cloneNode(record.node);
-
-      if (record.parentRootId === null) {
-        // Was a root-level goal — restore at root level
-        setGoals((prev) => [...prev, restoredNode]);
-      } else if (record.parentNodeId) {
-        setGoals((prev) => {
-          const parentExists = !!findGoal(prev, record.parentNodeId!);
-          if (parentExists) {
-            return prev.map((root) =>
-              updateNode(root, record.parentNodeId!, (n) => ({ ...n, children: [...n.children, restoredNode] })),
-            );
-          }
-          const rootExists = prev.some((root) => root.id === record.parentRootId);
-          if (rootExists) {
-            return prev.map((root) =>
-              root.id === record.parentRootId
-                ? { ...root, children: [...root.children, restoredNode] }
-                : root,
-            );
-          }
-          return [...prev, restoredNode];
-        });
-      } else {
-        // Legacy records without parentNodeId — fall back to appending to root's direct children
-        setGoals((prev) =>
-          prev.map((root) =>
-            root.id === record.parentRootId
-              ? { ...root, children: [...root.children, restoredNode] }
-              : root,
-          ),
-        );
-      }
-
-      if (record.tasks && record.tasks.length > 0) {
-        setTasks((prev) => {
-          const existingIds = new Set(prev.map((t) => t.id));
-          const toAdd = record.tasks.filter((t) => !existingIds.has(t.id));
-          return [...prev, ...toAdd];
-        });
-      }
+      const restored = restoreDeletedBranch(goalsRef.current, tasksRef.current, record);
+      if (!restored) return false;
+      setGoals(restored.goals);
+      setTasks(restored.tasks);
 
       setRecentlyDeletedGoals((prev) => prev.filter((r) => r.id !== recordId));
       setLastDeletedNotification(null);

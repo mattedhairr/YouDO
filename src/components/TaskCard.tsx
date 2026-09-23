@@ -8,6 +8,7 @@ import { computeNetFocusMs } from '../lib/sessionStats';
 
 interface Props {
   task: Task;
+  stepDone?: boolean[];
   activeSession?: ActiveSession | null;
   onAdvance: (id: string) => void;
   onUndo: (id: string) => void;
@@ -60,7 +61,7 @@ function fmtCountdown(deadline: string | null): string {
 }
 
 export default function TaskCard({
-  task, activeSession, onAdvance, onDelete, onDuplicate,
+  task, stepDone, activeSession, onAdvance, onDelete, onDuplicate,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove,
   onCardClick, onJumpToGoal, onOpenDescription,
   onStartSession, onPauseSession, onResumeSession, onStopSession, onOpenAmbient, taskSessions,
@@ -404,12 +405,12 @@ export default function TaskCard({
               <div className="flex items-center justify-between px-3.5 h-10">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Steps</span>
                 <span className={`text-[11px] font-medium tabular-nums ${task.progress === task.steps.length ? 'text-secondary' : 'text-content-secondary'}`}>
-                  {task.progress}/{task.steps.length}
+                  {stepDone ? stepDone.filter(Boolean).length : task.progress}/{task.steps.length}
                 </span>
               </div>
               <ul>
                 {task.steps.map((s, i) => {
-                  const done = i < task.progress;
+                  const done = stepDone?.[i] ?? i < task.progress;
                   let stamp: string | null = null;
                   if (done && taskSessions) {
                     const sess = taskSessions.find((item) => item.completedStepIndices?.includes(i));
