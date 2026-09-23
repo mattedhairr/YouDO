@@ -70,13 +70,14 @@ function unionGoalList(local: GoalNode[], remote: GoalNode[]): GoalNode[] {
   const result = local.filter((n) => n?.id);
   for (const localNode of result) {
     const remoteNode = remoteById.get(localNode.id);
+    if (!remoteNode) throw new Error(`Cannot safely combine goal “${localNode.title}”: it exists on only one copy. Review both copies; neither was replaced.`);
     if (remoteNode && !matchingNodeContent(localNode, remoteNode)) {
       throw new Error(`Cannot safely combine goal “${localNode.title}”: its details differ between copies. Neither copy was replaced.`);
     }
   }
   for (const remoteNode of remote) {
     if (!remoteNode?.id || localIds.has(remoteNode.id)) continue;
-    result.push(remoteNode);
+    throw new Error(`Cannot safely combine goal “${remoteNode.title}”: it exists on only one copy. Review both copies; neither was replaced.`);
   }
   return result.map((n) => ({
     ...n,
@@ -86,19 +87,52 @@ function unionGoalList(local: GoalNode[], remote: GoalNode[]): GoalNode[] {
 
 function unionTasks(local: Task[], remote: Task[]): Task[] {
   const byId = new Map<string, Task>();
-  const order: string[] = [];
+  const localIds = new Set(local.filter(t => t?.id).map(t => t.id));
+  const remoteIds = new Set(remote.filter(t => t?.id).map(t => t.id));
+  for (const task of local) if (task?.id && !remoteIds.has(task.id)) {
+    throw new Error(`Cannot safely combine task “${task.title}”: it exists on only one copy. Neither copy was replaced.`);
+  }
+  for (const task of remote) if (task?.id && !localIds.has(task.id)) {
+    throw new Error(`Cannot safely combine task “${task.title}”: it exists on only one copy. Neither copy was replaced.`);
+  }
   for (const t of [...local, ...remote]) {
     if (!t?.id) continue;
     const existing = byId.get(t.id);
     if (existing && stableContent(existing) !== stableContent(t)) {
       throw new Error(`Cannot safely combine task “${t.title}”: it differs between copies. Neither copy was replaced.`);
     }
-    if (!byId.has(t.id)) {
-      order.push(t.id);
-      byId.set(t.id, t);
+    if (!existing) byId.set(t.id, t);
+  }
+  return local.map((task) => byId.get(task.id)!).filter(Boolean);
+}
+
+function findGoalNode(nodes: GoalNode[], id: string): GoalNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const child = findGoalNode(node.children ?? [], id);
+    if (child) return child;
+  }
+  return null;
+}
+
+function assertNoEditedDeletedBranches(deleting: WorkspaceSlice, other: WorkspaceSlice): void {
+  for (const record of deleting.recentlyDeletedGoals ?? []) {
+    if (!record?.node) continue;
+    const current = findGoalNode(other.goals ?? [], record.node.id);
+    if (!current) continue;
+    if (stableContent(current) !== stableContent(record.node)) {
+      throw new Error(`Goal “${record.node.title}” was deleted on one device and edited on another. Cannot safely combine; neither copy was replaced.`);
+    }
+    const deletedIds = deletedNodeIds([record]);
+    const savedTasks = new Map((record.tasks ?? []).map(task => [task.id, task]));
+    for (const task of other.tasks ?? []) {
+      if (!task.goalNodeId || !deletedIds.has(task.goalNodeId)) continue;
+      const previous = savedTasks.get(task.id);
+      if (!previous || stableContent(task) !== stableContent(previous)) {
+        throw new Error(`Task “${task.title}” belongs to a deleted goal and changed on another device. Cannot safely combine; neither copy was replaced.`);
+      }
     }
   }
-  return order.map((id) => byId.get(id)!).filter(Boolean);
 }
 
 function mergeGoalLists(primary: GoalNode[], secondary: GoalNode[]): GoalNode[] {
@@ -108,7 +142,7 @@ function mergeGoalLists(primary: GoalNode[], secondary: GoalNode[]): GoalNode[] 
     .filter((node) => node?.id)
     .map((node) => {
       const older = secondaryById.get(node.id);
-      if (!older) return node;
+      if (!older) throw new Error(`Cannot safely combine goal “${node.title}”: it exists on only one copy. Review both copies; neither was replaced.`);
       if (!matchingNodeContent(node, older)) {
         throw new Error(`Cannot safely combine goal “${node.title}”: its details changed on both copies. Review the copies; neither was replaced.`);
       }
@@ -119,42 +153,9 @@ function mergeGoalLists(primary: GoalNode[], secondary: GoalNode[]): GoalNode[] 
     });
   for (const node of secondary) {
     if (!node?.id || primaryIds.has(node.id)) continue;
-    merged.push(node);
+    throw new Error(`Cannot safely combine goal “${node.title}”: it exists on only one copy. Review both copies; neither was replaced.`);
   }
   return merged;
-}
-
-function goalIdSet(nodes: GoalNode[]): Set<string> {
-  const ids = new Set<string>();
-  const visit = (items: GoalNode[]) => {
-    for (const node of items) {
-      if (!node?.id) continue;
-      ids.add(node.id);
-      visit(node.children ?? []);
-    }
-  };
-  visit(nodes);
-  return ids;
-}
-
-function keepTasksForRecoveredBranches(primary: WorkspaceSlice, secondary: WorkspaceSlice, goals: GoalNode[], deleted: Set<string>): Task[] {
-  const result = [...(primary.tasks ?? [])];
-  const taskIds = new Set(result.map((task) => task.id));
-  const primaryGoalIds = goalIdSet(primary.goals ?? []);
-  const mergedGoalIds = goalIdSet(goals);
-  for (const task of secondary.tasks ?? []) {
-    if (!task?.id || taskIds.has(task.id) || (task.goalNodeId && deleted.has(task.goalNodeId))) continue;
-    if (task.goalNodeId && mergedGoalIds.has(task.goalNodeId) && !primaryGoalIds.has(task.goalNodeId)) {
-      result.push(task);
-      taskIds.add(task.id);
-    } else {
-      // Legacy backups have no per-task deletion markers. Absence could mean a
-      // deletion OR independent work; neither silently dropping nor restoring it
-      // is justified. Keep both copies unchanged for an explicit restore decision.
-      throw new Error('YouDO cannot safely combine these copies because a task exists on only one device. Export both copies before choosing which workspace to keep. Nothing was replaced.');
-    }
-  }
-  return result;
 }
 
 export function mergeSessionHistories(
@@ -165,9 +166,15 @@ export function mergeSessionHistories(
   const b = sanitizeSessionHistory(remote);
   const taskIds = new Set([...Object.keys(a), ...Object.keys(b)]);
   const out: Record<string, TaskSession[]> = {};
+  const seenSessionTask = new Map<string, string>();
   for (const taskId of taskIds) {
     const byId = new Map<string, TaskSession>();
     for (const row of [...(b[taskId] ?? []), ...(a[taskId] ?? [])]) {
+      const previousTask = seenSessionTask.get(row.id);
+      if (previousTask && previousTask !== taskId) {
+        throw new Error(`Cannot safely combine session ${row.id}: it belongs to different tasks in the copies. Neither copy was replaced.`);
+      }
+      seenSessionTask.set(row.id, taskId);
       const existing = byId.get(row.id);
       if (existing && stableContent(existing) !== stableContent(row)) {
         throw new Error(`Cannot safely combine session ${row.id}: the copies disagree. Neither copy was replaced.`);
@@ -184,12 +191,23 @@ export function mergeSessionHistories(
  * Sessions: union by id.
  * Deletes: union trash, then drop those nodes.
  * Existing goal/task values: refuse differing same-ID values rather than discard edits.
- * Branches that exist on only one device are retained unless a deletion tombstone removes them.
+ * One-sided goals/tasks are ambiguous without a durable deletion ledger, so
+ * they require explicit review instead of being automatically resurrected.
  */
 export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): WorkspaceSlice {
+  assertNoEditedDeletedBranches(local, remote);
+  assertNoEditedDeletedBranches(remote, local);
   const trash = mergeTrash(local.recentlyDeletedGoals ?? [], remote.recentlyDeletedGoals ?? []);
   const deleted = deletedNodeIds([...(local.recentlyDeletedGoals ?? []), ...(remote.recentlyDeletedGoals ?? [])]);
   const sessionHistory = mergeSessionHistories(local.sessionHistory, remote.sessionHistory);
+
+  const clean = (slice: WorkspaceSlice): WorkspaceSlice => ({
+    ...slice,
+    goals: dropDeletedGoals(slice.goals ?? [], deleted),
+    tasks: (slice.tasks ?? []).filter(task => !task.goalNodeId || !deleted.has(task.goalNodeId)),
+  });
+  const localClean = clean(local);
+  const remoteClean = clean(remote);
 
   const localAt = local.updatedAt ?? 0;
   const remoteAt = remote.updatedAt ?? 0;
@@ -197,20 +215,13 @@ export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): W
   let tasks: Task[];
 
   if (localAt > 0 || remoteAt > 0) {
-    const primary = localAt >= remoteAt ? local : remote;
-    const secondary = primary === local ? remote : local;
+    const primary = localAt >= remoteAt ? localClean : remoteClean;
+    const secondary = primary === localClean ? remoteClean : localClean;
     goals = mergeGoalLists(primary.goals ?? [], secondary.goals ?? []);
-    const secondaryTasks = new Map((secondary.tasks ?? []).map(task => [task.id, task]));
-    for (const task of primary.tasks ?? []) {
-      const other = secondaryTasks.get(task.id);
-      if (other && stableContent(task) !== stableContent(other)) {
-        throw new Error(`Cannot safely combine task “${task.title}”: it differs between copies. Review the copies; neither was replaced.`);
-      }
-    }
-    tasks = keepTasksForRecoveredBranches(primary, secondary, goals, deleted);
+    tasks = unionTasks(primary.tasks ?? [], secondary.tasks ?? []);
   } else {
-    goals = unionGoalList(local.goals ?? [], remote.goals ?? []);
-    tasks = unionTasks(local.tasks ?? [], remote.tasks ?? []);
+    goals = unionGoalList(localClean.goals ?? [], remoteClean.goals ?? []);
+    tasks = unionTasks(localClean.tasks ?? [], remoteClean.tasks ?? []);
   }
 
   return {

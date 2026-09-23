@@ -17,11 +17,11 @@ describe('conservative workspace combination', () => {
     expect(isWorkspaceEffectivelyEmpty(slice)).toBe(false);
   });
   it('does not silently discard an independent task from the older copy', () => {
-    expect(() => mergeWorkspace({ ...empty, updatedAt: 3 }, { ...empty, updatedAt: 2, tasks: [task] })).toThrow('cannot safely combine');
+    expect(() => mergeWorkspace({ ...empty, updatedAt: 3 }, { ...empty, updatedAt: 2, tasks: [task] })).toThrow(/cannot safely combine/i);
   });
   it('does not silently discard a task in an existing goal', () => {
     const goals = [{ id: 'g', title: 'Exam', kind: 'goal' as const, children: [], createdAt: 1 }];
-    expect(() => mergeWorkspace({ ...empty, goals, updatedAt: 3 }, { ...empty, goals, updatedAt: 2, tasks: [{ ...task, goalNodeId: 'g' }] })).toThrow('cannot safely combine');
+    expect(() => mergeWorkspace({ ...empty, goals, updatedAt: 3 }, { ...empty, goals, updatedAt: 2, tasks: [{ ...task, goalNodeId: 'g' }] })).toThrow(/cannot safely combine/i);
   });
   it('uses every supplied deletion marker before limiting the visible trash', () => {
     const recentlyDeletedGoals = Array.from({ length: 21 }, (_, n) => ({ id: `d${n}`, node: { id: `g${n}`, title: 'Deleted', kind: 'goal' as const, children: [], createdAt: 1 }, deletedAt: n + 1, parentRootId: null, tasks: [] }));
@@ -53,5 +53,30 @@ describe('conservative workspace combination', () => {
       { ...empty, tasks: [{ ...task, title: 'Read chapter' }] },
       { ...empty, tasks: [{ ...task, title: 'Solve problems' }] },
     )).toThrow(/task/i);
+  });
+  it('does not treat a one-sided goal as definitely new when it may have been deleted', () => {
+    const oldGoal = { id: 'g', title: 'Old plan', kind: 'goal' as const, children: [], createdAt: 1 };
+    expect(() => mergeWorkspace(
+      { ...empty, goals: [], updatedAt: 300 },
+      { ...empty, goals: [oldGoal], updatedAt: 200 },
+    )).toThrow(/cannot safely combine goal/i);
+  });
+  it('does not treat a one-sided task as definitely new in a legacy backup', () => {
+    expect(() => mergeWorkspace({ ...empty }, { ...empty, tasks: [task] })).toThrow(/cannot safely combine task/i);
+  });
+  it('does not discard edits made to a branch that the other device deleted', () => {
+    const original = { id: 'g', title: 'Physics', kind: 'goal' as const, children: [], createdAt: 1 };
+    const deleted = { id: 'del', node: original, deletedAt: 3, parentRootId: null, tasks: [] };
+    expect(() => mergeWorkspace(
+      { ...empty, goals: [{ ...original, title: 'New physics notes' }], updatedAt: 4 },
+      { ...empty, recentlyDeletedGoals: [deleted], updatedAt: 3 },
+    )).toThrow(/deleted.*edited|edited.*deleted/i);
+  });
+  it('does not duplicate one session across task buckets', () => {
+    const session = { id: 'same', taskId: 'a', startTime: 1, endTime: 60_000, pausedDuration: 0, pauses: [], netFocusMs: 60_000, wallClockStart: '', wallClockEnd: '', completed: false, completedStepIndices: [] };
+    expect(() => mergeWorkspace(
+      { ...empty, sessionHistory: { a: [session] } },
+      { ...empty, sessionHistory: { b: [{ ...session, taskId: 'b' }] } },
+    )).toThrow(/session/i);
   });
 });

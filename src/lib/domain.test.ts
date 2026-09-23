@@ -970,20 +970,18 @@ describe('cloud merge', () => {
     )).toThrow(/cannot safely combine goal/i);
   });
 
-  it('keeps branches that only exist in the older device copy', async () => {
+  it('pauses when a branch only exists in one copy and deletion intent is unknown', async () => {
     const { mergeWorkspace } = await import('./syncMerge');
     const phoneOnly = { id: 'section-phone', kind: 'section' as const, title: 'Phone work', children: [], createdAt: 2 };
     const browserRoot = { id: 'goal', kind: 'goal' as const, title: 'Exam', children: [], createdAt: 1 };
     const phoneRoot = { ...browserRoot, children: [phoneOnly] };
-    const merged = mergeWorkspace(
+    expect(() => mergeWorkspace(
       { tasks: [], goals: [browserRoot], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 300 },
       {
         tasks: [{ id: 'task-phone', title: 'Phone plan', description: '', priority: 'medium', targetDate: null, deadline: null, steps: [], progress: 0, createdAt: 2, order: 2, goalNodeId: 'section-phone' }],
         goals: [phoneRoot], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 200,
       },
-    );
-    expect(merged.goals[0].children.map((node) => node.id)).toEqual(['section-phone']);
-    expect(merged.tasks.map((task) => task.id)).toEqual(['task-phone']);
+    )).toThrow(/cannot safely combine goal/i);
   });
 
   it('fingerprints workspace content deterministically', async () => {

@@ -37,7 +37,7 @@ The Android notification snapshot is accepted only when it belongs to the same s
 
 ## Conservative merge behavior
 
-Legacy backups have workspace timestamps but no per-task deletion ledger. A task found only in a secondary modern copy can be either a new task or an intentional deletion on the primary device. When the existing goal/trash evidence cannot resolve that ambiguity, merging stops without replacing either workspace. Differing same-ID goal, task, or session values also stop a combine operation; client timestamps do not decide which edit to discard. Export and explicitly choose the copy to retain; do not silently drop or resurrect work.
+Legacy backups have workspace timestamps but no durable item-deletion ledger. A goal or task found only in one copy can be new work or an intentional deletion in the other. When the existing trash evidence cannot resolve that ambiguity, merging stops without replacing either workspace. Differing same-ID goal, task, or session values also stop a combine operation; client timestamps do not decide which edit to discard. This deliberately sacrifices automatic combination of some independent edits until a durable deletion model exists. Export both copies before explicitly choosing one; do not silently drop or resurrect work.
 
 All supplied goal-deletion records are considered before limiting the visible trash list. This prevents a supplied older marker being ignored during that merge; it does not provide permanent tombstones after clients have already trimmed their trash.
 
