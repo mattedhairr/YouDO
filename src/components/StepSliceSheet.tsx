@@ -73,6 +73,7 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
   };
 
   const confirm = () => {
+    if (targetNodes.some((n) => n.steps?.length && !selectedMap[n.id]?.size)) return;
     const plans: NodePlan[] = targetNodes.map((n) => {
       const steps = n.steps ?? [];
       if (steps.length > 0) {
@@ -96,6 +97,7 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
       totalAssignedSteps += (selectedMap[n.id]?.size ?? 0);
     }
   }
+  const canSchedule = targetNodes.every((n) => !n.steps?.length || (selectedMap[n.id]?.size ?? 0) > 0);
 
   return (
     <Overlay open={open} onClose={onClose} align="bottom">
@@ -234,6 +236,7 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
 
         <button
           onClick={confirm}
+          disabled={!canSchedule}
           className="mt-5 w-full py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap size={15} className="fill-white" />
@@ -243,6 +246,11 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
             ? 'Schedule Task'
             : `Schedule ${totalAssignedSteps} Step${totalAssignedSteps !== 1 ? 's' : ''}`}
         </button>
+        {!canSchedule && (
+          <p className="mt-2 text-center text-[11px] text-content-secondary" role="status">
+            Choose at least one step for each task before scheduling.
+          </p>
+        )}
       </div>
     </Overlay>
   );

@@ -156,6 +156,7 @@ export default function SettingsSheet({
   };
 
   const [trashOpen, setTrashOpen] = useState(false);
+  const [trashRestoreError, setTrashRestoreError] = useState<string | null>(null);
   const [streakBarHelpOpen, setStreakBarHelpOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -169,6 +170,7 @@ export default function SettingsSheet({
       setNextPassword('');
       setConfirmPassword('');
       setTrashOpen(false);
+      setTrashRestoreError(null);
       setStreakBarHelpOpen(false);
     }
   }, [open]);
@@ -278,8 +280,13 @@ export default function SettingsSheet({
       {trashOpen ? (
       <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-12">
         <p className="text-[12px] text-content-secondary leading-relaxed px-0.5 mb-4">
-          Deleted goal nodes and their linked tasks are kept here (up to 20). Restore brings them back. Standalone Today tasks are not stored.
+          Deleted goals and their unfinished linked plans are kept here (up to 20). Completed Calendar cards stay in your history. Standalone Today tasks are not stored.
         </p>
+        {trashRestoreError && (
+          <p role="alert" className="mb-3 rounded-xl border border-error/20 bg-error-soft p-3 text-[12px] text-error">
+            {trashRestoreError}
+          </p>
+        )}
         {recentlyDeletedGoals.length === 0 ? (
           <div className="bg-elevated rounded-2xl border border-subtle p-8 text-center">
             <div className="mx-auto w-12 h-12 grid place-items-center rounded-2xl bg-surface">
@@ -321,7 +328,11 @@ export default function SettingsSheet({
                   </div>
                   <button
                     type="button"
-                    onClick={() => restoreDeletedGoal(rec.id)}
+                    onClick={() => {
+                      setTrashRestoreError(restoreDeletedGoal(rec.id)
+                        ? null
+                        : 'Could not restore this goal because an item with the same ID already exists. The deleted copy is still here.');
+                    }}
                     className="shrink-0 h-8 px-2.5 rounded-[10px] text-[11px] font-semibold bg-primary-soft text-primary"
                   >
                     Restore

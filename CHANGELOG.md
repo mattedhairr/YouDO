@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.4] — 2026-09-23 — More reliable planning and recovery
+
+- **Safer goal recovery** — Restoring a newly deleted goal reconnects its unfinished Today plans. Completed Calendar cards stay in history; plans in older trash records recover as standalone cards rather than risk a wrong link.
+- **Honest schedules** — Moving unfinished work keeps earlier missed dates and the same task identity. Full checklists no longer inherit an older partial selection, and empty checklist selections cannot become misleading one-step cards.
+- **Consistent progress** — Goal branches recalculate when children change, copied goals start fresh, and Today shows the correct steps even when checklist items were completed out of order.
+- **Android APK** — versionName **7.5.4**, versionCode **45**. Installs over **v7.5.3** with the same package ID and signing key; no reinstall, data reset, or Supabase migration is required.
+
+---
+
 ## [v7.5.3] — 2026-09-23 — More control over exam communities
 
 - **Your exam hashtag is optional** — Remove it anytime from Public Board settings and keep using General Chat, which shows messages from everyone. Exam chats show messages from members using that hashtag.

@@ -3,7 +3,7 @@ import { deadlineDaysLabel, formatDDMMYYYY, isToday, localISODate, todayISO } fr
 import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, goalNodeRole, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, updateNode, removeNode } from './goalTree';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, goalNodeRole, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, taskStepStates, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task, TaskSession } from '../types';
 
 describe('dates', () => {
@@ -51,6 +51,17 @@ describe('universal goal tree roles', () => {
     expect(hasGoalExecutionState(item({ steps: ['Read'], stepDone: [false] }))).toBe(true);
     expect(hasGoalExecutionState(item({ completed: true }))).toBe(true);
     expect(hasGoalExecutionState(item({ todayTaskId: 'planned-card' }))).toBe(true);
+  });
+});
+
+describe('goal progress cache', () => {
+  it('recalculates a changed node with the same id before any effect clears the cache', () => {
+    const leaf = { id: 'cache-leaf', kind: 'node' as const, title: 'Read',
+      children: [], createdAt: 1, completed: false };
+    const root = { id: 'cache-root', kind: 'goal' as const, title: 'Exam',
+      children: [leaf], createdAt: 1 };
+    expect(rollupPct(root)).toBe(0);
+    expect(rollupPct({ ...root, children: [{ ...leaf, completed: true }] })).toBe(100);
   });
 });
 
@@ -779,12 +790,32 @@ describe('goal tree', () => {
     expect(cleanedGoals[0].id).not.toBe(cleanedGoals[0].children[0].id);
   });
 
-  it('clones nodes with new ids and no today pointer', () => {
-    const node = leaf({ id: 'old', todayTaskId: 'task-1', pinned: true });
+  it('clears a Today pointer that belongs to another goal without stealing its task', () => {
+    const task: Task = {
+      id: 'other-plan', title: 'Other', description: '', priority: 'medium',
+      targetDate: '2026-09-23', deadline: null, steps: [], progress: 0,
+      createdAt: 1, order: 0, goalNodeId: 'other-goal',
+    };
+    const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(
+      [leaf({ id: 'this-goal', todayTaskId: task.id })], [task],
+    );
+    expect(cleanedGoals[0].todayTaskId).toBeNull();
+    expect(cleanedTasks).toEqual([task]);
+  });
+
+  it('copies goal branches as new, uncompleted work without a Today link', () => {
+    const node = leaf({ id: 'old', todayTaskId: 'task-1', pinned: true,
+      completed: true, steps: ['Read', 'Solve'], stepDone: [true, true],
+      children: [leaf({ id: 'child', completed: true, steps: ['Review'], stepDone: [true] })],
+    });
     const copy = cloneNode(node);
     expect(copy.id).not.toBe(node.id);
     expect(copy.todayTaskId).toBeNull();
     expect(copy.pinned).toBe(false);
+    expect(copy.completed).toBe(false);
+    expect(copy.stepDone).toEqual([false, false]);
+    expect(copy.children[0]).toMatchObject({ completed: false, stepDone: [false] });
+    expect(node.completed).toBe(true);
   });
 
   it('mirrors goal title, description, and steps onto linked today/calendar cards', () => {
@@ -823,6 +854,18 @@ describe('goal tree', () => {
     expect(mirrorGoalContentToTask(standalone, node).title).toBe('Stay');
     const stepless = leaf({ id: 'leaf', title: 'Essay', completed: true, steps: [] });
     expect(mirrorGoalContentToTask({ ...todayCard, steps: [], progress: 0 }, stepless).progress).toBe(1);
+  });
+
+  it('shows non-prefix Goal checklist completion on the current card but not old history', () => {
+    const node = leaf({ id: 'leaf', todayTaskId: 'current', steps: ['Read', 'Solve'],
+      stepDone: [false, true] });
+    const task: Task = {
+      id: 'current', title: 'Mechanics', description: '', priority: 'medium',
+      targetDate: todayISO(), deadline: null, steps: ['Read', 'Solve'], progress: 1,
+      createdAt: 1, order: 0, goalNodeId: node.id,
+    };
+    expect(taskStepStates(task, node)).toEqual([false, true]);
+    expect(taskStepStates({ ...task, id: 'history', targetDate: '2000-01-01' }, node)).toEqual([true, false]);
   });
 });
 

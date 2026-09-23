@@ -25,6 +25,14 @@ A wall/monotonic-clock discrepancy requests verification; it is not immediately 
 
 The Android notification snapshot is accepted only when it belongs to the same sitting and has a newer heartbeat than the device journal, or when recovering an otherwise absent unfinished sitting. A finished sitting cannot be revived by notification replay.
 
+## Planning behavior
+
+- A Goal node owns its title, checklist, completion, and current Today pointer. A linked Today card owns its schedule; Calendar derives dated occurrences from cards and recorded sessions. A pointer is valid only when the task belongs to that node. Current linked cards display the Goal's per-step state, including out-of-order completion; historical cards display their saved snapshot progress.
+- Replanning an unfinished linked card keeps its task ID and earlier failed dates. Planning a full checklist clears any previous partial `stepSlice`; planning a subset records that subset explicitly. An endpoint with checklist steps cannot be scheduled with no steps selected.
+- Deleting a Goal branch moves its original node IDs and unfinished linked cards to Recently Deleted. Completed dated cards and session history stay in place. Restoring a new-format record returns the exact IDs and links; an ID collision stops restoration without consuming the record. Older trash records, whose node IDs were already regenerated, recover their saved tasks as standalone cards rather than claiming a link that cannot be proved.
+- Adding, removing, or restoring children recalculates parent completion. A copied branch starts with no progress, Today link, or pin. Progress memoization is keyed by node identity so an updated node with the same ID cannot reuse an old percentage.
+- These rules do not make separate local-storage writes atomic; that remains the device-persistence batch.
+
 ## Conservative merge behavior
 
 Legacy backups have workspace timestamps but no per-task deletion ledger. A task found only in a secondary modern copy can be either a new task or an intentional deletion on the primary device. When the existing goal/trash evidence cannot resolve that ambiguity, merging stops without replacing either workspace. Export and explicitly choose the copy to retain; do not silently drop or resurrect work.
