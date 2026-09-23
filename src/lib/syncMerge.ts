@@ -23,6 +23,21 @@ export type WorkspaceSlice = {
   updatedAt?: number;
 };
 
+function stableContent(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableContent).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).filter(key => record[key] !== undefined).sort()
+      .map(key => `${JSON.stringify(key)}:${stableContent(record[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+function matchingNodeContent(a: GoalNode, b: GoalNode): boolean {
+  const fields = (node: GoalNode) => Object.fromEntries(Object.entries(node).filter(([key]) => key !== 'children'));
+  return stableContent(fields(a)) === stableContent(fields(b));
+}
+
 function deletedNodeIds(trash: TrashRecord[]): Set<string> {
   const ids = new Set<string>();
   for (const row of trash) {
@@ -50,8 +65,15 @@ function dropDeletedGoals(nodes: GoalNode[], deleted: Set<string>): GoalNode[] {
 
 /** Legacy backups with no updatedAt: keep local overlapping nodes as-is, append remote-only. */
 function unionGoalList(local: GoalNode[], remote: GoalNode[]): GoalNode[] {
+  const remoteById = new Map(remote.filter((n) => n?.id).map((n) => [n.id, n]));
   const localIds = new Set(local.filter((n) => n?.id).map((n) => n.id));
   const result = local.filter((n) => n?.id);
+  for (const localNode of result) {
+    const remoteNode = remoteById.get(localNode.id);
+    if (remoteNode && !matchingNodeContent(localNode, remoteNode)) {
+      throw new Error(`Cannot safely combine goal “${localNode.title}”: its details differ between copies. Neither copy was replaced.`);
+    }
+  }
   for (const remoteNode of remote) {
     if (!remoteNode?.id || localIds.has(remoteNode.id)) continue;
     result.push(remoteNode);
@@ -67,6 +89,10 @@ function unionTasks(local: Task[], remote: Task[]): Task[] {
   const order: string[] = [];
   for (const t of [...local, ...remote]) {
     if (!t?.id) continue;
+    const existing = byId.get(t.id);
+    if (existing && stableContent(existing) !== stableContent(t)) {
+      throw new Error(`Cannot safely combine task “${t.title}”: it differs between copies. Neither copy was replaced.`);
+    }
     if (!byId.has(t.id)) {
       order.push(t.id);
       byId.set(t.id, t);
@@ -83,6 +109,9 @@ function mergeGoalLists(primary: GoalNode[], secondary: GoalNode[]): GoalNode[] 
     .map((node) => {
       const older = secondaryById.get(node.id);
       if (!older) return node;
+      if (!matchingNodeContent(node, older)) {
+        throw new Error(`Cannot safely combine goal “${node.title}”: its details changed on both copies. Review the copies; neither was replaced.`);
+      }
       return {
         ...node,
         children: mergeGoalLists(node.children ?? [], older.children ?? []),
@@ -139,6 +168,10 @@ export function mergeSessionHistories(
   for (const taskId of taskIds) {
     const byId = new Map<string, TaskSession>();
     for (const row of [...(b[taskId] ?? []), ...(a[taskId] ?? [])]) {
+      const existing = byId.get(row.id);
+      if (existing && stableContent(existing) !== stableContent(row)) {
+        throw new Error(`Cannot safely combine session ${row.id}: the copies disagree. Neither copy was replaced.`);
+      }
       byId.set(row.id, row);
     }
     const rows = [...byId.values()].sort((x, y) => x.startTime - y.startTime);
@@ -150,7 +183,7 @@ export function mergeSessionHistories(
 /**
  * Sessions: union by id.
  * Deletes: union trash, then drop those nodes.
- * Existing goal/task values: last-write-wins by updatedAt. Never OR completion flags.
+ * Existing goal/task values: refuse differing same-ID values rather than discard edits.
  * Branches that exist on only one device are retained unless a deletion tombstone removes them.
  */
 export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): WorkspaceSlice {
@@ -167,6 +200,13 @@ export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): W
     const primary = localAt >= remoteAt ? local : remote;
     const secondary = primary === local ? remote : local;
     goals = mergeGoalLists(primary.goals ?? [], secondary.goals ?? []);
+    const secondaryTasks = new Map((secondary.tasks ?? []).map(task => [task.id, task]));
+    for (const task of primary.tasks ?? []) {
+      const other = secondaryTasks.get(task.id);
+      if (other && stableContent(task) !== stableContent(other)) {
+        throw new Error(`Cannot safely combine task “${task.title}”: it differs between copies. Review the copies; neither was replaced.`);
+      }
+    }
     tasks = keepTasksForRecoveredBranches(primary, secondary, goals, deleted);
   } else {
     goals = unionGoalList(local.goals ?? [], remote.goals ?? []);

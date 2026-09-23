@@ -449,7 +449,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       const remote = await fetchLiveBackupInfo(targetUserId);
       if (currentUserId.current !== targetUserId) return false;
       assertWorkspaceUnchanged(before);
-      const result = await updateCloudBackup(payload, { expectedUserId: targetUserId, expectedUpdatedAt: remote?.updatedAt ?? null });
+      const result = await updateCloudBackup(payload, { expectedUserId: targetUserId, expectedRevision: remote?.revision ?? 0 });
       if (currentUserId.current !== targetUserId) return false;
       if (!result.ok) throw new Error(result.error || 'Could not secure this workspace.');
       assertWorkspaceUnchanged(before);

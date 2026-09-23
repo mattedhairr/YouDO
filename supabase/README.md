@@ -7,6 +7,7 @@ files in this directory.
 ## Canonical saved queries
 
 - **YouDO — Cloud Backup Setup** → `user_backups.sql`
+- **YouDO — Cloud Backup Revisions Upgrade** → `cloud_backup_revisions.sql`
 - **YouDO — Public Board Initial Setup** → `public_pace.sql`
 - **YouDO — Community & Moderation Setup** → `community.sql`
 - **YouDO — Community Chat Upgrade** → `community_chat.sql`
@@ -23,6 +24,12 @@ run a selected fragment of a setup or upgrade file. Apply `community_chat.sql`
 after `public_pace.sql` and `community.sql`, then apply `community_hashtags.sql`,
 `community_hashtag_admin.sql`, and `app_quotes.sql`,
 before releasing their dependent clients.
+
+Apply `cloud_backup_revisions.sql` after `user_backups.sql` and before a client
+that reads the `revision` column or calls `cas_user_backup`. The upgrade is
+additive; older clients keep their existing backup operations while the server
+increments the revision on each write. A saved SQL query alone does not mean
+the migration has been applied.
 
 ## Existing saved-query cleanup
 

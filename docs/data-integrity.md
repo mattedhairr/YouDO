@@ -37,13 +37,15 @@ The Android notification snapshot is accepted only when it belongs to the same s
 
 ## Conservative merge behavior
 
-Legacy backups have workspace timestamps but no per-task deletion ledger. A task found only in a secondary modern copy can be either a new task or an intentional deletion on the primary device. When the existing goal/trash evidence cannot resolve that ambiguity, merging stops without replacing either workspace. Export and explicitly choose the copy to retain; do not silently drop or resurrect work.
+Legacy backups have workspace timestamps but no per-task deletion ledger. A task found only in a secondary modern copy can be either a new task or an intentional deletion on the primary device. When the existing goal/trash evidence cannot resolve that ambiguity, merging stops without replacing either workspace. Differing same-ID goal, task, or session values also stop a combine operation; client timestamps do not decide which edit to discard. Export and explicitly choose the copy to retain; do not silently drop or resurrect work.
 
 All supplied goal-deletion records are considered before limiting the visible trash list. This prevents a supplied older marker being ignored during that merge; it does not provide permanent tombstones after clients have already trimmed their trash.
 
+The pending cloud-revision upgrade adds a server-incremented revision and compare-and-set write. The client must read a revision before writing and treats a stale revision as a conflict. A legacy client may still write directly; its write also increments the revision. Apply and test the hosted migration before releasing a dependent client. This prevents a stale whole-backup upload but does not by itself resolve item-level deletion ambiguity.
+
 ## Still required before completing the audit
 
-- Finish device-persistence browser and physical Android verification, including quota pressure, process termination, Settings import, and install-over. Code-level fault injection and typechecks alone do not close that gate.
+- Extend device-persistence verification beyond the completed save/restart and install-over gate to real process termination and constrained-storage scenarios when practical. Fault-injection tests cover quota and rollback without filling the user's phone.
 - A durable item-level conflict/deletion model; timestamp/fingerprint comparisons alone cannot infer intent or fully handle equal timestamps.
 - The device checkpoint does not span local storage and the hosted database. If a cloud upload succeeds but saving the local sync fingerprint fails, the app reports a partial-sync state and requires review on retry.
 - Physical Android tests for termination, notification actions, background safety caps, clock changes, keyboard resizing, and install-over behavior. Native wall-clock ordering is not a monotonic event journal.

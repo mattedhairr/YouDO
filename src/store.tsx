@@ -68,7 +68,7 @@ import {
 } from './lib/storageKeys';
 import { commitWorkspaceMutation, prepareSettingsImport } from './lib/workspaceReplacement';
 import { mergeWorkspace, workspaceFingerprint, workspaceSignature, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
-import { decideSyncAction, type SyncConflictStrategy } from './lib/syncDecision';
+import { decideSyncAction, isWorkspaceEffectivelyEmpty, type SyncConflictStrategy } from './lib/syncDecision';
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 import {
@@ -1605,7 +1605,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ? canonicalWorkspaceFingerprint(remoteSlice, todayISO())
       : null;
     const baseFingerprint = readWorkspaceCloudFingerprint();
-    const localEmpty = localSlice.tasks.length === 0 && localSlice.goals.length === 0;
+    const localEmpty = isWorkspaceEffectivelyEmpty(localSlice);
 
     const pullRemote = (): { ok: boolean; error?: string } => {
       if (!remoteInfo || !remoteSlice || !remoteFingerprint) return { ok: false, error: 'No valid cloud copy was found.' };
@@ -1630,7 +1630,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pacePrefs: pacePrefsRef.current,
       };
       const fingerprint = canonicalWorkspaceFingerprint(payload, todayISO());
-      const result = await updateCloudBackup(payload, { expectedUpdatedAt: remoteInfo?.updatedAt ?? null, expectedUserId: syncUserId! });
+      const result = await updateCloudBackup(payload, { expectedRevision: remoteInfo?.revision ?? 0, expectedUserId: syncUserId! });
       if (!stillCurrent()) return accountChanged;
       if (result.ok) {
         if (!persistCloudFingerprint(fingerprint)) return { ok: false, error: 'Cloud saved, but this device could not save its sync status. Keep app data intact and retry.' };
@@ -1676,11 +1676,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (decision === 'pull') return pullRemote();
     if (decision === 'push') return pushCurrent();
     if (decision === 'empty-error') {
-      return { ok: false, error: 'This device is empty. Restore from cloud, or tap Clear cloud backup if you meant to wipe it.' };
+      if (remoteInfo) setCloudSyncConflict(true);
+      return { ok: false, error: 'This workspace was cleared after its last cloud sync. Nothing was restored or uploaded. Review both copies before choosing what to keep.' };
     }
     if (decision === 'merge') {
       if (!remoteSlice) return { ok: false, error: 'No valid cloud copy was found to combine.' };
-      const merged = mergeWorkspace(localSlice, remoteSlice);
+      let merged: WorkspaceSlice;
+      try {
+        merged = mergeWorkspace(localSlice, remoteSlice);
+      } catch (failure) {
+        setCloudSyncConflict(true);
+        return { ok: false, conflict: true, error: failure instanceof Error ? failure.message : 'These copies cannot be combined safely.' };
+      }
       const runningTaskId = activeSessionRef.current?.taskId;
       if (runningTaskId) {
         const localRunningTask = localSlice.tasks.find((task) => task.id === runningTaskId);

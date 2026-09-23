@@ -964,12 +964,10 @@ describe('cloud merge', () => {
       completed: false,
     };
     const marked = { ...unmarked, stepDone: [true, true], completed: true };
-    const merged = mergeWorkspace(
+    expect(() => mergeWorkspace(
       { tasks: [], goals: [unmarked], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 200 },
       { tasks: [], goals: [marked], sessionHistory: {}, recentlyDeletedGoals: [], updatedAt: 100 },
-    );
-    expect(merged.goals[0].completed).toBe(false);
-    expect(merged.goals[0].stepDone).toEqual([false, false]);
+    )).toThrow(/cannot safely combine goal/i);
   });
 
   it('keeps branches that only exist in the older device copy', async () => {
@@ -1116,7 +1114,7 @@ describe('two-device sync decisions', () => {
     const { decideSyncAction } = await import('./syncDecision');
     expect(decideSyncAction({
       localFingerprint: 'empty', remoteFingerprint: 'cloud', baseFingerprint: 'cloud', localEmpty: true,
-    })).toBe('pull');
+    })).toBe('empty-error');
     expect(decideSyncAction({
       localFingerprint: 'empty', remoteFingerprint: null, baseFingerprint: null, localEmpty: true,
     })).toBe('empty-error');
