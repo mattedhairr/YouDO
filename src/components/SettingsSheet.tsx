@@ -47,6 +47,7 @@ import { APP_VERSION } from '../lib/version';
 import SignedInDevices from './SignedInDevices';
 import CommunityHashtagProfileField from './community/CommunityHashtagProfileField';
 import type { CommunityHashtagContext } from '../lib/communityHashtags';
+import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 
 interface Props {
   open: boolean;
@@ -106,6 +107,11 @@ export default function SettingsSheet({
     publishPublicPace,
   } = useStore();
   const { user, signOut, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
+  const cloudConflictDetails = (() => {
+    if (!user) return null;
+    try { return parseSyncConflictRecord(localStorage.getItem(STORAGE_KEYS.workspaceSyncConflict), user.id); }
+    catch { return null; }
+  })();
   const { activeSession } = useSessionStore();
   // An empty plan can still have focus history or durable deletion evidence.
   // Never present uploading that copy as a full cloud clear.
@@ -453,6 +459,11 @@ export default function SettingsSheet({
                           <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">
                             This device and cloud contain different work. YouDO stopped before overwriting either copy.
                           </p>
+                          {cloudConflictDetails && (
+                            <p className="mt-1.5 text-[11px] leading-relaxed text-content-secondary">
+                              {cloudConflictDetails.reason}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">

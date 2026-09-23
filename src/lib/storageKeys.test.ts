@@ -61,9 +61,11 @@ describe('account-owned local workspace', () => {
     localStorage.setItem(STORAGE_KEYS.deletionLedger, JSON.stringify([
       { kind: 'task', id: 'removed', contentFingerprint: '1:00000000000000aa', deletedAt: 4 },
     ]));
+    localStorage.setItem(STORAGE_KEYS.workspaceSyncConflict, '{"accountId":"user-1"}');
     expect(readLocalWorkspaceSummary().hasData).toBe(true);
     clearWorkspaceStorage();
     expect(localStorage.getItem(STORAGE_KEYS.deletionLedger)).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.workspaceSyncConflict)).toBeNull();
   });
 
   it('treats an interrupted active sitting as protected workspace data', () => {

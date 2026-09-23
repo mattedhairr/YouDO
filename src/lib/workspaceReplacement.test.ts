@@ -106,6 +106,13 @@ describe('ordinary workspace mutations', () => {
     expect(storage.getItem(K.goals)).toContain('new-goal');
     expect(storage.getItem(K.workspaceReplacement)).toBeNull();
   });
+  it('clears a conflict record with its successful sync fingerprint', () => {
+    const storage = new FaultStorage();
+    storage.setItem(K.workspaceSyncConflict, '{"accountId":"old-account"}');
+    commitWorkspaceMutation({ [K.workspaceCloudFingerprint]: 'remote-revision-4', [K.workspaceSyncConflict]: null }, storage);
+    expect(storage.getItem(K.workspaceCloudFingerprint)).toBe('remote-revision-4');
+    expect(storage.getItem(K.workspaceSyncConflict)).toBeNull();
+  });
   it('retires a legacy alias only after its canonical copy is protected', () => {
     const storage = new FaultStorage();
     commitWorkspaceMutation({ [K.tasks]: '[{"id":"new"}]', 'tudo-tasks-v3': null }, storage);

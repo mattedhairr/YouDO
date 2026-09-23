@@ -18,6 +18,7 @@ export const STORAGE_KEYS = {
   paceRankSnapshot: 'youdo-pace-rank-snapshot-v1',
   workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
   workspaceCloudFingerprint: 'youdo-workspace-cloud-fingerprint-v1',
+  workspaceSyncConflict: 'youdo-workspace-sync-conflict-v1',
   workspaceOwner: 'youdo-workspace-owner-v1',
   workspaceReplacement: 'youdo-workspace-replacement-v1',
   offlineMode: 'youdo-offline-mode-v1',
@@ -37,6 +38,7 @@ export const WORKSPACE_KEYS = [
   STORAGE_KEYS.paceRankSnapshot,
   STORAGE_KEYS.workspaceUpdatedAt,
   STORAGE_KEYS.workspaceCloudFingerprint,
+  STORAGE_KEYS.workspaceSyncConflict,
   STORAGE_KEYS.goalPathIds,
 ] as const;
 

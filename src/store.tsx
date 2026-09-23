@@ -71,6 +71,7 @@ import { mergeWorkspace, workspaceFingerprint, workspaceSignature, type TrashRec
 import { decideSyncAction, isWorkspaceEffectivelyEmpty, type SyncConflictStrategy } from './lib/syncDecision';
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
 import { advanceDeletionLedger, isDeletionLedger, type DeletionMarker } from './lib/deletionLedger';
+import { parseSyncConflictRecord, type SyncConflictKind, type SyncConflictRecord } from './lib/syncConflictRecord';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 import {
   applyStreakBarHours,
@@ -319,6 +320,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [cloudSyncConflict, setCloudSyncConflict] = useState(false);
   const [workspaceStorageError, setWorkspaceStorageError] = useState('');
   const [workspaceRecoveryBlocked, setWorkspaceRecoveryBlocked] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) { setCloudSyncConflict(false); return; }
+    try {
+      setCloudSyncConflict(Boolean(parseSyncConflictRecord(localStorage.getItem(STORAGE_KEYS.workspaceSyncConflict), user.id)));
+    } catch {
+      setWorkspaceStorageError('The saved cloud conflict could not be read. Keep app data intact and retry.');
+    }
+  }, [user?.id]);
 
   // Invalidate rollup cache whenever goals tree changes
   useEffect(() => {
@@ -1516,6 +1526,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         [STORAGE_KEYS.pacePrefs]: JSON.stringify(nextState.pacePrefs),
         [STORAGE_KEYS.workspaceUpdatedAt]: String(stamp),
         [STORAGE_KEYS.workspaceCloudFingerprint]: cloudFingerprint,
+        [STORAGE_KEYS.workspaceSyncConflict]: null,
         [WORKSPACE_ALIAS_KEYS[0]]: null,
         [WORKSPACE_ALIAS_KEYS[1]]: null,
       });
@@ -1575,7 +1586,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const persistCloudFingerprint = useCallback((fingerprint: string): boolean => {
     try {
-      commitWorkspaceMutation({ [STORAGE_KEYS.workspaceCloudFingerprint]: fingerprint });
+      commitWorkspaceMutation({ [STORAGE_KEYS.workspaceCloudFingerprint]: fingerprint, [STORAGE_KEYS.workspaceSyncConflict]: null });
       return true;
     } catch (cause) {
       setWorkspaceStorageError(cause instanceof Error ? cause.message : 'Cloud sync status could not be saved on this device.');
@@ -1583,6 +1594,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       catch { setWorkspaceRecoveryBlocked(true); }
       return false;
     }
+  }, []);
+
+  const rememberCloudConflict = useCallback((record: SyncConflictRecord): void => {
+    try {
+      commitWorkspaceMutation({ [STORAGE_KEYS.workspaceSyncConflict]: JSON.stringify(record) });
+    } catch (cause) {
+      setWorkspaceStorageError(cause instanceof Error ? cause.message : 'Cloud conflict details could not be saved on this device.');
+    }
+    setCloudSyncConflict(true);
   }, []);
 
   const performCloudSync = useCallback(async (opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
@@ -1629,6 +1649,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       : null;
     const baseFingerprint = readWorkspaceCloudFingerprint();
     const localEmpty = isWorkspaceEffectivelyEmpty(localSlice);
+    const conflictResult = (kind: SyncConflictKind, error: string): CloudSyncResult => {
+      if (stillCurrent()) rememberCloudConflict({
+        accountId: syncUserId!, kind, detectedAt: Date.now(),
+        localFingerprint, remoteFingerprint, remoteRevision: remoteInfo?.revision ?? null,
+        reason: error,
+      });
+      return { ok: false, conflict: true, error };
+    };
 
     const pullRemote = (): { ok: boolean; error?: string } => {
       if (!remoteInfo || !remoteSlice || !remoteFingerprint) return { ok: false, error: 'No valid cloud copy was found.' };
@@ -1662,8 +1690,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return result;
       }
       const raced = /changed on another device|created on another device/i.test(result.error ?? '');
-      if (raced) setCloudSyncConflict(true);
-      return { ...result, conflict: raced || undefined };
+      if (raced) return conflictResult('stale_revision', result.error ?? 'Cloud changed on another device.');
+      return result;
     };
 
     let decision = decideSyncAction({
@@ -1700,8 +1728,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (decision === 'pull') return pullRemote();
     if (decision === 'push') return pushCurrent();
     if (decision === 'empty-error') {
-      if (remoteInfo) setCloudSyncConflict(true);
-      return { ok: false, error: 'This workspace was cleared after its last cloud sync. Nothing was restored or uploaded. Review both copies before choosing what to keep.' };
+      return conflictResult('cleared_device', 'This workspace was cleared after its last cloud sync. Nothing was restored or uploaded. Review both copies before choosing what to keep.');
     }
     if (decision === 'merge') {
       if (!remoteSlice) return { ok: false, error: 'No valid cloud copy was found to combine.' };
@@ -1709,8 +1736,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         merged = mergeWorkspace(localSlice, remoteSlice);
       } catch (failure) {
-        setCloudSyncConflict(true);
-        return { ok: false, conflict: true, error: failure instanceof Error ? failure.message : 'These copies cannot be combined safely.' };
+        return conflictResult('ambiguous_merge', failure instanceof Error ? failure.message : 'These copies cannot be combined safely.');
       }
       const runningTaskId = activeSessionRef.current?.taskId;
       if (runningTaskId) {
@@ -1732,17 +1758,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return pushCurrent();
     }
-    setCloudSyncConflict(true);
-    return {
-      ok: false,
-      conflict: true,
-      error: !remoteSlice
+    return conflictResult(remoteSlice ? 'different_copies' : 'missing_cloud', !remoteSlice
         ? 'The cloud copy disappeared. This device was preserved; review before recreating cloud data.'
         : baseFingerprint
           ? 'Sync paused: this device and another device both changed. Nothing was overwritten.'
-          : 'Sync paused for a one-time safety check because this device and cloud contain different work.',
-    };
-  }, [activeSessionRef, updateCloudBackup, fetchLiveBackupInfo, commitAndApplyWorkspace, persistCloudFingerprint]);
+          : 'Sync paused for a one-time safety check because this device and cloud contain different work.');
+  }, [activeSessionRef, updateCloudBackup, fetchLiveBackupInfo, commitAndApplyWorkspace, persistCloudFingerprint, rememberCloudConflict]);
 
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const syncToCloud = useCallback((opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
@@ -1798,13 +1819,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const ok = importBackup(jsonStr, null);
       if (ok) {
         // This restored copy intentionally differs from live cloud; the next sync must review it.
-        setCloudSyncConflict(true);
+        rememberCloudConflict({
+          accountId: owner, kind: 'restored_snapshot', detectedAt: Date.now(),
+          localFingerprint: canonicalWorkspaceFingerprint({
+            tasks: parsed.tasks, goals: parsed.goals,
+            sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
+            recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals) ? parsed.recentlyDeletedGoals as TrashRecord[] : [],
+            deletionLedger: isDeletionLedger(parsed.deletionLedger) ? parsed.deletionLedger : [],
+            streakMeta: sanitizeStreakMeta(parsed.streakMeta, todayISO()),
+            pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
+          }, todayISO()),
+          remoteFingerprint: null, remoteRevision: null,
+          reason: 'A safety copy was restored. Review the live cloud copy before uploading it.',
+        });
       }
       return ok;
     } catch {
       return false;
     }
-  }, [fetchVisitSnapshot, importBackup]);
+  }, [fetchVisitSnapshot, importBackup, rememberCloudConflict]);
 
   const listCloudRestorePoints = useCallback(async () => {
     const [live, visits] = await Promise.all([fetchLiveBackupInfo(), listVisitSnapshots()]);

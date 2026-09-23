@@ -43,6 +43,8 @@ All supplied goal-deletion records are considered before limiting the visible tr
 
 The pending cloud-revision upgrade adds a server-incremented revision and compare-and-set write. The client must read a revision before writing and treats a stale revision as a conflict. A legacy client may still write directly; its write also increments the revision. Apply and test the hosted migration before releasing a dependent client. This prevents a stale whole-backup upload but does not by itself resolve item-level deletion ambiguity.
 
+Sync pauses also retain an account-bound device-local conflict record with the reason, local/remote fingerprints, and observed cloud revision. Settings shows that reason after restart; a successful pull or confirmed upload clears the record with the local sync checkpoint. A different account cannot read it as its own conflict, and signing out clears it with the workspace.
+
 An explicit empty-workspace overwrite requires a fresh cloud safety copy before the compare-and-set write. If that snapshot cannot be saved, the overwrite stops. Ordinary incremental writes still make at most one best-effort visit snapshot. The Settings clear action is available only when no goals, tasks, history, trash, active timer, or deletion evidence remains on this device; a plan emptied by deletions is not falsely described as a fully empty backup.
 
 ## Still required before completing the audit

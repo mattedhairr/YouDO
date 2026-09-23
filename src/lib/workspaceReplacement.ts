@@ -15,7 +15,7 @@ const REPLACEMENT_KEYS = [...WORKSPACE_KEYS, ...WORKSPACE_ALIAS_KEYS, STORAGE_KE
 const MUTATION_KEYS = [
   STORAGE_KEYS.tasks, STORAGE_KEYS.goals, STORAGE_KEYS.deletedGoals, STORAGE_KEYS.deletionLedger,
   STORAGE_KEYS.sessionHistory, STORAGE_KEYS.streakMeta, STORAGE_KEYS.pacePrefs,
-  STORAGE_KEYS.workspaceUpdatedAt, STORAGE_KEYS.workspaceCloudFingerprint,
+  STORAGE_KEYS.workspaceUpdatedAt, STORAGE_KEYS.workspaceCloudFingerprint, STORAGE_KEYS.workspaceSyncConflict,
   ...WORKSPACE_ALIAS_KEYS,
 ] as const;
 type MutationKey = typeof MUTATION_KEYS[number];
