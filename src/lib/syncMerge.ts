@@ -3,6 +3,7 @@ import { collectDescendantIds } from './goalTree';
 import { sanitizeSessionHistory } from './sessionStats';
 import { mergeStreakMeta, type StreakMeta } from './focusTrends';
 import { mergePacePrefs, type PacePrefs } from './paceBoard';
+import { mergeDeletionLedgers, markerMatches, stableContent, type DeletionMarker } from './deletionLedger';
 
 export type TrashRecord = {
   id: string;
@@ -18,20 +19,11 @@ export type WorkspaceSlice = {
   goals: GoalNode[];
   sessionHistory: Record<string, TaskSession[]>;
   recentlyDeletedGoals: TrashRecord[];
+  deletionLedger?: DeletionMarker[];
   streakMeta?: StreakMeta | null;
   pacePrefs?: PacePrefs | null;
   updatedAt?: number;
 };
-
-function stableContent(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableContent).join(',')}]`;
-  if (value !== null && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    return `{${Object.keys(record).filter(key => record[key] !== undefined).sort()
-      .map(key => `${JSON.stringify(key)}:${stableContent(record[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value) ?? 'null';
-}
 
 function matchingNodeContent(a: GoalNode, b: GoalNode): boolean {
   const fields = (node: GoalNode) => Object.fromEntries(Object.entries(node).filter(([key]) => key !== 'children'));
@@ -195,16 +187,34 @@ export function mergeSessionHistories(
  * they require explicit review instead of being automatically resurrected.
  */
 export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): WorkspaceSlice {
+  const deletionLedger = mergeDeletionLedgers(local.deletionLedger ?? [], remote.deletionLedger ?? []);
+  for (const marker of deletionLedger) {
+    for (const slice of [local, remote]) {
+      const live = marker.kind === 'goal'
+        ? findGoalNode(slice.goals ?? [], marker.id)
+        : (slice.tasks ?? []).find(task => task.id === marker.id);
+      if (live) {
+        throw new Error(markerMatches(marker, live)
+          ? `${marker.kind === 'goal' ? 'Goal' : 'Task'} “${live.title}” was deleted on one device but is present on another. It may have been restored; review both copies before combining. Neither copy was replaced.`
+          : `${marker.kind === 'goal' ? 'Goal' : 'Task'} “${live.title}” was deleted on one device and edited on another. Cannot safely combine; neither copy was replaced.`);
+      }
+    }
+  }
   assertNoEditedDeletedBranches(local, remote);
   assertNoEditedDeletedBranches(remote, local);
   const trash = mergeTrash(local.recentlyDeletedGoals ?? [], remote.recentlyDeletedGoals ?? []);
   const deleted = deletedNodeIds([...(local.recentlyDeletedGoals ?? []), ...(remote.recentlyDeletedGoals ?? [])]);
+  const deletedTasks = new Set<string>();
+  for (const marker of deletionLedger) {
+    if (marker.kind === 'goal') deleted.add(marker.id);
+    else deletedTasks.add(marker.id);
+  }
   const sessionHistory = mergeSessionHistories(local.sessionHistory, remote.sessionHistory);
 
   const clean = (slice: WorkspaceSlice): WorkspaceSlice => ({
     ...slice,
     goals: dropDeletedGoals(slice.goals ?? [], deleted),
-    tasks: (slice.tasks ?? []).filter(task => !task.goalNodeId || !deleted.has(task.goalNodeId)),
+    tasks: (slice.tasks ?? []).filter(task => !deletedTasks.has(task.id) && (!task.goalNodeId || !deleted.has(task.goalNodeId))),
   });
   const localClean = clean(local);
   const remoteClean = clean(remote);
@@ -225,10 +235,11 @@ export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): W
   }
 
   return {
-    tasks: tasks.filter((t) => !t.goalNodeId || !deleted.has(t.goalNodeId)),
+    tasks: tasks.filter((t) => !deletedTasks.has(t.id) && (!t.goalNodeId || !deleted.has(t.goalNodeId))),
     goals: dropDeletedGoals(goals, deleted),
     sessionHistory,
     recentlyDeletedGoals: trash,
+    deletionLedger,
     streakMeta: mergeStreakMeta(
       local.streakMeta ?? {
         bestStreak: 0,
@@ -248,13 +259,14 @@ export function mergeWorkspace(local: WorkspaceSlice, remote: WorkspaceSlice): W
 }
 
 export function workspaceSignature(
-  slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta' | 'pacePrefs'>,
+  slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta' | 'pacePrefs' | 'deletionLedger'>,
 ): string {
   return JSON.stringify({
     tasks: slice.tasks,
     goals: slice.goals,
     sessionHistory: slice.sessionHistory,
     recentlyDeletedGoals: slice.recentlyDeletedGoals,
+    ...(slice.deletionLedger?.length ? { deletionLedger: slice.deletionLedger } : {}),
     streakMeta: slice.streakMeta ?? null,
     pacePrefs: slice.pacePrefs ?? null,
   });
@@ -262,7 +274,7 @@ export function workspaceSignature(
 
 /** Compact deterministic identity used to detect edits on two devices without duplicating the backup in storage. */
 export function workspaceFingerprint(
-  slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta' | 'pacePrefs'>,
+  slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta' | 'pacePrefs' | 'deletionLedger'>,
 ): string {
   const value = workspaceSignature(slice);
   let hash = 0xcbf29ce484222325n;

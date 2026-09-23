@@ -57,6 +57,15 @@ describe('account-owned local workspace', () => {
     expect(localStorage.getItem(STORAGE_KEYS.haptics)).not.toBeNull();
   });
 
+  it('treats deletion evidence as account-owned data and clears it on sign-out', () => {
+    localStorage.setItem(STORAGE_KEYS.deletionLedger, JSON.stringify([
+      { kind: 'task', id: 'removed', contentFingerprint: '1:00000000000000aa', deletedAt: 4 },
+    ]));
+    expect(readLocalWorkspaceSummary().hasData).toBe(true);
+    clearWorkspaceStorage();
+    expect(localStorage.getItem(STORAGE_KEYS.deletionLedger)).toBeNull();
+  });
+
   it('treats an interrupted active sitting as protected workspace data', () => {
     localStorage.setItem(STORAGE_KEYS.activeSession, JSON.stringify({ taskId: 'task-1', startTime: 1 }));
     expect(readLocalWorkspaceSummary()).toEqual({

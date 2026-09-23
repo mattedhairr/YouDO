@@ -7,12 +7,13 @@ import { sanitizeTreeAndTasks } from './goalTree';
 import { STORAGE_KEYS, WORKSPACE_ALIAS_KEYS, WORKSPACE_KEYS } from './storageKeys';
 import { canonicalWorkspaceFingerprint } from './syncPayload';
 import type { TrashRecord, WorkspaceSlice } from './syncMerge';
+import { isDeletionLedger } from './deletionLedger';
 
 type DeviceStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 // Include old aliases so an intentionally empty replacement cannot revive them.
 const REPLACEMENT_KEYS = [...WORKSPACE_KEYS, ...WORKSPACE_ALIAS_KEYS, STORAGE_KEYS.workspaceOwner];
 const MUTATION_KEYS = [
-  STORAGE_KEYS.tasks, STORAGE_KEYS.goals, STORAGE_KEYS.deletedGoals,
+  STORAGE_KEYS.tasks, STORAGE_KEYS.goals, STORAGE_KEYS.deletedGoals, STORAGE_KEYS.deletionLedger,
   STORAGE_KEYS.sessionHistory, STORAGE_KEYS.streakMeta, STORAGE_KEYS.pacePrefs,
   STORAGE_KEYS.workspaceUpdatedAt, STORAGE_KEYS.workspaceCloudFingerprint,
   ...WORKSPACE_ALIAS_KEYS,
@@ -118,6 +119,7 @@ export function prepareSettingsImport(json: string): WorkspaceSlice | null {
     goals: cleanedGoals,
     sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
     recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals) ? parsed.recentlyDeletedGoals as TrashRecord[] : [],
+    deletionLedger: isDeletionLedger(parsed.deletionLedger) ? parsed.deletionLedger : [],
     streakMeta: sanitizeStreakMeta(parsed.streakMeta, today) ?? defaultStreakMeta(today),
     pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
     updatedAt: parsed.updatedAt,
@@ -133,6 +135,7 @@ export function prepareWorkspaceReplacement(json: string, accountId: string): Wo
     tasks: parsed.tasks, goals: parsed.goals,
     sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
     recentlyDeletedGoals: (parsed.recentlyDeletedGoals ?? []) as TrashRecord[],
+    deletionLedger: isDeletionLedger(parsed.deletionLedger) ? parsed.deletionLedger : [],
     streakMeta: sourceStreak ?? defaultStreakMeta(today),
     pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
     updatedAt: parsed.updatedAt ?? Date.now(),
@@ -143,6 +146,7 @@ export function prepareWorkspaceReplacement(json: string, accountId: string): Wo
     [STORAGE_KEYS.goals]: JSON.stringify(slice.goals),
     [STORAGE_KEYS.sessionHistory]: JSON.stringify(slice.sessionHistory),
     [STORAGE_KEYS.deletedGoals]: JSON.stringify(slice.recentlyDeletedGoals),
+    [STORAGE_KEYS.deletionLedger]: JSON.stringify(slice.deletionLedger),
     [STORAGE_KEYS.streakMeta]: JSON.stringify(slice.streakMeta),
     [STORAGE_KEYS.pacePrefs]: JSON.stringify(slice.pacePrefs),
     [STORAGE_KEYS.workspaceUpdatedAt]: String(slice.updatedAt),

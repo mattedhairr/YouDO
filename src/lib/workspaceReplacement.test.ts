@@ -125,6 +125,12 @@ describe('ordinary workspace mutations', () => {
     expect(() => commitWorkspaceMutation({ [K.tasks]: '[]', [K.goals]: '[{"id":"new"}]' }, storage)).toThrow('restored');
     expect(storage.values).toEqual(before);
   });
+  it('does not leave a deleted task without its deletion marker after a failed write', () => {
+    const storage = new FaultStorage(); const before = new Map(storage.values); let failed = false;
+    storage.fault = key => { if (key === K.deletionLedger && !failed) { failed = true; return true; } return false; };
+    expect(() => commitWorkspaceMutation({ [K.tasks]: '[]', [K.deletionLedger]: '[{"kind":"task","id":"old","contentFingerprint":"1:00000000000000aa","deletedAt":4}]' }, storage)).toThrow('restored');
+    expect(storage.values).toEqual(before);
+  });
   it('keeps the checkpoint if rollback fails and recovers it on restart', () => {
     const storage = new FaultStorage(); const before = new Map(storage.values);
     storage.fault = key => key === K.goals;
@@ -158,8 +164,14 @@ describe('Settings backup preparation', () => {
   });
   it('replaces omitted optional collections with clean defaults, not old-account state', () => {
     const imported = prepareSettingsImport('{"tasks":[],"goals":[]}');
-    expect(imported).toMatchObject({ tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [] });
+    expect(imported).toMatchObject({ tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], deletionLedger: [] });
     expect(imported?.streakMeta).toBeTruthy();
     expect(imported?.pacePrefs).toBeTruthy();
+  });
+  it('carries deletion evidence through account-bound cloud replacement', () => {
+    const deletionLedger = [{ kind: 'task', id: 'old', contentFingerprint: '1:00000000000000aa', deletedAt: 4 }];
+    const next = prepareWorkspaceReplacement(JSON.stringify({ tasks: [], goals: [], deletionLedger }), 'new-account');
+    expect(JSON.parse(next[K.deletionLedger]!)).toEqual(deletionLedger);
+    expect(next[K.workspaceOwner]).toBe('new-account');
   });
 });

@@ -37,7 +37,7 @@ import type { BackupSummary } from '../lib/backup';
 import { formatBackupStamp, formatDuration } from '../lib/format';
 import { useSessionStore, useStore } from '../store';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { requestAccountAccess, STORAGE_KEYS } from '../lib/storageKeys';
+import { readLocalWorkspaceSummary, requestAccountAccess, STORAGE_KEYS } from '../lib/storageKeys';
 import { hapticTick, setHapticsPreference } from '../lib/haptics';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
 import { PACE_CHEATING_GUIDE, PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
@@ -100,8 +100,6 @@ export default function SettingsSheet({
     restoreDeletedGoal,
     clearTrash,
     pruneOldSessions,
-    tasks,
-    goals,
     sessionHistory,
     pacePrefs,
     updatePacePrefs,
@@ -109,6 +107,12 @@ export default function SettingsSheet({
   } = useStore();
   const { user, signOut, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
   const { activeSession } = useSessionStore();
+  // An empty plan can still have focus history or durable deletion evidence.
+  // Never present uploading that copy as a full cloud clear.
+  const canClearCloud = (() => {
+    try { return !readLocalWorkspaceSummary().hasData; }
+    catch { return false; }
+  })();
   const [theme, setTheme] = useTheme();
   const [reducedEffects, setReducedEffects] = useReducedEffects();
   const publicBoardRef = useRef<HTMLElement>(null);
@@ -481,7 +485,7 @@ export default function SettingsSheet({
                     </div>
                   )}
 
-                  {tasks.length === 0 && goals.length === 0 && (
+                  {canClearCloud && (
                     confirmWipeCloud ? (
                       <div className="mt-2 rounded-[12px] border border-error/30 bg-error-soft p-3 space-y-2">
                         <p className="text-[12px] text-content-secondary leading-relaxed">

@@ -32,12 +32,12 @@ async function pruneVisitSnapshots(userId: string): Promise<void> {
   await supabase.from('user_backup_snapshots').delete().in('id', extraIds);
 }
 
-/** Once per app visit: freeze the current live cloud row. Never blocks the live write. */
-export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
+/** Ordinary writes freeze once per visit; destructive writes require a fresh confirmed safety copy. */
+export async function freezeLiveBackupForVisit(userId: string, force = false): Promise<boolean> {
   if (!freezeState || freezeState.userId !== userId) {
     freezeState = { userId, done: false };
   }
-  if (freezeState.done) return;
+  if (freezeState.done && !force) return true;
   const visit = freezeState;
 
   const { data: live, error: liveErr } = await supabase
@@ -46,10 +46,10 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (liveErr) return;
+  if (liveErr) return false;
   if (!live?.backup_data) {
     visit.done = true;
-    return;
+    return true;
   }
 
   const { data: latest } = await supabase
@@ -64,7 +64,7 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
   const liveFingerprint = backupContentFingerprint(live.backup_data);
   if (latestFingerprint && liveFingerprint && latestFingerprint === liveFingerprint) {
     visit.done = true;
-    return;
+    return true;
   }
 
   const { error: insertErr } = await supabase.from('user_backup_snapshots').insert({
@@ -78,10 +78,11 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
       console.warn('[YouDO] user_backup_snapshots table not found — visit snapshots unavailable.');
       visit.done = true;
     }
-    return;
+    return false;
   }
   await pruneVisitSnapshots(userId);
   visit.done = true;
+  return true;
 }
 
 const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
@@ -89,7 +90,7 @@ const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
 export async function upsertLiveBackup(
   userId: string,
   jsonStr: string,
-  options: { expectedRevision: number },
+  options: { expectedRevision: number; requireSafetyCopy?: boolean },
 ): Promise<{ ok: boolean; revision?: number; updatedAt?: string; error?: string }> {
   const bytes = new TextEncoder().encode(jsonStr).byteLength;
   if (bytes > MAX_BACKUP_BYTES) {
@@ -104,7 +105,8 @@ export async function upsertLiveBackup(
     return !error && data.session?.user.id === userId;
   };
   if (!await matchesAccount()) return { ok: false, error: 'Account changed. Sync stopped before uploading this workspace.' };
-  await freezeLiveBackupForVisit(userId);
+  const frozen = await freezeLiveBackupForVisit(userId, options.requireSafetyCopy);
+  if (!frozen && options.requireSafetyCopy) return { ok: false, error: 'Could not save a cloud safety copy. Nothing was overwritten; reconnect and retry.' };
   if (!await matchesAccount()) return { ok: false, error: 'Account changed. Sync stopped before uploading this workspace.' };
   if (!Number.isSafeInteger(options.expectedRevision) || options.expectedRevision < 0) {
     return { ok: false, error: 'Cloud revision is invalid. Nothing was uploaded.' };

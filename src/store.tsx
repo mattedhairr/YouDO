@@ -70,6 +70,7 @@ import { commitWorkspaceMutation, prepareSettingsImport } from './lib/workspaceR
 import { mergeWorkspace, workspaceFingerprint, workspaceSignature, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
 import { decideSyncAction, isWorkspaceEffectivelyEmpty, type SyncConflictStrategy } from './lib/syncDecision';
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
+import { advanceDeletionLedger, isDeletionLedger, type DeletionMarker } from './lib/deletionLedger';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 import {
   applyStreakBarHours,
@@ -306,6 +307,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useLocalStorage<Task[]>(STORAGE_KEYS.tasks, SEED_TASKS, { ...atomicStorage, validate: isStoredTaskList });
   const [goals, setGoals] = useLocalStorage<GoalNode[]>(STORAGE_KEYS.goals, SEED_GOALS, { ...atomicStorage, validate: isStoredGoalTree });
   const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>(STORAGE_KEYS.deletedGoals, [], { ...atomicStorage, validate: isArray });
+  const [deletionLedger, setDeletionLedger] = useLocalStorage<DeletionMarker[]>(STORAGE_KEYS.deletionLedger, [], { ...atomicStorage, validate: isDeletionLedger });
   const [lastDeletedNotification, setLastDeletedNotification] = useState<{ id: string; title: string } | null>(null);
   const { activeSession, activeSessionRef, setActiveSession, clearRecordedSession, sessionStorageError } = useSessionJournal();
   const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>(STORAGE_KEYS.sessionHistory, {}, { ...atomicStorage, validate: isStoredSessionHistory });
@@ -361,6 +363,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const paceCloudTimerRef = useRef<number>(0);
   const recentlyDeletedRef = useRef(recentlyDeletedGoals);
   recentlyDeletedRef.current = recentlyDeletedGoals;
+  const deletionLedgerRef = useRef(deletionLedger);
+  deletionLedgerRef.current = deletionLedger;
   // A crash between saving history and clearing the timer must not restart
   // an already recorded sitting on the next launch.
   useEffect(() => {
@@ -375,17 +379,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     afterTasks: Task[];
   }>());
   const workspaceUpdatedAtRef = useRef(readWorkspaceUpdatedAt());
-  const persistedWorkspaceRef = useRef({ tasks, goals, recentlyDeletedGoals, sessionHistory, streakMeta, pacePrefs });
+  const persistedWorkspaceRef = useRef({ tasks, goals, recentlyDeletedGoals, deletionLedger, sessionHistory, streakMeta, pacePrefs });
   useLayoutEffect(() => {
     const saved = persistedWorkspaceRef.current;
     if (saved.tasks === tasks && saved.goals === goals && saved.recentlyDeletedGoals === recentlyDeletedGoals
-      && saved.sessionHistory === sessionHistory && saved.streakMeta === streakMeta && saved.pacePrefs === pacePrefs) return;
+      && saved.deletionLedger === deletionLedger && saved.sessionHistory === sessionHistory && saved.streakMeta === streakMeta && saved.pacePrefs === pacePrefs) return;
     const stamp = Date.now();
+    const candidateLedger = saved.tasks === tasks && saved.goals === goals
+      ? saved.deletionLedger
+      : advanceDeletionLedger(saved.deletionLedger, { tasks: saved.tasks, goals: saved.goals }, { tasks, goals }, stamp);
+    const nextLedger = JSON.stringify(candidateLedger) === JSON.stringify(saved.deletionLedger) ? saved.deletionLedger : candidateLedger;
     try {
       commitWorkspaceMutation({
         ...(saved.tasks !== tasks ? { [STORAGE_KEYS.tasks]: JSON.stringify(tasks) } : {}),
         ...(saved.goals !== goals ? { [STORAGE_KEYS.goals]: JSON.stringify(goals) } : {}),
         ...(saved.recentlyDeletedGoals !== recentlyDeletedGoals ? { [STORAGE_KEYS.deletedGoals]: JSON.stringify(recentlyDeletedGoals) } : {}),
+        ...(saved.deletionLedger !== nextLedger ? { [STORAGE_KEYS.deletionLedger]: JSON.stringify(nextLedger) } : {}),
         ...(saved.sessionHistory !== sessionHistory ? { [STORAGE_KEYS.sessionHistory]: JSON.stringify(sessionHistory) } : {}),
         ...(saved.streakMeta !== streakMeta ? { [STORAGE_KEYS.streakMeta]: JSON.stringify(streakMeta) } : {}),
         ...(saved.pacePrefs !== pacePrefs ? { [STORAGE_KEYS.pacePrefs]: JSON.stringify(pacePrefs) } : {}),
@@ -395,7 +404,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...(saved.goals !== goals ? { [WORKSPACE_ALIAS_KEYS[1]]: null } : {}),
         [STORAGE_KEYS.workspaceUpdatedAt]: String(stamp),
       });
-      persistedWorkspaceRef.current = { tasks, goals, recentlyDeletedGoals, sessionHistory, streakMeta, pacePrefs };
+      persistedWorkspaceRef.current = { tasks, goals, recentlyDeletedGoals, deletionLedger: nextLedger, sessionHistory, streakMeta, pacePrefs };
+      if (nextLedger !== deletionLedger) {
+        deletionLedgerRef.current = nextLedger;
+        setDeletionLedger(nextLedger);
+      }
       workspaceUpdatedAtRef.current = stamp;
       setWorkspaceStorageError('');
     } catch (cause) {
@@ -406,17 +419,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       goalsRef.current = saved.goals;
       sessionHistoryRef.current = saved.sessionHistory;
       recentlyDeletedRef.current = saved.recentlyDeletedGoals;
+      deletionLedgerRef.current = saved.deletionLedger;
       streakMetaRef.current = saved.streakMeta;
       pacePrefsRef.current = saved.pacePrefs;
       setTasks(saved.tasks);
       setGoals(saved.goals);
       setRecentlyDeletedGoals(saved.recentlyDeletedGoals);
+      setDeletionLedger(saved.deletionLedger);
       setSessionHistory(saved.sessionHistory);
       setStreakMeta(saved.streakMeta);
       setPacePrefs(saved.pacePrefs);
       setLastDeletedNotification(null);
     }
-  }, [tasks, goals, recentlyDeletedGoals, sessionHistory, streakMeta, pacePrefs, setTasks, setGoals, setRecentlyDeletedGoals, setSessionHistory, setStreakMeta, setPacePrefs]);
+  }, [tasks, goals, recentlyDeletedGoals, deletionLedger, sessionHistory, streakMeta, pacePrefs, setTasks, setGoals, setRecentlyDeletedGoals, setDeletionLedger, setSessionHistory, setStreakMeta, setPacePrefs]);
 
   /* ---------- Daily task ops ---------- */
 
@@ -1414,6 +1429,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tasks: tasksRef.current,
       goals: goalsRef.current,
       sessionHistory: sessionHistoryRef.current,
+      recentlyDeletedGoals: recentlyDeletedRef.current,
+      deletionLedger: deletionLedgerRef.current,
       streakMeta: streakMetaRef.current,
       pacePrefs: pacePrefsRef.current,
     };
@@ -1482,6 +1499,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tasks: next.tasks,
       goals: next.goals,
       recentlyDeletedGoals: next.recentlyDeletedGoals as DeletedGoalRecord[],
+      deletionLedger: next.deletionLedger ?? [],
       sessionHistory: next.sessionHistory,
       streakMeta: next.streakMeta ?? defaultStreakMeta(todayISO()),
       pacePrefs: next.pacePrefs ?? defaultPacePrefs(),
@@ -1492,6 +1510,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         [STORAGE_KEYS.tasks]: JSON.stringify(nextState.tasks),
         [STORAGE_KEYS.goals]: JSON.stringify(nextState.goals),
         [STORAGE_KEYS.deletedGoals]: JSON.stringify(nextState.recentlyDeletedGoals),
+        [STORAGE_KEYS.deletionLedger]: JSON.stringify(nextState.deletionLedger),
         [STORAGE_KEYS.sessionHistory]: JSON.stringify(nextState.sessionHistory),
         [STORAGE_KEYS.streakMeta]: JSON.stringify(nextState.streakMeta),
         [STORAGE_KEYS.pacePrefs]: JSON.stringify(nextState.pacePrefs),
@@ -1510,6 +1529,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     tasksRef.current = nextState.tasks;
     goalsRef.current = nextState.goals;
     recentlyDeletedRef.current = nextState.recentlyDeletedGoals;
+    deletionLedgerRef.current = nextState.deletionLedger;
     sessionHistoryRef.current = nextState.sessionHistory;
     streakMetaRef.current = nextState.streakMeta;
     pacePrefsRef.current = nextState.pacePrefs;
@@ -1517,13 +1537,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTasks(nextState.tasks);
     setGoals(nextState.goals);
     setRecentlyDeletedGoals(nextState.recentlyDeletedGoals);
+    setDeletionLedger(nextState.deletionLedger);
     setSessionHistory(nextState.sessionHistory);
     setStreakMeta(nextState.streakMeta);
     setPacePrefs(nextState.pacePrefs);
     setWorkspaceStorageError('');
     clearRollupCache();
     return true;
-  }, [setTasks, setGoals, setRecentlyDeletedGoals, setSessionHistory, setStreakMeta, setPacePrefs]);
+  }, [setTasks, setGoals, setRecentlyDeletedGoals, setDeletionLedger, setSessionHistory, setStreakMeta, setPacePrefs]);
 
   const importBackup = useCallback(
     (jsonData: string, cloudFingerprint?: string | null, preserveBackupTime = false): boolean => {
@@ -1578,6 +1599,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       goals: goalsRef.current,
       sessionHistory: sessionHistoryRef.current,
       recentlyDeletedGoals: recentlyDeletedRef.current as TrashRecord[],
+      deletionLedger: deletionLedgerRef.current,
       streakMeta: streakMetaRef.current,
       pacePrefs: pacePrefsRef.current,
       updatedAt: workspaceUpdatedAtRef.current,
@@ -1594,6 +1616,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           recentlyDeletedGoals: Array.isArray(remoteParsed.recentlyDeletedGoals)
             ? (remoteParsed.recentlyDeletedGoals as TrashRecord[])
             : [],
+          deletionLedger: isDeletionLedger(remoteParsed.deletionLedger) ? remoteParsed.deletionLedger : [],
           streakMeta: sanitizeStreakMeta(remoteParsed.streakMeta, todayISO()),
           pacePrefs: sanitizePacePrefs(remoteParsed.pacePrefs),
           updatedAt: remoteParsed.updatedAt ?? 0,
@@ -1626,11 +1649,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         goals: goalsRef.current,
         sessionHistory: sessionHistoryRef.current,
         recentlyDeletedGoals: recentlyDeletedRef.current,
+        deletionLedger: deletionLedgerRef.current,
         streakMeta: streakMetaRef.current,
         pacePrefs: pacePrefsRef.current,
       };
       const fingerprint = canonicalWorkspaceFingerprint(payload, todayISO());
-      const result = await updateCloudBackup(payload, { expectedRevision: remoteInfo?.revision ?? 0, expectedUserId: syncUserId! });
+      const result = await updateCloudBackup(payload, { expectedRevision: remoteInfo?.revision ?? 0, expectedUserId: syncUserId!, requireSafetyCopy: opts?.allowEmpty });
       if (!stillCurrent()) return accountChanged;
       if (result.ok) {
         if (!persistCloudFingerprint(fingerprint)) return { ok: false, error: 'Cloud saved, but this device could not save its sync status. Keep app data intact and retry.' };
@@ -1733,10 +1757,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
     const owner = userIdRef.current;
     const scope = workspaceScopeRef.current;
-    const before = workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current });
+    const before = workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, deletionLedger: deletionLedgerRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current });
     const jsonStr = await fetchCloudBackup();
     if (!jsonStr || !owner || userIdRef.current !== owner || scope !== workspaceScopeRef.current) return false;
-    if (before !== workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current })) return false;
+    if (before !== workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, deletionLedger: deletionLedgerRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current })) return false;
     try {
       const parsed = parseBackupPayload(jsonStr);
       if (!parsed) return false;
@@ -1747,6 +1771,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
             ? (parsed.recentlyDeletedGoals as TrashRecord[])
             : [],
+          deletionLedger: isDeletionLedger(parsed.deletionLedger) ? parsed.deletionLedger : [],
           streakMeta: sanitizeStreakMeta(parsed.streakMeta, todayISO()),
           pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
         }, todayISO());
@@ -1763,10 +1788,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const restoreFromVisitSnapshot = useCallback(async (snapshotId: string): Promise<boolean> => {
     const owner = userIdRef.current;
     const scope = workspaceScopeRef.current;
-    const before = workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current });
+    const before = workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, deletionLedger: deletionLedgerRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current });
     const jsonStr = await fetchVisitSnapshot(snapshotId);
     if (!jsonStr || !owner || userIdRef.current !== owner || scope !== workspaceScopeRef.current) return false;
-    if (before !== workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current })) return false;
+    if (before !== workspaceSignature({ tasks: tasksRef.current, goals: goalsRef.current, sessionHistory: sessionHistoryRef.current, deletionLedger: deletionLedgerRef.current, recentlyDeletedGoals: recentlyDeletedRef.current, streakMeta: streakMetaRef.current, pacePrefs: pacePrefsRef.current })) return false;
     try {
       const parsed = parseBackupPayload(jsonStr);
       if (!parsed) return false;
@@ -1825,7 +1850,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const timer = setTimeout(() => { syncToCloud(); }, 2000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tasks, goals, sessionHistory, recentlyDeletedGoals, streakMeta, pacePrefs]);
+  }, [user, tasks, goals, sessionHistory, recentlyDeletedGoals, deletionLedger, streakMeta, pacePrefs]);
 
   // Retry the local-first workspace as soon as connectivity returns. A failed
   // attempt never clears local data; normal merge safeguards still apply.

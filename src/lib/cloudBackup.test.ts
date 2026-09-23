@@ -54,4 +54,13 @@ describe('backup request boundaries', () => {
     expect((await upsertLiveBackup('a', '{}', { expectedRevision: 3 })).error).toMatch(/changed on another device/i);
     expect((await upsertLiveBackup('a', '{}', { expectedRevision: 3 })).error).toMatch(/migration/i);
   });
+  it('blocks an explicit overwrite when the current cloud copy cannot be archived', async () => {
+    mocks.getSession.mockResolvedValue({ data: { session: { user: { id: 'a' } } }, error: null });
+    mocks.from.mockImplementation((table: string) => table === 'user_backups'
+      ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { backup_data: '{"tasks":[],"goals":[]}' }, error: null }) }) }) }
+      : { select: () => ({ eq: () => ({ order: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }), insert: async () => ({ error: { message: 'snapshot unavailable' } }) });
+    const result = await upsertLiveBackup('a', '{}', { expectedRevision: 2, requireSafetyCopy: true });
+    expect(result.error).toMatch(/safety copy/i);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
 });

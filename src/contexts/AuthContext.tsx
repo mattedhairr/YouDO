@@ -30,7 +30,7 @@ interface AuthContextType {
   changePassword: (currentPassword: string, nextPassword: string) => Promise<AuthActionResult>;
   updateCloudBackup: (
     backupData: unknown,
-    options: { expectedRevision: number; expectedUserId?: string },
+    options: { expectedRevision: number; expectedUserId?: string; requireSafetyCopy?: boolean },
   ) => Promise<{ ok: boolean; error?: string }>;
   fetchCloudBackup: () => Promise<string | null>;
   fetchLiveBackupInfo: (expectedUserId?: string) => Promise<{ backupData: string; updatedAt: string; revision: number } | null>;
@@ -171,14 +171,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateCloudBackup = async (
     backupData: unknown,
-    options: { expectedRevision: number; expectedUserId?: string },
+    options: { expectedRevision: number; expectedUserId?: string; requireSafetyCopy?: boolean },
   ): Promise<{ ok: boolean; error?: string }> => {
     try {
       const userId = await currentUserId();
       if (!userId) return { ok: false, error: 'No active user session found. Please sign in again.' };
       if (userId !== (options.expectedUserId ?? user?.id)) return { ok: false, error: 'Account changed. This workspace was not uploaded.' };
       const jsonStr = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
-      return await upsertLiveBackup(userId, jsonStr, { expectedRevision: options.expectedRevision });
+      return await upsertLiveBackup(userId, jsonStr, { expectedRevision: options.expectedRevision, requireSafetyCopy: options.requireSafetyCopy });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown network error';
       console.error('updateCloudBackup failed:', err);

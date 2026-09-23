@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { isAuthRecoveryUrl, resolveAuthRecoveryUrl, resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { authErrorMessage } from '../lib/authError';
+import { parseBackupPayload } from '../lib/backup';
 import { canOpenAccountWorkspace } from '../lib/workspaceAccess';
 import { assertWorkspaceUnchanged, captureWorkspace, commitWorkspaceReplacement, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from '../lib/workspaceReplacement';
 import { useTheme } from '../hooks/useTheme';
@@ -63,6 +64,7 @@ function localBackupPayload() {
     goals: readJson(STORAGE_KEYS.goals, []),
     sessionHistory: readJson(STORAGE_KEYS.sessionHistory, {}),
     recentlyDeletedGoals: readJson(STORAGE_KEYS.deletedGoals, []),
+    deletionLedger: readJson(STORAGE_KEYS.deletionLedger, []),
     streakMeta: readJson(STORAGE_KEYS.streakMeta, null),
     pacePrefs: readJson(STORAGE_KEYS.pacePrefs, null),
   };
@@ -435,8 +437,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     try {
       const payload = empty
         ? { app: 'YouDO', version: APP_VERSION, exportedAt: new Date().toISOString(), updatedAt: Date.now(),
-          tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], streakMeta: null, pacePrefs: null }
+          tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], deletionLedger: [], streakMeta: null, pacePrefs: null }
         : localBackupPayload();
+      if (!parseBackupPayload(JSON.stringify(payload))) {
+        throw new Error('The device workspace is unreadable. Nothing was uploaded; keep app data intact and retry after recovery.');
+      }
       const before = captureWorkspace();
       assertWorkspaceUnchanged(before);
       if (!empty && before[STORAGE_KEYS.workspaceOwner] !== null && before[STORAGE_KEYS.workspaceOwner] !== targetUserId) {
@@ -449,7 +454,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       const remote = await fetchLiveBackupInfo(targetUserId);
       if (currentUserId.current !== targetUserId) return false;
       assertWorkspaceUnchanged(before);
-      const result = await updateCloudBackup(payload, { expectedUserId: targetUserId, expectedRevision: remote?.revision ?? 0 });
+      const result = await updateCloudBackup(payload, { expectedUserId: targetUserId, expectedRevision: remote?.revision ?? 0, requireSafetyCopy: empty });
       if (currentUserId.current !== targetUserId) return false;
       if (!result.ok) throw new Error(result.error || 'Could not secure this workspace.');
       assertWorkspaceUnchanged(before);

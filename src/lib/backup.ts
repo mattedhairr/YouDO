@@ -1,5 +1,6 @@
 import type { GoalKind, GoalNode, Task } from '../types';
 import { uid } from './ids';
+import { isDeletionLedger } from './deletionLedger';
 
 const VALID_KINDS = new Set(['goal', 'node', 'phase', 'section', 'task', 'sub', 'leaf']);
 
@@ -94,6 +95,7 @@ export function parseBackupPayload(jsonData: string): {
   goals: GoalNode[];
   sessionHistory?: unknown;
   recentlyDeletedGoals?: unknown;
+  deletionLedger?: unknown;
   streakMeta?: unknown;
   pacePrefs?: unknown;
   updatedAt?: number;
@@ -111,6 +113,7 @@ export function parseBackupPayload(jsonData: string): {
       if (!history || Object.values(history).some(rows => !Array.isArray(rows))) return null;
     }
     if (obj.recentlyDeletedGoals != null && !Array.isArray(obj.recentlyDeletedGoals)) return null;
+    if (obj.deletionLedger != null && !isDeletionLedger(obj.deletionLedger)) return null;
 
     const rawTasks = Array.isArray(obj.tasks) ? obj.tasks : Array.isArray(obj.t) ? obj.t : [];
     const importedTasks: Task[] = [];
@@ -135,6 +138,7 @@ export function parseBackupPayload(jsonData: string): {
       goals: importedGoals,
       sessionHistory: obj.sessionHistory,
       recentlyDeletedGoals: obj.recentlyDeletedGoals,
+      deletionLedger: obj.deletionLedger,
       streakMeta: obj.streakMeta,
       pacePrefs: obj.pacePrefs,
       updatedAt: updatedAt > 0 ? updatedAt : undefined,
@@ -197,6 +201,7 @@ export function backupContentFingerprint(jsonData: string): string | null {
       goals: obj.goals ?? obj.g ?? [],
       sessionHistory: obj.sessionHistory ?? {},
       recentlyDeletedGoals: obj.recentlyDeletedGoals ?? [],
+      ...(Array.isArray(obj.deletionLedger) && obj.deletionLedger.length ? { deletionLedger: obj.deletionLedger } : {}),
       streakMeta: obj.streakMeta ?? null,
       pacePrefs: obj.pacePrefs ?? null,
     });

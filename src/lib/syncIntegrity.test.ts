@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mergeWorkspace, type WorkspaceSlice } from './syncMerge';
 import { decideSyncAction, isWorkspaceEffectivelyEmpty } from './syncDecision';
 import type { Task } from '../types';
+import { advanceDeletionLedger } from './deletionLedger';
 
 const empty: WorkspaceSlice = { tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [] };
 const task: Task = { id: 'phone-only', title: 'Revision', description: '', priority: 'medium', targetDate: null, deadline: null, steps: [], progress: 0, createdAt: 1, order: 0 };
@@ -78,5 +79,19 @@ describe('conservative workspace combination', () => {
       { ...empty, sessionHistory: { a: [session] } },
       { ...empty, sessionHistory: { b: [{ ...session, taskId: 'b' }] } },
     )).toThrow(/session/i);
+  });
+  it('does not silently resurrect or re-delete a task after it leaves visible trash', () => {
+    const deletionLedger = advanceDeletionLedger([], { tasks: [task], goals: [] }, { tasks: [], goals: [] }, 9);
+    expect(() => mergeWorkspace(
+      { ...empty, deletionLedger, updatedAt: 20 },
+      { ...empty, tasks: [task], updatedAt: 10 },
+    )).toThrow(/deleted.*present/i);
+  });
+  it('pauses when the other device edited a task after it was deleted', () => {
+    const deletionLedger = advanceDeletionLedger([], { tasks: [task], goals: [] }, { tasks: [], goals: [] }, 9);
+    expect(() => mergeWorkspace(
+      { ...empty, deletionLedger, updatedAt: 20 },
+      { ...empty, tasks: [{ ...task, title: 'New version' }], updatedAt: 10 },
+    )).toThrow(/deleted.*edited/i);
   });
 });

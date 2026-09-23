@@ -14,6 +14,7 @@ export type SyncDecision =
 export function isWorkspaceEffectivelyEmpty(slice: WorkspaceSlice): boolean {
   return slice.tasks.length === 0 && slice.goals.length === 0
     && slice.recentlyDeletedGoals.length === 0
+    && (slice.deletionLedger?.length ?? 0) === 0
     && Object.values(slice.sessionHistory).every(rows => rows.length === 0);
 }
 
