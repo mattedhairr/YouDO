@@ -92,15 +92,21 @@ describe('account-owned local workspace', () => {
     window.removeEventListener(REQUEST_ACCOUNT_ACCESS_EVENT, listener);
   });
 
+  it('treats a completed timer saved as JSON null as an empty timer', () => {
+    localStorage.setItem(STORAGE_KEYS.activeSession, 'null');
+    expect(readLocalWorkspaceSummary().activeSession).toBe(false);
+    expect(readLocalWorkspaceSummary().hasData).toBe(false);
+  });
+
   it('does not misclassify corrupted private data as an empty workspace', () => {
     localStorage.setItem(STORAGE_KEYS.tasks, '{broken');
-    expect(() => readLocalWorkspaceSummary()).toThrow('workspace');
-    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.tasks, [], Array.isArray)).toThrow('workspace');
+    expect(() => readLocalWorkspaceSummary()).toThrow('Today tasks');
+    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.tasks, [], Array.isArray)).toThrow('Today tasks');
   });
 
   it('rejects the wrong saved collection shape during hydration', () => {
     localStorage.setItem(STORAGE_KEYS.goals, '{}');
-    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.goals, [], Array.isArray)).toThrow('workspace');
+    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.goals, [], Array.isArray)).toThrow('Goals');
   });
 
   it('reads a legacy key without deleting it before a durable save', () => {
@@ -131,7 +137,7 @@ describe('account-owned local workspace', () => {
     expect(isStoredSessionHistory({ task: [{}] })).toBe(true);
     expect(isStoredSessionHistory({ task: {} })).toBe(false);
     localStorage.setItem(STORAGE_KEYS.goals, '[{"id":"g","title":"Goal","children":[null]}]');
-    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.goals, [], isStoredGoalTree)).toThrow('workspace');
+    expect(() => readWorkspaceJsonStrict(STORAGE_KEYS.goals, [], isStoredGoalTree)).toThrow('Goals');
   });
 
   it('does not interpret inaccessible sync metadata as an empty cloud base', () => {

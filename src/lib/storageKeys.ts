@@ -129,18 +129,21 @@ export function readWorkspaceJsonStrict<T>(key: string, initial: T, validate: (v
     if (!validate(parsed)) throw new Error('Invalid saved shape');
     return parsed as T;
   } catch {
-    throw new Error('Saved YouDO workspace data cannot be read safely. Do not clear app data or reinstall; retry after checking device storage.');
+    const collection = ({
+      [STORAGE_KEYS.tasks]: 'Today tasks',
+      [STORAGE_KEYS.goals]: 'Goals',
+      [STORAGE_KEYS.deletedGoals]: 'Recently Deleted goals',
+      [STORAGE_KEYS.sessionHistory]: 'focus history',
+      [STORAGE_KEYS.activeSession]: 'active session',
+      [STORAGE_KEYS.streakMeta]: 'streak settings',
+      [STORAGE_KEYS.pacePrefs]: 'pace settings',
+    } as Record<string, string>)[key] ?? 'workspace';
+    throw new Error(`Saved YouDO ${collection} data cannot be read safely. Do not clear app data or reinstall; retry after checking device storage.`);
   }
 }
 
 function readArrayCount(key: string): number {
   return readWorkspaceJsonStrict<unknown[]>(key, [], Array.isArray).length;
-}
-
-function readObjectCount(key: string): number {
-  const record = readWorkspaceJsonStrict<Record<string, unknown>>(key, {},
-    value => value !== null && typeof value === 'object' && !Array.isArray(value));
-  return Object.keys(record).length;
 }
 
 export interface LocalWorkspaceSummary {
@@ -159,7 +162,10 @@ export function readLocalWorkspaceSummary(): LocalWorkspaceSummary {
       && Object.values(value).every(Array.isArray));
   const sessions = Object.values(history).reduce<number>((total, rows) => total + (rows as unknown[]).length, 0);
   const deleted = readArrayCount(STORAGE_KEYS.deletedGoals);
-  const activeSession = readObjectCount(STORAGE_KEYS.activeSession) > 0;
+  // Clearing a timer intentionally writes JSON `null`; it is not corruption.
+  const savedTimer = readWorkspaceJsonStrict<Record<string, unknown> | null>(STORAGE_KEYS.activeSession, null,
+    value => value === null || (typeof value === 'object' && !Array.isArray(value)));
+  const activeSession = savedTimer !== null && Object.keys(savedTimer).length > 0;
   return { tasks, goals, sessions, activeSession, hasData: tasks + goals + sessions + deleted > 0 || activeSession };
 }
 
