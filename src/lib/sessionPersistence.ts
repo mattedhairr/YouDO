@@ -1,7 +1,7 @@
 import type { ActiveSession, TaskSession } from '../types';
 import { STORAGE_KEYS } from './storageKeys';
 
-function parseSavedSession(raw: string | null): ActiveSession | null {
+export function parseSavedSession(raw: string | null): ActiveSession | null {
   if (raw === null || raw === 'null') return null;
   const fail = () => { throw new Error('The saved timer is unreadable. Your data has not been erased; export a backup before seeking help.'); };
   let value: ActiveSession;
@@ -10,9 +10,12 @@ function parseSavedSession(raw: string | null): ActiveSession | null {
     || !Number.isFinite(value.startTime) || value.startTime <= 0
     || !Number.isFinite(value.pausedDuration) || value.pausedDuration < 0
     || typeof value.isPaused !== 'boolean' || !Number.isFinite(value.lastHeartbeat)
+    || (value.pauseStart !== undefined && !Number.isFinite(value.pauseStart))
     || !Array.isArray(value.pauses) || value.pauses.some(pause => !pause || !Number.isFinite(pause.start)
       || (pause.end !== undefined && !Number.isFinite(pause.end)))
-    || (value.returnedAt !== undefined && !Number.isFinite(value.returnedAt))) return fail();
+    || (value.returnedAt !== undefined && !Number.isFinite(value.returnedAt))
+    || (value.nativeActionRevision !== undefined && (!Number.isSafeInteger(value.nativeActionRevision)
+      || value.nativeActionRevision < 0))) return fail();
   return value;
 }
 
@@ -68,5 +71,8 @@ export function selectNativeSession(current: ActiveSession | null, incoming: Act
   if (!Number.isFinite(incoming.lastHeartbeat) || nativeSessionIsFinished(incoming, history)) return current;
   if (!current) return incoming;
   if (current.taskId !== incoming.taskId || current.startTime !== incoming.startTime) return current;
+  const currentRevision = current.nativeActionRevision ?? 0;
+  const incomingRevision = incoming.nativeActionRevision ?? 0;
+  if (incomingRevision !== currentRevision) return incomingRevision > currentRevision ? incoming : current;
   return incoming.lastHeartbeat > current.lastHeartbeat ? incoming : current;
 }

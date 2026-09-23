@@ -102,4 +102,6 @@ export interface ActiveSession {
   wallClockStart: string;        // "8:12 AM"
   /** Set when user resumes an interrupted session; 4h auto-pause is measured from this, not phone-off time */
   returnedAt?: number;
+  /** Android notification actions advance this so an older WebView snapshot cannot undo them. */
+  nativeActionRevision?: number;
 }

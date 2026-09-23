@@ -17,6 +17,17 @@ describe('focus persistence safeguards', () => {
     const paused={...active,isPaused:true,pauseStart:active.startTime+60_000,lastHeartbeat:active.startTime+60_000};
     expect(selectNativeSession(active,paused,{})).toBe(paused);
   });
+  it('keeps a notification pause despite a newer stale WebView heartbeat',()=>{
+    const paused={...active,isPaused:true,pauseStart:active.startTime+60_000,lastHeartbeat:active.startTime+60_000,nativeActionRevision:1};
+    const staleWeb={...active,lastHeartbeat:active.startTime+90_000};
+    expect(selectNativeSession(staleWeb,paused,{})).toBe(paused);
+    expect(selectNativeSession(paused,staleWeb,{})).toBe(paused);
+  });
+  it('accepts the latest notification action when wall time moves backward',()=>{
+    const older={...active,lastHeartbeat:active.startTime+60_000,nativeActionRevision:1};
+    const resumed={...active,lastHeartbeat:active.startTime+30_000,nativeActionRevision:2};
+    expect(selectNativeSession(older,resumed,{})).toBe(resumed);
+  });
   it('never revives a recorded sitting or displaces a different active sitting',()=>{
     expect(selectNativeSession(null,active,{'dpp-1':[session]})).toBeNull();
     const other={...active,taskId:'another'};

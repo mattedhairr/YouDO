@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActiveSession } from '../types';
-import { computeNetFocusMs, finalizeSession, lastResumeAt, MAX_CONTINUOUS_FOCUS_MS, pauseOverlapMs, resolvePersistEndAt, sanitizeSession, shouldOfferSessionRecovery, splitSessionByLocalDate, tickActiveSession } from './sessionStats';
+import { computeNetFocusMs, finalizeSession, lastResumeAt, MAX_CONTINUOUS_FOCUS_MS, pauseActiveSession, pauseOverlapMs, resolvePersistEndAt, resumeActiveSession, sanitizeSession, shouldOfferSessionRecovery, splitSessionByLocalDate, tickActiveSession } from './sessionStats';
 
 const minute = 60_000;
 const start = new Date(2026, 8, 14, 20).getTime();
@@ -22,6 +22,24 @@ describe('session integrity at lifecycle boundaries', () => {
     expect(next.isPaused).toBe(true);
     expect(next.pauseStart).toBe(start + MAX_CONTINUOUS_FOCUS_MS);
     expect(computeNetFocusMs(next, start + 6 * 60 * minute)).toBe(MAX_CONTINUOUS_FOCUS_MS);
+  });
+  it('caps a late manual pause at four hours, including after a closed app', () => {
+    const paused = pauseActiveSession(running, start + 8 * 60 * minute);
+    expect(paused.pauseStart).toBe(start + MAX_CONTINUOUS_FOCUS_MS);
+    expect(paused.pauses).toHaveLength(1);
+    expect(finalizeSession(paused, start + 8 * 60 * minute, { completed: false })?.netFocusMs).toBe(MAX_CONTINUOUS_FOCUS_MS);
+  });
+  it('keeps an overnight explicit pause out of focus time', () => {
+    const paused = pauseActiveSession(running, start + 30 * minute);
+    const resumed = resumeActiveSession(paused, start + 10 * 60 * minute);
+    expect(resumed.isPaused).toBe(false);
+    expect(computeNetFocusMs(resumed, start + 11 * 60 * minute)).toBe(90 * minute);
+  });
+  it('refuses a backward-clock pause or resume without negative duration', () => {
+    const paused = pauseActiveSession(running, start + minute);
+    expect(pauseActiveSession(running, start - minute)).toBe(running);
+    expect(resumeActiveSession(paused, start - minute)).toBe(paused);
+    expect(paused.pausedDuration).toBe(0);
   });
   it('bounds reconstruction by the same safety rule as ordinary stopping', () => {
     expect(resolvePersistEndAt(running, start + 8 * 60 * minute, { userEnd: start + 7 * 60 * minute })).toBe(start + MAX_CONTINUOUS_FOCUS_MS);

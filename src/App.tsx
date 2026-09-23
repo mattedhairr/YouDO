@@ -150,6 +150,7 @@ function AppInner() {
   const {
     activeSession,
     sessionStorageError,
+    nativeSessionReady,
     startSession,
     pauseSession,
     resumeSession,
@@ -193,7 +194,7 @@ function AppInner() {
   const [briefingOpen, setBriefingOpen] = useState(false);
   const briefingPromptedRef = useRef(false);
   /** Opaque hold while a stored session waits for the recovery check (avoids Today flash). */
-  const [sessionBootHold, setSessionBootHold] = useState(() => Boolean(activeSession));
+  const [sessionBootHold, setSessionBootHold] = useState(() => Boolean(activeSession) || !nativeSessionReady);
   const [cloudHint, setCloudHint] = useState<string | null>(null);
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
   const [reconstructOpen, setReconstructOpen] = useState(false);
@@ -480,6 +481,7 @@ function AppInner() {
   // If a sitting is already paused, skip recovery — the user paused on purpose.
   // If a running sitting is stale, show recovery immediately (do not wait on the clock check).
   useLayoutEffect(() => {
+    if (!nativeSessionReady) return;
     if (briefingPromptedRef.current) return;
     if (!hasSeenHelp || helpOpen) return;
     if (recoverySessionPrompt || reconstructOpen) return;
@@ -507,9 +509,10 @@ function AppInner() {
 
     briefingPromptedRef.current = true;
     setSessionBootHold(false);
-  }, [hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt, reconstructOpen]);
+  }, [nativeSessionReady, hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt, reconstructOpen]);
 
   useEffect(() => {
+    if (!nativeSessionReady) return;
     if (!activeSession) {
       setSessionBootHold(false);
       return;
@@ -543,7 +546,7 @@ function AppInner() {
     return () => document.removeEventListener('visibilitychange', offerRecoveryIfStale);
     // Heartbeat mutates activeSession; taskId is the sitting identity we care about.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clockReady, clockBlocked, activeSession?.taskId, activeSession?.isPaused, hasSeenHelp, helpOpen]);
+  }, [nativeSessionReady, clockReady, clockBlocked, activeSession?.taskId, activeSession?.isPaused, hasSeenHelp, helpOpen]);
 
   useEffect(() => {
     if (!clockBlocked) return;
@@ -551,14 +554,14 @@ function AppInner() {
     setRecoverySessionPrompt(false);
     setReconstructOpen(false);
     setStopDialogTask(null);
-    setSessionBootHold(false);
-  }, [clockBlocked]);
+    if (nativeSessionReady) setSessionBootHold(false);
+  }, [clockBlocked, nativeSessionReady]);
 
   useEffect(() => {
     if (!activeSession?.isPaused) return;
     setRecoverySessionPrompt(false);
-    setSessionBootHold(false);
-  }, [activeSession?.isPaused]);
+    if (nativeSessionReady) setSessionBootHold(false);
+  }, [activeSession?.isPaused, nativeSessionReady]);
 
   useEffect(() => {
     const initStatusBar = async () => {

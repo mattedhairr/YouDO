@@ -25,7 +25,7 @@ The existing four-hour continuous-session safeguard remains. Foreground ticking 
 
 A wall/monotonic-clock discrepancy requests verification; it is not immediately stored as an incident. Fresh server requests bypass caches. Two consistent skewed samples are required before a mismatch is returned. A confirmed incident preserves the pre-jump sample when available; a heartbeat recorded while checking must not become the trusted boundary. Successful checks clear stale incidents. “Continue anyway” explicitly clears the incident; it is a user override, not server verification.
 
-The Android notification snapshot is accepted only when it belongs to the same sitting and has a newer heartbeat than the device journal, or when recovering an otherwise absent unfinished sitting. A finished sitting cannot be revived by notification replay.
+Android startup reads its saved notification action before sending the WebView timer back to native storage. A native action revision takes precedence over an older WebView snapshot of the same sitting; matching revisions use the newer heartbeat. Native storage refuses a stale snapshot and writes actions synchronously. An unreadable or unwritable native snapshot leaves the saved copy intact and pauses timer controls with a visible warning. A finished sitting cannot be revived by notification replay. Notification Pause follows the same four-hour continuous-focus cap as foreground Pause; native actions refuse a backward clock or a wall/elapsed-time discrepancy above three minutes. Changing timezone alone does not change epoch milliseconds or add focus time.
 
 ## Planning behavior
 
@@ -54,7 +54,7 @@ An explicit empty-workspace overwrite requires a fresh cloud safety copy before 
 - Extend device-persistence verification beyond the completed save/restart and install-over gate to real process termination and constrained-storage scenarios when practical. Fault-injection tests cover quota and rollback without filling the user's phone.
 - Extend the completed two-browser conflict checks to physical devices and additional recovery paths when practical.
 - The device checkpoint does not span local storage and the hosted database. If a cloud upload succeeds but saving the local sync fingerprint fails, the app reports a partial-sync state and requires review on retry.
-- Physical Android tests for termination, notification actions, background safety caps, clock changes, keyboard resizing, and install-over behavior. Native wall-clock ordering is not a monotonic event journal.
+- Physical Android tests for termination, notification actions, background safety caps, clock and timezone changes, and install-over behavior. Native wall-clock ordering remains a guarded snapshot, not a monotonic event journal.
 - Simultaneous browser-tab writers. The timer and replacement compare-before-write checks detect stale copies but are not atomic cross-process locks. Pending replacement events close other gates; that does not make older clients or uncoordinated writes transactional.
 - Hosted authentication/RLS and backward-compatible migration checks; public totals remain forgeable by a modified client.
 - Finish account-switch review for profile edits, password-recovery completion, and account deletion, not just Settings credential changes and backup operations.

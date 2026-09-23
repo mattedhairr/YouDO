@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { PluginListenerHandle } from '@capacitor/core';
 import type { ActiveSession } from '../types';
+import { parseSavedSession } from './sessionPersistence';
 
 interface YouDoSessionNotificationPlugin {
   sync(options: { paused: boolean; title: string; sessionJson: string }): Promise<void>;
@@ -33,30 +34,31 @@ function native(): boolean {
 export async function syncSessionNotification(
   session: ActiveSession | null,
   taskTitle?: string,
-): Promise<void> {
-  if (!native()) return;
+): Promise<boolean> {
+  if (!native()) return true;
   try {
     if (!session) {
       await YouDoSessionNotification.clear();
-      return;
+      return true;
     }
     await YouDoSessionNotification.sync({
       paused: session.isPaused,
       title: taskTitle?.trim() || 'Sitting in progress',
       sessionJson: JSON.stringify(session),
     });
+    return true;
   } catch {
-    /* ignore */
+    return false;
   }
 }
 
-export async function pullNativeSession(): Promise<ActiveSession | null> {
-  if (!native()) return null;
+export async function pullNativeSession(): Promise<{ ok: boolean; session: ActiveSession | null }> {
+  if (!native()) return { ok: true, session: null };
   try {
     const result = await YouDoSessionNotification.getSession();
-    return result.session ?? null;
+    return { ok: true, session: parseSavedSession(result.session ? JSON.stringify(result.session) : null) };
   } catch {
-    return null;
+    return { ok: false, session: null };
   }
 }
 

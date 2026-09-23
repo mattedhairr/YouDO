@@ -98,6 +98,38 @@ export function tickActiveSession(session: ActiveSession, now: number): ActiveSe
   return { ...session, lastHeartbeat: now };
 }
 
+export function pauseActiveSession(session: ActiveSession, now: number): ActiveSession {
+  if (session.isPaused || !Number.isFinite(now) || now < session.lastHeartbeat) return session;
+  const bounded = tickActiveSession(session, now);
+  if (bounded.isPaused) return bounded;
+  return {
+    ...bounded,
+    isPaused: true,
+    pauseStart: now,
+    lastHeartbeat: now,
+    pauses: [...bounded.pauses, { start: now, wallClockStart: formatWallClock(now) }],
+  };
+}
+
+export function resumeActiveSession(session: ActiveSession, now: number): ActiveSession {
+  if (!session.isPaused || !Number.isFinite(now) || now < session.lastHeartbeat) return session;
+  const pauseStart = session.pauseStart ?? session.pauses[session.pauses.length - 1]?.start;
+  if (pauseStart == null || now < pauseStart) return session;
+  const pauseDuration = now - pauseStart;
+  return {
+    ...session,
+    isPaused: false,
+    pauseStart: undefined,
+    pausedDuration: session.pausedDuration + pauseDuration,
+    lastHeartbeat: now,
+    pauses: session.pauses.map((p, i) =>
+      i === session.pauses.length - 1
+        ? { ...p, end: now, wallClockEnd: formatWallClock(now), durationMs: now - p.start }
+        : p,
+    ),
+  };
+}
+
 /**
  * Phone aside / screen off — keep counting.
  * If the sitting was already paused, stay paused (away time stays pause, not focus).

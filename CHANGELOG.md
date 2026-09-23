@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.7] — 2026-09-23 — Focus sitting recovery (candidate)
+
+- **Android sitting recovery** — A notification Pause or Resume made while YouDO is closed is read before the app sends another timer snapshot. Older snapshots cannot undo that action.
+- **Timer safeguards** — A late Pause respects the four-hour continuous-focus limit. Backward clock changes and mismatched native clock samples cannot create a negative pause interval.
+- **Preserved recovery copy** — If the Android timer snapshot cannot be read or written, YouDO keeps the saved copy and pauses timer controls with a visible warning.
+- **Android APK** — versionName **7.5.7**, versionCode **48**. Prepared to install over published **v7.5.3** or unpublished **v7.5.6** with the same package ID and signing key. Physical Android install-over and lifecycle checks are pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
 ## [v7.5.6] — 2026-09-23 — Safer cloud reconciliation (candidate)
 
 - **Cloud write protection** — Another device's newer backup can no longer be silently overwritten by an older copy.
