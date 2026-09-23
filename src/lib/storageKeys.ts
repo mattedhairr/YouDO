@@ -1,7 +1,10 @@
+import { isDeletionLedger } from './deletionLedger';
+
 export const STORAGE_KEYS = {
   tasks: 'youdo-tasks-v3',
   goals: 'youdo-goals-v3',
   deletedGoals: 'youdo-deleted-goals-v1',
+  deletionLedger: 'youdo-deletion-ledger-v1',
   activeSession: 'youdo-active-session-v1',
   sessionHistory: 'youdo-session-history-v1',
   theme: 'youdo-theme-v4',
@@ -15,6 +18,7 @@ export const STORAGE_KEYS = {
   paceRankSnapshot: 'youdo-pace-rank-snapshot-v1',
   workspaceUpdatedAt: 'youdo-workspace-updated-at-v1',
   workspaceCloudFingerprint: 'youdo-workspace-cloud-fingerprint-v1',
+  workspaceSyncConflict: 'youdo-workspace-sync-conflict-v1',
   workspaceOwner: 'youdo-workspace-owner-v1',
   workspaceReplacement: 'youdo-workspace-replacement-v1',
   offlineMode: 'youdo-offline-mode-v1',
@@ -26,6 +30,7 @@ export const WORKSPACE_KEYS = [
   STORAGE_KEYS.tasks,
   STORAGE_KEYS.goals,
   STORAGE_KEYS.deletedGoals,
+  STORAGE_KEYS.deletionLedger,
   STORAGE_KEYS.activeSession,
   STORAGE_KEYS.sessionHistory,
   STORAGE_KEYS.streakMeta,
@@ -33,6 +38,7 @@ export const WORKSPACE_KEYS = [
   STORAGE_KEYS.paceRankSnapshot,
   STORAGE_KEYS.workspaceUpdatedAt,
   STORAGE_KEYS.workspaceCloudFingerprint,
+  STORAGE_KEYS.workspaceSyncConflict,
   STORAGE_KEYS.goalPathIds,
 ] as const;
 
@@ -162,11 +168,12 @@ export function readLocalWorkspaceSummary(): LocalWorkspaceSummary {
       && Object.values(value).every(Array.isArray));
   const sessions = Object.values(history).reduce<number>((total, rows) => total + (rows as unknown[]).length, 0);
   const deleted = readArrayCount(STORAGE_KEYS.deletedGoals);
+  const durableDeletions = readWorkspaceJsonStrict(STORAGE_KEYS.deletionLedger, [], isDeletionLedger).length;
   // Clearing a timer intentionally writes JSON `null`; it is not corruption.
   const savedTimer = readWorkspaceJsonStrict<Record<string, unknown> | null>(STORAGE_KEYS.activeSession, null,
     value => value === null || (typeof value === 'object' && !Array.isArray(value)));
   const activeSession = savedTimer !== null && Object.keys(savedTimer).length > 0;
-  return { tasks, goals, sessions, activeSession, hasData: tasks + goals + sessions + deleted > 0 || activeSession };
+  return { tasks, goals, sessions, activeSession, hasData: tasks + goals + sessions + deleted + durableDeletions > 0 || activeSession };
 }
 
 export function readWorkspaceOwner(): string | null {

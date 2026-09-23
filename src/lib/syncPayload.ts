@@ -3,6 +3,7 @@ import { sanitizeStreakMeta } from './focusTrends';
 import { sanitizePacePrefs } from './paceBoard';
 import { sanitizeSessionHistory } from './sessionStats';
 import { workspaceFingerprint, type TrashRecord, type WorkspaceSlice } from './syncMerge';
+import { isDeletionLedger, sortDeletionLedger } from './deletionLedger';
 
 /**
  * Cloud JSON is normalized while it is read. Fingerprint the device through the
@@ -14,6 +15,7 @@ export function canonicalWorkspaceSlice(slice: WorkspaceSlice, todayISO: string)
     goals: slice.goals,
     sessionHistory: slice.sessionHistory,
     recentlyDeletedGoals: slice.recentlyDeletedGoals,
+    deletionLedger: slice.deletionLedger ?? [],
     streakMeta: slice.streakMeta,
     pacePrefs: slice.pacePrefs,
     updatedAt: slice.updatedAt,
@@ -27,6 +29,7 @@ export function canonicalWorkspaceSlice(slice: WorkspaceSlice, todayISO: string)
     recentlyDeletedGoals: Array.isArray(parsed.recentlyDeletedGoals)
       ? (parsed.recentlyDeletedGoals as TrashRecord[])
       : [],
+    deletionLedger: isDeletionLedger(parsed.deletionLedger) ? sortDeletionLedger(parsed.deletionLedger) : [],
     streakMeta: sanitizeStreakMeta(parsed.streakMeta, todayISO),
     pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
     updatedAt: parsed.updatedAt ?? 0,

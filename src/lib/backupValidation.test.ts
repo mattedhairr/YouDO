@@ -14,7 +14,7 @@ describe('replacement backup validation', () => {
     expect(parseBackupPayload(JSON.stringify({ tasks: [], goals: [{ title: 'Exam', children: [{ id: 'lost' }] }] }))).toBeNull();
     expect(parseBackupPayload(JSON.stringify({ tasks: [], goals: [{ title: 'Exam', children: 'damaged' }] }))).toBeNull();
   });
-  it.each([{ sessionHistory: [] }, { sessionHistory: { task: 'damaged' } }, { recentlyDeletedGoals: {} }])(
+  it.each([{ sessionHistory: [] }, { sessionHistory: { task: 'damaged' } }, { recentlyDeletedGoals: {} }, { deletionLedger: [{ kind: 'task', id: '', contentFingerprint: '', deletedAt: -1 }] }])(
     'refuses an invalid history or trash container: %j', extra => {
       expect(parseBackupPayload(JSON.stringify({ tasks: [], goals: [], ...extra }))).toBeNull();
     },

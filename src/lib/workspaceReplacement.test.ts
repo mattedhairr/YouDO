@@ -106,6 +106,13 @@ describe('ordinary workspace mutations', () => {
     expect(storage.getItem(K.goals)).toContain('new-goal');
     expect(storage.getItem(K.workspaceReplacement)).toBeNull();
   });
+  it('clears a conflict record with its successful sync fingerprint', () => {
+    const storage = new FaultStorage();
+    storage.setItem(K.workspaceSyncConflict, '{"accountId":"old-account"}');
+    commitWorkspaceMutation({ [K.workspaceCloudFingerprint]: 'remote-revision-4', [K.workspaceSyncConflict]: null }, storage);
+    expect(storage.getItem(K.workspaceCloudFingerprint)).toBe('remote-revision-4');
+    expect(storage.getItem(K.workspaceSyncConflict)).toBeNull();
+  });
   it('retires a legacy alias only after its canonical copy is protected', () => {
     const storage = new FaultStorage();
     commitWorkspaceMutation({ [K.tasks]: '[{"id":"new"}]', 'tudo-tasks-v3': null }, storage);
@@ -123,6 +130,12 @@ describe('ordinary workspace mutations', () => {
     const storage = new FaultStorage(); const before = new Map(storage.values); let failed = false;
     storage.fault = key => { if (key === K.goals && !failed) { failed = true; return true; } return false; };
     expect(() => commitWorkspaceMutation({ [K.tasks]: '[]', [K.goals]: '[{"id":"new"}]' }, storage)).toThrow('restored');
+    expect(storage.values).toEqual(before);
+  });
+  it('does not leave a deleted task without its deletion marker after a failed write', () => {
+    const storage = new FaultStorage(); const before = new Map(storage.values); let failed = false;
+    storage.fault = key => { if (key === K.deletionLedger && !failed) { failed = true; return true; } return false; };
+    expect(() => commitWorkspaceMutation({ [K.tasks]: '[]', [K.deletionLedger]: '[{"kind":"task","id":"old","contentFingerprint":"1:00000000000000aa","deletedAt":4}]' }, storage)).toThrow('restored');
     expect(storage.values).toEqual(before);
   });
   it('keeps the checkpoint if rollback fails and recovers it on restart', () => {
@@ -158,8 +171,14 @@ describe('Settings backup preparation', () => {
   });
   it('replaces omitted optional collections with clean defaults, not old-account state', () => {
     const imported = prepareSettingsImport('{"tasks":[],"goals":[]}');
-    expect(imported).toMatchObject({ tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [] });
+    expect(imported).toMatchObject({ tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], deletionLedger: [] });
     expect(imported?.streakMeta).toBeTruthy();
     expect(imported?.pacePrefs).toBeTruthy();
+  });
+  it('carries deletion evidence through account-bound cloud replacement', () => {
+    const deletionLedger = [{ kind: 'task', id: 'old', contentFingerprint: '1:00000000000000aa', deletedAt: 4 }];
+    const next = prepareWorkspaceReplacement(JSON.stringify({ tasks: [], goals: [], deletionLedger }), 'new-account');
+    expect(JSON.parse(next[K.deletionLedger]!)).toEqual(deletionLedger);
+    expect(next[K.workspaceOwner]).toBe('new-account');
   });
 });

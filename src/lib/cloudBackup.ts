@@ -32,12 +32,12 @@ async function pruneVisitSnapshots(userId: string): Promise<void> {
   await supabase.from('user_backup_snapshots').delete().in('id', extraIds);
 }
 
-/** Once per app visit: freeze the current live cloud row. Never blocks the live write. */
-export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
+/** Ordinary writes freeze once per visit; destructive writes require a fresh confirmed safety copy. */
+export async function freezeLiveBackupForVisit(userId: string, force = false): Promise<boolean> {
   if (!freezeState || freezeState.userId !== userId) {
     freezeState = { userId, done: false };
   }
-  if (freezeState.done) return;
+  if (freezeState.done && !force) return true;
   const visit = freezeState;
 
   const { data: live, error: liveErr } = await supabase
@@ -46,10 +46,10 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (liveErr) return;
+  if (liveErr) return false;
   if (!live?.backup_data) {
     visit.done = true;
-    return;
+    return true;
   }
 
   const { data: latest } = await supabase
@@ -64,7 +64,7 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
   const liveFingerprint = backupContentFingerprint(live.backup_data);
   if (latestFingerprint && liveFingerprint && latestFingerprint === liveFingerprint) {
     visit.done = true;
-    return;
+    return true;
   }
 
   const { error: insertErr } = await supabase.from('user_backup_snapshots').insert({
@@ -78,10 +78,11 @@ export async function freezeLiveBackupForVisit(userId: string): Promise<void> {
       console.warn('[YouDO] user_backup_snapshots table not found — visit snapshots unavailable.');
       visit.done = true;
     }
-    return;
+    return false;
   }
   await pruneVisitSnapshots(userId);
   visit.done = true;
+  return true;
 }
 
 const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
@@ -89,8 +90,8 @@ const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
 export async function upsertLiveBackup(
   userId: string,
   jsonStr: string,
-  options?: { expectedUpdatedAt?: string | null },
-): Promise<{ ok: boolean; error?: string }> {
+  options: { expectedRevision: number; requireSafetyCopy?: boolean },
+): Promise<{ ok: boolean; revision?: number; updatedAt?: string; error?: string }> {
   const bytes = new TextEncoder().encode(jsonStr).byteLength;
   if (bytes > MAX_BACKUP_BYTES) {
     return {
@@ -104,48 +105,26 @@ export async function upsertLiveBackup(
     return !error && data.session?.user.id === userId;
   };
   if (!await matchesAccount()) return { ok: false, error: 'Account changed. Sync stopped before uploading this workspace.' };
-  await freezeLiveBackupForVisit(userId);
+  const frozen = await freezeLiveBackupForVisit(userId, options.requireSafetyCopy);
+  if (!frozen && options.requireSafetyCopy) return { ok: false, error: 'Could not save a cloud safety copy. Nothing was overwritten; reconnect and retry.' };
   if (!await matchesAccount()) return { ok: false, error: 'Account changed. Sync stopped before uploading this workspace.' };
-  const now = new Date().toISOString();
-  if (options && 'expectedUpdatedAt' in options) {
-    if (options.expectedUpdatedAt) {
-      const { data, error } = await supabase
-        .from('user_backups')
-        .update({ backup_data: jsonStr, updated_at: now })
-        .eq('user_id', userId)
-        .eq('updated_at', options.expectedUpdatedAt)
-        .select('updated_at');
-      if (error) return { ok: false, error: error.message || 'Database update failed' };
-      if (!data || data.length !== 1) {
-        return { ok: false, error: 'Cloud changed on another device. Nothing was overwritten; sync again to review it.' };
-      }
-      return { ok: true };
-    }
-    const { error } = await supabase.from('user_backups').insert({
-      user_id: userId,
-      backup_data: jsonStr,
-      updated_at: now,
-    });
-    if (error) {
-      const raced = /duplicate|unique/i.test(error.message);
-      return {
-        ok: false,
-        error: raced
-          ? 'Cloud was created on another device. Nothing was overwritten; sync again to review it.'
-          : error.message || 'Database update failed',
-      };
-    }
-    return { ok: true };
+  if (!Number.isSafeInteger(options.expectedRevision) || options.expectedRevision < 0) {
+    return { ok: false, error: 'Cloud revision is invalid. Nothing was uploaded.' };
   }
-  const { error } = await supabase.from('user_backups').upsert(
-    { user_id: userId, backup_data: jsonStr, updated_at: now },
-    { onConflict: 'user_id' },
-  );
+  const { data, error } = await supabase.rpc('cas_user_backup', {
+    p_expected_revision: options.expectedRevision,
+    p_backup_data: jsonStr,
+  });
   if (error) {
-    console.error('upsertLiveBackup:', error);
-    return { ok: false, error: error.message || 'Database update failed' };
+    const migrationMissing = error.code === 'PGRST202' || error.code === '42883'
+      || /could not find the function|does not exist/i.test(error.message);
+    return { ok: false, error: migrationMissing
+      ? 'Cloud revision migration is not applied yet. This device copy was preserved; ask the maintainer to apply it before syncing.'
+      : error.message || 'Database update failed' };
   }
-  return { ok: true };
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return { ok: false, error: 'Cloud changed on another device. Nothing was overwritten; sync again to review it.' };
+  return { ok: true, revision: row.new_revision as number, updatedAt: row.new_updated_at as string };
 }
 
 export async function fetchBackupData(userId: string): Promise<string | null> {
@@ -187,16 +166,19 @@ export async function fetchVisitSnapshotData(userId: string, snapshotId: string)
 
 export async function fetchLiveBackupMeta(
   userId: string,
-): Promise<{ backupData: string; updatedAt: string } | null> {
+): Promise<{ backupData: string; updatedAt: string; revision: number } | null> {
   const { data, error } = await supabase
     .from('user_backups')
-    .select('backup_data, updated_at')
+    .select('backup_data, updated_at, revision')
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error) throw new Error('Could not read the cloud backup. Reconnect and try again; the device copy was preserved.');
+  if (error) throw new Error(/revision|column .* does not exist/i.test(error.message)
+    ? 'Cloud revision migration is not applied yet. Your device copy was preserved.'
+    : 'Could not read the cloud backup. Reconnect and try again; the device copy was preserved.');
   if (!data?.backup_data) return null;
-  return { backupData: data.backup_data as string, updatedAt: data.updated_at as string };
+  if (!Number.isSafeInteger(data.revision) || data.revision < 1) throw new Error('Cloud revision is unreadable. Your device copy was preserved.');
+  return { backupData: data.backup_data as string, updatedAt: data.updated_at as string, revision: data.revision as number };
 }
 
 export function visitSnapshotLabel(indexFromNewest: number): string {

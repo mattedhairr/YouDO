@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.6] — 2026-09-23 — Safer cloud reconciliation (candidate)
+
+- **Cloud write protection** — Another device's newer backup can no longer be silently overwritten by an older copy.
+- **Review conflicting work** — When two copies disagree about goals, tasks, or deletions, YouDO preserves them and asks for an explicit choice instead of guessing.
+- **Account-bound recovery** — Conflict details remain available after reopening YouDO without appearing in another account's workspace.
+- **Android APK** — versionName **7.5.6**, versionCode **47**. Designed to install over the published **v7.5.3** or unpublished **v7.5.5** candidate with the same package ID and signing key; an install-over check passed without clearing device data. Apply `cloud_backup_revisions.sql` before installing; the hosted migration was applied on 2026-09-23. Offline conflict and two-device deletion/restore checks passed with the disposable Tester account. This is not a published release.
+
+---
+
 ## [v7.5.5] — 2026-09-23 — Safer device saves
 
 - **Recoverable workspace saves** — Goals, Today, and related local changes now save under a device checkpoint; a failed write restores the previous copy instead of leaving a mixture.
