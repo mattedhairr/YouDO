@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.3] — 2026-09-23 — More control over exam communities
+
+- **Your exam hashtag is optional** — Remove it anytime from Public Board settings and keep using General Chat, which shows messages from everyone. Exam chats show messages from members using that hashtag.
+- **Clearer locked chats** — Tapping an exam chat without a selected hashtag explains how to unlock it and opens the correct Public Board setting.
+- **Hashtag management for Admin** — Add, rename, delete, and restore approved exam hashtags in YouDO. Adding an exam also resolves matching pending requests.
+- **Changes stay predictable** — Renaming keeps members' selections. Deleting clears the hashtag from their Board profiles and chat; they can choose again after it is restored. An open exam feed returns to General when its hashtag is removed.
+- **Android APK** — versionName **7.5.3**, versionCode **44**. Installs directly over released **v7.5.1** with the same package ID and signing key; no uninstall or device-data reset is required. Apply `community_hashtag_admin.sql` before publishing this client.
+
+---
+
 ## [v7.5.1] — 2026-09-22 — Cleaner exam communities and managed quotes
 
 - **Every exam request stays visible** — Members can request more than one exam community without a newer request replacing an earlier one, and Admin can approve, answer, or reject each request individually.

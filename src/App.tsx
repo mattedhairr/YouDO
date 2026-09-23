@@ -169,6 +169,7 @@ function AppInner() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetInitialDate, setSheetInitialDate] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsFocus, setSettingsFocus] = useState<'public-board' | null>(null);
   const [goalSheetOpen, setGoalSheetOpen] = useState(false);
   const [blueprintStudioOpen, setBlueprintStudioOpen] = useState(false);
   const [blueprintUndo, setBlueprintUndo] = useState<{ token: string; title: string } | null>(null);
@@ -372,6 +373,13 @@ function AppInner() {
   }, []);
 
   const openSettings = () => {
+    setSettingsFocus(null);
+    pushModalState();
+    setSettingsOpen(true);
+  };
+
+  const openBoardSettings = () => {
+    setSettingsFocus('public-board');
     pushModalState();
     setSettingsOpen(true);
   };
@@ -434,6 +442,7 @@ function AppInner() {
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
+    setSettingsFocus(null);
     if (window.history.state?.modal) window.history.back();
   }, []);
 
@@ -1450,7 +1459,7 @@ function AppInner() {
                 onJumpToGoal={jumpToGoalTask}
               />
             ) : view === 'board' ? (
-              <BoardView />
+              <BoardView onOpenBoardSettings={openBoardSettings} />
             ) : (
               <GoalView
                 pathIds={goalPathIds}
@@ -1553,6 +1562,7 @@ function AppInner() {
       <SettingsSheet
         open={settingsOpen}
         onClose={closeSettings}
+        focusSection={settingsFocus ?? undefined}
         streakBarHours={streakMeta.barHours}
         onStreakBarHoursChange={setStreakBarHours}
       />

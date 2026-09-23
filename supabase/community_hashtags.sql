@@ -100,8 +100,13 @@ create or replace function public.set_community_hashtag(selected_hashtag uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare selected public.community_hashtags;
 begin
+  if auth.uid() is null then raise exception 'Authentication required' using errcode='42501'; end if;
+  if selected_hashtag is null then
+    delete from public.community_hashtag_memberships where user_id=auth.uid();
+    return pg_catalog.jsonb_build_object('id',null,'label',null);
+  end if;
   if not public.can_join_community() then raise exception 'Board membership required' using errcode='42501'; end if;
-  select * into selected from public.community_hashtags where id=selected_hashtag and active;
+  select * into selected from public.community_hashtags where id=selected_hashtag and active for share;
   if selected.id is null then raise exception 'This exam hashtag is unavailable'; end if;
   insert into public.community_hashtag_memberships(user_id,hashtag_id)
   values(auth.uid(),selected.id)

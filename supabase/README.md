@@ -11,6 +11,7 @@ files in this directory.
 - **YouDO — Community & Moderation Setup** → `community.sql`
 - **YouDO — Community Chat Upgrade** → `community_chat.sql`
 - **YouDO — Community Hashtags Upgrade** → `community_hashtags.sql`
+- **YouDO — Admin Hashtag Management** → `community_hashtag_admin.sql`
 - **YouDO — Managed App Quotes** → `app_quotes.sql`
 - **YouDO — Account Sessions** → `account_sessions.sql`
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`
@@ -19,7 +20,8 @@ files in this directory.
 
 Copy the complete repository file into the matching private saved query. Do not
 run a selected fragment of a setup or upgrade file. Apply `community_chat.sql`
-after `public_pace.sql` and `community.sql`, then apply `community_hashtags.sql` and `app_quotes.sql`,
+after `public_pace.sql` and `community.sql`, then apply `community_hashtags.sql`,
+`community_hashtag_admin.sql`, and `app_quotes.sql`,
 before releasing their dependent clients.
 
 ## Existing saved-query cleanup

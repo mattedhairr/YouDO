@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Lock, Plus, X } from 'lucide-react';
 import {
-  chooseCommunityHashtag,
   fetchCommunityHashtags,
   requestCommunityHashtag,
   type CommunityHashtagContext,
@@ -12,28 +11,32 @@ interface Props {
   selectedId?: string;
   onSelect: (id?: string) => void;
   onMembershipChange: (id?: string) => void;
+  onOpenBoardSettings: () => void;
 }
 
-export default function CommunityHashtagBar({selectedId,onSelect,onMembershipChange}:Props) {
+export default function CommunityHashtagBar({selectedId,onSelect,onMembershipChange,onOpenBoardSettings}:Props) {
+  const selectedRef=useRef(selectedId);
+  selectedRef.current=selectedId;
   const [context,setContext]=useState<CommunityHashtagContext>({hashtags:[],requests:[]});
-  const [panel,setPanel]=useState<'choose'|'request'|null>(null);
+  const [panel,setPanel]=useState<'locked'|'request'|null>(null);
   const [exam,setExam]=useState('');
   const [details,setDetails]=useState('');
   const [expanded,setExpanded]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const refresh=useCallback(async()=>{
-    try { const next=await fetchCommunityHashtags();setContext(next);onMembershipChange(next.mine?.id); }
+    try { const next=await fetchCommunityHashtags();setContext(next);onMembershipChange(next.mine?.id);
+      const current=selectedRef.current;
+      if(current&&(!next.mine||!next.hashtags.some(tag=>tag.id===current)))onSelect(undefined);
+    }
     catch(e){setError(e instanceof Error?e.message:'Could not load exam hashtags.');}
-  },[onMembershipChange]);
-  useEffect(()=>{void refresh();},[refresh]);
+  },[onMembershipChange,onSelect]);
+  useEffect(()=>{
+    void refresh();
+    const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void refresh();},30_000);
+    return ()=>window.clearInterval(timer);
+  },[refresh]);
 
-  const choose=async(id:string)=>{
-    setBusy(true);setError('');
-    try{await chooseCommunityHashtag(id);await refresh();onSelect(id);setExpanded(false);setPanel(null);}
-    catch(e){setError(e instanceof Error?e.message:'Could not save your exam.');}
-    finally{setBusy(false);}
-  };
   const request=async()=>{
     if(exam.trim().length<2)return;
     setBusy(true);setError('');
@@ -42,7 +45,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onMembershipCha
     finally{setBusy(false);}
   };
   const tap=(id:string)=>{
-    if(!context.mine){setPanel('choose');return;}
+    if(!context.mine){setPanel('locked');return;}
     onSelect(selectedId===id?undefined:id);setExpanded(false);
   };
   const selectedLabel=context.hashtags.find(tag=>tag.id===selectedId)?.label;
@@ -59,11 +62,11 @@ export default function CommunityHashtagBar({selectedId,onSelect,onMembershipCha
     {error&&!panel&&<p className="c-hashtag-inline-error">{error}</p>}
     <Overlay open={panel!==null} onClose={()=>setPanel(null)} align="bottom">
       <section className="c-hashtag-sheet">
-        <header><div><span>EXAM CHAT</span><h3>{panel==='choose'?'Choose your exam':'Request a hashtag'}</h3></div><button type="button" onClick={()=>setPanel(null)} aria-label="Close"><X size={17}/></button></header>
-        {panel==='choose'?<>
-          <p className="c-hashtag-help">Add one approved exam to your Community profile. You can then open any exam feed.</p>
-          <div className="c-hashtag-choices">{context.hashtags.map(tag=><button type="button" disabled={busy} key={tag.id} onClick={()=>void choose(tag.id)}>#{tag.label}<small>{tag.memberCount} member{tag.memberCount===1?'':'s'}</small></button>)}</div>
-          <button type="button" className="c-hashtag-link" onClick={()=>setPanel('request')}>My exam is not listed</button>
+        <header><div><span>EXAM CHAT</span><h3>{panel==='locked'?'Choose your exam first':'Request a hashtag'}</h3></div><button type="button" onClick={()=>setPanel(null)} aria-label="Close"><X size={17}/></button></header>
+        {panel==='locked'?<>
+          <div className="c-hashtag-lock-message"><Lock size={17}/><div><strong>Exam chats are linked to your Public Board profile</strong><p>General shows everyone. An exam chat shows only messages from members currently using that hashtag.</p></div></div>
+          <button type="button" className="c-hashtag-settings-action" onClick={()=>{setPanel(null);onOpenBoardSettings();}}>Open Public Board settings</button>
+          <button type="button" className="c-hashtag-link" onClick={()=>setPanel(null)}>Stay in General</button>
         </>:<>
           {context.requests.length>0&&<div className="c-hashtag-request-list">{context.requests.map(item=><div className={`c-hashtag-request-state is-${item.status}`} key={item.id}><strong>{item.status==='waiting'?'Admin replied':item.status==='declined'?'Not approved':'Request sent'}</strong><span>#{item.examName}</span>{item.adminResponse&&<p>{item.adminResponse}</p>}</div>)}</div>}
           <label>Exam name<input value={exam} onChange={e=>setExam(e.target.value)} maxLength={50} placeholder="e.g. GATE, NEET PG, UPSC CSE" /></label>
