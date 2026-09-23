@@ -57,6 +57,13 @@ export function rescheduleExistingGoalPlan(task: Task, date: string, today: stri
 }
 
 /** The current Goal node owns content/progress; dated cards own their schedule. */
+export function isValidGoalPlanSlice(node: GoalNode, slice: number[]): boolean {
+  const length = node.steps?.length ?? 0;
+  return (length === 0 ? slice.length === 0 : slice.length > 0) &&
+    new Set(slice).size === slice.length &&
+    slice.every((index) => Number.isInteger(index) && index >= 0 && index < length);
+}
+
 export function buildGoalPlanTask(
   node: GoalNode,
   targetDate: string,
@@ -66,8 +73,11 @@ export function buildGoalPlanTask(
   order: number,
   createdAt: number,
 ): Task {
+  if (!isValidGoalPlanSlice(node, requestedSlice)) {
+    throw new Error('Cannot schedule an empty or invalid Goal checklist selection');
+  }
   const master = node.steps ?? [];
-  const slice = [...new Set(requestedSlice.filter((index) => Number.isInteger(index) && index >= 0 && index < master.length))];
+  const slice = requestedSlice;
   const full = slice.length === master.length && slice.every((index, position) => index === position);
   return {
     ...(prior ?? {}),

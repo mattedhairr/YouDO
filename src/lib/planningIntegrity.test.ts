@@ -7,6 +7,7 @@ import {
   appendGoalChild,
   buildGoalPlanTask,
   goalDeletionLocation,
+  isValidGoalPlanSlice,
   removeGoalBranch,
   rescheduleExistingGoalPlan,
   restoreDeletedBranch,
@@ -85,6 +86,13 @@ describe('planning deletion and restoration', () => {
 });
 
 describe('planning a full endpoint after a sliced backlog card', () => {
+  it('rejects an empty or malformed checklist slice instead of making a misleading stepless card', () => {
+    expect(isValidGoalPlanSlice(leaf, [])).toBe(false);
+    expect(isValidGoalPlanSlice(leaf, [0, 0])).toBe(false);
+    expect(isValidGoalPlanSlice(leaf, [2])).toBe(false);
+    expect(isValidGoalPlanSlice(leaf, [1])).toBe(true);
+  });
+
   it('retains an unfinished card and its earlier failed dates across another reschedule', () => {
     const prior = { ...current, targetDate: '2026-09-25',
       pastFailedNativeDates: ['2026-09-20'] };

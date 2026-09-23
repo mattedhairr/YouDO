@@ -83,6 +83,7 @@ import {
   appendGoalChild,
   buildGoalPlanTask,
   goalDeletionLocation,
+  isValidGoalPlanSlice,
   removeGoalBranch,
   rescheduleExistingGoalPlan,
   restoreDeletedBranch,
@@ -697,6 +698,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const masterSteps = target.steps ?? [];
       const slice = stepSlice ?? masterSteps.map((_, i) => i);
+      if (!isValidGoalPlanSlice(target, slice)) return;
       const existing = target.todayTaskId
         ? tasksRef.current.find((task) => task.id === target.todayTaskId && task.goalNodeId === target.id)
         : undefined;
