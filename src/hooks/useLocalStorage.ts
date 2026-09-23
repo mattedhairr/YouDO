@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { readStorageRaw } from '../lib/storageKeys';
+import { readStorageRaw, readWorkspaceJsonStrict } from '../lib/storageKeys';
 
-export function useLocalStorage<T>(key: string, initial: T) {
+type StorageOptions = { persist?: boolean; listen?: boolean; strict?: boolean; validate?: (value: unknown) => boolean };
+
+export function useLocalStorage<T>(key: string, initial: T, options?: StorageOptions) {
   const isMounted = useRef(false);
 
   const [value, setValue] = useState<T>(() => {
+    if (options?.strict) return readWorkspaceJsonStrict(key, initial, options.validate ?? (() => true));
     try {
       const raw = readStorageRaw(key);
-      return raw ? (JSON.parse(raw) as T) : initial;
+      if (raw === null) return initial;
+      return JSON.parse(raw) as T;
     } catch {
       return initial;
     }
@@ -16,6 +20,7 @@ export function useLocalStorage<T>(key: string, initial: T) {
   // Persist to localStorage on every change — but skip the very first render
   // since the value was just hydrated FROM localStorage (no need to write it back).
   useEffect(() => {
+    if (options?.persist === false) return;
     if (!isMounted.current) {
       isMounted.current = true;
       return;
@@ -25,10 +30,11 @@ export function useLocalStorage<T>(key: string, initial: T) {
     } catch {
       /* ignore quota */
     }
-  }, [key, value]);
+  }, [key, value, options?.persist]);
 
   // Cross-tab sync: when another browser tab writes to the same key, apply it here.
   useEffect(() => {
+    if (options?.listen === false) return;
     const handler = (e: StorageEvent) => {
       if (e.key !== key || e.newValue === null) return;
       try {
@@ -39,7 +45,7 @@ export function useLocalStorage<T>(key: string, initial: T) {
     };
     window.addEventListener('storage', handler);
     return () => window.removeEventListener('storage', handler);
-  }, [key]);
+  }, [key, options?.listen]);
 
   const reset = useCallback(() => setValue(initial), [initial]);
 

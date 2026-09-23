@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -60,9 +61,12 @@ import {
   STORAGE_KEYS,
   readWorkspaceCloudFingerprint,
   readWorkspaceUpdatedAt,
-  writeWorkspaceCloudFingerprint,
-  writeWorkspaceUpdatedAt,
+  isStoredTaskList,
+  isStoredGoalTree,
+  isStoredSessionHistory,
+  WORKSPACE_ALIAS_KEYS,
 } from './lib/storageKeys';
+import { commitWorkspaceMutation, prepareSettingsImport } from './lib/workspaceReplacement';
 import { mergeWorkspace, workspaceFingerprint, workspaceSignature, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
 import { decideSyncAction, type SyncConflictStrategy } from './lib/syncDecision';
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
@@ -204,6 +208,7 @@ interface Store {
   /** Sync current state to Supabase cloud metadata */
   syncToCloud: (opts?: CloudSyncOptions) => Promise<CloudSyncResult>;
   cloudSyncConflict: boolean;
+  workspaceStorageError: string;
   /** Restore state from Supabase cloud metadata */
   restoreFromCloud: () => Promise<boolean>;
   restoreFromVisitSnapshot: (snapshotId: string) => Promise<boolean>;
@@ -292,21 +297,26 @@ export function useSessionStore() {
 
 const SEED_TASKS: Task[] = [];
 const SEED_GOALS: GoalNode[] = [];
+const atomicStorage = { persist: false, listen: false, strict: true } as const;
+const isArray = (value: unknown) => Array.isArray(value);
+const isRecord = (value: unknown) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot } = useAuth();
-  const [tasks, setTasks] = useLocalStorage<Task[]>(STORAGE_KEYS.tasks, SEED_TASKS);
-  const [goals, setGoals] = useLocalStorage<GoalNode[]>(STORAGE_KEYS.goals, SEED_GOALS);
-  const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>(STORAGE_KEYS.deletedGoals, []);
+  const [tasks, setTasks] = useLocalStorage<Task[]>(STORAGE_KEYS.tasks, SEED_TASKS, { ...atomicStorage, validate: isStoredTaskList });
+  const [goals, setGoals] = useLocalStorage<GoalNode[]>(STORAGE_KEYS.goals, SEED_GOALS, { ...atomicStorage, validate: isStoredGoalTree });
+  const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>(STORAGE_KEYS.deletedGoals, [], { ...atomicStorage, validate: isArray });
   const [lastDeletedNotification, setLastDeletedNotification] = useState<{ id: string; title: string } | null>(null);
   const { activeSession, activeSessionRef, setActiveSession, clearRecordedSession, sessionStorageError } = useSessionJournal();
-  const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>(STORAGE_KEYS.sessionHistory, {});
+  const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>(STORAGE_KEYS.sessionHistory, {}, { ...atomicStorage, validate: isStoredSessionHistory });
   const [streakMeta, setStreakMeta] = useLocalStorage<StreakMeta>(
     STORAGE_KEYS.streakMeta,
-    defaultStreakMeta(todayISO()),
+    defaultStreakMeta(todayISO()), { ...atomicStorage, validate: isRecord },
   );
-  const [pacePrefs, setPacePrefs] = useLocalStorage<PacePrefs>(STORAGE_KEYS.pacePrefs, defaultPacePrefs());
+  const [pacePrefs, setPacePrefs] = useLocalStorage<PacePrefs>(STORAGE_KEYS.pacePrefs, defaultPacePrefs(), { ...atomicStorage, validate: isRecord });
   const [cloudSyncConflict, setCloudSyncConflict] = useState(false);
+  const [workspaceStorageError, setWorkspaceStorageError] = useState('');
+  const [workspaceRecoveryBlocked, setWorkspaceRecoveryBlocked] = useState(false);
 
   // Invalidate rollup cache whenever goals tree changes
   useEffect(() => {
@@ -365,24 +375,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     afterTasks: Task[];
   }>());
   const workspaceUpdatedAtRef = useRef(readWorkspaceUpdatedAt());
-  const workspaceHydratedRef = useRef(false);
-
-  useEffect(() => {
-    if (workspaceUpdatedAtRef.current > 0) return;
-    const n = Date.now();
-    workspaceUpdatedAtRef.current = n;
-    writeWorkspaceUpdatedAt(n);
-  }, []);
-
-  useEffect(() => {
-    if (!workspaceHydratedRef.current) {
-      workspaceHydratedRef.current = true;
-      return;
+  const persistedWorkspaceRef = useRef({ tasks, goals, recentlyDeletedGoals, sessionHistory, streakMeta, pacePrefs });
+  useLayoutEffect(() => {
+    const saved = persistedWorkspaceRef.current;
+    if (saved.tasks === tasks && saved.goals === goals && saved.recentlyDeletedGoals === recentlyDeletedGoals
+      && saved.sessionHistory === sessionHistory && saved.streakMeta === streakMeta && saved.pacePrefs === pacePrefs) return;
+    const stamp = Date.now();
+    try {
+      commitWorkspaceMutation({
+        ...(saved.tasks !== tasks ? { [STORAGE_KEYS.tasks]: JSON.stringify(tasks) } : {}),
+        ...(saved.goals !== goals ? { [STORAGE_KEYS.goals]: JSON.stringify(goals) } : {}),
+        ...(saved.recentlyDeletedGoals !== recentlyDeletedGoals ? { [STORAGE_KEYS.deletedGoals]: JSON.stringify(recentlyDeletedGoals) } : {}),
+        ...(saved.sessionHistory !== sessionHistory ? { [STORAGE_KEYS.sessionHistory]: JSON.stringify(sessionHistory) } : {}),
+        ...(saved.streakMeta !== streakMeta ? { [STORAGE_KEYS.streakMeta]: JSON.stringify(streakMeta) } : {}),
+        ...(saved.pacePrefs !== pacePrefs ? { [STORAGE_KEYS.pacePrefs]: JSON.stringify(pacePrefs) } : {}),
+        // Retire old aliases only in the same recoverable operation that writes
+        // their canonical collections; a failed save must keep the old copy.
+        ...(saved.tasks !== tasks ? { [WORKSPACE_ALIAS_KEYS[0]]: null } : {}),
+        ...(saved.goals !== goals ? { [WORKSPACE_ALIAS_KEYS[1]]: null } : {}),
+        [STORAGE_KEYS.workspaceUpdatedAt]: String(stamp),
+      });
+      persistedWorkspaceRef.current = { tasks, goals, recentlyDeletedGoals, sessionHistory, streakMeta, pacePrefs };
+      workspaceUpdatedAtRef.current = stamp;
+      setWorkspaceStorageError('');
+    } catch (cause) {
+      setWorkspaceStorageError(cause instanceof Error ? cause.message : 'This change could not be saved on this device.');
+      try { setWorkspaceRecoveryBlocked(localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null); }
+      catch { setWorkspaceRecoveryBlocked(true); }
+      tasksRef.current = saved.tasks;
+      goalsRef.current = saved.goals;
+      sessionHistoryRef.current = saved.sessionHistory;
+      recentlyDeletedRef.current = saved.recentlyDeletedGoals;
+      streakMetaRef.current = saved.streakMeta;
+      pacePrefsRef.current = saved.pacePrefs;
+      setTasks(saved.tasks);
+      setGoals(saved.goals);
+      setRecentlyDeletedGoals(saved.recentlyDeletedGoals);
+      setSessionHistory(saved.sessionHistory);
+      setStreakMeta(saved.streakMeta);
+      setPacePrefs(saved.pacePrefs);
+      setLastDeletedNotification(null);
     }
-    const n = Date.now();
-    workspaceUpdatedAtRef.current = n;
-    writeWorkspaceUpdatedAt(n);
-  }, [tasks, goals, recentlyDeletedGoals]);
+  }, [tasks, goals, recentlyDeletedGoals, sessionHistory, streakMeta, pacePrefs, setTasks, setGoals, setRecentlyDeletedGoals, setSessionHistory, setStreakMeta, setPacePrefs]);
 
   /* ---------- Daily task ops ---------- */
 
@@ -1139,6 +1173,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ok: false, error: 'Could not save focus time on this device. The sitting is still open. Free some device storage and retry; do not clear YouDO data.' };
         }
         sessionHistoryRef.current = nextHist;
+        // The session ledger was already written synchronously. Do not roll it
+        // back in memory if a later Goals/Today save cannot fit on the device.
+        persistedWorkspaceRef.current = { ...persistedWorkspaceRef.current, sessionHistory: nextHist };
         setSessionHistory(nextHist);
         void publishPublicPace(nextHist);
       }
@@ -1440,32 +1477,72 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return '✓ Backup exported to Downloads';
   }, []);
 
+  const commitAndApplyWorkspace = useCallback((next: WorkspaceSlice, cloudFingerprint: string | null): boolean => {
+    const nextState = {
+      tasks: next.tasks,
+      goals: next.goals,
+      recentlyDeletedGoals: next.recentlyDeletedGoals as DeletedGoalRecord[],
+      sessionHistory: next.sessionHistory,
+      streakMeta: next.streakMeta ?? defaultStreakMeta(todayISO()),
+      pacePrefs: next.pacePrefs ?? defaultPacePrefs(),
+    };
+    const stamp = next.updatedAt && next.updatedAt > 0 ? next.updatedAt : Date.now();
+    try {
+      commitWorkspaceMutation({
+        [STORAGE_KEYS.tasks]: JSON.stringify(nextState.tasks),
+        [STORAGE_KEYS.goals]: JSON.stringify(nextState.goals),
+        [STORAGE_KEYS.deletedGoals]: JSON.stringify(nextState.recentlyDeletedGoals),
+        [STORAGE_KEYS.sessionHistory]: JSON.stringify(nextState.sessionHistory),
+        [STORAGE_KEYS.streakMeta]: JSON.stringify(nextState.streakMeta),
+        [STORAGE_KEYS.pacePrefs]: JSON.stringify(nextState.pacePrefs),
+        [STORAGE_KEYS.workspaceUpdatedAt]: String(stamp),
+        [STORAGE_KEYS.workspaceCloudFingerprint]: cloudFingerprint,
+        [WORKSPACE_ALIAS_KEYS[0]]: null,
+        [WORKSPACE_ALIAS_KEYS[1]]: null,
+      });
+    } catch (cause) {
+      setWorkspaceStorageError(cause instanceof Error ? cause.message : 'The workspace could not be saved on this device.');
+      try { setWorkspaceRecoveryBlocked(localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null); }
+      catch { setWorkspaceRecoveryBlocked(true); }
+      return false;
+    }
+    persistedWorkspaceRef.current = nextState;
+    tasksRef.current = nextState.tasks;
+    goalsRef.current = nextState.goals;
+    recentlyDeletedRef.current = nextState.recentlyDeletedGoals;
+    sessionHistoryRef.current = nextState.sessionHistory;
+    streakMetaRef.current = nextState.streakMeta;
+    pacePrefsRef.current = nextState.pacePrefs;
+    workspaceUpdatedAtRef.current = stamp;
+    setTasks(nextState.tasks);
+    setGoals(nextState.goals);
+    setRecentlyDeletedGoals(nextState.recentlyDeletedGoals);
+    setSessionHistory(nextState.sessionHistory);
+    setStreakMeta(nextState.streakMeta);
+    setPacePrefs(nextState.pacePrefs);
+    setWorkspaceStorageError('');
+    clearRollupCache();
+    return true;
+  }, [setTasks, setGoals, setRecentlyDeletedGoals, setSessionHistory, setStreakMeta, setPacePrefs]);
+
   const importBackup = useCallback(
-    (jsonData: string): boolean => {
-      const parsed = parseBackupPayload(jsonData);
-      if (!parsed) return false;
+    (jsonData: string, cloudFingerprint?: string | null, preserveBackupTime = false): boolean => {
+      const prepared = prepareSettingsImport(jsonData);
+      if (!prepared) return false;
       if (activeSessionRef.current) return false;
-
-      if (parsed.sessionHistory && typeof parsed.sessionHistory === 'object') {
-        setSessionHistory(sanitizeSessionHistory(parsed.sessionHistory));
+      let savedFingerprint: string | null;
+      try {
+        savedFingerprint = cloudFingerprint === undefined ? readWorkspaceCloudFingerprint() : cloudFingerprint;
+      } catch {
+        setWorkspaceStorageError('The device sync state cannot be read. Your previous workspace is unchanged; keep app data intact and retry.');
+        return false;
       }
-      if (Array.isArray(parsed.recentlyDeletedGoals)) {
-        setRecentlyDeletedGoals(parsed.recentlyDeletedGoals as DeletedGoalRecord[]);
-      }
-      const importedStreak = sanitizeStreakMeta(parsed.streakMeta, todayISO());
-      if (importedStreak) setStreakMeta(importedStreak);
-      if (parsed.pacePrefs) setPacePrefs(sanitizePacePrefs(parsed.pacePrefs));
-
-      const { cleanedGoals, cleanedTasks } = sanitizeTreeAndTasks(parsed.goals, parsed.tasks);
-      setTasks(cleanedTasks);
-      setGoals(cleanedGoals);
-      const stamp = parsed.updatedAt && parsed.updatedAt > 0 ? parsed.updatedAt : Date.now();
-      workspaceUpdatedAtRef.current = stamp;
-      writeWorkspaceUpdatedAt(stamp);
-      clearRollupCache();
-      return true;
+      return commitAndApplyWorkspace({
+        ...prepared,
+        updatedAt: preserveBackupTime && prepared.updatedAt && prepared.updatedAt > 0 ? prepared.updatedAt : Date.now(),
+      }, savedFingerprint);
     },
-    [activeSessionRef, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs],
+    [activeSessionRef, commitAndApplyWorkspace],
   );
 
   const setStreakBarHours = useCallback(
@@ -1475,7 +1552,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setStreakMeta],
   );
 
+  const persistCloudFingerprint = useCallback((fingerprint: string): boolean => {
+    try {
+      commitWorkspaceMutation({ [STORAGE_KEYS.workspaceCloudFingerprint]: fingerprint });
+      return true;
+    } catch (cause) {
+      setWorkspaceStorageError(cause instanceof Error ? cause.message : 'Cloud sync status could not be saved on this device.');
+      try { setWorkspaceRecoveryBlocked(localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null); }
+      catch { setWorkspaceRecoveryBlocked(true); }
+      return false;
+    }
+  }, []);
+
   const performCloudSync = useCallback(async (opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
+    if (localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null) {
+      return { ok: false, error: 'Device recovery is pending. Cloud sync is paused until this copy is safe.' };
+    }
     const syncUserId = userIdRef.current;
     const scope = workspaceScopeRef.current;
     const stillCurrent = () => Boolean(syncUserId) && scope === workspaceScopeRef.current && userIdRef.current === syncUserId;
@@ -1515,34 +1607,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const baseFingerprint = readWorkspaceCloudFingerprint();
     const localEmpty = localSlice.tasks.length === 0 && localSlice.goals.length === 0;
 
-    const applySlice = (next: WorkspaceSlice) => {
-      tasksRef.current = next.tasks;
-      goalsRef.current = next.goals;
-      sessionHistoryRef.current = next.sessionHistory;
-      recentlyDeletedRef.current = next.recentlyDeletedGoals as typeof recentlyDeletedRef.current;
-      if (next.streakMeta) {
-        streakMetaRef.current = next.streakMeta;
-        setStreakMeta(next.streakMeta);
-      }
-      if (next.pacePrefs) {
-        pacePrefsRef.current = next.pacePrefs;
-        setPacePrefs(next.pacePrefs);
-      }
-      if (next.updatedAt) {
-        workspaceUpdatedAtRef.current = next.updatedAt;
-        writeWorkspaceUpdatedAt(next.updatedAt);
-      }
-      setTasks(next.tasks);
-      setGoals(next.goals);
-      setSessionHistory(next.sessionHistory);
-      setRecentlyDeletedGoals(next.recentlyDeletedGoals as typeof recentlyDeletedGoals);
-    };
-
     const pullRemote = (): { ok: boolean; error?: string } => {
       if (!remoteInfo || !remoteSlice || !remoteFingerprint) return { ok: false, error: 'No valid cloud copy was found.' };
       if (activeSessionRef.current) return { ok: false, error: 'End the current sitting before replacing this device workspace.' };
-      applySlice(remoteSlice);
-      writeWorkspaceCloudFingerprint(remoteFingerprint);
+      if (!commitAndApplyWorkspace(remoteSlice, remoteFingerprint)) return { ok: false, error: 'The cloud copy could not be saved on this device. Your previous copy was preserved.' };
       setCloudSyncConflict(false);
       return { ok: true };
     };
@@ -1565,7 +1633,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const result = await updateCloudBackup(payload, { expectedUpdatedAt: remoteInfo?.updatedAt ?? null, expectedUserId: syncUserId! });
       if (!stillCurrent()) return accountChanged;
       if (result.ok) {
-        writeWorkspaceCloudFingerprint(fingerprint);
+        if (!persistCloudFingerprint(fingerprint)) return { ok: false, error: 'Cloud saved, but this device could not save its sync status. Keep app data intact and retry.' };
         setCloudSyncConflict(false);
         return result;
       }
@@ -1601,7 +1669,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     if (decision === 'noop') {
-      writeWorkspaceCloudFingerprint(remoteFingerprint!);
+      if (!persistCloudFingerprint(remoteFingerprint!)) return { ok: false, error: 'This device could not save its cloud sync status.' };
       setCloudSyncConflict(false);
       return { ok: true };
     }
@@ -1621,11 +1689,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ok: false, error: 'End the current sitting before combining workspace changes.' };
         }
       }
-      applySlice(merged);
+      if (!commitAndApplyWorkspace(merged, baseFingerprint)) {
+        return { ok: false, error: 'The combined copy could not be saved on this device. Neither copy was replaced.' };
+      }
       localSlice = currentSlice();
       localFingerprint = canonicalWorkspaceFingerprint(localSlice, todayISO());
       if (localFingerprint === remoteFingerprint) {
-        writeWorkspaceCloudFingerprint(remoteFingerprint);
+        if (!persistCloudFingerprint(remoteFingerprint)) return { ok: false, error: 'This device could not save its cloud sync status.' };
         setCloudSyncConflict(false);
         return { ok: true };
       }
@@ -1641,7 +1711,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? 'Sync paused: this device and another device both changed. Nothing was overwritten.'
           : 'Sync paused for a one-time safety check because this device and cloud contain different work.',
     };
-  }, [activeSessionRef, updateCloudBackup, fetchLiveBackupInfo, setTasks, setGoals, setSessionHistory, setRecentlyDeletedGoals, setStreakMeta, setPacePrefs]);
+  }, [activeSessionRef, updateCloudBackup, fetchLiveBackupInfo, commitAndApplyWorkspace, persistCloudFingerprint]);
 
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const syncToCloud = useCallback((opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
@@ -1663,9 +1733,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const parsed = parseBackupPayload(jsonStr);
       if (!parsed) return false;
-      const ok = importBackup(jsonStr);
-      if (ok) {
-        writeWorkspaceCloudFingerprint(workspaceFingerprint({
+      const fingerprint = canonicalWorkspaceFingerprint({
           tasks: parsed.tasks,
           goals: parsed.goals,
           sessionHistory: sanitizeSessionHistory(parsed.sessionHistory),
@@ -1674,7 +1742,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : [],
           streakMeta: sanitizeStreakMeta(parsed.streakMeta, todayISO()),
           pacePrefs: sanitizePacePrefs(parsed.pacePrefs),
-        }));
+        }, todayISO());
+      const ok = importBackup(jsonStr, fingerprint, true);
+      if (ok) {
         setCloudSyncConflict(false);
       }
       return ok;
@@ -1693,7 +1763,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const parsed = parseBackupPayload(jsonStr);
       if (!parsed) return false;
-      const ok = importBackup(jsonStr);
+      const ok = importBackup(jsonStr, null);
       if (ok) {
         // This restored copy intentionally differs from live cloud; the next sync must review it.
         setCloudSyncConflict(true);
@@ -1793,7 +1863,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
-      exportBackup, importBackup, syncToCloud, cloudSyncConflict, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       pruneOldSessions,
       sessionHistory,
       completeSessionSteps,
@@ -1810,7 +1880,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
-      exportBackup, importBackup, syncToCloud, cloudSyncConflict, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       pruneOldSessions,
       sessionHistory, completeSessionSteps, streakMeta, setStreakMeta, setStreakBarHours,
       pacePrefs, updatePacePrefs, publishPublicPace],
@@ -1826,6 +1896,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       discardSession, continueInterruptedSession, heartbeatSession],
   );
 
+  if (workspaceRecoveryBlocked) {
+    return <div className="min-h-screen bg-base p-6 text-content-primary flex items-center justify-center"><main className="max-w-sm rounded-2xl border border-error/40 bg-elevated p-5"><h1 className="text-lg font-semibold">Device recovery needed</h1><p role="alert" className="my-4 text-sm">{workspaceStorageError}</p><p className="mb-4 text-sm text-content-secondary">Keep app data intact. Free some device storage, then retry recovery.</p><button className="rounded-xl bg-primary px-4 py-3 font-semibold text-on-primary" onClick={() => window.location.reload()}>Retry safely</button></main></div>;
+  }
   return (
     <DataCtx.Provider value={dataValue}>
       <SessionCtx.Provider value={sessionValue}>{children}</SessionCtx.Provider>
