@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
 export interface CommunityHashtag { id: string; label: string; memberCount: number }
+export interface AdminCommunityHashtag extends CommunityHashtag { active: boolean }
 export interface CommunityHashtagRequest {
   id: string; requesterId?: string; examName: string; normalizedExam?: string; details: string;
   status: 'open'|'waiting'|'approved'|'declined'; adminResponse: string; createdAt: string;
@@ -60,6 +61,22 @@ export async function fetchAdminHashtagRequests(): Promise<CommunityHashtagReque
   const {data,error}=await supabase.rpc('admin_community_hashtag_requests');
   if(error)throw new Error(error.message||'Could not load hashtag requests.');
   return (Array.isArray(data)?data:[]).flatMap(value=>{const item=parseAdminHashtagRequest(value);return item?[item]:[];});
+}
+export function parseAdminCommunityHashtag(value: unknown): AdminCommunityHashtag | undefined {
+  const row=record(value), id=text(row?.id), label=text(row?.label);
+  if(!id||!label||typeof row?.active!=='boolean')return undefined;
+  return {id,label,active:row.active,memberCount:Math.max(0,Number(row.member_count)||0)};
+}
+export async function fetchAdminCommunityHashtags(): Promise<AdminCommunityHashtag[]> {
+  const {data,error}=await supabase.rpc('admin_community_hashtags');
+  if(error)throw new Error(error.message||'Could not load managed hashtags.');
+  return (Array.isArray(data)?data:[]).flatMap(value=>{const item=parseAdminCommunityHashtag(value);return item?[item]:[];});
+}
+export async function manageCommunityHashtag(action:'create'|'rename'|'archive'|'restore',id?:string,label?:string): Promise<void> {
+  const {error}=await supabase.rpc('manage_community_hashtag',{
+    requested_action:action,target_hashtag:id??null,requested_label:label??null,
+  });
+  if(error)throw new Error(error.message||'Could not manage this hashtag.');
 }
 export async function reviewCommunityHashtagRequest(id:string,decision:'wait'|'create'|'reject',response:string,label=''): Promise<void> {
   const {error}=await supabase.rpc('review_community_hashtag_request',{

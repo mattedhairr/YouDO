@@ -106,7 +106,7 @@ begin
     return pg_catalog.jsonb_build_object('id',null,'label',null);
   end if;
   if not public.can_join_community() then raise exception 'Board membership required' using errcode='42501'; end if;
-  select * into selected from public.community_hashtags where id=selected_hashtag and active;
+  select * into selected from public.community_hashtags where id=selected_hashtag and active for share;
   if selected.id is null then raise exception 'This exam hashtag is unavailable'; end if;
   insert into public.community_hashtag_memberships(user_id,hashtag_id)
   values(auth.uid(),selected.id)

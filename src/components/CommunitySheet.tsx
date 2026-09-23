@@ -32,9 +32,10 @@ import Toggle from './Toggle';
 import { hapticSuccess, hapticTick, hapticWarn } from '../lib/haptics';
 import CommunityChat from './community/CommunityChat';
 import CommunityHashtagAdmin from './community/CommunityHashtagAdmin';
+import CommunityHashtagManager from './community/CommunityHashtagManager';
 import CommunityQuoteAdmin from './community/CommunityQuoteAdmin';
 import { clearChatCache } from '../lib/communityChat';
-import { fetchAdminHashtagRequests, type CommunityHashtagRequest } from '../lib/communityHashtags';
+import { fetchAdminCommunityHashtags, fetchAdminHashtagRequests, type AdminCommunityHashtag, type CommunityHashtagRequest } from '../lib/communityHashtags';
 import { fetchAdminAppQuotes, type AdminAppQuote } from '../lib/appQuotes';
 
 interface Props {
@@ -60,7 +61,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [adminLoaded, setAdminLoaded] = useState(false);
   const refreshId = useRef(0);
   const invalidateRequests = useCallback(() => { refreshId.current++; }, []);
-  const [adminTab, setAdminTab] = useState<'review' | 'controls' | 'quotes' | 'history'>('review');
+  const [adminTab, setAdminTab] = useState<'review' | 'hashtags' | 'controls' | 'quotes' | 'history'>('review');
   const [savingFeature, setSavingFeature] = useState(false);
   const featureBusy = useRef(false);
   const mode = startInAdmin ? 'admin' : 'room';
@@ -74,6 +75,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [members, setMembers] = useState<CommunityMemberState[]>([]);
   const [audit, setAudit] = useState<CommunityAuditEntry[]>([]);
   const [hashtagRequests, setHashtagRequests] = useState<CommunityHashtagRequest[]>([]);
+  const [managedHashtags, setManagedHashtags] = useState<AdminCommunityHashtag[]>([]);
+  const [hashtagLoadError, setHashtagLoadError] = useState('');
   const [quotes, setQuotes] = useState<AdminAppQuote[]>([]);
   const [quoteLoadError, setQuoteLoadError] = useState('');
   const [announcement, setAnnouncement] = useState(initialContext.settings.announcement);
@@ -114,9 +117,10 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       setMessages(nextMessages);
     }
     if (mode === 'admin' && nextContext.isAdmin) {
-      const [admin, nextActivity, nextHashtagRequests, quoteResult] = await Promise.all([
+      const [admin, nextActivity, nextHashtagRequests, quoteResult, hashtagResult] = await Promise.all([
         fetchAdminCommunity(nextContext.dayKey), fetchCommunityActivity(), fetchAdminHashtagRequests(),
         fetchAdminAppQuotes().then((value) => ({ value, error: '' })).catch((error: unknown) => ({ value: [] as AdminAppQuote[], error: error instanceof Error ? error.message : 'Managed quotes are unavailable.' })),
+        fetchAdminCommunityHashtags().then((value) => ({ value, error: '' })).catch((error: unknown) => ({ value: [] as AdminCommunityHashtag[], error: error instanceof Error ? error.message : 'Hashtag management is unavailable.' })),
       ]);
       const reported = await fetchReportedMessages(admin.reports.map((report) => report.messageId));
       if (!current()) return;
@@ -124,6 +128,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       setActivity(nextActivity);
       setReports(admin.reports); setMembers(admin.members); setAppeals(admin.appeals); setAudit(admin.audit);
       setHashtagRequests(nextHashtagRequests);
+      setManagedHashtags(hashtagResult.value);
+      setHashtagLoadError(hashtagResult.error);
       setQuotes(quoteResult.value);
       setQuoteLoadError(quoteResult.error);
       setAdminLoaded(true);
@@ -316,7 +322,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             <details><summary>How pulse works <ChevronDown size={12} /></summary><p>Opted-in Board members using a supported build. Recent activity means the app was open within five minutes; someone may have since left. Used today resets at 00:00 UTC (05:30 in India). Updated {timeLabel(activity.asOf)}.</p></details>
           </> : <p className="px-4 pb-4 text-[12px] text-content-muted">{refreshing ? 'Loading activity…' : 'Activity is unavailable. Refresh to try again.'}</p>}
         </section>
-        <nav className="admin-nav" aria-label="Admin sections">{(['review', 'controls', 'quotes', 'history'] as const).map((tab) => <button key={tab} type="button" aria-pressed={adminTab === tab} onClick={() => { setAdminTab(tab); setStatus(''); }}>{tab === 'review' ? 'Review' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Safety log'}{tab === 'review' && reports.length + appeals.length + hashtagRequests.length > 0 && <span>{reports.length + appeals.length + hashtagRequests.length}</span>}</button>)}</nav>
+        <nav className="admin-nav" aria-label="Admin sections">{(['review', 'hashtags', 'controls', 'quotes', 'history'] as const).map((tab) => <button key={tab} type="button" aria-pressed={adminTab === tab} onClick={() => { setAdminTab(tab); setStatus(''); }}>{tab === 'review' ? 'Review' : tab === 'hashtags' ? 'Hashtags' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Safety log'}{tab === 'review' && reports.length + appeals.length + hashtagRequests.length > 0 && <span>{reports.length + appeals.length + hashtagRequests.length}</span>}</button>)}</nav>
         {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
         <div hidden={adminTab !== 'controls'}>
         <section className="admin-control-list">
@@ -325,6 +331,9 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <div className="flex items-center justify-between gap-3"><div><p className="text-[12px] font-semibold text-content-primary">Kudos</p><p className="text-[10px] text-content-muted">Recognition for the top three</p></div><Toggle disabled={busy || savingFeature} checked={context.settings.appreciationsEnabled} onChange={() => void setFeature('appreciationsEnabled', !context.settings.appreciationsEnabled)} label="Toggle Kudos" /></div>
         </section>
         <section className="mt-4 rounded-[15px] border border-subtle bg-surface p-3.5"><label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Board broadcast</label><textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="mt-2 w-full resize-y rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] outline-none focus:border-primary" /><p className="mt-1.5 text-[9.5px] leading-relaxed text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p><button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || announcement.trim() === context.settings.announcement} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-on-primary"><Check size={14} /> Publish</button></section>
+        </div>
+        <div hidden={adminTab !== 'hashtags' || !adminLoaded}>
+          <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
         </div>
         <div hidden={adminTab !== 'quotes' || !adminLoaded}>
           <CommunityQuoteAdmin quotes={quotes} busy={busy} setupError={quoteLoadError} onRefresh={refresh}/>

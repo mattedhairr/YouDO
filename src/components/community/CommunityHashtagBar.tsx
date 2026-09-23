@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Lock, Plus, X } from 'lucide-react';
 import {
   fetchCommunityHashtags,
@@ -15,6 +15,8 @@ interface Props {
 }
 
 export default function CommunityHashtagBar({selectedId,onSelect,onMembershipChange,onOpenBoardSettings}:Props) {
+  const selectedRef=useRef(selectedId);
+  selectedRef.current=selectedId;
   const [context,setContext]=useState<CommunityHashtagContext>({hashtags:[],requests:[]});
   const [panel,setPanel]=useState<'locked'|'request'|null>(null);
   const [exam,setExam]=useState('');
@@ -23,10 +25,17 @@ export default function CommunityHashtagBar({selectedId,onSelect,onMembershipCha
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const refresh=useCallback(async()=>{
-    try { const next=await fetchCommunityHashtags();setContext(next);onMembershipChange(next.mine?.id); }
+    try { const next=await fetchCommunityHashtags();setContext(next);onMembershipChange(next.mine?.id);
+      const current=selectedRef.current;
+      if(current&&(!next.mine||!next.hashtags.some(tag=>tag.id===current)))onSelect(undefined);
+    }
     catch(e){setError(e instanceof Error?e.message:'Could not load exam hashtags.');}
-  },[onMembershipChange]);
-  useEffect(()=>{void refresh();},[refresh]);
+  },[onMembershipChange,onSelect]);
+  useEffect(()=>{
+    void refresh();
+    const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void refresh();},30_000);
+    return ()=>window.clearInterval(timer);
+  },[refresh]);
 
   const request=async()=>{
     if(exam.trim().length<2)return;

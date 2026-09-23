@@ -1029,8 +1029,9 @@ input[type='datetime-local'] {
 .admin-stat:last-child { border-right: 0; }
 .admin-stat p { font-size: 11px; line-height: 16px; color: var(--text-muted); }
 .admin-stat strong { font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-primary); }
-.admin-nav { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-bottom: 1px solid var(--border-subtle); margin: 12px 0 16px; }
-.admin-nav button { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding-inline:2px;font-size: 10.5px; color: var(--text-muted); border-bottom: 2px solid transparent; }
+.admin-nav { display: flex; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; border-bottom: 1px solid var(--border-subtle); margin: 12px 0 16px; }
+.admin-nav::-webkit-scrollbar { display: none; }
+.admin-nav button { display: flex; flex: 1 0 auto; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding-inline:9px;font-size: 10.5px; white-space: nowrap; color: var(--text-muted); border-bottom: 2px solid transparent; }
 .admin-nav button[aria-pressed='true'] { color: var(--primary); border-bottom-color: var(--primary); }
 .admin-nav button span { font-size: 10px; font-variant-numeric: tabular-nums; }
 .admin-control-list { border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--bg-elevated); padding: 4px 14px; }
