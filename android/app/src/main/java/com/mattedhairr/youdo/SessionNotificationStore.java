@@ -128,8 +128,8 @@ final class SessionNotificationStore {
     static void show(Context ctx, boolean paused, String title) {
         ensureChannel(ctx);
         String safeTitle = title == null || title.trim().isEmpty() ? "Sitting in progress" : title.trim();
-        String status = paused ? "Paused" : "Focusing";
-        String hint = paused ? "Tap to open · Resume here" : "Tap to open · Pause here";
+        String status = paused ? "Paused" : "Sitting active";
+        String hint = paused ? "Tap to open · Resume here" : "Elapsed sitting · focus capped at 4h";
         long elapsedMs = elapsedFocusMs(sessionObject(ctx), paused);
         long chronometerBase = SystemClock.elapsedRealtime() - elapsedMs;
 
@@ -151,7 +151,7 @@ final class SessionNotificationStore {
             .setColorized(false)
             .setContentTitle(safeTitle)
             .setContentText(status)
-            .setSubText(paused ? "Paused" : "Focus sitting")
+            .setSubText(paused ? "Paused" : "Sitting elapsed time")
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)

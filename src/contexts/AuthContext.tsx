@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import { changeVerifiedCredentials } from '../lib/accountCredentials';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { clearWorkspaceStorage, clearYouDoStorage } from '../lib/storageKeys';
+import { keepCachedWorkspaceOffline, readCachedWorkspaceUser } from '../lib/offlineAuth';
 
 interface AuthActionResult {
   ok: boolean;
@@ -59,20 +60,26 @@ async function currentUserId(): Promise<string | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [cachedAtBoot] = useState(readCachedWorkspaceUser);
+  const [user, setUser] = useState<User | null>(cachedAtBoot);
+  const [loading, setLoading] = useState(!cachedAtBoot);
 
   useEffect(() => {
+    let authEventSeen = false;
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      if (authEventSeen) return;
+      setUser(current => keepCachedWorkspaceOffline('INITIAL_SESSION', session?.user ?? null,
+        readCachedWorkspaceUser(), navigator.onLine) ? current : session?.user ?? null);
       setLoading(false);
     }).catch(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      authEventSeen = true;
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
         resetVisitSnapshotFreeze(session?.user?.id);
       }
-      setUser(session?.user ?? null);
+      setUser(current => keepCachedWorkspaceOffline(event, session?.user ?? null,
+        readCachedWorkspaceUser(), navigator.onLine) ? current : session?.user ?? null);
       setLoading(false);
     });
 

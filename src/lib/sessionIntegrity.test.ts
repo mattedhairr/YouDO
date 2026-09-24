@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActiveSession } from '../types';
-import { computeNetFocusMs, finalizeSession, lastResumeAt, MAX_CONTINUOUS_FOCUS_MS, pauseActiveSession, pauseOverlapMs, resolvePersistEndAt, resumeActiveSession, sanitizeSession, shouldOfferSessionRecovery, splitSessionByLocalDate, tickActiveSession } from './sessionStats';
+import { computeNetFocusMs, continueAfterInterruption, finalizeSession, lastResumeAt, MAX_CONTINUOUS_FOCUS_MS, pauseActiveSession, pauseOverlapMs, resolvePersistEndAt, resumeActiveSession, sanitizeSession, shouldOfferSessionRecovery, splitSessionByLocalDate, tickActiveSession } from './sessionStats';
 
 const minute = 60_000;
 const start = new Date(2026, 8, 14, 20).getTime();
@@ -34,6 +34,16 @@ describe('session integrity at lifecycle boundaries', () => {
     const resumed = resumeActiveSession(paused, start + 10 * 60 * minute);
     expect(resumed.isPaused).toBe(false);
     expect(computeNetFocusMs(resumed, start + 11 * 60 * minute)).toBe(90 * minute);
+  });
+  it('keeps at most four hours when a long interrupted sitting is resumed', () => {
+    const wokeAt = start + 6 * 60 * minute + 46 * minute;
+    const resumed = continueAfterInterruption(running, wokeAt);
+    expect(resumed.isPaused).toBe(false);
+    expect(resumed.pauses).toHaveLength(1);
+    expect(resumed.pauses[0].start).toBe(start + MAX_CONTINUOUS_FOCUS_MS);
+    expect(resumed.pauses[0].end).toBe(wokeAt);
+    expect(finalizeSession(resumed, wokeAt + 7 * minute, { completed: false })?.netFocusMs)
+      .toBe(MAX_CONTINUOUS_FOCUS_MS + 7 * minute);
   });
   it('refuses a backward-clock pause or resume without negative duration', () => {
     const paused = pauseActiveSession(running, start + minute);

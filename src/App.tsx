@@ -29,7 +29,6 @@ import CalendarView from './components/CalendarView';
 import BoardView from './components/BoardView';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
-import { SessionReconstructSheet } from './components/SessionReconstructSheet';
 import { useTheme } from './hooks/useTheme';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { checkDeviceClock, clearClockIncident } from './lib/deviceClock';
@@ -197,7 +196,6 @@ function AppInner() {
   const [sessionBootHold, setSessionBootHold] = useState(() => Boolean(activeSession) || !nativeSessionReady);
   const [cloudHint, setCloudHint] = useState<string | null>(null);
   const [recoverySessionPrompt, setRecoverySessionPrompt] = useState<boolean>(false);
-  const [reconstructOpen, setReconstructOpen] = useState(false);
   const activeSessionRef = useRef(activeSession);
   const routedSessionTaskRef = useRef<string | null>(null);
   activeSessionRef.current = activeSession;
@@ -215,19 +213,25 @@ function AppInner() {
     });
   }, []);
 
-  // Heartbeat while visible (30s). Also tick on return so a long lock is handled immediately.
+  // Check recovery before every visible heartbeat, including return from Recents.
   useEffect(() => {
-    if (!activeSession) return;
-    const interval = setInterval(heartbeatSession, 30_000);
-    const onVis = () => {
-      if (document.visibilityState === 'visible') heartbeatSession();
+    if (!activeSession || sessionBootHold || recoverySessionPrompt || !nativeSessionReady) return;
+    const checkAndHeartbeat = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (shouldOfferSessionRecovery(activeSessionRef.current ?? activeSession, Date.now())) {
+        setBriefingOpen(false);
+        setRecoverySessionPrompt(true);
+        return;
+      }
+      heartbeatSession();
     };
-    document.addEventListener('visibilitychange', onVis);
+    const interval = setInterval(checkAndHeartbeat, 30_000);
+    document.addEventListener('visibilitychange', checkAndHeartbeat);
     return () => {
       clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVis);
+      document.removeEventListener('visibilitychange', checkAndHeartbeat);
     };
-  }, [activeSession, heartbeatSession]);
+  }, [activeSession, heartbeatSession, nativeSessionReady, recoverySessionPrompt, sessionBootHold]);
 
   // Batch selection state
   const [batchSelectedIds, setBatchSelectedIds] = useState<string[]>([]);
@@ -484,7 +488,7 @@ function AppInner() {
     if (!nativeSessionReady) return;
     if (briefingPromptedRef.current) return;
     if (!hasSeenHelp || helpOpen) return;
-    if (recoverySessionPrompt || reconstructOpen) return;
+    if (recoverySessionPrompt) return;
 
     if (!activeSession) {
       briefingPromptedRef.current = true;
@@ -509,7 +513,7 @@ function AppInner() {
 
     briefingPromptedRef.current = true;
     setSessionBootHold(false);
-  }, [nativeSessionReady, hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt, reconstructOpen]);
+  }, [nativeSessionReady, hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt]);
 
   useEffect(() => {
     if (!nativeSessionReady) return;
@@ -552,7 +556,6 @@ function AppInner() {
     if (!clockBlocked) return;
     setShowAmbient(false);
     setRecoverySessionPrompt(false);
-    setReconstructOpen(false);
     setStopDialogTask(null);
     if (nativeSessionReady) setSessionBootHold(false);
   }, [clockBlocked, nativeSessionReady]);
@@ -900,7 +903,7 @@ function AppInner() {
 
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || blueprintStudioOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || reconstructOpen || briefingOpen) return;
+      if (sheetOpen || goalSheetOpen || blueprintStudioOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || briefingOpen) return;
       const target = e.target as HTMLElement | null;
       if (isInteractiveOrScrollable(target)) return;
 
@@ -915,7 +918,7 @@ function AppInner() {
         tracking: true,
       };
     },
-    [sheetOpen, goalSheetOpen, blueprintStudioOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, reconstructOpen, briefingOpen],
+    [sheetOpen, goalSheetOpen, blueprintStudioOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, briefingOpen],
   );
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -971,11 +974,11 @@ function AppInner() {
   );
 
   useEffect(() => {
-    if (hasSeenHelp || recoverySessionPrompt || reconstructOpen || helpOpen) return;
+    if (hasSeenHelp || recoverySessionPrompt || helpOpen) return;
     if (firstHelpRef.current) return;
     firstHelpRef.current = true;
     openHelp();
-  }, [hasSeenHelp, recoverySessionPrompt, reconstructOpen, helpOpen, openHelp]);
+  }, [hasSeenHelp, recoverySessionPrompt, helpOpen, openHelp]);
 
   useEffect(() => {
     if (!cloudHint) return;
@@ -1632,7 +1635,6 @@ function AppInner() {
             discardSession();
             setStopDialogTask(null);
             setRecoverySessionPrompt(false);
-            setReconstructOpen(false);
           }}
           onConfirm={(outcome) => {
             const saved = stopSession(outcome, { taskId: stopDialogTask.id });
@@ -1643,7 +1645,6 @@ function AppInner() {
             }
             setStopDialogTask(null);
             setRecoverySessionPrompt(false);
-            setReconstructOpen(false);
           }}
         />
       )}
@@ -1694,7 +1695,7 @@ function AppInner() {
       )}
 
       {/* ── Session Crash Recovery Dialog ── */}
-      {recoverySessionPrompt && activeSession && activeTask && !reconstructOpen && !activeSession.isPaused && (
+      {recoverySessionPrompt && activeSession && activeTask && !activeSession.isPaused && (
         <Overlay open align="center">
           <div className="panel sheet-up p-5 space-y-4">
             <div className="flex items-center gap-2 text-primary font-semibold text-sm">
@@ -1703,15 +1704,14 @@ function AppInner() {
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
               <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session.
-              If you kept working with the phone aside, resume — that time is kept.
-              If you forgot to stop, pick when you actually finished.
-              If you fell asleep or this sitting should not count, discard it.
+              If you kept working with the phone aside, resume. Up to four hours
+              of the uninterrupted stretch is kept. If you fell asleep or forgot
+              to stop, discard the entire sitting.
             </p>
             <div className="flex flex-col gap-2 pt-1">
               <button
                 onClick={() => {
-                  continueInterruptedSession();
-                  setRecoverySessionPrompt(false);
+                  if (continueInterruptedSession()) setRecoverySessionPrompt(false);
                 }}
                 className="w-full py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
               >
@@ -1719,54 +1719,15 @@ function AppInner() {
               </button>
               <button
                 onClick={() => {
-                  setRecoverySessionPrompt(false);
-                  setReconstructOpen(true);
-                }}
-                className="w-full py-2.5 px-3 rounded-xl text-content-primary font-medium text-xs border border-subtle"
-              >
-                I forgot to stop
-              </button>
-              <button
-                onClick={() => {
-                  discardSession();
-                  setRecoverySessionPrompt(false);
+                  if (discardSession()) setRecoverySessionPrompt(false);
                 }}
                 className="w-full py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs"
               >
-                Discard — I fell asleep
+                Discard — I fell asleep or forgot to stop
               </button>
             </div>
           </div>
         </Overlay>
-      )}
-
-      {reconstructOpen && activeSession && activeTask && (
-        <SessionReconstructSheet
-          open
-          task={activeTask}
-          session={activeSession}
-          error={sessionSaveError}
-          onCancel={() => {
-            setReconstructOpen(false);
-            const session = activeSessionRef.current;
-            if (session && shouldOfferSessionRecovery(session, Date.now())) {
-              setRecoverySessionPrompt(true);
-            }
-          }}
-          onWasNotWorking={() => {
-            discardSession();
-            setReconstructOpen(false);
-          }}
-          onSave={({ endTime, completed, completedStepIndices }) => {
-            const saved = stopSession({ completed, completedStepIndices }, { endTime, ignoreOpenPause: true, taskId: activeTask.id });
-            if (!saved.ok) { setSessionSaveError(saved.error ?? 'Could not save the sitting.'); return; }
-            setSessionSaveError('');
-            if (completed === true || completedStepIndices.length > 0) {
-              completeSessionSteps(activeTask.id, completedStepIndices);
-            }
-            setReconstructOpen(false);
-          }}
-        />
       )}
 
       {/* ── Help Center Sheet ── */}
@@ -1825,7 +1786,6 @@ function AppInner() {
           showAmbient ||
           stopDialogTask ||
           recoverySessionPrompt ||
-          reconstructOpen ||
           briefingOpen ||
           helpOpen ||
           clockBlocked

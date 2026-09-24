@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.8] — 2026-09-24 — Offline sitting recovery (candidate)
+
+- **Offline opening** — An already owned workspace can open from its saved sign-in while token refresh waits for a connection.
+- **Clear recovery choice** — An unattended sitting asks whether to resume or discard the entire sitting. Returning from Recent Apps keeps that choice visible, and resume preserves the four-hour continuous-focus cap.
+- **Android timer label** — The notification identifies its live counter as elapsed sitting time, which may differ from credited focus time.
+- **Android APK** — versionName **7.5.8**, versionCode **49**. Prepared to install over the **v7.5.7** test candidate with the same package ID and signing key. Physical offline/recovery retest is pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
 ## [v7.5.7] — 2026-09-23 — Focus sitting recovery (candidate)
 
 - **Android sitting recovery** — A notification Pause or Resume made while YouDO is closed is read before the app sends another timer snapshot. Older snapshots cannot undo that action.

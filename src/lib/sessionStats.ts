@@ -138,6 +138,11 @@ export function continueAfterInterruption(session: ActiveSession, now: number): 
   if (session.isPaused) {
     return { ...session, lastHeartbeat: now };
   }
+  if (shouldOfferSessionRecovery(session, now)) {
+    // The user can confirm they kept working, but the unattended part of one
+    // continuous segment still stops at the four-hour safety boundary.
+    return resumeActiveSession(tickActiveSession(session, now), now);
+  }
   return {
     ...session,
     isPaused: false,

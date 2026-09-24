@@ -251,9 +251,9 @@ interface Store {
     options?: { endTime?: number; ignoreOpenPause?: boolean; taskId?: string },
   ) => { ok: boolean; error?: string };
   /** Discard the active session without saving to history */
-  discardSession: () => void;
-  /** After an interrupted session, keep counting including phone-off time */
-  continueInterruptedSession: () => void;
+  discardSession: () => boolean;
+  /** Resume an interrupted sitting, keeping at most four hours before return */
+  continueInterruptedSession: () => boolean;
   /** Heartbeat — update lastHeartbeat timestamp (call every 30s) */
   heartbeatSession: () => void;
   /** Mark specified step indices done and sync back to GoalBlueprint */
@@ -1292,18 +1292,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const discardSession = useCallback(() => {
-    if (nativeSessionReady) setActiveSession(null);
+    return nativeSessionReady && setActiveSession(null);
   }, [nativeSessionReady, setActiveSession]);
 
   const continueInterruptedSession = useCallback(() => {
-    if (!nativeSessionReady) return;
-    if (!guardWallClock('resume')) return;
+    if (!nativeSessionReady || !activeSessionRef.current || !guardWallClock('resume')) return false;
     const now = Date.now();
-    setActiveSession((prev) => {
+    return setActiveSession((prev) => {
       if (!prev) return null;
       return continueAfterInterruption(prev, now);
     });
-  }, [nativeSessionReady, setActiveSession]);
+  }, [activeSessionRef, nativeSessionReady, setActiveSession]);
 
   const heartbeatSession = useCallback(() => {
     if (!nativeSessionReady) return;

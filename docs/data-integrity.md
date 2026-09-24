@@ -21,7 +21,9 @@ This is a maintainer contract for the staged integrity work, not a release-readi
 
 Closing or suspending the app does not itself pause a session. A missing five-minute foreground heartbeat is not evidence that study stopped. Reopening an ordinary 98-minute sitting keeps its elapsed time without demanding reconstruction.
 
-The existing four-hour continuous-session safeguard remains. Foreground ticking and reconstruction now apply the same boundary, and a selected reconstruction end cannot extend into the future. Pauses subtract from elapsed duration; sessions below 15 seconds do not create counted focus, and the seven-day corruption bound remains. Do not describe these bounds as evidence of actual attention.
+The existing four-hour continuous-session safeguard remains. An unattended sitting at that boundary offers two choices: resume the sitting, crediting at most four hours before a pause that ends when the user returns, or discard the entire sitting. A foreground heartbeat cannot dismiss that choice. Pauses subtract from elapsed duration; sessions below 15 seconds do not create counted focus, and the seven-day corruption bound remains. The Android notification shows elapsed sitting time, not guaranteed credited focus. Do not describe these bounds as evidence of actual attention.
+
+On a previously signed-in device, an owned workspace may open offline from its saved Supabase session while token refresh waits. The cached user ID must match the device workspace owner. Explicit sign-out still closes it, and cloud work needs a renewed server session. A missing or mismatched cached session cannot open another account's local data.
 
 A wall/monotonic-clock discrepancy requests verification; it is not immediately stored as an incident. Fresh server requests bypass caches. Two consistent skewed samples are required before a mismatch is returned. A confirmed incident preserves the pre-jump sample when available; a heartbeat recorded while checking must not become the trusted boundary. Successful checks clear stale incidents. “Continue anyway” explicitly clears the incident; it is a user override, not server verification.
 
