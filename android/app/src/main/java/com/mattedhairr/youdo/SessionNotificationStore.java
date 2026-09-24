@@ -17,7 +17,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 final class SessionNotificationStore {
-    private static final long MAX_CONTINUOUS_FOCUS_MS = 4 * 60 * 60 * 1000L;
     private static final long CLOCK_SKEW_MS = 3 * 60 * 1000L;
     static final int NOTIF_ID = 35001;
     static final String CHANNEL_ID = "youdo_focus_live";
@@ -85,7 +84,7 @@ final class SessionNotificationStore {
             boolean paused = session.optBoolean("isPaused", false);
             if (ACTION_PAUSE.equals(action)) {
                 if (paused) return session;
-                long pauseAt = Math.min(now, lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS);
+                long pauseAt = now;
                 session.put("isPaused", true);
                 session.put("pauseStart", pauseAt);
                 session.put("lastHeartbeat", now);
@@ -129,7 +128,7 @@ final class SessionNotificationStore {
         ensureChannel(ctx);
         String safeTitle = title == null || title.trim().isEmpty() ? "Sitting in progress" : title.trim();
         String status = paused ? "Paused" : "Sitting active";
-        String hint = paused ? "Tap to open · Resume here" : "Elapsed sitting · focus capped at 4h";
+        String hint = paused ? "Tap to open · Resume here" : "Elapsed sitting · Pause here";
         long elapsedMs = elapsedFocusMs(sessionObject(ctx), paused);
         long chronometerBase = SystemClock.elapsedRealtime() - elapsedMs;
 
@@ -201,7 +200,7 @@ final class SessionNotificationStore {
             long pauseStart = session.optLong("pauseStart", now);
             pausedDuration += Math.max(0, now - pauseStart);
         }
-        long displayEnd = paused ? now : Math.min(now, lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS);
+        long displayEnd = now;
         return Math.max(0, displayEnd - start - pausedDuration);
     }
 
@@ -211,19 +210,6 @@ final class SessionNotificationStore {
         long wallDelta = now - prefs.getLong(KEY_WALL_SAMPLE, now);
         long elapsedDelta = SystemClock.elapsedRealtime() - prefs.getLong(KEY_ELAPSED_SAMPLE, 0);
         return elapsedDelta >= 0 && Math.abs(wallDelta - elapsedDelta) <= CLOCK_SKEW_MS;
-    }
-
-    private static long lastResumeAt(JSONObject session) {
-        long latest = Math.max(0, session.optLong("startTime", 0));
-        latest = Math.max(latest, session.optLong("returnedAt", latest));
-        JSONArray pauses = session.optJSONArray("pauses");
-        if (pauses != null) {
-            for (int i = 0; i < pauses.length(); i++) {
-                JSONObject pause = pauses.optJSONObject(i);
-                if (pause != null && pause.has("end")) latest = Math.max(latest, pause.optLong("end", latest));
-            }
-        }
-        return latest;
     }
 
     private static void ensureChannel(Context ctx) {

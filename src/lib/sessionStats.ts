@@ -57,57 +57,36 @@ export function lastResumeAt(session: ActiveSession): number {
 
 export function shouldOfferSessionRecovery(session: ActiveSession, now: number): boolean {
   if (session.isPaused) return false;
-  // A missing foreground heartbeat is expected while the phone is put aside.
-  return now - lastResumeAt(session) >= MAX_CONTINUOUS_FOCUS_MS;
+  // A long sitting needs a choice only after the app has been away; visible
+  // heartbeats must not interrupt someone actively working past four hours.
+  return now - lastResumeAt(session) >= MAX_CONTINUOUS_FOCUS_MS
+    && now - session.lastHeartbeat >= STALE_HEARTBEAT_MS;
 }
 
-/**
- * Cap a forgotten sitting at 4h from the last real resume so sleep cannot inflate stats.
- * Resume (“I kept working”) only moves the 4h window; it does not remove the cap.
- */
-export function safetyCapEnd(session: ActiveSession, endAt: number): number {
-  const end = clampSessionEnd(session.startTime, endAt);
-  const cap = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
-  return clampSessionEnd(session.startTime, Math.min(end, cap));
-}
-
-/** End time when the user taps Stop (not the reconstruct slider). */
+/** End time when the user taps Stop, bounded by verified clock evidence. */
 export function resolvePersistEndAt(
   session: ActiveSession,
   now: number,
   opts?: { userEnd?: number; clockIncident?: boolean; recordedBoundary?: number },
 ): number {
-  if (opts?.clockIncident) return safetyCapEnd(session, Math.min(opts.userEnd ?? Infinity, opts.recordedBoundary ?? session.lastHeartbeat ?? session.startTime));
-  if (opts?.userEnd != null) return safetyCapEnd(session, Math.min(now, opts.userEnd));
-  return safetyCapEnd(session, now);
+  if (opts?.clockIncident) return clampSessionEnd(session.startTime, Math.min(opts.userEnd ?? Infinity, opts.recordedBoundary ?? session.lastHeartbeat ?? session.startTime));
+  return clampSessionEnd(session.startTime, Math.min(now, opts?.userEnd ?? now));
 }
 
 /** Heartbeat while the app is in the foreground. Never call this when the clock sample failed. */
 export function tickActiveSession(session: ActiveSession, now: number): ActiveSession {
   if (!Number.isFinite(now) || now < (session.lastHeartbeat || session.startTime)) return session;
-  if (!session.isPaused && now - lastResumeAt(session) >= MAX_CONTINUOUS_FOCUS_MS) {
-    const pauseAt = lastResumeAt(session) + MAX_CONTINUOUS_FOCUS_MS;
-    return {
-      ...session,
-      isPaused: true,
-      pauseStart: pauseAt,
-      lastHeartbeat: now,
-      pauses: [...session.pauses, { start: pauseAt, wallClockStart: formatWallClock(pauseAt) }],
-    };
-  }
   return { ...session, lastHeartbeat: now };
 }
 
 export function pauseActiveSession(session: ActiveSession, now: number): ActiveSession {
   if (session.isPaused || !Number.isFinite(now) || now < session.lastHeartbeat) return session;
-  const bounded = tickActiveSession(session, now);
-  if (bounded.isPaused) return bounded;
   return {
-    ...bounded,
+    ...session,
     isPaused: true,
     pauseStart: now,
     lastHeartbeat: now,
-    pauses: [...bounded.pauses, { start: now, wallClockStart: formatWallClock(now) }],
+    pauses: [...session.pauses, { start: now, wallClockStart: formatWallClock(now) }],
   };
 }
 
@@ -137,11 +116,6 @@ export function resumeActiveSession(session: ActiveSession, now: number): Active
 export function continueAfterInterruption(session: ActiveSession, now: number): ActiveSession {
   if (session.isPaused) {
     return { ...session, lastHeartbeat: now };
-  }
-  if (shouldOfferSessionRecovery(session, now)) {
-    // The user can confirm they kept working, but the unattended part of one
-    // continuous segment still stops at the four-hour safety boundary.
-    return resumeActiveSession(tickActiveSession(session, now), now);
   }
   return {
     ...session,

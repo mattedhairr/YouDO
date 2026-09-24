@@ -17,6 +17,14 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.9] — 2026-09-24 — Honest long sittings (candidate)
+
+- **Long focus sittings** — Working beyond four hours no longer silently pauses or discards the extra time. An explicit Pause or Stop keeps the elapsed focus.
+- **Overnight review** — After a long absence, Resume keeps the elapsed sitting as focus; Discard saves none of that sitting. The choice remains visible until saved.
+- **Android APK** — versionName **7.5.9**, versionCode **50**. Prepared to install over the **v7.5.7** or **v7.5.8** test candidate with the same package ID and signing key. Physical overnight and timezone checks are pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
 ## [v7.5.8] — 2026-09-24 — Offline sitting recovery (candidate)
 
 - **Offline opening** — An already owned workspace can open from its saved sign-in while token refresh waits for a connection.

@@ -1704,9 +1704,9 @@ function AppInner() {
             </div>
             <p className="text-xs text-content-secondary leading-relaxed">
               <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session.
-              If you kept working with the phone aside, resume. Up to four hours
-              of the uninterrupted stretch is kept. If you fell asleep or forgot
-              to stop, discard the entire sitting.
+              If you kept working with the phone aside, resume to keep the
+              elapsed sitting as focus. If you fell asleep or forgot to stop,
+              discard the entire sitting.
             </p>
             <div className="flex flex-col gap-2 pt-1">
               <button

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { deadlineDaysLabel, formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
 import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
-import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, safetyCapEnd, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
+import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
 import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, goalNodeRole, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, taskStepStates, updateNode, removeNode } from './goalTree';
 import type { GoalNode, Task, TaskSession } from '../types';
 
@@ -492,19 +492,17 @@ describe('session math', () => {
     expect(shouldOfferSessionRecovery(stale, later)).toBe(false);
   });
 
-  it('pauses at 4h of continuous foreground time, not at wake', () => {
+  it('keeps foreground focus active beyond four hours', () => {
     const now = base.startTime + MAX_CONTINUOUS_FOCUS_MS;
     const ticked = tickActiveSession({ ...base, lastHeartbeat: now - 30_000 }, now);
-    expect(ticked.isPaused).toBe(true);
-    expect(ticked.pauseStart).toBe(base.startTime + MAX_CONTINUOUS_FOCUS_MS);
+    expect(ticked.isPaused).toBe(false);
     expect(ticked.lastHeartbeat).toBe(now);
   });
 
-  it('caps forgotten sittings at 4h from the last resume', () => {
+  it('asks for review after four hours away without recording a pause', () => {
     const eightHours = base.startTime + 8 * 60 * 60 * 1000;
-    expect(safetyCapEnd(base, eightHours)).toBe(base.startTime + MAX_CONTINUOUS_FOCUS_MS);
-    const resumed = { ...base, returnedAt: base.startTime + 40 * 60_000 };
-    expect(safetyCapEnd(resumed, eightHours)).toBe(base.startTime + 40 * 60_000 + MAX_CONTINUOUS_FOCUS_MS);
+    expect(shouldOfferSessionRecovery(base, eightHours)).toBe(true);
+    expect(tickActiveSession(base, eightHours).isPaused).toBe(false);
   });
 
   it('resume after a lock keeps the sitting and starts counting again', () => {
