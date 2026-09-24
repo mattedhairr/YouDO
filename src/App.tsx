@@ -1098,8 +1098,8 @@ function AppInner() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Cloud className="w-4 h-4 text-primary shrink-0" />
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-content-primary">Cloud backup ready</div>
-                        <div className="text-[11px] text-content-muted truncate">Restore your goals and tasks</div>
+                        <div className="text-xs font-semibold text-content-primary">Cloud restore</div>
+                        <div className="text-[11px] text-content-muted truncate">Load saved goals and tasks, if available</div>
                       </div>
                     </div>
                     <button
