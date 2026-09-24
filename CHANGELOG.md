@@ -17,6 +17,46 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.11] — 2026-09-24 — Reliable sitting discard (candidate)
+
+- **Discard recovery** — Discard records the sitting before clearing it, so an older Android notification copy cannot reopen that sitting if the app closes during cleanup. Discard still saves no focus record.
+- **Android APK** — versionName **7.5.11**, versionCode **52**. Prepared to install over the **v7.5.10** test candidate with the same package ID and signing key. No reinstall, data reset, or database migration is planned. The owner waived the extended physical Discard check; it has not been reported as passed. This is not a published release.
+
+---
+
+## [v7.5.10] — 2026-09-24 — Clear sitting times (candidate)
+
+- **Timezone changes** — A sitting's start, end, and pause labels now use one current time zone, so a timezone switch cannot make a short pause look reversed or hours long. Recorded focus and pause durations are unchanged.
+- **Android APK** — versionName **7.5.10**, versionCode **51**. Prepared to install over the **v7.5.9** test candidate with the same package ID and signing key. The overnight recovery retest remains pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
+## [v7.5.9] — 2026-09-24 — Honest long sittings (candidate)
+
+- **Long focus sittings** — Working beyond four hours no longer silently pauses or discards the extra time. An explicit Pause or Stop keeps the elapsed focus.
+- **Overnight review** — After a long absence, Resume keeps the elapsed sitting as focus; Discard saves none of that sitting. The choice remains visible until saved.
+- **Android APK** — versionName **7.5.9**, versionCode **50**. Prepared to install over the **v7.5.7** or **v7.5.8** test candidate with the same package ID and signing key. Physical overnight and timezone checks are pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
+## [v7.5.8] — 2026-09-24 — Offline sitting recovery (candidate)
+
+- **Offline opening** — An already owned workspace can open from its saved sign-in while token refresh waits for a connection.
+- **Clear recovery choice** — An unattended sitting asks whether to resume or discard the entire sitting. Returning from Recent Apps keeps that choice visible, and resume preserves the four-hour continuous-focus cap.
+- **Android timer label** — The notification identifies its live counter as elapsed sitting time, which may differ from credited focus time.
+- **Android APK** — versionName **7.5.8**, versionCode **49**. Prepared to install over the **v7.5.7** test candidate with the same package ID and signing key. Physical offline/recovery retest is pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
+## [v7.5.7] — 2026-09-23 — Focus sitting recovery (candidate)
+
+- **Android sitting recovery** — A notification Pause or Resume made while YouDO is closed is read before the app sends another timer snapshot. Older snapshots cannot undo that action.
+- **Timer safeguards** — A late Pause respects the four-hour continuous-focus limit. Backward clock changes and mismatched native clock samples cannot create a negative pause interval.
+- **Preserved recovery copy** — If the Android timer snapshot cannot be read or written, YouDO keeps the saved copy and pauses timer controls with a visible warning.
+- **Android APK** — versionName **7.5.7**, versionCode **48**. Prepared to install over published **v7.5.3** or unpublished **v7.5.6** with the same package ID and signing key. Physical Android install-over and lifecycle checks are pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
 ## [v7.5.6] — 2026-09-23 — Safer cloud reconciliation (candidate)
 
 - **Cloud write protection** — Another device's newer backup can no longer be silently overwritten by an older copy.

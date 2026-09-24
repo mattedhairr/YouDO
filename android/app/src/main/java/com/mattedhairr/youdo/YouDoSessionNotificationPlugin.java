@@ -68,8 +68,8 @@ public class YouDoSessionNotificationPlugin extends Plugin {
 
     @PluginMethod
     public void clear(PluginCall call) {
-        SessionNotificationStore.clear(getContext());
-        call.resolve();
+        if (SessionNotificationStore.clear(getContext())) call.resolve();
+        else call.reject("Could not clear the native timer snapshot");
     }
 
     @PluginMethod
@@ -80,20 +80,28 @@ public class YouDoSessionNotificationPlugin extends Plugin {
             try {
                 data.put("session", new JSObject(raw));
             } catch (Exception ignored) {
-                /* malformed */
+                call.reject("Unreadable native timer snapshot");
+                return;
             }
         }
         call.resolve(data);
     }
 
     private void post(PluginCall call) {
-        boolean paused = Boolean.TRUE.equals(call.getBoolean("paused", false));
         String title = call.getString("title", "Sitting in progress");
         String sessionJson = call.getString("sessionJson");
-        if (sessionJson != null && !sessionJson.isEmpty()) {
-            SessionNotificationStore.save(getContext(), sessionJson, title);
+        if (sessionJson == null || sessionJson.isEmpty()) {
+            call.reject("Missing timer snapshot");
+            return;
         }
-        SessionNotificationStore.show(getContext(), paused, title);
-        call.resolve();
+        try {
+            JSONObject effective = SessionNotificationStore.acceptWebSnapshot(getContext(), sessionJson, title);
+            String effectiveTitle = SessionNotificationStore.title(getContext());
+            SessionNotificationStore.show(getContext(), effective.optBoolean("isPaused", false), effectiveTitle);
+            emitSession(effective);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not save the native timer snapshot");
+        }
     }
 }

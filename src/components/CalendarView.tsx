@@ -549,7 +549,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-content-primary truncate">Session {index + 1}</p>
                             <p className="text-[10.5px] text-content-secondary font-mono mt-0.5">
-                              {s.wallClockStart} - {s.wallClockEnd}
+                              {summary.wallClockRange}
                               {overnight ? ' · split' : ''} ({formatDuration(slice.durationMs)})
                             </p>
                           </div>

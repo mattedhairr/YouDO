@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ActiveSession } from '../types';
 import { finalizeSession } from './sessionStats';
-import { createSessionJournal, nativeSessionIsFinished, persistSessionRecord, selectNativeSession } from './sessionPersistence';
+import { createSessionJournal, markDiscardedSession, nativeSessionIsFinished, persistSessionRecord, selectNativeSession, wasSessionDiscarded } from './sessionPersistence';
 import { STORAGE_KEYS } from './storageKeys';
 import { mergeSessionHistories } from './syncMerge';
 
@@ -17,6 +17,17 @@ describe('focus persistence safeguards', () => {
     const paused={...active,isPaused:true,pauseStart:active.startTime+60_000,lastHeartbeat:active.startTime+60_000};
     expect(selectNativeSession(active,paused,{})).toBe(paused);
   });
+  it('keeps a notification pause despite a newer stale WebView heartbeat',()=>{
+    const paused={...active,isPaused:true,pauseStart:active.startTime+60_000,lastHeartbeat:active.startTime+60_000,nativeActionRevision:1};
+    const staleWeb={...active,lastHeartbeat:active.startTime+90_000};
+    expect(selectNativeSession(staleWeb,paused,{})).toBe(paused);
+    expect(selectNativeSession(paused,staleWeb,{})).toBe(paused);
+  });
+  it('accepts the latest notification action when wall time moves backward',()=>{
+    const older={...active,lastHeartbeat:active.startTime+60_000,nativeActionRevision:1};
+    const resumed={...active,lastHeartbeat:active.startTime+30_000,nativeActionRevision:2};
+    expect(selectNativeSession(older,resumed,{})).toBe(resumed);
+  });
   it('never revives a recorded sitting or displaces a different active sitting',()=>{
     expect(selectNativeSession(null,active,{'dpp-1':[session]})).toBeNull();
     const other={...active,taskId:'another'};
@@ -26,6 +37,26 @@ describe('focus persistence safeguards', () => {
     const data=new Map(Object.entries(seed));
     return { getItem:(key:string)=>data.get(key)??null, setItem:vi.fn((key:string,value:string)=>{data.set(key,value);}) };
   }
+  it('rejects a stale Android copy after a discarded sitting is cleared locally', () => {
+    const storage = memoryStorage({ [STORAGE_KEYS.workspaceOwner]: 'tester' });
+    const journal = createSessionJournal(storage);
+    journal.write(active);
+    markDiscardedSession(active, storage);
+    journal.write(null);
+    expect(wasSessionDiscarded(active, storage)).toBe(true);
+    expect(selectNativeSession(journal.read(), active, {}, wasSessionDiscarded(active, storage))).toBeNull();
+    expect(storage.getItem(STORAGE_KEYS.sessionHistory)).toBeNull();
+    storage.setItem(STORAGE_KEYS.workspaceOwner, 'another-account');
+    expect(wasSessionDiscarded(active, storage)).toBe(false);
+  });
+  it('does not clear the sitting when a durable discard marker cannot be written', () => {
+    const storage = memoryStorage({ [STORAGE_KEYS.workspaceOwner]: 'tester' });
+    const journal = createSessionJournal(storage);
+    journal.write(active);
+    storage.setItem.mockImplementationOnce(() => { throw new Error('QuotaExceeded'); });
+    expect(() => markDiscardedSession(active, storage)).toThrow('QuotaExceeded');
+    expect(journal.read()).toEqual(active);
+  });
   it('writes a start or pause before accepting the next timer state',()=>{
     const storage=memoryStorage();const journal=createSessionJournal(storage);
     journal.write(active);

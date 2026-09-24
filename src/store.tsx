@@ -13,6 +13,7 @@ import type { ActiveSession, GoalNode, SessionStopOutcome, Task, TaskSession } f
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSessionJournal } from './hooks/useSessionJournal';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
 import { parseBackupPayload, summarizeBackupPayload, type BackupSummary } from './lib/backup';
@@ -21,6 +22,8 @@ import { formatWallClock } from './lib/format';
 import {
   finalizeSession,
   tickActiveSession,
+  pauseActiveSession,
+  resumeActiveSession,
   continueAfterInterruption,
   createManualStepSession,
   resolvePersistEndAt,
@@ -30,7 +33,7 @@ import {
   SESSION_HISTORY_KEEP_MS,
 } from './lib/sessionStats';
 import { attachSessionNotificationActions, pullNativeSession, syncSessionNotification } from './lib/sessionNotification';
-import { nativeSessionIsFinished, persistSessionRecord, selectNativeSession } from './lib/sessionPersistence';
+import { markDiscardedSession, nativeSessionIsFinished, persistSessionRecord, selectNativeSession, wasSessionDiscarded } from './lib/sessionPersistence';
 import {
   clearRollupCache,
   cloneNode,
@@ -233,6 +236,7 @@ interface Store {
   /** The currently live session (null if none active) */
   activeSession: ActiveSession | null;
   sessionStorageError: string;
+  nativeSessionReady: boolean;
   /** Full session history keyed by taskId */
   sessionHistory: Record<string, TaskSession[]>;
   /** Start a new session only if no session is already active. */
@@ -247,9 +251,9 @@ interface Store {
     options?: { endTime?: number; ignoreOpenPause?: boolean; taskId?: string },
   ) => { ok: boolean; error?: string };
   /** Discard the active session without saving to history */
-  discardSession: () => void;
-  /** After an interrupted session, keep counting including phone-off time */
-  continueInterruptedSession: () => void;
+  discardSession: () => boolean;
+  /** Resume an interrupted sitting, keeping at most four hours before return */
+  continueInterruptedSession: () => boolean;
   /** Heartbeat — update lastHeartbeat timestamp (call every 30s) */
   heartbeatSession: () => void;
   /** Mark specified step indices done and sync back to GoalBlueprint */
@@ -260,6 +264,7 @@ type DataStore = Omit<
   Store,
   | 'activeSession'
   | 'sessionStorageError'
+  | 'nativeSessionReady'
   | 'startSession'
   | 'pauseSession'
   | 'resumeSession'
@@ -273,6 +278,7 @@ type SessionStore = Pick<
   Store,
   | 'activeSession'
   | 'sessionStorageError'
+  | 'nativeSessionReady'
   | 'startSession'
   | 'pauseSession'
   | 'resumeSession'
@@ -311,6 +317,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [deletionLedger, setDeletionLedger] = useLocalStorage<DeletionMarker[]>(STORAGE_KEYS.deletionLedger, [], { ...atomicStorage, validate: isDeletionLedger });
   const [lastDeletedNotification, setLastDeletedNotification] = useState<{ id: string; title: string } | null>(null);
   const { activeSession, activeSessionRef, setActiveSession, clearRecordedSession, sessionStorageError } = useSessionJournal();
+  const [nativeSessionReady, setNativeSessionReady] = useState(!Capacitor.isNativePlatform());
+  const [nativeSessionError, setNativeSessionError] = useState('');
   const [sessionHistory, setSessionHistory] = useLocalStorage<Record<string, TaskSession[]>>(STORAGE_KEYS.sessionHistory, {}, { ...atomicStorage, validate: isStoredSessionHistory });
   const [streakMeta, setStreakMeta] = useLocalStorage<StreakMeta>(
     STORAGE_KEYS.streakMeta,
@@ -1211,6 +1219,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const startSession = useCallback((taskId: string) => {
+    if (!nativeSessionReady) return;
     const existing = activeSessionRef.current;
     if (existing?.taskId === taskId) return;
     if (existing) return;
@@ -1229,54 +1238,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       wallClockStart: formatWallClock(now),
     };
     setActiveSession(session);
-  }, [activeSessionRef, setActiveSession]);
+  }, [activeSessionRef, nativeSessionReady, setActiveSession]);
 
   const pauseSession = useCallback(() => {
+    if (!nativeSessionReady) return;
     setActiveSession((prev) => {
       if (!prev || prev.isPaused) return prev;
       if (!guardWallClock('guard')) return prev;
-      const now = Date.now();
-      return {
-        ...prev,
-        isPaused: true,
-        pauseStart: now,
-        lastHeartbeat: now,
-        pauses: [...prev.pauses, { start: now, wallClockStart: formatWallClock(now) }],
-      };
+      return pauseActiveSession(prev, Date.now());
     });
-  }, [setActiveSession]);
+  }, [nativeSessionReady, setActiveSession]);
 
   const resumeSession = useCallback(() => {
+    if (!nativeSessionReady) return;
     setActiveSession((prev) => {
       if (!prev || !prev.isPaused) return prev;
       if (!guardWallClock('guard')) return prev;
-      const now = Date.now();
-      const pauseDuration = prev.pauseStart ? now - prev.pauseStart : 0;
-      return {
-        ...prev,
-        isPaused: false,
-        pauseStart: undefined,
-        pausedDuration: prev.pausedDuration + pauseDuration,
-        lastHeartbeat: now,
-        pauses: prev.pauses.map((p, i) =>
-          i === prev.pauses.length - 1
-            ? {
-                ...p,
-                end: now,
-                wallClockEnd: formatWallClock(now),
-                durationMs: p.start ? now - p.start : pauseDuration,
-              }
-            : p,
-        ),
-      };
+      return resumeActiveSession(prev, Date.now());
     });
-  }, [setActiveSession]);
+  }, [nativeSessionReady, setActiveSession]);
 
   const stopSession = useCallback(
     (
       outcome: SessionStopOutcome,
       options?: { endTime?: number; ignoreOpenPause?: boolean; taskId?: string },
     ) => {
+      if (!nativeSessionReady) return { ok: false, error: 'Android timer recovery is still in progress. Keep YouDO open and try again.' };
       const prev = activeSessionRef.current;
       if (!prev) return { ok: false, error: 'This sitting is no longer active. No completion was applied.' };
       const result = persistActiveSession(outcome, options);
@@ -1301,49 +1288,71 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       return result;
     },
-    [activeSessionRef, persistActiveSession, setTasks],
+    [activeSessionRef, nativeSessionReady, persistActiveSession, setTasks],
   );
 
-  const discardSession = useCallback(() => setActiveSession(null), [setActiveSession]);
+  const discardSession = useCallback(() => {
+    if (!nativeSessionReady || !activeSessionRef.current) return false;
+    try { markDiscardedSession(activeSessionRef.current); }
+    catch {
+      setNativeSessionError('Could not protect this discard on the device. Keep app data intact and try again.');
+      return false;
+    }
+    return setActiveSession(null);
+  }, [activeSessionRef, nativeSessionReady, setActiveSession]);
 
   const continueInterruptedSession = useCallback(() => {
-    if (!guardWallClock('resume')) return;
+    if (!nativeSessionReady || !activeSessionRef.current || !guardWallClock('resume')) return false;
     const now = Date.now();
-    setActiveSession((prev) => {
+    return setActiveSession((prev) => {
       if (!prev) return null;
       return continueAfterInterruption(prev, now);
     });
-  }, [setActiveSession]);
+  }, [activeSessionRef, nativeSessionReady, setActiveSession]);
 
   const heartbeatSession = useCallback(() => {
+    if (!nativeSessionReady) return;
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     setActiveSession((prev) => {
       if (!prev) return prev;
       if (!guardWallClock('guard')) return prev;
       return tickActiveSession(prev, Date.now());
     });
-  }, [setActiveSession]);
+  }, [nativeSessionReady, setActiveSession]);
 
   useEffect(() => {
     let handle: { remove: () => Promise<void> } | undefined;
     let cancelled = false;
-    void pullNativeSession().then((session) => {
-      if (cancelled || !session || nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
-      if (!tasksRef.current.some((task) => task.id === session.taskId)) return;
-      setActiveSession(selectNativeSession(activeSessionRef.current, session, sessionHistoryRef.current));
-    });
-    void attachSessionNotificationActions((session) => {
-      if (cancelled || nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
-      const current = activeSessionRef.current;
-      if (!current || current.taskId !== session.taskId || current.startTime !== session.startTime) return;
-      setActiveSession(selectNativeSession(current, session, sessionHistoryRef.current));
-    }).then((h) => {
-      if (cancelled) {
-        void h?.remove();
+    void (async () => {
+      try {
+        handle = await attachSessionNotificationActions((session) => {
+          if (cancelled || nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
+          const current = activeSessionRef.current;
+          if (!current || current.taskId !== session.taskId || current.startTime !== session.startTime) return;
+          setActiveSession(selectNativeSession(current, session, sessionHistoryRef.current));
+        });
+      } catch { /* Native pull still needs to run if the listener is unavailable. */ }
+      if (cancelled) { void handle?.remove(); return; }
+      const native = await pullNativeSession();
+      if (cancelled) return;
+      if (!native.ok) {
+        setNativeSessionError('Could not read the Android timer snapshot. Its saved copy was preserved. Reopen YouDO before changing this sitting; do not clear app data.');
         return;
       }
-      handle = h;
-    });
+      const session = native.session;
+      let discarded = false;
+      try { discarded = Boolean(session && wasSessionDiscarded(session)); }
+      catch {
+        setNativeSessionError('Could not read the Android discard record. Keep app data intact and reopen YouDO before changing this sitting.');
+        return;
+      }
+      if (session && !nativeSessionIsFinished(session, sessionHistoryRef.current)
+        && tasksRef.current.some((task) => task.id === session.taskId)) {
+        if (!setActiveSession(selectNativeSession(activeSessionRef.current, session, sessionHistoryRef.current, discarded))) return;
+      }
+      setNativeSessionError('');
+      setNativeSessionReady(true);
+    })();
     return () => {
       cancelled = true;
       void handle?.remove();
@@ -1354,8 +1363,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ? tasks.find((t) => t.id === activeSession.taskId)?.title
     : undefined;
   useEffect(() => {
-    void syncSessionNotification(activeSession, sessionTaskTitle);
-  }, [activeSession, sessionTaskTitle, activeSession?.isPaused, activeSession?.taskId]);
+    if (!nativeSessionReady || sessionStorageError) return;
+    void syncSessionNotification(activeSession, sessionTaskTitle).then((ok) => {
+      if (ok) return;
+      setNativeSessionError('Could not save the Android timer snapshot. Keep app data intact and reopen YouDO before changing this sitting.');
+      setNativeSessionReady(false);
+    });
+  }, [activeSession, sessionTaskTitle, nativeSessionReady, sessionStorageError]);
 
   const completeSessionSteps = useCallback(
     (taskId: string, stepIndices: number[]) => {
@@ -1953,11 +1967,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const sessionValue = useMemo<SessionStore>(
     () => ({
-      activeSession, sessionStorageError,
+      activeSession, sessionStorageError: sessionStorageError || nativeSessionError, nativeSessionReady,
       startSession, pauseSession, resumeSession, stopSession,
       discardSession, continueInterruptedSession, heartbeatSession,
     }),
-    [activeSession, sessionStorageError, startSession, pauseSession, resumeSession, stopSession,
+    [activeSession, sessionStorageError, nativeSessionError, nativeSessionReady, startSession, pauseSession, resumeSession, stopSession,
       discardSession, continueInterruptedSession, heartbeatSession],
   );
 

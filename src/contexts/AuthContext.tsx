@@ -17,6 +17,7 @@ import { matchesRecoveryGrant, nextRecoveryGrant, updatePasswordWithRecoveryToke
 import { isAuthRecoveryUrl } from '../lib/authRedirect';
 import { requestAccountDeletion } from '../lib/accountDeletion';
 import { updateAccountProfile } from '../lib/accountProfile';
+import { keepCachedWorkspaceOffline, readCachedWorkspaceUser } from '../lib/offlineAuth';
 
 interface AuthActionResult {
   ok: boolean;
@@ -80,13 +81,14 @@ async function currentUserId(): Promise<string | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [cachedAtBoot] = useState(readCachedWorkspaceUser);
+  const [user, setUser] = useState<User | null>(cachedAtBoot);
+  const [loading, setLoading] = useState(!cachedAtBoot);
   const [recoveryAuthorizedUserId, setRecoveryAuthorizedUserId] = useState<string | null>(null);
   const recoveryGrant = useRef<RecoveryGrant | null>(null);
   const recoveryRequestPending = useRef(false);
   const currentAuthUserId = useRef<string | null>(null);
-  const lastSeenAccountId = useRef<string | null>(null);
+  const lastSeenAccountId = useRef<string | null>(cachedAtBoot?.id ?? null);
   const accountSwitchVersion = useRef(0);
 
   useEffect(() => {
@@ -96,8 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!authEventSeen) {
         currentAuthUserId.current = session?.user?.id ?? null;
-        lastSeenAccountId.current = session?.user?.id ?? null;
-        setUser(session?.user ?? null);
+        if (session?.user?.id) lastSeenAccountId.current = session.user.id;
+        setUser(current => keepCachedWorkspaceOffline('INITIAL_SESSION', session?.user ?? null,
+          readCachedWorkspaceUser(), navigator.onLine) ? current : session?.user ?? null);
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -113,7 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
         resetVisitSnapshotFreeze(session?.user?.id);
       }
-      setUser(session?.user ?? null);
+      setUser(current => keepCachedWorkspaceOffline(event, session?.user ?? null,
+        readCachedWorkspaceUser(), navigator.onLine) ? current : session?.user ?? null);
       setLoading(false);
     });
 

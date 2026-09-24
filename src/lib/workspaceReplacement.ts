@@ -12,6 +12,8 @@ import { isDeletionLedger } from './deletionLedger';
 type DeviceStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 // Include old aliases so an intentionally empty replacement cannot revive them.
 const REPLACEMENT_KEYS = [...WORKSPACE_KEYS, ...WORKSPACE_ALIAS_KEYS, STORAGE_KEYS.workspaceOwner];
+// v7.5.10 checkpoints predate the durable Android discard marker.
+const PRE_DISCARD_REPLACEMENT_KEYS = REPLACEMENT_KEYS.filter(key => key !== STORAGE_KEYS.discardedSessions);
 const MUTATION_KEYS = [
   STORAGE_KEYS.tasks, STORAGE_KEYS.goals, STORAGE_KEYS.deletedGoals, STORAGE_KEYS.deletionLedger,
   STORAGE_KEYS.sessionHistory, STORAGE_KEYS.streakMeta, STORAGE_KEYS.pacePrefs,
@@ -39,9 +41,9 @@ export function captureAccountSignOutAfterSync(beforeSync: WorkspaceSnapshot, st
   return afterSync;
 }
 
-function writeSnapshot(snapshot: WorkspaceSnapshot, storage: DeviceStorage) {
+function writeSnapshot(snapshot: WorkspaceSnapshot, storage: DeviceStorage, keys: readonly string[] = REPLACEMENT_KEYS) {
   // Bind the new owner only after all of its data has been written.
-  for (const key of REPLACEMENT_KEYS) {
+  for (const key of keys) {
     const value = snapshot[key];
     if (value === null) storage.removeItem(key);
     else storage.setItem(key, value);
@@ -60,12 +62,18 @@ export function recoverWorkspaceReplacement(storage: DeviceStorage = localStorag
       ? Object.keys(saved.before) : [];
     const validFull = saved?.version === 1 && keys.length === REPLACEMENT_KEYS.length
       && REPLACEMENT_KEYS.every(key => Object.prototype.hasOwnProperty.call(saved.before, key));
+    const validPreDiscard = saved?.version === 1 && keys.length === PRE_DISCARD_REPLACEMENT_KEYS.length
+      && PRE_DISCARD_REPLACEMENT_KEYS.every(key => Object.prototype.hasOwnProperty.call(saved.before, key));
     const validMutation = saved?.version === 2 && keys.length > 0
       && keys.every(key => MUTATION_KEYS.includes(key as MutationKey));
-    if ((!validFull && !validMutation) || keys.some(key => saved.before[key] !== null && typeof saved.before[key] !== 'string')) {
+    if ((!validFull && !validPreDiscard && !validMutation) || keys.some(key => saved.before[key] !== null && typeof saved.before[key] !== 'string')) {
       throw new Error('Invalid checkpoint');
     }
     if (validFull) writeSnapshot(saved.before, storage);
+    else if (validPreDiscard) {
+      writeSnapshot(saved.before, storage, PRE_DISCARD_REPLACEMENT_KEYS);
+      storage.removeItem(STORAGE_KEYS.discardedSessions);
+    }
     else for (const key of keys) {
       const value = saved.before[key];
       if (value === null) storage.removeItem(key);

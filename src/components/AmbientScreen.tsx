@@ -5,6 +5,7 @@ import type { ActiveSession, Task } from '../types';
 import Overlay from './Overlay';
 import { formatElapsed } from '../lib/format';
 import { computeNetFocusMs } from '../lib/sessionStats';
+import { sessionClockLabel } from '../lib/sessionClock';
 
 interface Props {
   activeSession: ActiveSession;
@@ -23,10 +24,6 @@ function formatPauseDuration(ms: number) {
   const remMins = mins % 60;
   if (hrs > 0) return `${hrs}h ${remMins}m`;
   return `${mins}m`;
-}
-
-function formatWallClockTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 export function AmbientScreen({
@@ -144,7 +141,7 @@ export function AmbientScreen({
           </div>
 
           <p className="text-[12px] font-mono text-content-muted">
-            Started {activeSession.wallClockStart}
+            Started {sessionClockLabel(activeSession.startTime, activeSession.wallClockStart)}
             {activeSession.pauses.length > 0 && ` · ${activeSession.pauses.length} pause${activeSession.pauses.length > 1 ? 's' : ''}`}
           </p>
 
@@ -154,8 +151,8 @@ export function AmbientScreen({
                 <Clock size={10} /> Pauses
               </p>
               {activeSession.pauses.map((p, idx) => {
-                const startStr = p.wallClockStart || formatWallClockTime(p.start);
-                const endStr = p.end ? (p.wallClockEnd || formatWallClockTime(p.end)) : 'now';
+                const startStr = sessionClockLabel(p.start, p.wallClockStart);
+                const endStr = p.end ? sessionClockLabel(p.end, p.wallClockEnd) : 'now';
                 const durMs = p.end ? (p.durationMs || (p.end - p.start)) : (activeSession.pauseStart ? Date.now() - activeSession.pauseStart : 0);
                 return (
                   <div key={idx} className="flex items-center justify-between text-[11px] font-mono text-content-secondary">
