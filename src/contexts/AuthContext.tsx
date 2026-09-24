@@ -12,7 +12,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { changeVerifiedCredentials } from '../lib/accountCredentials';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
-import { finishAccountSignOut, prepareAccountSignOut } from '../lib/workspaceReplacement';
+import { assertWorkspaceUnchanged, finishAccountSignOut, prepareAccountSignOut, type WorkspaceSnapshot } from '../lib/workspaceReplacement';
 import { matchesRecoveryGrant, nextRecoveryGrant, updatePasswordWithRecoveryToken, type RecoveryGrant } from '../lib/passwordRecovery';
 import { isAuthRecoveryUrl } from '../lib/authRedirect';
 import { requestAccountDeletion } from '../lib/accountDeletion';
@@ -24,13 +24,15 @@ interface AuthActionResult {
   message?: string;
 }
 
+type SignOutOptions = { clearWorkspace?: false } | { clearWorkspace: true; syncedWorkspace: WorkspaceSnapshot };
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   recoveryAuthorizedUserId: string | null;
   changeRecoveredPassword: (password: string) => Promise<AuthActionResult>;
   cancelPasswordRecovery: () => void;
-  signOut: (options?: { clearWorkspace?: boolean }) => Promise<AuthActionResult>;
+  signOut: (options?: SignOutOptions) => Promise<AuthActionResult>;
   deleteAccount: () => Promise<AuthActionResult>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
   changeEmail: (currentPassword: string, nextEmail: string) => Promise<AuthActionResult>;
@@ -150,10 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOut = async (options?: { clearWorkspace?: boolean }): Promise<AuthActionResult> => {
+  const signOut = async (options?: SignOutOptions): Promise<AuthActionResult> => {
     try {
       const accountId = user?.id ?? null;
       const switchVersion = accountSwitchVersion.current;
+      if (options?.clearWorkspace) assertWorkspaceUnchanged(options.syncedWorkspace);
       const before = options?.clearWorkspace ? prepareAccountSignOut(accountId ?? '') : null;
       if (before) {
         const { data: { session }, error } = await supabase.auth.getSession();

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { captureWorkspace, commitWorkspaceMutation, commitWorkspaceReplacement, finishAccountSignOut, prepareAccountSignOut, prepareSettingsImport, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from './workspaceReplacement';
+import { assertWorkspaceUnchanged, captureAccountSignOutAfterSync, captureWorkspace, commitWorkspaceMutation, commitWorkspaceReplacement, finishAccountSignOut, prepareAccountSignOut, prepareSettingsImport, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from './workspaceReplacement';
 import { STORAGE_KEYS as K } from './storageKeys';
 
 class FaultStorage {
@@ -16,6 +16,24 @@ const cloud = '{"tasks":[{"id":"new","title":"Downloaded work"}],"goals":[]}';
 const options = (fetchBackup = async () => cloud) => ({ accountId: 'new-account', currentAccountId: () => 'new-account', fetchBackup });
 
 describe('account sign-out boundary', () => {
+  it('allows sync metadata changes but blocks edits made before sign-out starts', () => {
+    const storage = new FaultStorage();
+    const beforeSync = captureWorkspace(storage);
+    storage.setItem(K.workspaceCloudFingerprint, 'synced-copy');
+    storage.removeItem(K.workspaceSyncConflict);
+    const syncedWorkspace = captureAccountSignOutAfterSync(beforeSync, storage);
+    expect(syncedWorkspace[K.workspaceCloudFingerprint]).toBe('synced-copy');
+    storage.setItem(K.tasks, '[{"id":"new","title":"Unsynced edit"}]');
+    expect(() => assertWorkspaceUnchanged(syncedWorkspace, storage)).toThrow('workspace changed');
+    expect(storage.getItem(K.tasks)).toContain('Unsynced edit');
+  });
+  it('keeps a device edit or cloud pull made while sync was in flight', () => {
+    const storage = new FaultStorage();
+    const beforeSync = captureWorkspace(storage);
+    storage.setItem(K.tasks, '[{"id":"new","title":"Changed while syncing"}]');
+    expect(() => captureAccountSignOutAfterSync(beforeSync, storage)).toThrow('changed during sync');
+    expect(storage.getItem(K.workspaceOwner)).toBe('old-account');
+  });
   it('clears the captured account atomically and keeps device preferences', () => {
     const storage = new FaultStorage();
     const before = prepareAccountSignOut('old-account', storage);

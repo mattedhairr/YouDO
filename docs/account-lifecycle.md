@@ -7,7 +7,7 @@ The Supabase Auth user ID owns the cloud backup, restore points, and signed-in d
 | New signup awaiting email verification | Existing copy remains closed or available in explicit offline mode | Pending user has no signed-in workspace | A signup response without a session does not claim the device copy. |
 | Sign in to the same account | Keep its owned copy | Fetch only that account's backup | Owner ID must match before private views open. |
 | Sign in to another account | Preserve the previous copy until an explicit choice | Fetch only the new account's backup | Never combine or upload the previous owner's data. |
-| Sign out in Settings | Clear the signed-out account's device copy through a recoverable checkpoint | Cloud copy stays | Sync must succeed; an active sitting or changed device copy blocks clearing. |
+| Sign out in Settings | Clear the signed-out account's device copy through a recoverable checkpoint | Cloud copy stays | Sync must succeed; an active sitting or a device change during or after sync blocks clearing. |
 | Profile name or avatar edit | No workspace replacement | Update only the account whose token was captured when editing began | Response user ID must match; a later account switch cannot retarget the write. |
 | Password reset link | No workspace replacement until normal sign-in gate completes | Change password for the verified recovery account | The URL marker alone grants nothing; a Supabase `PASSWORD_RECOVERY` event and matching token are required. |
 | Signed-in device list or remote revocation | No workspace replacement | Only the authenticated account's sessions | The UI checks account identity before and after RPC; the server enforces ownership and the current-session restriction. |

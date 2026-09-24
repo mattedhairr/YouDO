@@ -20,11 +20,23 @@ const MUTATION_KEYS = [
 ] as const;
 type MutationKey = typeof MUTATION_KEYS[number];
 type WorkspaceMutation = Partial<Record<MutationKey, string | null>>;
-type WorkspaceSnapshot = Record<string, string | null>;
+export type WorkspaceSnapshot = Record<string, string | null>;
 const pendingMessage = 'YouDO could not finish recovering the previous device copy. Keep app data intact, free some device storage, then retry.';
 
 export function captureWorkspace(storage: DeviceStorage = localStorage): WorkspaceSnapshot {
   return Object.fromEntries(REPLACEMENT_KEYS.map(key => [key, storage.getItem(key)]));
+}
+
+/** A successful sync may change its metadata, but must not hide a device edit
+ * made while Settings was waiting to sign out. A cloud pull also needs review.
+ */
+export function captureAccountSignOutAfterSync(beforeSync: WorkspaceSnapshot, storage: DeviceStorage = localStorage): WorkspaceSnapshot {
+  const afterSync = captureWorkspace(storage);
+  const syncMetadata = new Set<string>([STORAGE_KEYS.workspaceCloudFingerprint, STORAGE_KEYS.workspaceSyncConflict]);
+  if (REPLACEMENT_KEYS.some(key => !syncMetadata.has(key) && beforeSync[key] !== afterSync[key])) {
+    throw new Error('The device workspace changed during sync. Review the current copy and sync again before signing out.');
+  }
+  return afterSync;
 }
 
 function writeSnapshot(snapshot: WorkspaceSnapshot, storage: DeviceStorage) {
