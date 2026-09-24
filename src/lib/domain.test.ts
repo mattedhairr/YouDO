@@ -1112,8 +1112,11 @@ describe('two-device sync decisions', () => {
       localFingerprint: 'empty', remoteFingerprint: 'cloud', baseFingerprint: 'cloud', localEmpty: true,
     })).toBe('empty-error');
     expect(decideSyncAction({
-      localFingerprint: 'empty', remoteFingerprint: null, baseFingerprint: null, localEmpty: true,
+      localFingerprint: 'empty', remoteFingerprint: null, baseFingerprint: 'previous', localEmpty: true,
     })).toBe('empty-error');
+    expect(decideSyncAction({
+      localFingerprint: 'empty', remoteFingerprint: null, baseFingerprint: null, localEmpty: true,
+    })).toBe('push');
   });
 
   it('requires an explicit strategy to resolve a conflict', async () => {

@@ -17,6 +17,14 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.13] — 2026-09-24 — Reliable first account sync (candidate)
+
+- **First sign-in** — A new empty account creates its first cloud backup without showing a false cleared-workspace conflict.
+- **Existing work** — A device that previously synced and then lost its cloud copy still pauses for review; a fresh device pulls existing cloud work.
+- **Android APK** — versionName **7.5.13**, versionCode **54**. Prepared to install over the **v7.5.12** test candidate with the same package ID and signing key. Hosted account checks, deletion-function deployment, and Android install-over verification remain pending. This is not a published release.
+
+---
+
 ## [v7.5.12] — 2026-09-24 — Safer account transitions (candidate)
 
 - **Account ownership** — Profile edits, password recovery, signed-in device controls, and account deletion stay bound to the account that began each action.

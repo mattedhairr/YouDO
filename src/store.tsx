@@ -73,6 +73,7 @@ import { commitWorkspaceMutation, prepareSettingsImport } from './lib/workspaceR
 import { mergeWorkspace, workspaceFingerprint, workspaceSignature, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
 import { decideSyncAction, isWorkspaceEffectivelyEmpty, type SyncConflictStrategy } from './lib/syncDecision';
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
+import { isPristineLocalWorkspace } from './lib/syncCheckpoint';
 import { advanceDeletionLedger, isDeletionLedger, type DeletionMarker } from './lib/deletionLedger';
 import { parseSyncConflictRecord, type SyncConflictKind, type SyncConflictRecord } from './lib/syncConflictRecord';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
@@ -1661,8 +1662,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const remoteFingerprint = remoteSlice
       ? canonicalWorkspaceFingerprint(remoteSlice, todayISO())
       : null;
-    const baseFingerprint = readWorkspaceCloudFingerprint();
     const localEmpty = isWorkspaceEffectivelyEmpty(localSlice);
+    const baseFingerprint = localEmpty && isPristineLocalWorkspace(localStorage)
+      ? null : readWorkspaceCloudFingerprint();
     const conflictResult = (kind: SyncConflictKind, error: string): CloudSyncResult => {
       if (stillCurrent()) rememberCloudConflict({
         accountId: syncUserId!, kind, detectedAt: Date.now(),

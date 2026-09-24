@@ -37,7 +37,9 @@ export function decideSyncAction(input: {
 
   if (allowEmpty) return 'push';
   if (localEmpty) {
-    if (!remoteFingerprint) return 'empty-error';
+    // A new account has neither a cloud copy nor a prior sync base. Create its
+    // first (empty) backup; a missing copy after a prior sync still needs review.
+    if (!remoteFingerprint) return baseFingerprint ? 'empty-error' : 'push';
     if (localFingerprint === remoteFingerprint) return 'noop';
     if (conflictStrategy === 'cloud') return 'pull';
     // A first-time empty device may hydrate automatically. A previously synced
