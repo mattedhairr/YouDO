@@ -33,7 +33,7 @@ import {
   SESSION_HISTORY_KEEP_MS,
 } from './lib/sessionStats';
 import { attachSessionNotificationActions, pullNativeSession, syncSessionNotification } from './lib/sessionNotification';
-import { nativeSessionIsFinished, persistSessionRecord, selectNativeSession } from './lib/sessionPersistence';
+import { markDiscardedSession, nativeSessionIsFinished, persistSessionRecord, selectNativeSession, wasSessionDiscarded } from './lib/sessionPersistence';
 import {
   clearRollupCache,
   cloneNode,
@@ -1292,8 +1292,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const discardSession = useCallback(() => {
-    return nativeSessionReady && setActiveSession(null);
-  }, [nativeSessionReady, setActiveSession]);
+    if (!nativeSessionReady || !activeSessionRef.current) return false;
+    try { markDiscardedSession(activeSessionRef.current); }
+    catch {
+      setNativeSessionError('Could not protect this discard on the device. Keep app data intact and try again.');
+      return false;
+    }
+    return setActiveSession(null);
+  }, [activeSessionRef, nativeSessionReady, setActiveSession]);
 
   const continueInterruptedSession = useCallback(() => {
     if (!nativeSessionReady || !activeSessionRef.current || !guardWallClock('resume')) return false;
@@ -1334,9 +1340,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
       const session = native.session;
+      let discarded = false;
+      try { discarded = Boolean(session && wasSessionDiscarded(session)); }
+      catch {
+        setNativeSessionError('Could not read the Android discard record. Keep app data intact and reopen YouDO before changing this sitting.');
+        return;
+      }
       if (session && !nativeSessionIsFinished(session, sessionHistoryRef.current)
         && tasksRef.current.some((task) => task.id === session.taskId)) {
-        if (!setActiveSession(selectNativeSession(activeSessionRef.current, session, sessionHistoryRef.current))) return;
+        if (!setActiveSession(selectNativeSession(activeSessionRef.current, session, sessionHistoryRef.current, discarded))) return;
       }
       setNativeSessionError('');
       setNativeSessionReady(true);

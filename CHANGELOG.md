@@ -17,6 +17,13 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.11] — 2026-09-24 — Reliable sitting discard (candidate)
+
+- **Discard recovery** — Discard records the sitting before clearing it, so an older Android notification copy cannot reopen that sitting if the app closes during cleanup. Discard still saves no focus record.
+- **Android APK** — versionName **7.5.11**, versionCode **52**. Prepared to install over the **v7.5.10** test candidate with the same package ID and signing key. No reinstall, data reset, or database migration is planned. The owner waived the extended physical Discard check; it has not been reported as passed. This is not a published release.
+
+---
+
 ## [v7.5.10] — 2026-09-24 — Clear sitting times (candidate)
 
 - **Timezone changes** — A sitting's start, end, and pause labels now use one current time zone, so a timezone switch cannot make a short pause look reversed or hours long. Recorded focus and pause durations are unchanged.

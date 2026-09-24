@@ -75,6 +75,20 @@ describe('account workspace replacement', () => {
     recoverWorkspaceReplacement(storage);
     expect(storage.values).toEqual(before);
   });
+  it('recovers a v7.5.10 checkpoint that predates the discard marker', () => {
+    const storage = new FaultStorage();
+    const previous = captureWorkspace(storage);
+    delete previous[K.discardedSessions];
+    storage.setItem(K.workspaceReplacement, JSON.stringify({ version: 1, before: previous }));
+    storage.setItem(K.tasks, '[]');
+    storage.setItem(K.workspaceOwner, 'other-account');
+    storage.setItem(K.discardedSessions, '[{"ownerId":"other-account","taskId":"old","startTime":1}]');
+    recoverWorkspaceReplacement(storage);
+    expect(storage.getItem(K.tasks)).toContain('Keep my work');
+    expect(storage.getItem(K.workspaceOwner)).toBe('old-account');
+    expect(storage.getItem(K.discardedSessions)).toBeNull();
+    expect(storage.getItem(K.workspaceReplacement)).toBeNull();
+  });
   it('never treats an unreadable checkpoint as permission to open a mixed copy', () => {
     const storage = new FaultStorage(); storage.setItem(K.workspaceReplacement, '{broken'); const before = new Map(storage.values);
     expect(() => recoverWorkspaceReplacement(storage)).toThrow('recovering');
