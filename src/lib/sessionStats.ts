@@ -2,6 +2,7 @@ import type { ActiveSession, SessionPause, Task, TaskSession } from '../types';
 import { formatDuration, formatWallClock } from './format';
 import { uid } from './ids';
 import { localISODate, nextLocalMidnight } from './dates';
+import { sessionClockRange } from './sessionClock';
 
 export const MIN_COUNTABLE_MS = 15_000;
 export const STALE_HEARTBEAT_MS = 300_000;
@@ -430,7 +431,7 @@ export function buildSessionSummary(
     taskTitle,
     goalPath,
     pathSegments,
-    wallClockRange: `${session.wallClockStart} – ${session.wallClockEnd}`,
+    wallClockRange: sessionClockRange(session.startTime, session.endTime, session.wallClockStart, session.wallClockEnd),
     netFocusLabel: formatDuration(netFocusMs),
     totalDurationLabel: formatDuration(durationMs),
     focusEfficiency,

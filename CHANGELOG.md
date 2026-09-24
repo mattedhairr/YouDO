@@ -17,6 +17,13 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.10] — 2026-09-24 — Clear sitting times (candidate)
+
+- **Timezone changes** — A sitting's start, end, and pause labels now use one current time zone, so a timezone switch cannot make a short pause look reversed or hours long. Recorded focus and pause durations are unchanged.
+- **Android APK** — versionName **7.5.10**, versionCode **51**. Prepared to install over the **v7.5.9** test candidate with the same package ID and signing key. The overnight recovery retest remains pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
 ## [v7.5.9] — 2026-09-24 — Honest long sittings (candidate)
 
 - **Long focus sittings** — Working beyond four hours no longer silently pauses or discards the extra time. An explicit Pause or Stop keeps the elapsed focus.
