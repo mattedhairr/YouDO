@@ -24,4 +24,4 @@ The updated `delete-account` function returns the deleted account ID. Deploy it 
 3. In A, edit name/avatar and initiate a password reset. A forged `?auth=recovery` URL in an ordinary signed-in session must not allow a password change. A valid reset link must change only A's password; B's credentials and workspace must remain intact.
 4. List and revoke controlled remote sessions. Confirm an account cannot list or revoke another account's sessions. A revoked session may remain usable until its access token expires; verify it cannot renew afterward.
 5. Delete only a dedicated disposable account. Check server response ID, fresh sign-in failure, removed cloud rows, and device-owner cleanup. Confirm B's data survives.
-6. Repeat the ownership and sign-out checks on Android through an install-over. Keep the Batch 6 overnight gate separate until its result is known.
+6. Repeat the ownership and sign-out checks on Android through an install-over. The owner waived an additional physical Discard run for Batch 6; its long offline Resume and timezone checks passed.

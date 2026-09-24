@@ -17,6 +17,14 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.12] — 2026-09-24 — Safer account transitions (candidate)
+
+- **Account ownership** — Profile edits, password recovery, signed-in device controls, and account deletion stay bound to the account that began each action.
+- **Device copy on sign-out** — A workspace change during Settings sync or sign-out keeps the device copy for review instead of clearing it.
+- **Android APK** — versionName **7.5.12**, versionCode **53**. Prepared to install over the **v7.5.11** test candidate with the same package ID and signing key. Hosted account tests, deletion-function deployment, and Android install-over verification remain pending. This is not a published release.
+
+---
+
 ## [v7.5.11] — 2026-09-24 — Reliable sitting discard (candidate)
 
 - **Discard recovery** — Discard records the sitting before clearing it, so an older Android notification copy cannot reopen that sitting if the app closes during cleanup. Discard still saves no focus record.
