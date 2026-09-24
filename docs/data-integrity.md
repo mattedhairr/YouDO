@@ -57,6 +57,6 @@ An explicit empty-workspace overwrite requires a fresh cloud safety copy before 
 - Physical Android tests for termination, notification actions, background safety caps, clock changes, keyboard resizing, and install-over behavior. Native wall-clock ordering is not a monotonic event journal.
 - Simultaneous browser-tab writers. The timer and replacement compare-before-write checks detect stale copies but are not atomic cross-process locks. Pending replacement events close other gates; that does not make older clients or uncoordinated writes transactional.
 - Hosted authentication/RLS and backward-compatible migration checks; public totals remain forgeable by a modified client.
-- Finish account-switch review for profile edits, password-recovery completion, and account deletion, not just Settings credential changes and backup operations.
+- Complete the hosted account lifecycle matrix in [account-lifecycle.md](account-lifecycle.md) before release. The isolated Batch 7 branch binds profile edits, password recovery, device-session actions, sign-out, and deletion to account identity; local tests do not establish the hosted deletion endpoint or real email-link behavior.
 
 These are unresolved audit items, not completed fixes. Data-loss or permission failures block release. The broad Community feature plan, media usage checks, and repository cleanup remain separate stages.

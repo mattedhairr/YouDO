@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { captureWorkspace, commitWorkspaceMutation, commitWorkspaceReplacement, prepareSettingsImport, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from './workspaceReplacement';
+import { captureWorkspace, commitWorkspaceMutation, commitWorkspaceReplacement, finishAccountSignOut, prepareAccountSignOut, prepareSettingsImport, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from './workspaceReplacement';
 import { STORAGE_KEYS as K } from './storageKeys';
 
 class FaultStorage {
@@ -14,6 +14,38 @@ class FaultStorage {
 }
 const cloud = '{"tasks":[{"id":"new","title":"Downloaded work"}],"goals":[]}';
 const options = (fetchBackup = async () => cloud) => ({ accountId: 'new-account', currentAccountId: () => 'new-account', fetchBackup });
+
+describe('account sign-out boundary', () => {
+  it('clears the captured account atomically and keeps device preferences', () => {
+    const storage = new FaultStorage();
+    const before = prepareAccountSignOut('old-account', storage);
+    finishAccountSignOut(before, storage);
+    expect(storage.getItem(K.workspaceOwner)).toBeNull();
+    expect(storage.getItem(K.tasks)).toBeNull();
+    expect(storage.getItem('tudo-tasks-v3')).toBeNull();
+    expect(storage.getItem(K.theme)).toBe('dark');
+  });
+  it('refuses another account or an active timer before auth sign-out', () => {
+    const storage = new FaultStorage();
+    expect(() => prepareAccountSignOut('other-account', storage)).toThrow('another account');
+    storage.setItem(K.activeSession, '{"taskId":"study"}');
+    expect(() => prepareAccountSignOut('old-account', storage)).toThrow('focus session');
+  });
+  it('keeps the previous copy if storage changes while auth sign-out waits', () => {
+    const storage = new FaultStorage(); const before = prepareAccountSignOut('old-account', storage);
+    storage.setItem(K.tasks, '[{"id":"new-work"}]');
+    expect(() => finishAccountSignOut(before, storage)).toThrow('workspace changed');
+    expect(storage.getItem(K.tasks)).toContain('new-work');
+    expect(storage.getItem(K.workspaceOwner)).toBe('old-account');
+  });
+  it('rolls back a partial clear instead of opening a mixed account copy', () => {
+    const storage = new FaultStorage(); const before = prepareAccountSignOut('old-account', storage);
+    const saved = new Map(storage.values); let failed = false;
+    storage.fault = key => { if (key === K.goals && !failed) { failed = true; return true; } return false; };
+    expect(() => finishAccountSignOut(before, storage)).toThrow('previous device copy was restored');
+    expect(storage.values).toEqual(saved);
+  });
+});
 
 describe('account workspace replacement', () => {
   it('leaves every key untouched when the download fails', async () => {

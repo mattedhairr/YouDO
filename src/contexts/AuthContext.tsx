@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
   fetchBackupData,
@@ -12,7 +12,11 @@ import {
 import { supabase } from '../lib/supabase';
 import { changeVerifiedCredentials } from '../lib/accountCredentials';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
-import { clearWorkspaceStorage, clearYouDoStorage } from '../lib/storageKeys';
+import { finishAccountSignOut, prepareAccountSignOut } from '../lib/workspaceReplacement';
+import { matchesRecoveryGrant, nextRecoveryGrant, updatePasswordWithRecoveryToken, type RecoveryGrant } from '../lib/passwordRecovery';
+import { isAuthRecoveryUrl } from '../lib/authRedirect';
+import { requestAccountDeletion } from '../lib/accountDeletion';
+import { updateAccountProfile } from '../lib/accountProfile';
 
 interface AuthActionResult {
   ok: boolean;
@@ -23,6 +27,9 @@ interface AuthActionResult {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  recoveryAuthorizedUserId: string | null;
+  changeRecoveredPassword: (password: string) => Promise<AuthActionResult>;
+  cancelPasswordRecovery: () => void;
   signOut: (options?: { clearWorkspace?: boolean }) => Promise<AuthActionResult>;
   deleteAccount: () => Promise<AuthActionResult>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
@@ -41,6 +48,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: false,
+  recoveryAuthorizedUserId: null,
+  changeRecoveredPassword: async () => ({ ok: false, error: 'Not initialized' }),
+  cancelPasswordRecovery: () => undefined,
   signOut: async () => ({ ok: false, error: 'Not initialized' }),
   deleteAccount: async () => ({ ok: false, error: 'Not initialized' }),
   updateProfile: async () => false,
@@ -53,6 +63,15 @@ const AuthContext = createContext<AuthContextType>({
   fetchVisitSnapshot: async () => null,
 });
 
+// Supabase may finish processing a redirect before React effects subscribe.
+// Register during module loading so a genuine recovery callback is not lost.
+let earlyRecoveryGrant: RecoveryGrant | null = null;
+if (typeof window !== 'undefined') {
+  supabase.auth.onAuthStateChange((event, session) => {
+    earlyRecoveryGrant = nextRecoveryGrant(earlyRecoveryGrant, event, session, isAuthRecoveryUrl(window.location.search));
+  });
+}
+
 async function currentUserId(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.user?.id ?? null;
@@ -61,14 +80,34 @@ async function currentUserId(): Promise<string | null> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryAuthorizedUserId, setRecoveryAuthorizedUserId] = useState<string | null>(null);
+  const recoveryGrant = useRef<RecoveryGrant | null>(null);
+  const recoveryRequestPending = useRef(false);
+  const currentAuthUserId = useRef<string | null>(null);
+  const lastSeenAccountId = useRef<string | null>(null);
+  const accountSwitchVersion = useRef(0);
 
   useEffect(() => {
+    let authEventSeen = false;
+    recoveryGrant.current = earlyRecoveryGrant;
+    setRecoveryAuthorizedUserId(earlyRecoveryGrant?.userId ?? null);
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      if (!authEventSeen) {
+        currentAuthUserId.current = session?.user?.id ?? null;
+        lastSeenAccountId.current = session?.user?.id ?? null;
+        setUser(session?.user ?? null);
+      }
       setLoading(false);
     }).catch(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      authEventSeen = true;
+      const nextId = session?.user?.id ?? null;
+      if (nextId && lastSeenAccountId.current && nextId !== lastSeenAccountId.current) accountSwitchVersion.current += 1;
+      if (nextId) lastSeenAccountId.current = nextId;
+      recoveryGrant.current = earlyRecoveryGrant ?? nextRecoveryGrant(recoveryGrant.current, event, session, isAuthRecoveryUrl(window.location.search));
+      setRecoveryAuthorizedUserId(recoveryGrant.current?.userId ?? null);
+      currentAuthUserId.current = nextId;
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
         resetVisitSnapshotFreeze(session?.user?.id);
       }
@@ -79,13 +118,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const cancelPasswordRecovery = () => {
+    earlyRecoveryGrant = null;
+    recoveryGrant.current = null;
+    setRecoveryAuthorizedUserId(null);
+  };
+
+  const changeRecoveredPassword = async (password: string): Promise<AuthActionResult> => {
+    if (password.length < 10) return { ok: false, error: 'Use at least 10 characters.' };
+    if (recoveryRequestPending.current) return { ok: false, error: 'Password recovery is already in progress.' };
+    const grant = recoveryGrant.current;
+    if (!grant || currentAuthUserId.current !== grant.userId || !isAuthRecoveryUrl(window.location.search)) {
+      return { ok: false, error: 'This reset link is invalid or has expired. Request a new one.' };
+    }
+    recoveryRequestPending.current = true;
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || recoveryGrant.current !== grant || !matchesRecoveryGrant(grant, session) || currentAuthUserId.current !== grant.userId) {
+        return { ok: false, error: 'The account changed or this reset link expired. Request a new one.' };
+      }
+      await updatePasswordWithRecoveryToken(grant.accessToken, password);
+      if (recoveryGrant.current !== grant || currentAuthUserId.current !== grant.userId) {
+        return { ok: false, error: 'Password changed for the recovery account, but this device switched accounts. Sign in again.' };
+      }
+      cancelPasswordRecovery();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'Unable to change password.' };
+    } finally {
+      recoveryRequestPending.current = false;
+    }
+  };
+
   const signOut = async (options?: { clearWorkspace?: boolean }): Promise<AuthActionResult> => {
     try {
+      const accountId = user?.id ?? null;
+      const switchVersion = accountSwitchVersion.current;
+      const before = options?.clearWorkspace ? prepareAccountSignOut(accountId ?? '') : null;
+      if (before) {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || session?.user.id !== accountId || currentAuthUserId.current !== accountId || accountSwitchVersion.current !== switchVersion) {
+          throw new Error('Account changed. The device workspace was not cleared.');
+        }
+      }
       resetVisitSnapshotFreeze();
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
+      if (accountSwitchVersion.current !== switchVersion) throw new Error('Account changed during sign-out. The device workspace was kept for safety.');
       setUser(null);
-      if (options?.clearWorkspace) clearWorkspaceStorage();
+      if (before) {
+        try { finishAccountSignOut(before); }
+        catch (failure) {
+          return { ok: false, error: `Signed out, but the device workspace was kept for safety. ${failure instanceof Error ? failure.message : 'Open YouDO again before switching accounts.'}` };
+        }
+      }
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Unable to sign out.' };
@@ -93,34 +179,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteAccount = async (): Promise<AuthActionResult> => {
+    let serverDeleted = false;
     try {
-      const { data, error } = await supabase.functions.invoke('delete-account', {
-        body: { confirmation: 'DELETE' },
-      });
-      if (error) throw error;
-      if (!data?.ok) throw new Error(data?.error || 'Account deletion was not confirmed by the server.');
-
+      if (!user) throw new Error('Sign in before deleting an account.');
+      const accountId = user.id;
+      const switchVersion = accountSwitchVersion.current;
+      const before = prepareAccountSignOut(accountId);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session || session.user.id !== accountId || currentAuthUserId.current !== accountId || accountSwitchVersion.current !== switchVersion) {
+        throw new Error('The account changed. Nothing was deleted. Reopen account settings.');
+      }
+      await requestAccountDeletion(accountId, session.access_token);
+      serverDeleted = true;
+      const { data: { session: latest } } = await supabase.auth.getSession();
+      if ((latest && latest.user.id !== accountId) || (currentAuthUserId.current && currentAuthUserId.current !== accountId) || accountSwitchVersion.current !== switchVersion) {
+        throw new Error('The confirmed account was deleted, but this device switched accounts. Its workspace was kept for safety.');
+      }
       resetVisitSnapshotFreeze();
-      await supabase.auth.signOut().catch(() => undefined);
-      clearYouDoStorage();
+      if (latest) {
+        const signedOut = await supabase.auth.signOut({ scope: 'local' });
+        if (signedOut.error) throw new Error('The deleted account could not be signed out on this device. Reopen YouDO before switching accounts.');
+      }
+      if (accountSwitchVersion.current !== switchVersion) throw new Error('Account changed during deletion cleanup. The device workspace was kept for safety.');
+      finishAccountSignOut(before);
       setUser(null);
       return { ok: true };
     } catch (err) {
       return {
         ok: false,
-        error: err instanceof Error ? err.message : 'Unable to delete the account.',
+        error: `${serverDeleted ? 'The account was deleted, but this device copy was kept for safety. ' : ''}${err instanceof Error ? err.message : 'Unable to delete the account.'}`,
       };
     }
   };
 
   const updateProfile = async ({ fullName, avatarUrl }: { fullName?: string; avatarUrl?: string }): Promise<boolean> => {
     try {
+      if (!user) throw new Error('Sign in before changing your profile.');
+      const accountId = user.id;
       const data: Record<string, string> = {};
       if (fullName !== undefined) data.full_name = fullName;
       if (avatarUrl !== undefined) data.avatar_url = avatarUrl;
-      const { data: updated, error } = await supabase.auth.updateUser({ data });
-      if (error) throw error;
-      if (updated.user) setUser(updated.user);
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session || session.user.id !== accountId || currentAuthUserId.current !== accountId) {
+        throw new Error('Account changed. Profile edit cancelled.');
+      }
+      const updated = await updateAccountProfile(accountId, session.access_token, data);
+      const { data: { session: latest } } = await supabase.auth.getSession();
+      if (latest?.user.id === accountId && latest.access_token === session.access_token) {
+        await supabase.auth.refreshSession().catch(() => undefined);
+      }
+      setUser(current => current?.id === accountId ? updated : current);
       return true;
     } catch (err) {
       console.error('Failed to update profile:', err);
@@ -223,6 +331,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         loading,
+        recoveryAuthorizedUserId,
+        changeRecoveredPassword,
+        cancelPasswordRecovery,
         signOut,
         deleteAccount,
         updateProfile,

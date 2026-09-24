@@ -8,7 +8,7 @@ export default {
     }
 
     try {
-      const body = await request.json().catch(() => null) as { confirmation?: string } | null;
+      const body = await request.json().catch(() => null) as { confirmation?: string; expectedAccountId?: string } | null;
       if (body?.confirmation !== 'DELETE') {
         return Response.json(
           { ok: false, error: 'Deletion confirmation is missing.' },
@@ -24,13 +24,20 @@ export default {
         );
       }
 
+      if (body.expectedAccountId && userData.user.id !== body.expectedAccountId) {
+        return Response.json(
+          { ok: false, error: 'The signed-in account changed. Nothing was deleted.' },
+          { status: 409 },
+        );
+      }
+
       const { error: deleteError } = await context.supabaseAdmin.auth.admin.deleteUser(
         userData.user.id,
         false,
       );
       if (deleteError) throw deleteError;
 
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, accountId: userData.user.id });
     } catch (error) {
       console.error('delete-account failed', error);
       return Response.json(

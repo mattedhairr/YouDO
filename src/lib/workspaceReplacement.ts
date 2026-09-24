@@ -172,6 +172,23 @@ export function commitWorkspaceReplacement(before: WorkspaceSnapshot, next: Work
   }
 }
 
+/** Capture the signed-in account before the asynchronous auth sign-out. */
+export function prepareAccountSignOut(accountId: string, storage: DeviceStorage = localStorage): WorkspaceSnapshot {
+  const before = captureWorkspace(storage);
+  assertWorkspaceUnchanged(before, storage);
+  if (!accountId || before[STORAGE_KEYS.workspaceOwner] !== accountId) {
+    throw new Error('The device workspace belongs to another account. Nothing was cleared.');
+  }
+  assertNoTimer(before);
+  return before;
+}
+
+/** Clear only the captured account copy, with rollback if storage fails or changes. */
+export function finishAccountSignOut(before: WorkspaceSnapshot, storage: DeviceStorage = localStorage): void {
+  const empty = Object.fromEntries(REPLACEMENT_KEYS.map(key => [key, null])) as WorkspaceSnapshot;
+  commitWorkspaceReplacement(before, empty, storage);
+}
+
 /** Download and validate before touching device data; recheck the account and
  * every persisted workspace key after the await, including an intervening timer.
  */

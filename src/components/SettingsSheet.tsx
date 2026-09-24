@@ -567,6 +567,7 @@ export default function SettingsSheet({
                     </button>
                     <button
                       type="button"
+                      disabled={Boolean(activeSession)}
                       onClick={async () => {
                         const synced = await syncToCloud();
                         if (!synced.ok) {
@@ -579,11 +580,12 @@ export default function SettingsSheet({
                         const result = await signOut({ clearWorkspace: true });
                         if (!result.ok) setMsg({ text: result.error || 'Could not sign out.', error: true });
                       }}
-                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
+                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft disabled:opacity-40 flex items-center justify-center gap-1.5"
                     >
                       <LogOut size={13} />
                       Sign out
                     </button>
+                    {activeSession && <p className="col-span-3 text-[10px] text-content-muted">Finish or discard the active sitting before signing out.</p>}
                   </div>
                   <button
                     type="button"
@@ -643,7 +645,7 @@ export default function SettingsSheet({
                         if (ok) {
                           setEditProfileOpen(false);
                           setMsg({ text: '✓ Profile updated.' });
-                        }
+                        } else setMsg({ text: 'Profile could not be updated. Check this account and try again.', error: true });
                       }}
                       className="w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
                     >
@@ -681,7 +683,7 @@ export default function SettingsSheet({
                         <div className="flex items-center justify-end">
                           <button type="button" onClick={() => setSecurityMode(null)} className="text-[10.5px] font-semibold text-content-muted">Back</button>
                         </div>
-                        <SignedInDevices />
+                        {user && <SignedInDevices key={user.id} accountId={user.id} />}
                       </div>
                     ) : (
                       <form

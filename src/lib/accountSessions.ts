@@ -57,8 +57,15 @@ export function sessionLastSeenLabel(iso: string, now = Date.now()): string {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
 }
 
-export async function listAccountSessions(): Promise<AccountSession[]> {
+async function assertSessionAccount(accountId: string): Promise<void> {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error || session?.user.id !== accountId) throw new Error('Account changed. Reopen signed-in devices.');
+}
+
+export async function listAccountSessions(accountId: string): Promise<AccountSession[]> {
+  await assertSessionAccount(accountId);
   const { data, error } = await supabase.rpc('account_sessions');
+  await assertSessionAccount(accountId);
   if (error) {
     const missing = error.code === 'PGRST202' || error.code === '42883' || error.message.toLowerCase().includes('schema cache');
     throw new Error(missing ? 'Signed-in devices need the latest account security setup.' : 'Could not load signed-in devices. Try again.');
@@ -66,9 +73,13 @@ export async function listAccountSessions(): Promise<AccountSession[]> {
   return parseAccountSessions(data);
 }
 
-export async function revokeAccountSession(sessionId: string): Promise<{ ok: boolean; error?: string }> {
+export async function revokeAccountSession(accountId: string, sessionId: string): Promise<{ ok: boolean; error?: string }> {
   if (!UUID.test(sessionId)) return { ok: false, error: 'That session is not valid.' };
+  try { await assertSessionAccount(accountId); }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : 'Account changed.' }; }
   const { data, error } = await supabase.rpc('revoke_account_session', { target_session: sessionId });
+  try { await assertSessionAccount(accountId); }
+  catch (reason) { return { ok: false, error: reason instanceof Error ? reason.message : 'Account changed.' }; }
   if (error) return { ok: false, error: error.message || 'Could not sign out that device.' };
   return data === true ? { ok: true } : { ok: false, error: 'That session is no longer active.' };
 }
