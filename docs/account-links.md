@@ -41,9 +41,10 @@ Test signup confirmation separately with an account you control. Passwordless si
 
 1. Sign out, choose **Forgot password?**, and enter the account email once.
 2. Open the latest reset email. It must open `https://tu-do-psi.vercel.app/?auth=recovery`, never localhost.
-3. Enter and confirm a new password of at least 10 characters.
-4. Continue into YouDO and verify the correct workspace appears. The normal device/cloud safety choice still applies if that browser already contains another workspace.
-5. Sign out and sign in once with the new password.
+3. Wait for the verified recovery session. A manually entered `?auth=recovery` URL must leave **Change password** disabled.
+4. Enter and confirm a new password of at least 10 characters.
+5. Continue into YouDO and verify the correct workspace appears. The normal device/cloud safety choice still applies if that browser already contains another workspace.
+6. Sign out and sign in once with the new password.
 
 The reset request always shows a neutral response so the sign-in page does not reveal whether an email is registered. An expired or reused link must be replaced with a newly requested link.
 

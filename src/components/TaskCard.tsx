@@ -5,6 +5,7 @@ import { isBacklogTask, isTaskComplete } from '../store';
 import { hapticSessionStart, hapticSessionPause, hapticAmbient } from '../lib/haptics';
 import Overlay from './Overlay';
 import { computeNetFocusMs } from '../lib/sessionStats';
+import { sessionClockLabel, sessionClockRange } from '../lib/sessionClock';
 
 interface Props {
   task: Task;
@@ -169,7 +170,7 @@ export default function TaskCard({
             </div>
             {activeSession && (
               <div className="text-[11px] font-mono text-content-muted tabular-nums" title="Session in progress">
-                {activeSession.wallClockStart || new Date(activeSession.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                {sessionClockLabel(activeSession.startTime, activeSession.wallClockStart)}
                 {' – '}
                 <span className="text-primary">∞</span>
               </div>
@@ -415,7 +416,7 @@ export default function TaskCard({
                   if (done && taskSessions) {
                     const sess = taskSessions.find((item) => item.completedStepIndices?.includes(i));
                     if (sess?.manual) stamp = 'Manual';
-                    else if (sess) stamp = `${sess.wallClockStart} – ${sess.wallClockEnd || 'now'}`;
+                    else if (sess) stamp = sessionClockRange(sess.startTime, sess.endTime, sess.wallClockStart, sess.wallClockEnd);
                   }
                   return (
                     <li key={i} className="flex items-center gap-3 px-3.5 h-11 border-t border-subtle">

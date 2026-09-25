@@ -23,8 +23,63 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 - **Offline study counts** — Saved focus sittings recorded without internet join the public Board after cloud sync, with the same time as online sittings.
 - **More dependable ranks** — The Board totals recorded sittings on the server and rejects duplicate, overlapping, or impossible session records instead of accepting uploaded totals.
 - **Clear sync state** — The Board says when recent private focus is waiting for cloud sync; opting out removes public session evidence while leaving private history intact.
-- **Android APK** — versionName **7.5.14**, versionCode **55**. This isolated branch starts from merged v7.5.6; do not install its APK over v7.5.13 until Batches 6 and 7 are integrated. The Board backend upgrade is live; the temporary legacy bridge was declined, so older app versions can show an empty Board until updated. This is not a published release.
+- **Android APK** — versionName **7.5.14**, versionCode **55**. This branch now includes the Batch 6 and 7 candidates. A signed combined APK and physical install-over from v7.5.13 are still required. The Board backend upgrade is live; the temporary legacy bridge was declined, so older app versions can show an empty Board until updated. This is not a published release.
 
+---
+
+## [v7.5.13] — 2026-09-24 — Reliable first account sync (candidate)
+
+- **First sign-in** — A new empty account creates its first cloud backup without showing a false cleared-workspace conflict.
+- **Existing work** — A device that previously synced and then lost its cloud copy still pauses for review; a fresh device pulls existing cloud work.
+- **Android APK** — versionName **7.5.13**, versionCode **54**. Prepared to install over the **v7.5.12** test candidate with the same package ID and signing key. Hosted account checks, deletion-function deployment, and Android install-over verification remain pending. This is not a published release.
+
+---
+
+## [v7.5.12] — 2026-09-24 — Safer account transitions (candidate)
+
+- **Account ownership** — Profile edits, password recovery, signed-in device controls, and account deletion stay bound to the account that began each action.
+- **Device copy on sign-out** — A workspace change during Settings sync or sign-out keeps the device copy for review instead of clearing it.
+- **Android APK** — versionName **7.5.12**, versionCode **53**. Prepared to install over the **v7.5.11** test candidate with the same package ID and signing key. Hosted account tests, deletion-function deployment, and Android install-over verification remain pending. This is not a published release.
+
+---
+
+## [v7.5.11] — 2026-09-24 — Reliable sitting discard (candidate)
+
+- **Discard recovery** — Discard records the sitting before clearing it, so an older Android notification copy cannot reopen that sitting if the app closes during cleanup. Discard still saves no focus record.
+- **Android APK** — versionName **7.5.11**, versionCode **52**. Prepared to install over the **v7.5.10** test candidate with the same package ID and signing key. No reinstall, data reset, or database migration is planned. The owner waived the extended physical Discard check; it has not been reported as passed. This is not a published release.
+
+---
+
+## [v7.5.10] — 2026-09-24 — Clear sitting times (candidate)
+
+- **Timezone changes** — A sitting's start, end, and pause labels now use one current time zone, so a timezone switch cannot make a short pause look reversed or hours long. Recorded focus and pause durations are unchanged.
+- **Android APK** — versionName **7.5.10**, versionCode **51**. Prepared to install over the **v7.5.9** test candidate with the same package ID and signing key. The overnight recovery retest remains pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
+## [v7.5.9] — 2026-09-24 — Honest long sittings (candidate)
+
+- **Long focus sittings** — Working beyond four hours no longer silently pauses or discards the extra time. An explicit Pause or Stop keeps the elapsed focus.
+- **Overnight review** — After a long absence, Resume keeps the elapsed sitting as focus; Discard saves none of that sitting. The choice remains visible until saved.
+- **Android APK** — versionName **7.5.9**, versionCode **50**. Prepared to install over the **v7.5.7** or **v7.5.8** test candidate with the same package ID and signing key. Physical overnight and timezone checks are pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
+## [v7.5.8] — 2026-09-24 — Offline sitting recovery (candidate)
+
+- **Offline opening** — An already owned workspace can open from its saved sign-in while token refresh waits for a connection.
+- **Clear recovery choice** — An unattended sitting asks whether to resume or discard the entire sitting. Returning from Recent Apps keeps that choice visible, and resume preserves the four-hour continuous-focus cap.
+- **Android timer label** — The notification identifies its live counter as elapsed sitting time, which may differ from credited focus time.
+- **Android APK** — versionName **7.5.8**, versionCode **49**. Prepared to install over the **v7.5.7** test candidate with the same package ID and signing key. Physical offline/recovery retest is pending. No reinstall, data reset, or database migration is planned. This is not a published release.
+
+---
+
+## [v7.5.7] — 2026-09-23 — Focus sitting recovery (candidate)
+
+- **Android sitting recovery** — A notification Pause or Resume made while YouDO is closed is read before the app sends another timer snapshot. Older snapshots cannot undo that action.
+- **Timer safeguards** — A late Pause respects the four-hour continuous-focus limit. Backward clock changes and mismatched native clock samples cannot create a negative pause interval.
+- **Preserved recovery copy** — If the Android timer snapshot cannot be read or written, YouDO keeps the saved copy and pauses timer controls with a visible warning.
+- **Android APK** — versionName **7.5.7**, versionCode **48**. Prepared to install over published **v7.5.3** or unpublished **v7.5.6** with the same package ID and signing key. Physical Android install-over and lifecycle checks are pending. No reinstall, data reset, or database migration is planned. This is not a published release.
 ---
 
 ## [v7.5.6] — 2026-09-23 — Safer cloud reconciliation (candidate)

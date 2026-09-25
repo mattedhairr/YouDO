@@ -14,7 +14,7 @@ function DeviceIcon({ session }: { session: AccountSession }) {
     ? <Laptop size={16} /> : <Smartphone size={16} />;
 }
 
-export default function SignedInDevices() {
+export default function SignedInDevices({ accountId }: { accountId: string }) {
   const [sessions, setSessions] = useState<AccountSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,14 +25,14 @@ export default function SignedInDevices() {
     setLoading(true);
     setError('');
     try {
-      setSessions(await listAccountSessions());
+      setSessions(await listAccountSessions(accountId));
     } catch (reason) {
       setSessions([]);
       setError(reason instanceof Error ? reason.message : 'Could not load signed-in devices.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [accountId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -43,7 +43,7 @@ export default function SignedInDevices() {
   const revoke = async (sessionId: string) => {
     setRevokingId(sessionId);
     setError('');
-    const result = await revokeAccountSession(sessionId);
+    const result = await revokeAccountSession(accountId, sessionId);
     setRevokingId(null);
     setConfirmId(null);
     if (!result.ok) {

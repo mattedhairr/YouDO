@@ -48,6 +48,7 @@ import SignedInDevices from './SignedInDevices';
 import CommunityHashtagProfileField from './community/CommunityHashtagProfileField';
 import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
+import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
 
 interface Props {
   open: boolean;
@@ -124,6 +125,7 @@ export default function SettingsSheet({
   const publicBoardRef = useRef<HTMLElement>(null);
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
+  const [signOutBusy, setSignOutBusy] = useState(false);
   const [confirmImport, setConfirmImport] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
@@ -567,23 +569,37 @@ export default function SettingsSheet({
                     </button>
                     <button
                       type="button"
+                      disabled={Boolean(activeSession) || signOutBusy}
                       onClick={async () => {
-                        const synced = await syncToCloud();
-                        if (!synced.ok) {
+                        setSignOutBusy(true);
+                        try {
+                          const beforeSync = captureWorkspace();
+                          const synced = await syncToCloud();
+                          if (!synced.ok) {
+                            setMsg({
+                              text: `Could not sign out safely: ${synced.error || 'sync failed'}. Export a backup or reconnect first.`,
+                              error: true,
+                            });
+                            return;
+                          }
+                          const syncedWorkspace = captureAccountSignOutAfterSync(beforeSync);
+                          const result = await signOut({ clearWorkspace: true, syncedWorkspace });
+                          if (!result.ok) setMsg({ text: result.error || 'Could not sign out.', error: true });
+                        } catch (error) {
                           setMsg({
-                            text: `Could not sign out safely: ${synced.error || 'sync failed'}. Export a backup or reconnect first.`,
+                            text: error instanceof Error ? error.message : 'The workspace could not be checked. Nothing was cleared.',
                             error: true,
                           });
-                          return;
+                        } finally {
+                          setSignOutBusy(false);
                         }
-                        const result = await signOut({ clearWorkspace: true });
-                        if (!result.ok) setMsg({ text: result.error || 'Could not sign out.', error: true });
                       }}
-                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
+                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft disabled:opacity-40 flex items-center justify-center gap-1.5"
                     >
                       <LogOut size={13} />
-                      Sign out
+                      {signOutBusy ? 'Checking…' : 'Sign out'}
                     </button>
+                    {activeSession && <p className="col-span-3 text-[10px] text-content-muted">Finish or discard the active sitting before signing out.</p>}
                   </div>
                   <button
                     type="button"
@@ -643,7 +659,7 @@ export default function SettingsSheet({
                         if (ok) {
                           setEditProfileOpen(false);
                           setMsg({ text: '✓ Profile updated.' });
-                        }
+                        } else setMsg({ text: 'Profile could not be updated. Check this account and try again.', error: true });
                       }}
                       className="w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
                     >
@@ -681,7 +697,7 @@ export default function SettingsSheet({
                         <div className="flex items-center justify-end">
                           <button type="button" onClick={() => setSecurityMode(null)} className="text-[10.5px] font-semibold text-content-muted">Back</button>
                         </div>
-                        <SignedInDevices />
+                        {user && <SignedInDevices key={user.id} accountId={user.id} />}
                       </div>
                     ) : (
                       <form

@@ -21,11 +21,13 @@ This is a maintainer contract for the staged integrity work, not a release-readi
 
 Closing or suspending the app does not itself pause a session. A missing five-minute foreground heartbeat is not evidence that study stopped. Reopening an ordinary 98-minute sitting keeps its elapsed time without demanding reconstruction.
 
-The existing four-hour continuous-session safeguard remains. Foreground ticking and reconstruction now apply the same boundary, and a selected reconstruction end cannot extend into the future. Pauses subtract from elapsed duration; sessions below 15 seconds do not create counted focus, and the seven-day corruption bound remains. Do not describe these bounds as evidence of actual attention.
+Four hours is a review threshold, not a focus cap. When a sitting has run that long and the app has been away for at least five minutes, it offers two choices on return: Resume confirms that the entire elapsed sitting was work; Discard saves none of it. An active foreground sitting is never silently paused at four hours. Explicit Pause and Stop keep all elapsed focus, subject to the seven-day corruption bound and verified clock boundary. Pauses subtract from elapsed duration; sessions below 15 seconds do not create counted focus. The Android notification shows elapsed sitting time, not proof of attention.
+
+On a previously signed-in device, an owned workspace may open offline from its saved Supabase session while token refresh waits. The cached user ID must match the device workspace owner. Explicit sign-out still closes it, and cloud work needs a renewed server session. A missing or mismatched cached session cannot open another account's local data.
 
 A wall/monotonic-clock discrepancy requests verification; it is not immediately stored as an incident. Fresh server requests bypass caches. Two consistent skewed samples are required before a mismatch is returned. A confirmed incident preserves the pre-jump sample when available; a heartbeat recorded while checking must not become the trusted boundary. Successful checks clear stale incidents. “Continue anyway” explicitly clears the incident; it is a user override, not server verification.
 
-The Android notification snapshot is accepted only when it belongs to the same sitting and has a newer heartbeat than the device journal, or when recovering an otherwise absent unfinished sitting. A finished sitting cannot be revived by notification replay.
+Android startup reads its saved notification action before sending the WebView timer back to native storage. A native action revision takes precedence over an older WebView snapshot of the same sitting; matching revisions use the newer heartbeat. Native storage refuses a stale snapshot and writes actions synchronously. An unreadable or unwritable native snapshot leaves the saved copy intact and pauses timer controls with a visible warning. A finished sitting cannot be revived by notification replay. Notification Pause records the explicit pause time, including after four hours; native actions refuse a backward clock or a wall/elapsed-time discrepancy above three minutes. Changing timezone alone does not change epoch milliseconds or add focus time.
 
 ## Planning behavior
 
@@ -54,9 +56,9 @@ An explicit empty-workspace overwrite requires a fresh cloud safety copy before 
 - Extend device-persistence verification beyond the completed save/restart and install-over gate to real process termination and constrained-storage scenarios when practical. Fault-injection tests cover quota and rollback without filling the user's phone.
 - Extend the completed two-browser conflict checks to physical devices and additional recovery paths when practical.
 - The device checkpoint does not span local storage and the hosted database. If a cloud upload succeeds but saving the local sync fingerprint fails, the app reports a partial-sync state and requires review on retry.
-- Physical Android tests for termination, notification actions, background safety caps, clock changes, keyboard resizing, and install-over behavior. Native wall-clock ordering is not a monotonic event journal.
+- Physical Android tests for termination, notification actions, background safety caps, clock and timezone changes, and install-over behavior. Native wall-clock ordering remains a guarded snapshot, not a monotonic event journal.
 - Simultaneous browser-tab writers. The timer and replacement compare-before-write checks detect stale copies but are not atomic cross-process locks. Pending replacement events close other gates; that does not make older clients or uncoordinated writes transactional.
 - Hosted authentication/RLS and backward-compatible migration checks; public totals remain forgeable by a modified client.
-- Finish account-switch review for profile edits, password-recovery completion, and account deletion, not just Settings credential changes and backup operations.
+- Complete the hosted account lifecycle matrix in [account-lifecycle.md](account-lifecycle.md) before release. The isolated Batch 7 branch binds profile edits, password recovery, device-session actions, sign-out, and deletion to account identity; local tests do not establish the hosted deletion endpoint or real email-link behavior.
 
 These are unresolved audit items, not completed fixes. Data-loss or permission failures block release. The broad Community feature plan, media usage checks, and repository cleanup remain separate stages.

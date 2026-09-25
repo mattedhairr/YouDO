@@ -186,6 +186,7 @@ function AuthWelcome({ allowOffline, onContinueOffline }: { allowOffline: boolea
 }
 
 function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) {
+  const { recoveryAuthorizedUserId, changeRecoveredPassword } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -199,10 +200,8 @@ function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void
     setBusy(true);
     setMessage(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('This reset link is invalid or has expired. Request a new one.');
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
+      const result = await changeRecoveredPassword(password);
+      if (!result.ok) throw new Error(result.error || 'This reset link could not change the password.');
       setComplete(true);
       setMessage({ text: 'Password changed. Your account is ready.' });
     } catch (error) {
@@ -218,10 +217,11 @@ function PasswordRecoveryGate({ onComplete, onCancel }: { onComplete: () => void
       <div className="w-full max-w-sm rounded-[20px] border border-subtle bg-elevated p-5 shadow-elevated">
         <div className="flex justify-center"><Brand /></div>
         <div className="mt-4 text-center"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Account recovery</p><h1 className="mt-1.5 text-[22px] font-semibold">Choose a new password</h1><p className="mt-2 text-[11px] leading-relaxed text-content-secondary">Use a unique password with at least 10 characters.</p></div>
+        {!recoveryAuthorizedUserId && <p role="alert" className="mt-4 rounded-[11px] bg-error-soft px-3 py-2.5 text-[11px] text-error">This reset link has not been verified. If it does not become ready, request a new link.</p>}
         <form onSubmit={submit} className="mt-5 space-y-3">
           {!complete && <><input type="password" autoComplete="new-password" minLength={10} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="New password" aria-label="New password" className="h-11 w-full rounded-[11px] border border-subtle bg-base px-3 text-[13px] outline-none focus:border-primary" /><input type="password" autoComplete="new-password" minLength={10} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Repeat new password" aria-label="Repeat new password" className="h-11 w-full rounded-[11px] border border-subtle bg-base px-3 text-[13px] outline-none focus:border-primary" /></>}
           {message && <div className={`rounded-[11px] px-3 py-2.5 text-[11px] ${message.error ? 'bg-error-soft text-error' : 'bg-secondary-soft text-secondary'}`}>{message.text}</div>}
-          {complete ? <button type="button" onClick={onComplete} className="flex h-11 w-full items-center justify-center gap-2 rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary">Continue to YouDO <ArrowRight size={15} /></button> : <button disabled={busy} className="h-11 w-full rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary disabled:opacity-50">{busy ? 'Securing account…' : 'Change password'}</button>}
+          {complete ? <button type="button" onClick={onComplete} className="flex h-11 w-full items-center justify-center gap-2 rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary">Continue to YouDO <ArrowRight size={15} /></button> : <button disabled={busy || !recoveryAuthorizedUserId} className="h-11 w-full rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary disabled:opacity-50">{busy ? 'Securing account…' : 'Change password'}</button>}
           {!complete && <button type="button" disabled={busy} onClick={onCancel} className="h-10 w-full rounded-[11px] text-[11px] font-medium text-content-secondary">Back to sign in</button>}
         </form>
       </div>
@@ -294,7 +294,7 @@ function WorkspaceChoice({
 }
 
 export default function AuthGate({ children }: { children: ReactNode }) {
-  const { user, loading, signOut, updateCloudBackup, fetchLiveBackupInfo } = useAuth();
+  const { user, loading, signOut, cancelPasswordRecovery, updateCloudBackup, fetchLiveBackupInfo } = useAuth();
   useTheme();
   const [gate, setGate] = useState<GateState>('checking');
   const [inspectedUserId, setInspectedUserId] = useState<string | null>(null);
@@ -332,7 +332,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    if (loading || !user || recoveryError) {
+    if (loading || !user || recoveryError || passwordRecovery) {
       setGate('checking');
       return () => { cancelled = true; };
     }
@@ -368,7 +368,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       }
     });
     return () => { cancelled = true; };
-  }, [loading, user, fetchLiveBackupInfo, inspectionRevision, recoveryError]);
+  }, [loading, user, fetchLiveBackupInfo, inspectionRevision, recoveryError, passwordRecovery]);
 
   useEffect(() => {
     const recheckOwner = (event: StorageEvent) => {
@@ -409,6 +409,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }
   if (loading) return <LoadingGate progress={12} label="Checking session" />;
   const leaveRecovery = () => {
+    cancelPasswordRecovery();
     window.history.replaceState(null, '', window.location.pathname);
     setPasswordRecovery(false);
   };

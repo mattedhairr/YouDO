@@ -12,6 +12,8 @@ import { isDeletionLedger } from './deletionLedger';
 type DeviceStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 // Include old aliases so an intentionally empty replacement cannot revive them.
 const REPLACEMENT_KEYS = [...WORKSPACE_KEYS, ...WORKSPACE_ALIAS_KEYS, STORAGE_KEYS.workspaceOwner];
+// v7.5.10 checkpoints predate the durable Android discard marker.
+const PRE_DISCARD_REPLACEMENT_KEYS = REPLACEMENT_KEYS.filter(key => key !== STORAGE_KEYS.discardedSessions);
 const MUTATION_KEYS = [
   STORAGE_KEYS.tasks, STORAGE_KEYS.goals, STORAGE_KEYS.deletedGoals, STORAGE_KEYS.deletionLedger,
   STORAGE_KEYS.sessionHistory, STORAGE_KEYS.streakMeta, STORAGE_KEYS.pacePrefs,
@@ -20,16 +22,28 @@ const MUTATION_KEYS = [
 ] as const;
 type MutationKey = typeof MUTATION_KEYS[number];
 type WorkspaceMutation = Partial<Record<MutationKey, string | null>>;
-type WorkspaceSnapshot = Record<string, string | null>;
+export type WorkspaceSnapshot = Record<string, string | null>;
 const pendingMessage = 'YouDO could not finish recovering the previous device copy. Keep app data intact, free some device storage, then retry.';
 
 export function captureWorkspace(storage: DeviceStorage = localStorage): WorkspaceSnapshot {
   return Object.fromEntries(REPLACEMENT_KEYS.map(key => [key, storage.getItem(key)]));
 }
 
-function writeSnapshot(snapshot: WorkspaceSnapshot, storage: DeviceStorage) {
+/** A successful sync may change its metadata, but must not hide a device edit
+ * made while Settings was waiting to sign out. A cloud pull also needs review.
+ */
+export function captureAccountSignOutAfterSync(beforeSync: WorkspaceSnapshot, storage: DeviceStorage = localStorage): WorkspaceSnapshot {
+  const afterSync = captureWorkspace(storage);
+  const syncMetadata = new Set<string>([STORAGE_KEYS.workspaceCloudFingerprint, STORAGE_KEYS.workspaceSyncConflict]);
+  if (REPLACEMENT_KEYS.some(key => !syncMetadata.has(key) && beforeSync[key] !== afterSync[key])) {
+    throw new Error('The device workspace changed during sync. Review the current copy and sync again before signing out.');
+  }
+  return afterSync;
+}
+
+function writeSnapshot(snapshot: WorkspaceSnapshot, storage: DeviceStorage, keys: readonly string[] = REPLACEMENT_KEYS) {
   // Bind the new owner only after all of its data has been written.
-  for (const key of REPLACEMENT_KEYS) {
+  for (const key of keys) {
     const value = snapshot[key];
     if (value === null) storage.removeItem(key);
     else storage.setItem(key, value);
@@ -48,12 +62,18 @@ export function recoverWorkspaceReplacement(storage: DeviceStorage = localStorag
       ? Object.keys(saved.before) : [];
     const validFull = saved?.version === 1 && keys.length === REPLACEMENT_KEYS.length
       && REPLACEMENT_KEYS.every(key => Object.prototype.hasOwnProperty.call(saved.before, key));
+    const validPreDiscard = saved?.version === 1 && keys.length === PRE_DISCARD_REPLACEMENT_KEYS.length
+      && PRE_DISCARD_REPLACEMENT_KEYS.every(key => Object.prototype.hasOwnProperty.call(saved.before, key));
     const validMutation = saved?.version === 2 && keys.length > 0
       && keys.every(key => MUTATION_KEYS.includes(key as MutationKey));
-    if ((!validFull && !validMutation) || keys.some(key => saved.before[key] !== null && typeof saved.before[key] !== 'string')) {
+    if ((!validFull && !validPreDiscard && !validMutation) || keys.some(key => saved.before[key] !== null && typeof saved.before[key] !== 'string')) {
       throw new Error('Invalid checkpoint');
     }
     if (validFull) writeSnapshot(saved.before, storage);
+    else if (validPreDiscard) {
+      writeSnapshot(saved.before, storage, PRE_DISCARD_REPLACEMENT_KEYS);
+      storage.removeItem(STORAGE_KEYS.discardedSessions);
+    }
     else for (const key of keys) {
       const value = saved.before[key];
       if (value === null) storage.removeItem(key);
@@ -170,6 +190,23 @@ export function commitWorkspaceReplacement(before: WorkspaceSnapshot, next: Work
     recoverWorkspaceReplacement(storage);
     throw new Error('The replacement could not be saved. The previous device copy was restored. Free some storage, then retry.');
   }
+}
+
+/** Capture the signed-in account before the asynchronous auth sign-out. */
+export function prepareAccountSignOut(accountId: string, storage: DeviceStorage = localStorage): WorkspaceSnapshot {
+  const before = captureWorkspace(storage);
+  assertWorkspaceUnchanged(before, storage);
+  if (!accountId || before[STORAGE_KEYS.workspaceOwner] !== accountId) {
+    throw new Error('The device workspace belongs to another account. Nothing was cleared.');
+  }
+  assertNoTimer(before);
+  return before;
+}
+
+/** Clear only the captured account copy, with rollback if storage fails or changes. */
+export function finishAccountSignOut(before: WorkspaceSnapshot, storage: DeviceStorage = localStorage): void {
+  const empty = Object.fromEntries(REPLACEMENT_KEYS.map(key => [key, null])) as WorkspaceSnapshot;
+  commitWorkspaceReplacement(before, empty, storage);
 }
 
 /** Download and validate before touching device data; recheck the account and

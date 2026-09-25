@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActiveSession } from '../types';
-import { computeNetFocusMs, finalizeSession, lastResumeAt, MAX_CONTINUOUS_FOCUS_MS, pauseOverlapMs, resolvePersistEndAt, sanitizeSession, shouldOfferSessionRecovery, splitSessionByLocalDate, tickActiveSession } from './sessionStats';
+import { computeNetFocusMs, continueAfterInterruption, finalizeSession, lastResumeAt, MAX_CONTINUOUS_FOCUS_MS, pauseActiveSession, pauseOverlapMs, resolvePersistEndAt, resumeActiveSession, sanitizeSession, shouldOfferSessionRecovery, splitSessionByLocalDate, tickActiveSession } from './sessionStats';
 
 const minute = 60_000;
 const start = new Date(2026, 8, 14, 20).getTime();
@@ -17,15 +17,48 @@ describe('session integrity at lifecycle boundaries', () => {
     const session = { ...running, returnedAt: start + 10 * minute, pauses: [{ start: start + 15 * minute, end: start + 30 * minute, wallClockStart: '' }] };
     expect(lastResumeAt(session)).toBe(start + 30 * minute);
   });
-  it('pauses a forgotten background session at the same boundary as a foreground session', () => {
+  it('does not silently pause a six-hour sitting', () => {
     const next = tickActiveSession(running, start + 6 * 60 * minute);
-    expect(next.isPaused).toBe(true);
-    expect(next.pauseStart).toBe(start + MAX_CONTINUOUS_FOCUS_MS);
-    expect(computeNetFocusMs(next, start + 6 * 60 * minute)).toBe(MAX_CONTINUOUS_FOCUS_MS);
+    expect(next.isPaused).toBe(false);
+    expect(computeNetFocusMs(next, start + 6 * 60 * minute)).toBe(6 * 60 * minute);
   });
-  it('bounds reconstruction by the same safety rule as ordinary stopping', () => {
-    expect(resolvePersistEndAt(running, start + 8 * 60 * minute, { userEnd: start + 7 * 60 * minute })).toBe(start + MAX_CONTINUOUS_FOCUS_MS);
+  it('keeps all elapsed focus when a long sitting is explicitly paused', () => {
+    const paused = pauseActiveSession(running, start + 8 * 60 * minute);
+    expect(paused.pauseStart).toBe(start + 8 * 60 * minute);
+    expect(paused.pauses).toHaveLength(1);
+    expect(finalizeSession(paused, start + 8 * 60 * minute, { completed: false })?.netFocusMs).toBe(8 * 60 * minute);
+  });
+  it('keeps an overnight explicit pause out of focus time', () => {
+    const paused = pauseActiveSession(running, start + 30 * minute);
+    const resumed = resumeActiveSession(paused, start + 10 * 60 * minute);
+    expect(resumed.isPaused).toBe(false);
+    expect(computeNetFocusMs(resumed, start + 11 * 60 * minute)).toBe(90 * minute);
+  });
+  it('keeps six hours of real work when the user confirms an interrupted sitting', () => {
+    const wokeAt = start + 6 * 60 * minute + 46 * minute;
+    expect(shouldOfferSessionRecovery(running, wokeAt)).toBe(true);
+    const resumed = continueAfterInterruption(running, wokeAt);
+    expect(resumed.isPaused).toBe(false);
+    expect(resumed.pauses).toHaveLength(0);
+    expect(resumed.returnedAt).toBe(wokeAt);
+    expect(finalizeSession(resumed, wokeAt + 7 * minute, { completed: false })?.netFocusMs)
+      .toBe(6 * 60 * minute + 53 * minute);
+  });
+  it('does not interrupt an attended foreground sitting at four hours', () => {
+    const now = start + MAX_CONTINUOUS_FOCUS_MS;
+    expect(shouldOfferSessionRecovery({ ...running, lastHeartbeat: now - 30_000 }, now)).toBe(false);
+    expect(shouldOfferSessionRecovery({ ...running, lastHeartbeat: now - 6 * minute }, now)).toBe(true);
+  });
+  it('refuses a backward-clock pause or resume without negative duration', () => {
+    const paused = pauseActiveSession(running, start + minute);
+    expect(pauseActiveSession(running, start - minute)).toBe(running);
+    expect(resumeActiveSession(paused, start - minute)).toBe(paused);
+    expect(paused.pausedDuration).toBe(0);
+  });
+  it('keeps a confirmed long stop but bounds future and unverified clock time', () => {
+    expect(resolvePersistEndAt(running, start + 8 * 60 * minute, { userEnd: start + 7 * 60 * minute })).toBe(start + 7 * 60 * minute);
     expect(resolvePersistEndAt(running, start + 30 * minute, { userEnd: start + 90 * minute })).toBe(start + 30 * minute);
+    expect(resolvePersistEndAt(running, start + 8 * 60 * minute, { clockIncident: true, recordedBoundary: start + 6 * 60 * minute })).toBe(start + 6 * 60 * minute);
   });
   it('does not subtract pauses that happened after a reconstructed end', () => {
     const session = { ...running, pausedDuration: 10 * minute, pauses: [{ start: start + 30 * minute, end: start + 40 * minute, wallClockStart: '' }] };
