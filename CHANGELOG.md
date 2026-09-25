@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.14] — 2026-09-25 — Board focus from synced sittings (candidate)
+
+- **Offline study counts** — Saved focus sittings recorded without internet join the public Board after cloud sync, with the same time as online sittings.
+- **More dependable ranks** — The Board totals recorded sittings on the server and rejects duplicate, overlapping, or impossible session records instead of accepting uploaded totals.
+- **Clear sync state** — The Board says when recent private focus is waiting for cloud sync; opting out removes public session evidence while leaving private history intact.
+- **Android APK** — versionName **7.5.14**, versionCode **55**. This isolated branch starts from merged v7.5.6; do not install its APK over v7.5.13 until Batches 6 and 7 are integrated. Apply `board_evidence.sql` only after its prerequisite migrations and final hosted checks. This is not a published release.
+
+---
+
 ## [v7.5.6] — 2026-09-23 — Safer cloud reconciliation (candidate)
 
 - **Cloud write protection** — Another device's newer backup can no longer be silently overwritten by an older copy.

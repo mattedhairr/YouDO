@@ -82,6 +82,7 @@ import {
 import { todayISO } from './lib/dates';
 import { defaultPacePrefs, sanitizePacePrefs, type PacePrefs } from './lib/paceBoard';
 import { syncPublicPaceRow, withdrawPublicPace } from './lib/pacePublish';
+import { reconcileBoardEvidence } from './lib/paceCloud';
 import { reconcileBlueprintTasks } from './lib/blueprintStudio';
 import { topStudioSelection } from './lib/studioWorkspace';
 import {
@@ -227,7 +228,7 @@ interface Store {
   /** Opt-in public Board prefs (synced in workspace backup). */
   pacePrefs: PacePrefs;
   updatePacePrefs: (patch: Partial<PacePrefs>) => void;
-  publishPublicPace: (historyOverride?: Record<string, TaskSession[]>) => Promise<void>;
+  publishPublicPace: () => Promise<{ ok: boolean; status?: string; rejected?: number }>;
 
   /* ── Session Timer ─────────────────────────────────────────────────────── */
   /** The currently live session (null if none active) */
@@ -1132,14 +1133,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /* ── Session Timer callbacks ──────────────────────────────────────────── */
 
-  const publishPublicPace = useCallback(async (historyOverride?: Record<string, TaskSession[]>) => {
+  const publishPublicPace = useCallback(async () => {
     const userId = userIdRef.current;
-    if (!userId) return;
-    const sessions = Object.values(historyOverride ?? sessionHistoryRef.current).flat();
-    await syncPublicPaceRow({
+    if (!userId) return { ok: false };
+    return syncPublicPaceRow({
       userId,
       prefs: pacePrefsRef.current,
-      sessions,
       streakMeta: streakMetaRef.current,
     });
   }, []);
@@ -1159,7 +1158,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               void syncPublicPaceRow({
                 userId,
                 prefs: pacePrefsRef.current,
-                sessions: Object.values(sessionHistoryRef.current).flat(),
                 streakMeta: streakMetaRef.current,
               });
             }, 450);
@@ -1202,7 +1200,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // back in memory if a later Goals/Today save cannot fit on the device.
         persistedWorkspaceRef.current = { ...persistedWorkspaceRef.current, sessionHistory: nextHist };
         setSessionHistory(nextHist);
-        void publishPublicPace(nextHist);
+        void publishPublicPace();
       }
       clearRecordedSession();
       return { ok: true };
@@ -1767,10 +1765,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
   const syncToCloud = useCallback((opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
+    const syncOwner = userIdRef.current;
     const run = syncQueueRef.current.then(
       () => performCloudSync(opts),
       () => performCloudSync(opts),
-    ).catch((error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : 'Sync could not finish. Your device copy was preserved.' }));
+    ).then(async (result) => {
+      if (result.ok && syncOwner && syncOwner === userIdRef.current && pacePrefsRef.current.optedIn) {
+        // Public ranking is rebuilt only after the private cloud copy succeeds.
+        // An unavailable Board must never turn a successful backup into a failure.
+        try { await reconcileBoardEvidence(); } catch { /* Retry on the next sync or Board visit. */ }
+      }
+      return result;
+    }).catch((error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : 'Sync could not finish. Your device copy was preserved.' }));
     syncQueueRef.current = run.then(() => undefined, () => undefined);
     return run;
   }, [performCloudSync]);

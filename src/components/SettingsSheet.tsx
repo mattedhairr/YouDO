@@ -1118,7 +1118,7 @@ export default function SettingsSheet({
               <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
                 <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
-                  Off by default. Shares your name, net focus, streak, and bar. Also includes you in admin activity totals. Turning it off removes your row and activity signal.
+                  Off by default. Shares your name, synced focus, recorded-day streak, and bar. Offline sessions join after cloud sync. Turning it off removes your public row and activity signal.
                 </p>
               </div>
               <Toggle checked={pacePrefs.optedIn} label="Public Board participation" onChange={() => {
@@ -1146,7 +1146,7 @@ export default function SettingsSheet({
             </label>
             {user && <CommunityHashtagProfileField
               boardEnabled={pacePrefs.optedIn}
-              onBeforeChoose={publishPublicPace}
+              onBeforeChoose={async () => { await publishPublicPace(); }}
               onContextChange={setHashtagContext}
             />}
             {(() => {
@@ -1154,7 +1154,7 @@ export default function SettingsSheet({
               const name = pacePrefs.displayName.trim() || 'Your name';
               return (
                 <div className="rounded-[12px] border border-subtle bg-base p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Preview</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Device preview · Board updates after sync</p>
                   <div className="mt-1.5 flex items-baseline justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[13px] font-semibold text-content-primary truncate">{name}</p>

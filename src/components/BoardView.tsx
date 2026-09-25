@@ -214,10 +214,13 @@ function EmptyRankSlot({ rank }: { rank: number }) {
 
 export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings: () => void }) {
   const { user } = useAuth();
-  const { publishPublicPace, pacePrefs } = useStore();
+  const { publishPublicPace, syncToCloud, pacePrefs } = useStore();
   const [paceWindow, setPaceWindow] = useState<PaceWindow>('today');
   const [rows, setRows] = useState<PaceRow[]>([]);
   const [missingTable, setMissingTable] = useState(false);
+  const [syncPending, setSyncPending] = useState(false);
+  const [evidencePending, setEvidencePending] = useState(false);
+  const [rejectedSessions, setRejectedSessions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [deltas, setDeltas] = useState<Record<string, RankDelta>>({});
   const [showNearby, setShowNearby] = useState(false);
@@ -268,9 +271,18 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
     let cancelled = false;
     const run = async () => {
       setLoading(true);
-      if (user) await publishPublicPace();
+      if (user) {
+        const synced = await syncToCloud();
+        if (!cancelled) setSyncPending(!synced.ok);
+        const published = await publishPublicPace();
+        if (!cancelled) {
+          setEvidencePending(pacePrefs.optedIn && !published.ok);
+          setRejectedSessions(published.rejected ?? 0);
+        }
+      }
+      const boardTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       const [res, nextCommunity] = await Promise.all([
-        fetchPaceRows(),
+        fetchPaceRows(boardTimezone),
         user ? fetchCommunityContext(user.id) : Promise.resolve(EMPTY_COMMUNITY_CONTEXT()),
       ]);
       if (cancelled) return;
@@ -296,7 +308,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
     return () => {
       cancelled = true;
     };
-  }, [user, publishPublicPace, pacePrefs.optedIn, pacePrefs.displayName, anchorISO]);
+  }, [user, publishPublicPace, syncToCloud, pacePrefs.optedIn, pacePrefs.displayName, anchorISO]);
 
   const closeCommunity = () => {
     setCommunityOpen(false);
@@ -405,8 +417,17 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
       </div>
       <div className="flex items-center justify-between gap-3 px-0.5 text-[10.5px] text-content-muted">
         <span>{windowLabel(paceWindow)}, local time</span>
-        <span className="shrink-0">Ranked by net focus</span>
+        <span className="shrink-0">Ranked by synced focus</span>
       </div>
+      {syncPending && <p role="status" className="px-0.5 text-[11px] text-content-secondary">
+        Recent private focus is waiting for cloud sync. It will join the Board when sync completes.
+      </p>}
+      {evidencePending && !missingTable && <p role="status" className="px-0.5 text-[11px] text-content-secondary">
+        The Board could not process the synced focus yet. Your private Calendar and cloud backup are unchanged.
+      </p>}
+      {rejectedSessions > 0 && <p role="status" className="px-0.5 text-[11px] text-content-secondary">
+        {rejectedSessions} {rejectedSessions === 1 ? 'sitting was' : 'sittings were'} excluded from this Board update because the records were duplicate, overlapping, or invalid. Private history is unchanged.
+      </p>}
 
       {community.available && (community.canJoin || community.isAdmin || community.banned) && <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}><button type="button" aria-label={hasCommunityUnread ? 'Community, new activity' : 'Community'} onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }} className="board-community-link">
         <span className="board-community-icon" aria-hidden="true">{community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}{hasCommunityUnread && <span className="board-unread" />}</span>
@@ -420,7 +441,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
         <div className="rounded-[16px] border border-subtle bg-surface p-5">
           <p className="text-[14px] font-semibold text-content-primary">Board is not set up yet</p>
           <p className="mt-1.5 text-[12px] leading-relaxed text-content-secondary">
-            The public table has not been created on this project. Run <span className="font-mono text-[11px]">supabase/public_pace.sql</span> in the Supabase SQL editor, then reopen Board.
+            The Board evidence upgrade is unavailable. Apply <span className="font-mono text-[11px]">supabase/board_evidence.sql</span> after its prerequisites, then reopen Board.
           </p>
         </div>
       ) : loading ? (

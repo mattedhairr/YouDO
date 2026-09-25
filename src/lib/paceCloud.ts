@@ -2,15 +2,15 @@ import { supabase } from './supabase';
 import { localISODate } from './dates';
 import { mondayOfLocalISO, monthStartLocalISO, type PaceRow } from './paceBoard';
 
-const LEGACY_FIELDS = 'user_id, display_name, exam_label, today_ms, week_ms, month_ms, streak, bar_hours, updated_at';
-const CURRENT_FIELDS = `${LEGACY_FIELDS}, today_key, week_key, month_key`;
-
 export function isPaceTableMissing(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;
   const msg = (error.message ?? '').toLowerCase();
   return (
     error.code === 'PGRST205' ||
+    error.code === 'PGRST202' ||
     error.code === '42P01' ||
+    error.code === '42883' ||
+    (msg.includes('board_pace_rows') && msg.includes('schema cache')) ||
     (msg.includes('public_pace') && msg.includes('schema cache')) ||
     (msg.includes('public_pace') && msg.includes('does not exist'))
   );
@@ -45,88 +45,50 @@ function asRow(raw: Record<string, unknown>): PaceRow | null {
   };
 }
 
-function isWindowKeyMissing(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false;
-  const message = (error.message ?? '').toLowerCase();
-  return (error.code === '42703' || error.code === 'PGRST204')
-    && ['today_key', 'week_key', 'month_key'].some((key) => message.includes(key));
-}
-
-export async function fetchPaceRows(): Promise<
+export async function fetchPaceRows(boardTimezone: string): Promise<
   { ok: true; rows: PaceRow[] } | { ok: false; missingTable: boolean }
 > {
-  const joined = await supabase.rpc('board_pace_rows');
+  const joined = await supabase.rpc('board_pace_rows', { board_timezone: boardTimezone });
   if (!joined.error) {
     const rows = (Array.isArray(joined.data) ? joined.data : [])
       .map((row) => asRow(row as Record<string, unknown>))
       .filter((row): row is PaceRow => !!row);
     return { ok: true, rows };
   }
-  const current = await supabase
-    .from('public_pace')
-    .select(CURRENT_FIELDS);
-  let data = current.data as Record<string, unknown>[] | null;
-  let error = current.error;
-  if (isWindowKeyMissing(error)) {
-    const legacy = await supabase.from('public_pace').select(LEGACY_FIELDS);
-    data = legacy.data as Record<string, unknown>[] | null;
-    error = legacy.error;
-  }
-  if (error) {
-    return { ok: false, missingTable: isPaceTableMissing(error) };
-  }
-  const rows = (data ?? []).map((r) => asRow(r as Record<string, unknown>)).filter((r): r is PaceRow => !!r);
-  return { ok: true, rows };
+  // A raw-table fallback would reintroduce the client-uploaded totals this
+  // migration removes. Leave the Board unavailable until its RPC is installed.
+  return { ok: false, missingTable: isPaceTableMissing(joined.error) };
 }
 
 export async function upsertPaceRow(row: {
   userId: string;
   displayName: string;
   examLabel: string;
-  todayMs: number;
-  weekMs: number;
-  monthMs: number;
-  todayKey: string;
-  weekKey: string;
-  monthKey: string;
-  streak: number;
   barHours: number;
 }): Promise<{ ok: boolean; missingTable?: boolean }> {
   const payload = {
       user_id: row.userId,
       display_name: row.displayName.slice(0, 40),
       exam_label: row.examLabel.slice(0, 40),
-      today_ms: Math.max(0, Math.round(row.todayMs)),
-      week_ms: Math.max(0, Math.round(row.weekMs)),
-      month_ms: Math.max(0, Math.round(row.monthMs)),
-      today_key: row.todayKey,
-      week_key: row.weekKey,
-      month_key: row.monthKey,
-      streak: Math.max(0, Math.round(row.streak)),
       bar_hours: row.barHours,
-      updated_at: new Date().toISOString(),
     };
-  let { error } = await supabase.from('public_pace').upsert(
+  const { error } = await supabase.from('public_pace').upsert(
     payload,
     { onConflict: 'user_id' },
   );
-  if (isWindowKeyMissing(error)) {
-    const legacyPayload = {
-      user_id: payload.user_id,
-      display_name: payload.display_name,
-      exam_label: payload.exam_label,
-      today_ms: payload.today_ms,
-      week_ms: payload.week_ms,
-      month_ms: payload.month_ms,
-      streak: payload.streak,
-      bar_hours: payload.bar_hours,
-      updated_at: payload.updated_at,
-    };
-    const legacy = await supabase.from('public_pace').upsert(legacyPayload, { onConflict: 'user_id' });
-    error = legacy.error;
-  }
   if (error) return { ok: false, missingTable: isPaceTableMissing(error) };
   return { ok: true };
+}
+
+export async function reconcileBoardEvidence(): Promise<{ ok: boolean; status?: string; rejected?: number }> {
+  const { data, error } = await supabase.rpc('reconcile_board_evidence');
+  if (error) return { ok: false };
+  const result = Array.isArray(data) ? data[0] : data;
+  return {
+    ok: true,
+    status: typeof result?.status === 'string' ? result.status : undefined,
+    rejected: typeof result?.rejected === 'number' ? result.rejected : undefined,
+  };
 }
 
 export async function deletePaceRow(userId: string): Promise<{ ok: boolean; missingTable?: boolean }> {

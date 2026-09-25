@@ -9,6 +9,7 @@ files in this directory.
 - **YouDO — Cloud Backup Setup** → `user_backups.sql`
 - **YouDO — Cloud Backup Revisions Upgrade** → `cloud_backup_revisions.sql`
 - **YouDO — Public Board Initial Setup** → `public_pace.sql`
+- **YouDO — Public Board Evidence Upgrade** → `board_evidence.sql`
 - **YouDO — Community & Moderation Setup** → `community.sql`
 - **YouDO — Community Chat Upgrade** → `community_chat.sql`
 - **YouDO — Community Hashtags Upgrade** → `community_hashtags.sql`
@@ -54,3 +55,11 @@ project.
 Saved-query names and presence do not prove that a script was applied. Record a
 successful hosted run and permission checks separately; do not infer production
 schema state from the SQL Editor sidebar.
+
+Apply `board_evidence.sql` after the backup revision, Board, Community, and
+Community Hashtags scripts. It replaces client-uploaded public totals with
+session evidence reconciled from each opted-in member's latest cloud backup.
+Existing public total columns are preserved but ignored; private sessions and
+cloud backups are not changed. Offline sessions join the Board after a
+successful sync and reconciliation. Keep this upgrade last if reapplying older
+Community scripts, because they contain the former Board RPC implementation.
