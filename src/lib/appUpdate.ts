@@ -1,7 +1,7 @@
 import { APP_VERSION } from './version';
 
 const RELEASE_API = 'https://api.github.com/repos/mattedhairr/YouDO/releases/latest';
-const CHECK_CACHE_KEY = 'youdo-update-check-v1';
+const CHECK_CACHE_KEY = 'youdo-update-check-v2';
 const DISMISS_KEY = 'youdo-update-dismissed-v1';
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const DISMISS_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -55,13 +55,13 @@ function plainText(value: string): string {
     .trim();
 }
 
-export function releaseHighlights(body: string, limit = 3): string[] {
+export function releaseHighlights(body: string): string[] {
   const bullets = body
     .split(/\r?\n/)
     .filter((line) => /^\s*[-*]\s+/.test(line))
     .map(plainText)
     .filter(Boolean);
-  return [...new Set(bullets)].slice(0, limit);
+  return [...new Set(bullets)];
 }
 
 function parseRelease(raw: ReleaseResponse): AppRelease | null {

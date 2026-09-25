@@ -61,7 +61,7 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
         </button>
       </div>
       {release.highlights.length > 0 && (
-        <ul className="mt-3 space-y-1.5 border-l border-primary/25 pl-3">
+        <ul className="update-notice-highlights mt-3 space-y-1.5 border-l border-primary/25 pl-3 pr-1" aria-label="What's new in this update" tabIndex={0}>
           {release.highlights.map((highlight) => (
             <li key={highlight} className="text-[11px] leading-relaxed text-content-secondary">{highlight}</li>
           ))}
