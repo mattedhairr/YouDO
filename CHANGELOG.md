@@ -31,7 +31,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 - **First sign-in** — A new empty account creates its first cloud backup without showing a false cleared-workspace conflict.
 - **Existing work** — A device that previously synced and then lost its cloud copy still pauses for review; a fresh device pulls existing cloud work.
-- **Android APK** — versionName **7.5.13**, versionCode **54**. Prepared to install over the **v7.5.12** test candidate with the same package ID and signing key. Hosted account checks, deletion-function deployment, and Android install-over verification remain pending. This is not a published release.
+- **Android APK** — versionName **7.5.13**, versionCode **54**. The signed candidate installed over **v7.5.12** on the test phone without clearing disposable account B's work. Hosted account isolation, deletion, password recovery, and remote session revocation checks passed. This is not a published release.
 
 ---
 
