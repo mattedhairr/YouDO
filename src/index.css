@@ -266,9 +266,18 @@ textarea,
   width: auto;
   max-width: 24rem;
   max-height: calc(100% - 8rem - env(safe-area-inset-bottom, 0px));
+  max-height: calc(100dvh - 8rem - env(safe-area-inset-bottom, 0px));
   margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.update-notice-highlights {
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .panel {

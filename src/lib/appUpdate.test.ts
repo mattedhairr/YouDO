@@ -53,24 +53,25 @@ describe('app updates', () => {
     expect(compareAppVersions('10.0.0', '9.9.9')).toBe(1);
   });
 
-  it('extracts a short plain-language changelog from release bullets', () => {
+  it('shows every distinct release bullet as plain text', () => {
     const body = [
       '## v7',
       '- **Safer sync** — Your device plan stays isolated.',
       '- [Clear history](https://example.com) with restore points.',
       '- `Update notice` opens the official release.',
-      '- Fourth item is intentionally omitted.',
+      '- Fourth item remains visible.',
     ].join('\n');
     expect(releaseHighlights(body)).toEqual([
       'Safer sync — Your device plan stays isolated.',
       'Clear history with restore points.',
       'Update notice opens the official release.',
+      'Fourth item remains visible.',
     ]);
   });
 
   it('ignores an update cache written by an older installed app version', async () => {
     vi.stubGlobal('localStorage', memoryStorage({
-      'youdo-update-check-v1': JSON.stringify({ checkedAt: Date.now(), release: null }),
+      'youdo-update-check-v2': JSON.stringify({ checkedAt: Date.now(), release: null }),
     }));
     vi.stubGlobal('navigator', { onLine: true });
     const fetchMock = vi.fn().mockResolvedValue({

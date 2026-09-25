@@ -72,3 +72,6 @@ Their private focus history and backups remain unchanged. The existing app
 update notice reads the first three bullets from the latest published GitHub
 Release; include a clear "update to use Board" instruction in that release.
 The legacy bridge file is retained as a reviewed fallback, not a rollout step.
+
+The update notice now uses all release bullets and scrolls them within its panel;
+the three-bullet limit described above applied to v7.5.14 and older clients.
