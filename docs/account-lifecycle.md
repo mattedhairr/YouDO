@@ -17,7 +17,9 @@ Deletion is irreversible. Do not run its hosted test against the maintainer's pe
 
 The updated `delete-account` function returns the deleted account ID. Deploy it before distributing a client that requires this response. Its expected-account field is optional for older clients; new clients send it and reject a mismatched response. The existing SQL session functions remain unchanged.
 
-## Release verification still required
+## Verification matrix and results
+
+For the v7.5.14 release candidate, disposable accounts A and B passed hosted sign-out, account-switch isolation, deletion, and control-account survival checks. A's deleted login was rejected. B completed a real recovery link in the Codex browser, and the temporary redirect URL was removed afterward. A separate eligible YouDO Tester session was remotely revoked and could not renew; its device plan remained closed for sign-in. The combined Android APK installed over v7.5.13 and retained B's task. These results are recorded in the private batch plan; the checks below remain the repeatable matrix, including fault and device cases not physically repeated for this release.
 
 1. Use separate disposable accounts A and B on distinct browser origins. Verify same-account sign-in and explicit switch choices without moving either account's workspace into the other.
 2. Start a Settings sign-out after a successful sync, then simulate a local write or storage failure before the clear. Confirm the saved owner and data remain recoverable. An active sitting must block sign-out and deletion.
