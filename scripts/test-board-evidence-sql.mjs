@@ -156,6 +156,25 @@ try {
   await denied("select * from public.board_pace_rows('UTC')");
   await denied('select * from public.reconcile_board_evidence()');
   await db.exec('reset role');
+  const legacyBridge = await file('board_evidence_legacy_bridge.sql');
+  await db.exec(legacyBridge);
+  await db.exec(legacyBridge);
+  await as(99);
+  assert.equal(Number((await query('select today_ms from public.board_pace_rows() where user_id=$1', [uid(99)]))[0].today_ms), 123000,
+    'installed clients retain their existing Board values during the audit');
+  await db.query('update public.public_pace set today_ms=456000 where user_id=$1', [uid(99)]);
+  assert.equal(Number((await query('select today_ms from public.board_pace_rows() where user_id=$1', [uid(99)]))[0].today_ms), 456000,
+    'installed clients can keep publishing to the legacy Board during the audit');
+  assert.equal(Number((await query("select today_ms from public.board_pace_rows('UTC') where user_id=$1", [uid(99)]))[0].today_ms), 0,
+    'candidate Board ranking still excludes legacy client totals');
+  await db.exec('reset role');
+  await db.exec(migration);
+  await as(99);
+  assert.equal(Number((await query('select today_ms from public.board_pace_rows() where user_id=$1', [uid(99)]))[0].today_ms), 0,
+    'rerunning the main migration cuts installed clients over to derived totals');
+  await db.query('update public.public_pace set today_ms=999999999 where user_id=$1', [uid(99)]);
+  assert.equal(Number((await query('select today_ms from public.public_pace where user_id=$1', [uid(99)]))[0].today_ms), 456000,
+    'cutover restores the forged-total write guard');
   console.log('Board evidence SQL checks passed');
 } catch (error) {
   console.error(error.message, error.code, error.position, error.where);

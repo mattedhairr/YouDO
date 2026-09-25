@@ -10,6 +10,7 @@ files in this directory.
 - **YouDO — Cloud Backup Revisions Upgrade** → `cloud_backup_revisions.sql`
 - **YouDO — Public Board Initial Setup** → `public_pace.sql`
 - **YouDO — Public Board Evidence Upgrade** → `board_evidence.sql`
+- **YouDO — Board Audit Compatibility Bridge** → `board_evidence_legacy_bridge.sql`
 - **YouDO — Community & Moderation Setup** → `community.sql`
 - **YouDO — Community Chat Upgrade** → `community_chat.sql`
 - **YouDO — Community Hashtags Upgrade** → `community_hashtags.sql`
@@ -63,3 +64,13 @@ Existing public total columns are preserved but ignored; private sessions and
 cloud backups are not changed. Offline sessions join the Board after a
 successful sync and reconciliation. Keep this upgrade last if reapplying older
 Community scripts, because they contain the former Board RPC implementation.
+
+During the unreleased audit, apply `board_evidence_legacy_bridge.sql` after the
+upgrade to keep already-installed clients using their existing Board and kudos
+path. The timezone-aware RPC used by the Batch 8 candidate stays evidence-derived.
+The bridge temporarily permits old clients to upload legacy totals; do not
+claim production anti-forgery enforcement is active while it is installed.
+At public release cutover, after compatible clients are distributed, rerun
+`board_evidence.sql` to remove the bridge and enforce derived totals for all
+Board clients. Do not cut over while an installed client still depends on the
+zero-argument legacy Board RPC.
