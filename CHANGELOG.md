@@ -23,7 +23,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 - **Offline study counts** — Saved focus sittings recorded without internet join the public Board after cloud sync, with the same time as online sittings.
 - **More dependable ranks** — The Board totals recorded sittings on the server and rejects duplicate, overlapping, or impossible session records instead of accepting uploaded totals.
 - **Clear sync state** — The Board says when recent private focus is waiting for cloud sync; opting out removes public session evidence while leaving private history intact.
-- **Android APK** — versionName **7.5.14**, versionCode **55**. This branch now includes the Batch 6 and 7 candidates. A signed combined APK and physical install-over from v7.5.13 are still required. The Board backend upgrade is live; the temporary legacy bridge was declined, so older app versions can show an empty Board until updated. This is not a published release.
+- **Android APK** — versionName **7.5.14**, versionCode **55**. The signed combined APK installed over v7.5.13 and synced an offline focus sitting from a disposable Android account to Board. The Board backend upgrade is live; the temporary legacy bridge was declined, so older app versions can show an empty Board until updated. This is not a published release.
 
 ---
 
