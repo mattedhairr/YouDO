@@ -65,12 +65,10 @@ cloud backups are not changed. Offline sessions join the Board after a
 successful sync and reconciliation. Keep this upgrade last if reapplying older
 Community scripts, because they contain the former Board RPC implementation.
 
-During the unreleased audit, apply `board_evidence_legacy_bridge.sql` after the
-upgrade to keep already-installed clients using their existing Board and kudos
-path. The timezone-aware RPC used by the Batch 8 candidate stays evidence-derived.
-The bridge temporarily permits old clients to upload legacy totals; do not
-claim production anti-forgery enforcement is active while it is installed.
-At public release cutover, after compatible clients are distributed, rerun
-`board_evidence.sql` to remove the bridge and enforce derived totals for all
-Board clients. Do not cut over while an installed client still depends on the
-zero-argument legacy Board RPC.
+The owner chose to leave the temporary `board_evidence_legacy_bridge.sql`
+unapplied. The hosted upgrade is already active, so older installed clients
+can show an empty Board until the compatible app is released and installed.
+Their private focus history and backups remain unchanged. The existing app
+update notice reads the first three bullets from the latest published GitHub
+Release; include a clear "update to use Board" instruction in that release.
+The legacy bridge file is retained as a reviewed fallback, not a rollout step.

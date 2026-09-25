@@ -19,10 +19,11 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ## [v7.5.14] — 2026-09-25 — Board focus from synced sittings (candidate)
 
+- **Update to use Board** — Board ranking has moved to a new backend. If an older YouDO app shows an empty Board, update to the latest app to see the new Board and your synced focus.
 - **Offline study counts** — Saved focus sittings recorded without internet join the public Board after cloud sync, with the same time as online sittings.
 - **More dependable ranks** — The Board totals recorded sittings on the server and rejects duplicate, overlapping, or impossible session records instead of accepting uploaded totals.
 - **Clear sync state** — The Board says when recent private focus is waiting for cloud sync; opting out removes public session evidence while leaving private history intact.
-- **Android APK** — versionName **7.5.14**, versionCode **55**. This isolated branch starts from merged v7.5.6; do not install its APK over v7.5.13 until Batches 6 and 7 are integrated. During the unreleased audit, the live project uses `board_evidence_legacy_bridge.sql` after `board_evidence.sql` so installed clients retain their existing Board behavior. Rerun `board_evidence.sql` at release cutover after compatible clients are distributed. This is not a published release.
+- **Android APK** — versionName **7.5.14**, versionCode **55**. This isolated branch starts from merged v7.5.6; do not install its APK over v7.5.13 until Batches 6 and 7 are integrated. The Board backend upgrade is live; the temporary legacy bridge was declined, so older app versions can show an empty Board until updated. This is not a published release.
 
 ---
 
