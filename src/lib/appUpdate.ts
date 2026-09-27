@@ -1,7 +1,7 @@
 import { APP_VERSION } from './version';
 
 const RELEASE_API = 'https://api.github.com/repos/mattedhairr/YouDO/releases/latest';
-const CHECK_CACHE_KEY = 'youdo-update-check-v2';
+const CHECK_CACHE_KEY = 'youdo-update-check-v3';
 const DISMISS_KEY = 'youdo-update-dismissed-v1';
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const DISMISS_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -12,6 +12,7 @@ export interface AppRelease {
   url: string;
   highlights: string[];
   publishedAt: string;
+  apk?: { url: string; sha256: string };
 }
 
 interface ReleaseResponse {
@@ -22,6 +23,25 @@ interface ReleaseResponse {
   published_at?: unknown;
   draft?: unknown;
   prerelease?: unknown;
+  assets?: unknown;
+}
+
+export function releaseApk(assets: unknown): AppRelease['apk'] {
+  if (!Array.isArray(assets)) return undefined;
+  for (const asset of assets) {
+    if (!asset || typeof asset !== 'object') continue;
+    const { browser_download_url: url, digest, name } = asset;
+    if (typeof name !== 'string' || !name.toLowerCase().endsWith('.apk')
+      || typeof url !== 'string' || typeof digest !== 'string' || !/^sha256:[a-f0-9]{64}$/i.test(digest)) continue;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:' && parsed.hostname === 'github.com' && !parsed.port && !parsed.username && !parsed.password
+        && parsed.pathname.startsWith('/mattedhairr/YouDO/releases/download/') && parsed.pathname.endsWith('.apk')) {
+        return { url, sha256: digest.slice(7).toLowerCase() };
+      }
+    } catch { /* Ignore malformed release assets. */ }
+  }
+  return undefined;
 }
 
 interface UpdateCache {
@@ -75,6 +95,7 @@ function parseRelease(raw: ReleaseResponse): AppRelease | null {
     url: raw.html_url,
     highlights: releaseHighlights(typeof raw.body === 'string' ? raw.body : ''),
     publishedAt: typeof raw.published_at === 'string' ? raw.published_at : '',
+    apk: releaseApk(raw.assets),
   };
 }
 

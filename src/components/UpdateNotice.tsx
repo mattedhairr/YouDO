@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { Browser } from '@capacitor/browser';
-import { ArrowUpRight, Download, X } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import { checkForAppUpdate, dismissAppUpdate, type AppRelease } from '../lib/appUpdate';
+import UpdateAction from './UpdateAction';
+import { subscribeWebUpdate, webUpdateReady } from '../lib/webUpdate';
 
 export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
   const [release, setRelease] = useState<AppRelease | null>(null);
   const [textEntryActive, setTextEntryActive] = useState(false);
+  const webReady = useSyncExternalStore(subscribeWebUpdate, webUpdateReady);
+  const [webDismissed, setWebDismissed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -27,26 +30,18 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
     };
   }, []);
 
-  if (!release || suppressed || textEntryActive) return null;
+  if ((!release && (!webReady || webDismissed)) || suppressed || textEntryActive) return null;
 
   const dismiss = () => {
-    dismissAppUpdate(release.version);
+    if (release) dismissAppUpdate(release.version);
+    setWebDismissed(true);
     setRelease(null);
-  };
-
-  const openRelease = async () => {
-    try {
-      await Browser.open({ url: release.url, toolbarColor: '#171612' });
-    } catch {
-      window.open(release.url, '_blank', 'noopener,noreferrer');
-    }
-    dismiss();
   };
 
   return createPortal(
     <aside
       className="update-notice rounded-[18px] border border-primary/30 bg-elevated p-4 shadow-elevated fade-in"
-      aria-label={`YouDO ${release.version} update available`}
+      aria-label="YouDO update available"
     >
       <div className="flex items-start gap-3">
         <div className="size-10 shrink-0 rounded-[12px] border border-primary/20 bg-primary-soft text-primary grid place-items-center">
@@ -54,13 +49,13 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-primary">Update available</p>
-          <h2 className="mt-0.5 text-[15px] font-semibold text-content-primary">YouDO v{release.version}</h2>
+          <h2 className="mt-0.5 text-[15px] font-semibold text-content-primary">{webReady ? 'Website update ready' : `YouDO v${release?.version}`}</h2>
         </div>
         <button type="button" onClick={dismiss} className="size-9 -mr-1 -mt-1 rounded-full grid place-items-center text-content-muted hover:bg-surface" aria-label="Remind me later">
           <X size={17} />
         </button>
       </div>
-      {release.highlights.length > 0 && (
+      {release && release.highlights.length > 0 && (
         <ul className="update-notice-highlights mt-3 space-y-1.5 border-l border-primary/25 pl-3 pr-1" aria-label="What's new in this update" tabIndex={0}>
           {release.highlights.map((highlight) => (
             <li key={highlight} className="text-[11px] leading-relaxed text-content-secondary">{highlight}</li>
@@ -68,9 +63,7 @@ export default function UpdateNotice({ suppressed }: { suppressed: boolean }) {
         </ul>
       )}
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-        <button type="button" onClick={openRelease} className="h-10 rounded-[11px] bg-primary text-on-primary text-[12px] font-semibold flex items-center justify-center gap-1.5">
-          View update <ArrowUpRight size={14} />
-        </button>
+        <UpdateAction release={release} />
         <button type="button" onClick={dismiss} className="h-10 px-4 rounded-[11px] border border-subtle text-[11px] font-semibold text-content-secondary">
           Later
         </button>

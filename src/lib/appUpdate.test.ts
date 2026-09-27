@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkAppUpdateStatus, checkForAppUpdate, compareAppVersions, dismissAppUpdate, releaseHighlights } from './appUpdate';
+import { checkAppUpdateStatus, checkForAppUpdate, compareAppVersions, dismissAppUpdate, releaseHighlights, releaseApk } from './appUpdate';
 import { APP_VERSION } from './version';
 
 const NEXT_VERSION = `${Number(APP_VERSION.split('.')[0]) + 1}.0.0`;
@@ -22,6 +22,16 @@ afterEach(() => {
 });
 
 describe('app updates', () => {
+  it('selects only official APK assets with a SHA-256 digest', () => {
+    const asset = { name: 'YouDO.apk', browser_download_url: 'https://github.com/mattedhairr/YouDO/releases/download/v9.0.0/YouDO.apk', digest: `sha256:${'a'.repeat(64)}` };
+    expect(releaseApk([asset])).toEqual({ url: asset.browser_download_url, sha256: 'a'.repeat(64) });
+    for (const url of ['http://github.com/mattedhairr/YouDO/releases/download/v9/YouDO.apk', 'https://github.com/other/app/releases/download/v9/YouDO.apk', 'https://github.com:444/mattedhairr/YouDO/releases/download/v9/YouDO.apk', 'https://github.com.evil.example/YouDO.apk']) {
+      expect(releaseApk([{ ...asset, browser_download_url: url }])).toBeUndefined();
+    }
+    expect(releaseApk([{ ...asset, digest: undefined }])).toBeUndefined();
+    expect(releaseApk([{ ...asset, digest: 'sha256:123' }])).toBeUndefined();
+    expect(releaseApk([{ ...asset, name: 'YouDO.zip' }])).toBeUndefined();
+  });
   it('does not report an offline check as up to date', async () => {
     vi.stubGlobal('localStorage', memoryStorage());
     vi.stubGlobal('navigator', { onLine: false });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -43,6 +44,7 @@ import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from 
 import { PACE_CHEATING_GUIDE, PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
 import { todayISO } from '../lib/dates';
 import { checkAppUpdateStatus, type AppRelease } from '../lib/appUpdate';
+import UpdateAction from './UpdateAction';
 import { APP_VERSION } from '../lib/version';
 import SignedInDevices from './SignedInDevices';
 import CommunityHashtagProfileField from './community/CommunityHashtagProfileField';
@@ -933,11 +935,6 @@ export default function SettingsSheet({
                     {updateUnavailable && updateChecked ? 'Reconnect and check again' : 'GitHub Releases'}
                   </p>
                 </div>
-                {availableUpdate && (
-                  <button type="button" onClick={() => void openExternalUrl(availableUpdate.url)} className="shrink-0 py-1.5 px-3 rounded-xl bg-primary-soft text-primary-glow text-xs font-semibold">
-                    View update
-                  </button>
-                )}
                 {!availableUpdate && <button type="button" disabled={!updateChecked} onClick={() => setUpdateCheckKey((key) => key + 1)} className="shrink-0 min-h-11 px-2 text-[11px] font-semibold text-primary disabled:opacity-40">Check again</button>}
               </div>
               <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-[14px] border border-subtle bg-surface px-3 py-3">
@@ -960,10 +957,11 @@ export default function SettingsSheet({
                 </div>
               </div>
             </div>
+            {(availableUpdate || !Capacitor.isNativePlatform()) && <div className="px-4 pb-3"><UpdateAction release={availableUpdate} /></div>}
             {availableUpdate && availableUpdate.highlights.length > 0 && (
               <div className="border-t border-subtle px-4 py-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">What’s new</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-content-secondary line-clamp-2">{availableUpdate.highlights.join(' · ')}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{availableUpdate.highlights.join(' · ')}</p>
               </div>
             )}
           </div>

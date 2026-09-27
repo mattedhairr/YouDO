@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import AuthGate from './components/AuthGate';
 import './index.css';
 import ExperiencePreferences from './components/ExperiencePreferences';
+import { registerWebUpdates } from './lib/webUpdate';
 
 if (Capacitor.isNativePlatform()) {
   document.documentElement.dataset.nativeShell = 'true';
@@ -85,7 +86,7 @@ if ('serviceWorker' in navigator) {
     }).catch(() => {});
   } else if (window.location.protocol.startsWith('http')) {
     const registerWorker = () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      registerWebUpdates();
     };
     if (document.readyState === 'complete') registerWorker();
     else window.addEventListener('load', registerWorker, { once: true });

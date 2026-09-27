@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         registerPlugin(YouDoSessionNotificationPlugin.class);
+        registerPlugin(YouDoAppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
 
         // Keep Android system bars and the software keyboard outside the WebView.

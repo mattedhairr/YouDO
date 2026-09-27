@@ -15,6 +15,9 @@ export default defineConfig({
         // The app registers the worker itself. Claim the first open page once
         // precaching finishes so deferred views also work before a reload.
         clientsClaim: true,
+        // Registration is manual: no virtual PWA helper sends SKIP_WAITING.
+        // Activate the downloaded worker; the UI offers a safe page refresh.
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/auth-confirm\.html$/],

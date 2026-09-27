@@ -14,6 +14,7 @@ for (const name of readdirSync(new URL('assets/', root))) {
   if (/\.(js|css)$/.test(name)) assert.ok(worker.includes(`assets/${name}`), `Not precached: ${name}`);
 }
 assert.ok(worker.includes('clientsClaim()'), 'The first page must be controlled after worker activation');
+assert.ok(worker.includes('self.skipWaiting()') && !worker.includes('SKIP_WAITING'), 'Manual registration requires an immediately activating worker, not a waiting-message-only worker');
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const version = readFileSync(new URL('../src/lib/version.ts', import.meta.url), 'utf8');
 const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8');
