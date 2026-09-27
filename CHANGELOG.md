@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.16] — 2026-09-27 — Separate community rooms (candidate)
+
+- **Separate conversations** — General and each approved exam hashtag have their own messages. Everyone in Community can read every room; posting in an exam room requires that profile hashtag.
+- **Changing exams** — If you change hashtags while earlier exam-room messages remain, posting in the new room waits until those messages expire. General stays open, and General-only users have no wait.
+- **Read markers and replies** — Rooms keep their own unread markers and replies, so browsing one conversation does not mark another as read.
+- **Complete update notes** — Scroll the full release notes inside the update notice while keeping its buttons available.
+- **Android APK** — versionName **7.5.16**, versionCode **57**. Install-over and hosted migration checks are pending. No reinstall or data reset is planned. This is not a published release.
+
+---
+
 ## [v7.5.15] — 2026-09-27 — Lighter startup (candidate)
 
 - **Lighter startup** — Goals, Calendar, Board and Blueprint Studio load when opened, reducing the initial JavaScript and styles needed for Today.

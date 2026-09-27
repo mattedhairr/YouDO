@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
-import { markCommunityRead, markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
+import { markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
+import { markChatRoomRead } from '../../lib/communityChat';
+import type { CommunityHashtagContext } from '../../lib/communityHashtags';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
 import Overlay from '../Overlay';
 import CommunityHashtagBar from './CommunityHashtagBar';
@@ -13,7 +15,7 @@ const MESSAGE_ACTION_WINDOW_MS = 15 * 60 * 1000;
 const LONG_PRESS_MS = 460;
 const DOUBLE_TAP_MS = 320;
 export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings }: Props) {
-  const initial = useMemo(() => readChatCache(userId),[userId]);
+  const initial = useMemo(() => readChatCache(userId,'room:general'),[userId]);
   const cacheLease = useRef(chatCacheGeneration());
   const [messages,setMessages] = useState(initial.messages);
   const [hasOlder,setHasOlder] = useState(initial.hasOlder);
@@ -29,9 +31,10 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [newBelow,setNewBelow] = useState(false);
   const [updateOpen,setUpdateOpen] = useState(false);
   const [selectedHashtag,setSelectedHashtag] = useState<string>();
-  const [ownHashtag,setOwnHashtag] = useState<string>();
-  const filterScope=selectedHashtag??'general';
-  const canWriteFilter=!selectedHashtag||selectedHashtag===ownHashtag;
+  const [roomContext,setRoomContext] = useState<CommunityHashtagContext>({hashtags:[],requests:[]});
+  const roomScope=`room:${selectedHashtag??'general'}`;
+  const canWriteRoom=roomContext.roomsEnabled===true && (!selectedHashtag || (selectedHashtag===roomContext.mine?.id && !roomContext.postingUnlockAt));
+  const currentScope=useRef(roomScope);currentScope.current=roomScope;
   const scroll = useRef<HTMLDivElement>(null);
   const scrollPosition = useRef(initial.scrollTop);
   const composer = useRef<HTMLTextAreaElement>(null);
@@ -102,25 +105,25 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       // Refresh the entire loaded window, so removals and bans leave no ghosts.
       setMessages(current=>mergeChatPage(current.filter(m=>m.delivery!=='sent'),fresh));
       setHasOlder(full && fresh.length<CHAT_HISTORY_LIMIT);setError('');
-    } catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Could not refresh chat.');}
-    finally{fetching.current=false;if(mounted.current)setLoading(false);}
+    } catch(e){if(mounted.current&&version===refreshVersion.current)setError(e instanceof Error?e.message:'Could not refresh chat.');}
+    finally{if(version===refreshVersion.current){fetching.current=false;if(mounted.current)setLoading(false);}}
   },[capturePosition,context.canJoin,selectedHashtag]);
   useEffect(()=>{
     mounted.current=true;refreshVersion.current++;fetching.current=false;
-    const saved=readChatCache(userId,filterScope);
+    const saved=readChatCache(userId,roomScope);
     messagesRef.current=saved.messages;olderRef.current=saved.hasOlder;
     setMessages(saved.messages);setHasOlder(saved.hasOlder);setLoading(saved.messages.length===0);
     scrollPosition.current=saved.scrollTop;follow.current=saved.scrollTop==null;loadedCount.current=Math.max(CHAT_PAGE_SIZE,saved.messages.filter(m=>m.delivery==='sent').length);
-    acknowledged.current.clear();setNewBelow(false);setError('');void refresh();
+    acknowledged.current.clear();setNewBelow(false);setError('');setDraft('');setReply(null);setEditing(null);setSelected(null);setActionBusy(false);void refresh();
     const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
     const timer=window.setInterval(onVisible,30_000);
     document.addEventListener('visibilitychange',onVisible);window.addEventListener('online',onVisible);
     const generation=cacheLease.current;
     return()=>{
       mounted.current=false;clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);window.removeEventListener('online',onVisible);
-      saveChatCache(userId,{messages:messagesRef.current,scrollTop:scrollPosition.current,hasOlder:olderRef.current},generation,filterScope);
+      saveChatCache(userId,{messages:messagesRef.current,scrollTop:scrollPosition.current,hasOlder:olderRef.current},generation,roomScope);
     };
-  },[refresh,userId,filterScope]);
+  },[refresh,userId,roomScope]);
   useEffect(()=>()=>{if(pressTimer.current)window.clearTimeout(pressTimer.current);},[]);
   useEffect(()=>setUpdateOpen(false),[context.settings.announcement,context.settings.announcementUpdatedAt]);
   useEffect(()=>{if(!context.canJoin){clearChatCache(userId);setMessages([]);}},[context.canJoin,userId]);
@@ -131,7 +134,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     return()=>clearTimeout(timer);
   },[messages]);
   useEffect(()=>{
-    const root=scroll.current;if(!root || !context.canJoin || selectedHashtag)return;
+    const root=scroll.current;if(!root || !context.canJoin)return;
     const seen=new Set<string>();let timer:number|undefined;
     const observer=new IntersectionObserver(entries=>{
       for(const entry of entries){
@@ -143,7 +146,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         if(document.visibilityState!=='visible' || !mounted.current){seen.clear();return;}
         const ids=[...seen];seen.clear();
         ids.forEach(id=>acknowledged.current.add(id));
-        void markCommunityRead(ids).then(ok=>{if(ok)window.dispatchEvent(new Event('youdo-community-read'));else ids.forEach(id=>acknowledged.current.delete(id));});
+        void markChatRoomRead(ids,selectedHashtag).then(ok=>{if(ok)window.dispatchEvent(new Event('youdo-community-read'));else ids.forEach(id=>acknowledged.current.delete(id));});
       },500);
     },{root,threshold:0.6});
     root.querySelectorAll('[data-message]').forEach(node=>observer.observe(node));
@@ -151,26 +154,28 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   },[map,context.canJoin,selectedHashtag]);
 
   const transmit=async(message:ChatMessage)=>{
-    if(inFlight.current.has(message.id))return;
+    if(inFlight.current.has(message.id)||!canWriteRoom||message.roomId!==selectedHashtag)return;
+    const scope=roomScope;
     inFlight.current.add(message.id);
     setMessages(current=>current.map(m=>m.id===message.id?{...m,delivery:'pending',error:undefined}:m));
     try{
       const sent=await sendChatMessage(message);
-      if(mounted.current){capturePosition();setMessages(current=>mergeChatPage(current,[sent]));}
-    }catch(e){if(mounted.current)setMessages(current=>current.map(m=>m.id===message.id?{...m,delivery:'failed',error:e instanceof Error?e.message:'Could not send.'}:m));}
+      if(mounted.current&&currentScope.current===scope){capturePosition();setMessages(current=>mergeChatPage(current,[sent]));}
+    }catch(e){if(mounted.current&&currentScope.current===scope)setMessages(current=>current.map(m=>m.id===message.id?{...m,delivery:'failed',error:e instanceof Error?e.message:'Could not send.'}:m));}
     finally{inFlight.current.delete(message.id);}
   };
   const send=()=>{
-    if(!draft.trim() || !context.canPost || !canWriteFilter || actionBusy)return;
+    if(!draft.trim() || !context.canPost || !canWriteRoom || actionBusy)return;
     setError('');
     if(editing){
+      const scope=roomScope;
       setActionBusy(true);
-      void editChatMessage(editing.id,draft).then(message=>{if(mounted.current){capturePosition();setMessages(current=>mergeChatPage(current,[message]));setEditing(null);setDraft('');}})
-        .catch(e=>{if(mounted.current)setError(e.message);}).finally(()=>{if(mounted.current)setActionBusy(false);});
+      void editChatMessage(editing.id,draft).then(message=>{if(mounted.current&&currentScope.current===scope){capturePosition();setMessages(current=>mergeChatPage(current,[message]));setEditing(null);setDraft('');}})
+        .catch(e=>{if(mounted.current&&currentScope.current===scope)setError(e.message);}).finally(()=>{if(mounted.current&&currentScope.current===scope)setActionBusy(false);});
       return;
     }
     if(messages.filter(m=>m.delivery!=='sent').length>=5){setError('Retry or remove a pending message before sending another.');return;}
-    const pending=pendingChatMessage(userId,draft,reply?.id);
+    const pending=pendingChatMessage(userId,draft,reply?.id,Date.now(),selectedHashtag);
     follow.current=true;setNewBelow(false);setMessages(current=>mergeChatPage(current,[pending]));setDraft('');setReply(null);
     void transmit(pending);
   };
@@ -183,12 +188,12 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       const page=await fetchChatPage(oldest.sequence,selectedHashtag);if(!mounted.current||version!==refreshVersion.current)return;
       capturePosition();loadedCount.current=Math.min(CHAT_HISTORY_LIMIT,loadedCount.current+CHAT_PAGE_SIZE);
       setMessages(current=>mergeChatPage(current,page));setHasOlder(page.length===CHAT_PAGE_SIZE && loadedCount.current<CHAT_HISTORY_LIMIT);
-    }catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Could not load older messages.');}
-    finally{fetching.current=false;if(mounted.current)setLoading(false);}
+    }catch(e){if(mounted.current&&version===refreshVersion.current)setError(e instanceof Error?e.message:'Could not load older messages.');}
+    finally{if(version===refreshVersion.current){fetching.current=false;if(mounted.current)setLoading(false);}}
   };
   const openActions=(message:ChatMessage)=>{setSelected(message);setReason('');setActionError('');};
   const beginReply=(message:ChatMessage)=>{
-    if(message.delivery!=='sent')return;
+    if(message.delivery!=='sent'||!canWriteRoom)return;
     setReply(message);setEditing(null);setSelected(null);requestAnimationFrame(()=>composer.current?.focus());
   };
   const cancelPress=()=>{if(pressTimer.current)window.clearTimeout(pressTimer.current);pressTimer.current=undefined;};
@@ -274,7 +279,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             {message.replyToId && <blockquote><strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong><span>{parent?.body??'No longer available'}</span></blockquote>}
             <p>{message.body}</p>
             <div className="c-message-meta"><span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>{mine && <span>{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={12}/>}</span>}</div>
-            {message.delivery==='failed' && <div className="c-retry"><span>{message.error}</span><button onClick={()=>void transmit(message)}><RefreshCw size={14}/> Retry</button></div>}
+            {message.delivery==='failed' && <div className="c-retry"><span>{message.error}</span><button disabled={!canWriteRoom} onClick={()=>void transmit(message)}><RefreshCw size={14}/> Retry</button></div>}
           </article>
         </li>;
       })}</ol>
@@ -282,18 +287,18 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     </div>
     {newBelow && <button className="c-new" onClick={()=>{follow.current=true;if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;setNewBelow(false);}}>New messages <ArrowDown size={15}/></button>}
     <footer className="c-composer">
-      <CommunityHashtagBar selectedId={selectedHashtag} onSelect={setSelectedHashtag} onMembershipChange={setOwnHashtag} onOpenBoardSettings={onOpenBoardSettings}/>
+      <CommunityHashtagBar selectedId={selectedHashtag} onSelect={setSelectedHashtag} onContextChange={setRoomContext}/>
       {error && <p role="status" className="c-feedback">{error} <button onClick={()=>void refresh()} aria-label="Refresh chat"><RefreshCw size={15}/></button></p>}
       {(reply || editing) && <div className="c-replying"><Reply size={16}/><span><strong>{editing?'Editing your message':'Replying'}</strong>{(editing??reply)?.body}</span><button aria-label="Cancel reply or edit" onClick={()=>{setReply(null);if(editing)setDraft('');setEditing(null);}}><X size={18}/></button></div>}
-      {!canWriteFilter&&<p className="c-hashtag-readonly"><Lock size={11}/> Browse-only feed · switch to General or your exam to post</p>}
-      <div className="c-composer-row"><textarea ref={composer} aria-label={editing?'Edit message':'Message'} rows={1} maxLength={240} value={draft} disabled={!context.canPost||!canWriteFilter} placeholder={!canWriteFilter?'Viewing another exam…':context.canPost?'Share something useful…':'Posting is paused for now'} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();send();}}}/><button className="c-primary c-send" aria-label={editing?'Save edit':'Send message'} disabled={!draft.trim()||!context.canPost||!canWriteFilter||actionBusy} onClick={send}>{editing?<Check size={19}/>:<Send size={19}/>}</button></div>
+      {!canWriteRoom&&<div className="c-hashtag-readonly" role="status"><Lock size={13}/><div><p>{!roomContext.roomsEnabled?'Room access could not be confirmed.':selectedHashtag===roomContext.mine?.id&&roomContext.postingUnlockAt?`Your earlier hashtag messages expire by ${new Date(roomContext.postingUnlockAt).toLocaleString()}. Posting unlocks after they expire; General stays open.`:'Read-only room · choose this hashtag in your profile to post.'}</p><button type="button" onClick={onOpenBoardSettings}>Profile settings</button></div></div>}
+      <div className="c-composer-row"><textarea ref={composer} aria-label={editing?'Edit message':'Message'} rows={1} maxLength={240} value={draft} disabled={!context.canPost||!canWriteRoom} placeholder={!canWriteRoom?'Read-only room…':context.canPost?'Share something useful…':'Posting is paused for now'} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();send();}}}/><button className="c-primary c-send" aria-label={editing?'Save edit':'Send message'} disabled={!draft.trim()||!context.canPost||!canWriteRoom||actionBusy} onClick={send}>{editing?<Check size={19}/>:<Send size={19}/>}</button></div>
       <p className="c-composer-note">Hold for options · double-tap to reply<span>{draft.length}/240</span></p>
     </footer>
     {selected && <Overlay open onClose={()=>{if(!actionBusy)setSelected(null);}} align="bottom"><div className="c-action-sheet">
       <h3>Message options</h3><p className="c-action-preview">{selected.body}</p>
       {actionError && <p className="c-feedback" role="alert">{actionError}</p>}
-      {selected.delivery==='sent' && <button onClick={()=>beginReply(selected)}>Reply</button>}
-      {selectedCanModify && <button onClick={()=>{setEditing(selected);setDraft(selected.body);setReply(null);setSelected(null);requestAnimationFrame(()=>composer.current?.focus());}}>Edit message</button>}
+      {selected.delivery==='sent' && canWriteRoom && <button onClick={()=>beginReply(selected)}>Reply</button>}
+      {selectedCanModify && canWriteRoom && <button onClick={()=>{setEditing(selected);setDraft(selected.body);setReply(null);setSelected(null);requestAnimationFrame(()=>composer.current?.focus());}}>Edit message</button>}
       {(selected.delivery==='failed' || selectedCanModify) && <button disabled={actionBusy} onClick={()=>void action('delete')}>{selected.delivery==='failed'?'Remove unsent message':'Delete for everyone'}</button>}
       {selected.authorId!==userId && <button disabled={actionBusy} onClick={()=>void action('report')}>Report privately</button>}
       {context.isAdmin && selected.delivery==='sent' && <div className="c-moderation"><label htmlFor="remove-reason">Moderation reason</label><input id="remove-reason" value={reason} maxLength={280} onChange={e=>setReason(e.target.value)} placeholder="Briefly explain the removal"/><button disabled={actionBusy||reason.trim().length<3} onClick={()=>void action('remove')}>Remove as admin</button></div>}

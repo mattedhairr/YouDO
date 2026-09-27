@@ -77,7 +77,7 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
       <div className="settings-hashtag-copy">
         <span>Exam community</span>
         <strong>{context.mine ? `#${context.mine.label}` : 'Choose an approved hashtag'}</strong>
-        <small>{context.mine ? 'Shown on your Board profile and leaderboard.' : 'General chat stays available; choose one to unlock exam chats.'}</small>
+        <small>{context.mine ? 'Shown on your Board profile and leaderboard.' : 'All exam chats are readable; choose one to post there.'}</small>
       </div>
       <button type="button" onClick={() => { setError(''); setPanel('choose'); }}>
         {context.mine ? 'Change' : 'Choose'}
@@ -87,7 +87,7 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
       <section className="c-hashtag-sheet settings-hashtag-sheet">
         <header><div><span>PUBLIC PROFILE</span><h3>{panel === 'request' ? 'Request an exam hashtag' : 'Choose your exam'}</h3></div><button type="button" onClick={() => setPanel(null)} aria-label="Close"><X size={17}/></button></header>
         {panel === 'choose' ? <>
-          <p className="c-hashtag-help">Choose one approved exam for your Board profile and exam chat. You can change or remove it later.</p>
+          <p className="c-hashtag-help">All exam rooms are readable. Choose one to post there. If you change hashtags while you still have messages in any exam room, posting in your new room waits until those messages expire (up to 24 hours). General stays open.</p>
           {context.hashtags.length > 0 ? <div className="c-hashtag-choices">{context.mine && <button type="button" className="c-hashtag-none" disabled={busy} onClick={() => void choose()}>
             <span>No exam hashtag</span><small>Use General chat only</small>
           </button>}{context.hashtags.map((tag) => <button type="button" disabled={busy} key={tag.id} onClick={() => void choose(tag.id)}>

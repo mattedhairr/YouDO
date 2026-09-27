@@ -1,4 +1,8 @@
 .c-chat { position:relative;display:flex;flex-direction:column;flex:1;min-height:0;color:var(--text-primary); }
+.c-chat .c-hashtag-readonly { align-items:flex-start;font-size:11px;line-height:1.45;color:var(--text-secondary);padding:4px 0; }
+.c-hashtag-readonly > svg { flex-shrink:0;margin-top:2px; }
+.c-hashtag-readonly p { margin:0; }
+.c-hashtag-readonly button { color:var(--primary);text-decoration:underline;margin-top:4px;padding:3px 0; }
 .c-chat button:focus-visible,.c-action-sheet button:focus-visible { outline:2px solid var(--primary);outline-offset:3px; }
 .c-chat-scroll { position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:10px 14px;scrollbar-width:thin;scrollbar-color:var(--border) transparent; }
 .c-guidance { color:var(--text-secondary);font-size:12px;line-height:1.6;margin-bottom:16px; }

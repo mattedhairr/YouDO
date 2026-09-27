@@ -77,6 +77,7 @@ export function canSubmitCommunityAppeal(appeal?: CommunityAppeal, now = Date.no
 }
 
 export interface CommunityMessage {
+  roomId?: string;
   id: string;
   authorId: string;
   body: string;
@@ -376,12 +377,12 @@ export async function fetchAdminCommunity(dayKey: string): Promise<{
 export async function fetchReportedMessages(ids: string[]): Promise<CommunityMessage[]> {
   if (!ids.length) return [];
   const { data, error } = await supabase.from('community_messages')
-    .select('id, author_id, body, created_at, expires_at, removed_at, reply_to').in('id', [...new Set(ids)]);
+    .select('id, author_id, body, created_at, expires_at, removed_at, reply_to, room_id').in('id', [...new Set(ids)]);
   if (error) throw new Error('Could not load reported messages.');
   return (data ?? []).map((row) => ({
     id: String(row.id), authorId: String(row.author_id), body: String(row.body),
     createdAt: String(row.created_at), expiresAt: messageExpiry(row), removedAt: row.removed_at ?? undefined,
-    replyToId: row.reply_to ?? undefined,
+    replyToId: row.reply_to ?? undefined, roomId: row.room_id ?? undefined,
   }));
 }
 

@@ -1,0 +1,71 @@
+# Community rooms — Batch 10
+
+Candidate v7.5.16, Android code 57. Not deployed or released.
+
+## Contract
+
+General is an independent room. Every approved hashtag is visible and readable
+to eligible Community members, including members without a profile hashtag.
+Only the member's current hashtag room accepts their writes. General remains
+available subject to the existing Board membership, ban, mute and rate limits.
+
+Changing a profile hashtag captures the latest expiry and sequence of existing,
+unremoved authored messages in any hashtag room. Posting in the new room waits
+until those messages expire, at most their remaining 24-hour lifetime. General
+messages never cause a wait. No existing hashtag messages means immediate
+access. Removing all those messages also removes the wait. Clearing a hashtag
+locks all exam composers; reselecting cannot bypass existing messages. Choosing
+the same hashtag does not restart a cooldown. Server time decides access.
+
+The membership trigger covers direct selection and admin-request approval.
+Assignment and send paths serialize using the existing per-author transaction
+lock. The captured sequence prevents newer messages from reactivating an older
+cooldown. Staff can moderate any room but cannot bypass membership to post.
+
+## Migration and compatibility
+
+Apply `supabase/community_rooms.sql` after the existing migrations, including
+`community_hashtag_admin.sql` and `board_evidence.sql`. It is transactional and
+rerunnable. It adds a nullable message destination, membership cooldown fields,
+one room/sequence index and a private per-room read-marker table. It replaces
+the affected RPC definitions without deleting or moving existing messages.
+
+Existing messages and kudos remain General. Legacy send/inbox/page/read RPCs
+use General; the old hashtag-page RPC now returns the actual selected room.
+New sends bind their idempotency key to both account and room. Cross-room
+replies are rejected. Edits require current write permission; existing author
+delete and moderator report/remove rules remain. Inactive rooms are unavailable.
+General's read cursor remains in its existing table; hashtag cursors cannot
+advance it. Account/Board removal cascades read-state cleanup.
+
+Deploy the migration before distributing the new client. A new client cannot
+post when its room-context RPC is unavailable; it never silently falls back to
+posting an exam message in General. Legacy clients can continue General posts.
+The previously declined Board bridge remains unapplied.
+
+Do not roll back by dropping the destination column or restoring the old
+author-filtered feed: that would mix room messages into General. If rollout must
+pause, retain the schema and routing and disable new room writes while fixing
+forward. No private backup/session data is changed by this migration.
+
+## Verification
+
+- Isolated SQL tests cover legacy message preservation, destinations, no-tag
+  reads, membership locks, General-only exemption, cooldown/expiry and clear
+  bypass, same-tag reselection, automatic assignment, idempotency, account
+  binding, room replies/read markers, direct grant denial, edit/delete/report,
+  moderation, muting, disabled posting and membership removal.
+- Combined Advisor tests include the new private table and RPC privilege checks.
+- Client tests bind retries to the original destination and parse server locks.
+
+Local gates passed on Sept 27: 417 app tests, all eight SQL suites (43 new room
+checks), typecheck, lint, build and asset/version/bundle checks. Initial JavaScript
+is 635,922 bytes (181,641 gzip). An isolated browser fixture with simulated
+responses verified no-tag room reading with disabled posting, own-tag posting,
+General isolation after switching, and the server-provided cooldown lock. At
+360x640, keyboard End reaches release note 10 while both action buttons stay
+visible. These are fixture checks, not hosted database or physical touch checks.
+
+Still required before merge: hosted migration approval and disposable-account
+verification, signed candidate, and physical Android install-over/room/touch checks.
+No hosted migration has been applied by this batch yet.

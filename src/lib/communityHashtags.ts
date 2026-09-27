@@ -10,6 +10,9 @@ export interface CommunityHashtagContext {
   hashtags: CommunityHashtag[];
   mine?: Pick<CommunityHashtag,'id'|'label'>;
   requests: CommunityHashtagRequest[];
+  roomsEnabled?: boolean;
+  postingUnlockAt?: string;
+  roomUnread?: Record<string,number>;
 }
 
 const record = (value: unknown): Record<string,unknown> | undefined => value && typeof value === 'object' ? value as Record<string,unknown> : undefined;
@@ -33,7 +36,18 @@ export function parseHashtagContext(value: unknown): CommunityHashtagContext {
   const requests=Array.isArray(row?.requests)
     ? row.requests.flatMap(value=>{const request=parseRequest(value);return request?[request]:[];})
     : (()=>{const request=parseRequest(row?.request);return request?[request]:[];})();
-  return {hashtags,mine:mineId&&mineLabel?{id:mineId,label:mineLabel}:undefined,requests};
+  const roomUnread:Record<string,number>={};
+  if(Array.isArray(row?.room_unread))for(const value of row.room_unread){
+    const item=record(value);roomUnread[text(item?.room_id)||'general']=Math.max(0,Number(item?.count)||0);
+  }
+  return {hashtags,mine:mineId&&mineLabel?{id:mineId,label:mineLabel}:undefined,requests,
+    roomsEnabled:row?.rooms_enabled===true,postingUnlockAt:text(row?.posting_unlock_at)||undefined,roomUnread};
+}
+
+export async function fetchCommunityRooms(): Promise<CommunityHashtagContext> {
+  const {data,error}=await supabase.rpc('community_room_context');
+  if(error)throw new Error('Chat rooms are unavailable. Please try again shortly.');
+  return parseHashtagContext(data);
 }
 
 export function parseAdminHashtagRequest(value: unknown): CommunityHashtagRequest | undefined {

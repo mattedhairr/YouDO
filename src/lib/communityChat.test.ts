@@ -18,6 +18,15 @@ describe('chat delivery and cache',()=>{
     await sendChatMessage(pending);await sendChatMessage(pending);
     expect(mocks.rpc.mock.calls[0][1]).toEqual(mocks.rpc.mock.calls[1][1]);
     expect(mocks.rpc.mock.calls[0][1].expected_author).toBe('a');
+    expect(mocks.rpc.mock.calls[0][0]).toBe('send_community_room_message');
+    expect(mocks.rpc.mock.calls[0][1].selected_room).toBeNull();
+  });
+  it('binds retries to the original hashtag destination',async()=>{
+    const pending=pendingChatMessage('a','In my room',undefined,now,'gate-id');
+    mocks.rpc.mockResolvedValue({data:{...row,id:pending.id,room_id:'gate-id'},error:null});
+    const sent=await sendChatMessage(pending);
+    expect(mocks.rpc).toHaveBeenLastCalledWith('send_community_room_message',expect.objectContaining({selected_room:'gate-id',client_id:pending.id}));
+    expect(sent.roomId).toBe('gate-id');
   });
   it('replaces pending with the server result without duplicate rendering',()=>{
     const pending={...pendingChatMessage('a','Revision'),id:row.id};

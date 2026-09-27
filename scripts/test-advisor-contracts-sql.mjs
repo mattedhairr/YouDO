@@ -14,7 +14,7 @@ try {
     alter default privileges in schema public grant all on tables to authenticated;
     alter default privileges in schema public grant usage,select on sequences to authenticated;
   `);
-  for (const name of ['user_backups', 'cloud_backup_revisions', 'public_pace', 'community', 'community_chat', 'community_hashtags', 'community_hashtag_admin', 'app_quotes', 'board_evidence']) {
+  for (const name of ['user_backups', 'cloud_backup_revisions', 'public_pace', 'community', 'community_chat', 'community_hashtags', 'community_hashtag_admin', 'app_quotes', 'board_evidence', 'community_rooms']) {
     const sql = await readFile(new URL(`../supabase/${name}.sql`, import.meta.url), 'utf8');
     await db.exec(sql.replace('create extension if not exists pgcrypto;', ''));
   }
@@ -25,7 +25,7 @@ try {
     where n.nspname='public' and p.prosecdef and not exists(select 1 from unnest(p.proconfig) c where c like 'search_path=%')`);
   assert.deepEqual(unconfigured, [], 'Every elevated function pins its search path');
   const privateTables = ['app_quote_settings', 'app_quotes', 'board_evidence_state', 'board_focus_sessions',
-    'community_activity', 'community_hashtag_memberships', 'community_hashtag_requests', 'community_hashtags', 'community_read_state'];
+    'community_activity', 'community_hashtag_memberships', 'community_hashtag_requests', 'community_hashtags', 'community_read_state', 'community_room_read_state'];
   for (const name of privateTables) {
     const [table] = await rows(`select relrowsecurity from pg_class where oid='public.${name}'::regclass`);
     assert.equal(table.relrowsecurity, true, `${name} keeps RLS enabled`);

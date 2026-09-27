@@ -6,12 +6,17 @@ import { chooseCommunityHashtag, fetchAdminCommunityHashtags, fetchAdminHashtagR
 beforeEach(()=>mocks.rpc.mockReset());
 
 describe('community hashtag contracts',()=>{
+  it('keeps room locks server-authoritative and parses room-specific unread markers',()=>{
+    expect(parseHashtagContext({rooms_enabled:true,posting_unlock_at:'2026-09-28T10:00:00Z',room_unread:[{room_id:null,count:3},{room_id:'gate',count:2}]}))
+      .toMatchObject({roomsEnabled:true,postingUnlockAt:'2026-09-28T10:00:00Z',roomUnread:{general:3,gate:2}});
+    expect(parseHashtagContext({}).roomsEnabled).toBe(false);
+  });
   it('parses compact member context without trusting malformed rows',()=>{
     expect(parseHashtagContext({
       hashtags:[{id:'gate',label:'GATE',member_count:4},{id:null,label:'Bad'}],
       mine:{id:'gate',label:'GATE'},
       request:{id:'r1',exam_name:'ESE',details:'Civil',status:'waiting',admin_response:'Two more requests needed',created_at:'2026-09-22T00:00:00Z'},
-    })).toEqual({
+    })).toMatchObject({
       hashtags:[{id:'gate',label:'GATE',memberCount:4}],mine:{id:'gate',label:'GATE'},
       requests:[{id:'r1',examName:'ESE',details:'Civil',status:'waiting',adminResponse:'Two more requests needed',createdAt:'2026-09-22T00:00:00Z'}],
     });

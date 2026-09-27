@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type { CommunityMessage } from './community';
 
 export interface ChatMessage extends CommunityMessage {
+  roomId?: string;
   sequence: number;
   editedAt?: string;
   delivery: 'pending' | 'sent' | 'failed';
@@ -53,6 +54,7 @@ export function parseChatMessage(input: unknown): ChatMessage {
     throw new Error('Community returned an unreadable message. Please refresh.');
   }
   return { id: row.id, authorId: row.author_id, body: row.body, createdAt: row.created_at, expiresAt: row.expires_at,
+    roomId: typeof row.room_id === 'string' ? row.room_id : undefined,
     sequence: Number(row.sequence), editedAt: typeof row.edited_at === 'string' ? row.edited_at : undefined,
     removedAt: typeof row.removed_at === 'string' ? row.removed_at : undefined,
     replyToId: typeof row.reply_to === 'string' ? row.reply_to : undefined,
@@ -71,8 +73,8 @@ export function mergeChatPage(current: ChatMessage[], page: ChatMessage[]): Chat
     return Date.parse(a.createdAt)-Date.parse(b.createdAt) || a.id.localeCompare(b.id);
   }).slice(-CHAT_HISTORY_LIMIT);
 }
-export function pendingChatMessage(userId: string, body: string, replyToId?: string, now = Date.now()): ChatMessage {
-  return { id: crypto.randomUUID(), authorId: userId, body: body.trim().replace(/\s+/g,' '), replyToId,
+export function pendingChatMessage(userId: string, body: string, replyToId?: string, now = Date.now(), roomId?: string): ChatMessage {
+  return { id: crypto.randomUUID(), authorId: userId, roomId, body: body.trim().replace(/\s+/g,' '), replyToId,
     createdAt: new Date(now).toISOString(), expiresAt: new Date(now+86_400_000).toISOString(), sequence: 0, kind: 'chat', delivery: 'pending' };
 }
 export async function fetchChatPage(beforeSequence?: number, hashtagId?: string): Promise<ChatMessage[]> {
@@ -83,12 +85,16 @@ export async function fetchChatPage(beforeSequence?: number, hashtagId?: string)
   return (Array.isArray(data) ? data : []).map(parseChatMessage);
 }
 export async function sendChatMessage(message: ChatMessage): Promise<ChatMessage> {
-  const { data, error } = await supabase.rpc('send_community_message', {
+  const { data, error } = await supabase.rpc('send_community_room_message', {
     client_id: message.id, message_body: message.body, reply_to_message: message.replyToId ?? null,
-    expected_author: message.authorId,
+    expected_author: message.authorId, selected_room: message.roomId ?? null,
   });
   if (error) throw new Error(error.message || 'Could not send. Tap Retry.');
   return parseChatMessage(data);
+}
+export async function markChatRoomRead(ids: string[], roomId?: string): Promise<boolean> {
+  const { error } = await supabase.rpc('read_community_room_messages', {message_ids:ids.slice(0,120),selected_room:roomId??null});
+  return !error;
 }
 export async function editChatMessage(id: string, body: string): Promise<ChatMessage> {
   const { data, error } = await supabase.rpc('edit_community_message', { target_message: id, message_body: body });
