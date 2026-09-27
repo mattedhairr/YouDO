@@ -22,7 +22,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 - **Lighter startup** — Goals, Calendar, Board and Blueprint Studio load when opened, reducing the initial JavaScript and styles needed for Today.
 - **Offline navigation** — After the web app finishes caching, its first open page can use previously unopened views without a reload. Android includes those views in the APK.
 - **Build checks** — Updated development tools and added database permission tests, offline asset checks and bundle size limits to APK verification.
-- **Android APK** — versionName **7.5.15**, versionCode **56**. Prepared for install-over from **v7.5.14** with the existing signing identity; the physical check is pending. No reinstall, data reset or database migration is required. This is not a published release.
+- **Android APK** — versionName **7.5.15**, versionCode **56**. Install-over from **v7.5.14**, offline navigation and focus sync were confirmed on a physical phone using a disposable account. No reinstall, data reset or database migration is required. This is not a published release.
 
 ---
 

@@ -101,22 +101,32 @@ Performance 0 errors, 0 warnings, 20 informational suggestions.
 - No SQL migration or grant change is proposed from these findings. The
   declined legacy Board bridge stays unapplied.
 
-## Email templates and remaining gates
+## Email templates and gate results
 
 The source includes the original single-card verification, recovery and email
 change templates from 827eaa9. The reverted 627d2cc logo refinement is excluded.
 Those original templates were restored in Supabase before Batch 9. Do not append
 HTML in its editor: replace the entire value and verify the saved preview.
 
-Before merge:
+Sept 27 candidate verification:
 
-- Complete hosted disposable-account navigation/sync checks.
-- Confirm fresh delivered verification, recovery and email-change messages show
-  one card and working links; passwords and links stay with the account owner.
-- Build the signed candidate and physically install over v7.5.14 without
-  uninstalling/clearing data. Check first open of each deferred view offline,
-  retained test work, focus save/reconnect and Board sync, and practical launch.
-- Record final clean-install checks, commit, workflow and artifact identity.
+- Hosted disposable B opened v7.5.15 with Cloud live and its existing control
+  task retained. Calendar, Goals, Blueprint Studio and live Board opened.
+- User confirmed all five phone checks passed: deferred views opened offline,
+  a short disposable sitting was saved, Calendar showed it, and after reconnect
+  and Sync now the sitting appeared on Board. B enabled Board participation for
+  this test. This is a user-reported physical result, not automated evidence.
+- Signed candidate commit `d48fdeb`, workflow #207 succeeded:
+  https://github.com/mattedhairr/YouDO/actions/runs/36313655442
+  APK SHA256: `f1cd206e3bba1bf38c343937f4c31aa19f40620bf068f005b772b62e081f8aa3`.
+  Permanent signer SHA256:
+  `12c3ac6ccaa7850986223bbbbebedc860afdf8a44a9bbde542adfb5cc6dafb38`.
+
+The user confirmed the install-over check on Sept 27: v7.5.15, retained B task,
+and installation without uninstalling or clearing app data. The user also
+reported a fresh password-reset email worked properly. Fresh signup confirmation
+and email-change delivery checks were **waived by the user, not passed**, on
+Sept 27. No additional account or credential changes were made for those flows.
 
 Local final checks passed after a clean `npm ci`: typecheck, lint, all 415 tests,
 all seven SQL suites, production build and build verification. Final initial
