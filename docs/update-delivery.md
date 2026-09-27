@@ -35,8 +35,23 @@ or Batch 10 merge is authorized by this implementation checkpoint.
 - Type checking, lint and production build passed. Asset/version/worker checks
   passed; initial JavaScript is 639,939 bytes / 183,064 gzip.
 - No SQL was changed or applied for this work.
-- Native compilation/signing and physical Android install-over/updater checks
-  are still pending at this checkpoint. Java unit mocks are not a physical pass.
+- Browser verification: the existing disposable B preview advanced from v7.5.16
+  to v7.5.17 by normal reloads after correcting worker activation; sign-in and
+  Cloud live state remained. A temporary comment in the built worker simulated
+  another deployment: Settings offered Refresh app and the update notice appeared.
+  Its Refresh app action was exercised without clearing site data. The temporary
+  built artifact was then regenerated from unchanged source.
+- After Refresh app, B's existing **Batch 7 control B survives deletion** task
+  remained in Backlog. A warm Board navigation showed B's ranking in 2,084 ms
+  measured from the automation click to the visible row. This includes automation
+  overhead and is one browser observation, not a phone/network performance guarantee.
+- Signed candidate workflow **#210** passed at `28883de`, including application,
+  SQL, web-build, Android compilation, signature and release-identity gates:
+  https://github.com/mattedhairr/YouDO/actions/runs/36332583677
+  Artifact **YouDO-APK**, archive SHA-256:
+  `7f18ba62a4fedb28cf40da6dcdacdb2ae14763388de11133e482612527701e89`.
+- Physical Android install-over/updater checks are still pending. Automated tests
+  and a signed build are not a physical pass.
 
 ## Before public release
 
