@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.17] — 2026-09-27 — Easier updates and quicker Board access (candidate)
+
+- **Board opens sooner** — Rankings load while cloud sync continues, then refresh with your latest synced focus. Details about excluded sittings stay collapsed.
+- **Android updates** — Download an official APK inside YouDO and open the Android installer after verification. Android still asks for permission and confirmation.
+- **Website updates** — Refresh when a website update is ready without clearing saved data or signing out. Active sittings and device save errors block the update restart.
+- **Android APK** — versionName **7.5.17**, versionCode **58**. Physical installer verification is pending. This is an unpublished candidate; the final release will include the remaining requested changes.
+
+---
+
 ## [v7.5.16] — 2026-09-27 — Separate community rooms (candidate)
 
 - **Separate conversations** — General and each approved exam hashtag have their own messages. Everyone in Community can read every room; posting in an exam room requires that profile hashtag.
