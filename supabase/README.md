@@ -65,8 +65,8 @@ contents were compared with the source files. The other 12 existing snippets
 were retained; their full contents were not re-audited during this organization
 pass. Temporary verification queries are discarded after use rather than saved
 alongside migrations. The read-only Advisor inspection script remains in
-`operations/inspect_advisors.sql`; historical patches and the unapplied legacy
-bridge remain in Git without separate dashboard bookmarks.
+`operations/inspect_advisors.sql`; historical patches remain in Git without
+separate dashboard bookmarks.
 
 Apply `board_evidence.sql` after the backup revision, Board, Community, and
 Community Hashtags scripts. It replaces client-uploaded public totals with
@@ -85,13 +85,9 @@ project from commit `bb7d8c6` on September 27, 2026. Hosted grants/RLS checks an
 transaction; a separate query confirmed zero remaining test messages or rooms.
 See `docs/community-rooms.md` for compatibility and remaining device gates.
 
-The owner chose to leave the temporary `board_evidence_legacy_bridge.sql`
-unapplied. The hosted upgrade is already active, so older installed clients
-can show an empty Board until the compatible app is released and installed.
-Their private focus history and backups remain unchanged. The existing app
-update notice reads the first three bullets from the latest published GitHub
-Release; include a clear "update to use Board" instruction in that release.
-The legacy bridge file is retained as a reviewed fallback, not a rollout step.
+Older apps must update to use the current Board. The unused compatibility bridge
+was never deployed and was removed from the repository; Git history retains it.
+This cleanup does not change the live database or private focus history/backups.
 
 The update notice now uses all release bullets and scrolls them within its panel;
 the three-bullet limit described above applied to v7.5.14 and older clients.
