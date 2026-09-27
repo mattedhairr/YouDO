@@ -17,6 +17,7 @@ import {
   type RankDelta,
 } from '../lib/paceBoard';
 import { fetchPaceRows } from '../lib/paceCloud';
+import { refreshBoard } from '../lib/boardRefresh';
 import { formatDuration } from '../lib/format';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import { formatStreakHours } from '../lib/focusTrends';
@@ -270,41 +271,50 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
+      let banned = false;
       setLoading(true);
-      if (user) {
-        const synced = await syncToCloud();
-        if (!cancelled) setSyncPending(!synced.ok);
-        const published = await publishPublicPace();
-        if (!cancelled) {
-          setEvidencePending(pacePrefs.optedIn && !published.ok);
-          setRejectedSessions(published.rejected ?? 0);
-        }
-      }
+      setCommunity(EMPTY_COMMUNITY_CONTEXT());
+      setAppreciations({ counts: {}, mine: new Set() });
+      setSyncPending(false);
+      setEvidencePending(false);
+      setRejectedSessions(0);
       const boardTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      const [res, nextCommunity] = await Promise.all([
-        fetchPaceRows(boardTimezone),
-        user ? fetchCommunityContext(user.id) : Promise.resolve(EMPTY_COMMUNITY_CONTEXT()),
-      ]);
-      if (cancelled) return;
-      if (!res.ok) {
-        setMissingTable(!!res.missingTable);
-        setRows([]);
-        if (!nextCommunity.error) setCommunity(nextCommunity);
-        setLoading(false);
-        return;
-      }
-      setMissingTable(false);
-      setCommunity(nextCommunity.error ? EMPTY_COMMUNITY_CONTEXT() : nextCommunity);
-      setRows(nextCommunity.banned && user
-        ? res.rows.filter((row) => row.userId !== user.id)
-        : res.rows);
-      setLoading(false);
-      if (user && nextCommunity.available) {
-        const state = await fetchAppreciations(nextCommunity.dayKey, user.id);
-        if (!cancelled) setAppreciations(state);
-      } else if (!cancelled) setAppreciations({ counts: {}, mine: new Set() });
+      const context = user ? fetchCommunityContext(user.id) : Promise.resolve(EMPTY_COMMUNITY_CONTEXT());
+      void context.then(async (next) => {
+        if (cancelled) return;
+        if (!next.error) {
+          setCommunity(next);
+          banned = next.banned;
+          if (banned && user) setRows((current) => current.filter((row) => row.userId !== user.id));
+        }
+        if (user && next.available) {
+          const state = await fetchAppreciations(next.dayKey, user.id);
+          if (!cancelled) setAppreciations(state);
+        }
+      }).catch(() => { /* Ranking remains usable if Community is unavailable. */ });
+      await refreshBoard({
+        read: () => fetchPaceRows(boardTimezone).catch(() => ({ ok: false as const, missingTable: false })),
+        cancelled: () => cancelled,
+        show: (res) => {
+          setLoading(false);
+          if (res.ok) { setMissingTable(false); setRows(banned && user ? res.rows.filter((row) => row.userId !== user.id) : res.rows); }
+          else setMissingTable(res.missingTable);
+        },
+        synchronize: async () => {
+          if (!user) return;
+          const synced = await syncToCloud();
+          if (cancelled) return;
+          setSyncPending(!synced.ok);
+          const published = await publishPublicPace();
+          if (!cancelled) {
+            setEvidencePending(pacePrefs.optedIn && !published.ok);
+            setRejectedSessions(published.rejected ?? 0);
+          }
+        },
+      });
     };
-    void run();
+    void run().catch(() => { if (!cancelled) setSyncPending(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => {
       cancelled = true;
     };
@@ -425,9 +435,12 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
       {evidencePending && !missingTable && <p role="status" className="px-0.5 text-[11px] text-content-secondary">
         The Board could not process the synced focus yet. Your private Calendar and cloud backup are unchanged.
       </p>}
-      {rejectedSessions > 0 && <p role="status" className="px-0.5 text-[11px] text-content-secondary">
+      {rejectedSessions > 0 && <details className="px-0.5 text-[11px] text-content-muted">
+        <summary className="cursor-pointer">Focus sync details</summary>
+        <p className="mt-2">
         {rejectedSessions} {rejectedSessions === 1 ? 'sitting was' : 'sittings were'} excluded from this Board update because the records were duplicate, overlapping, or invalid. Private history is unchanged.
-      </p>}
+        </p>
+      </details>}
 
       {community.available && (community.canJoin || community.isAdmin || community.banned) && <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}><button type="button" aria-label={hasCommunityUnread ? 'Community, new activity' : 'Community'} onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }} className="board-community-link">
         <span className="board-community-icon" aria-hidden="true">{community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}{hasCommunityUnread && <span className="board-unread" />}</span>
