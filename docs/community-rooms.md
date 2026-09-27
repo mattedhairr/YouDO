@@ -66,6 +66,35 @@ General isolation after switching, and the server-provided cooldown lock. At
 360x640, keyboard End reaches release note 10 while both action buttons stay
 visible. These are fixture checks, not hosted database or physical touch checks.
 
-Still required before merge: hosted migration approval and disposable-account
-verification, signed candidate, and physical Android install-over/room/touch checks.
-No hosted migration has been applied by this batch yet.
+## Hosted verification — September 27, 2026
+
+The user approved and the SQL Editor successfully applied the exact migration
+from `bb7d8c6` to YouDO project `iyrnywfaxakvjkmddmqv`. Editor contents were
+compared with the committed source before execution. Metadata checks confirmed
+the destination column, private read-state RLS, denied direct authenticated
+read access, denied anonymous sends, and granted authenticated send RPC access.
+
+Nineteen assertions passed under disposable account B in a rollback-only
+transaction: General/room isolation, legacy General routing, no-tag read/write
+rules, own-room writes, General-only cooldown exemption, tag-change locks,
+General posting during cooldown, clear/reselect bypass denial, expiry unlock,
+and same-tag reselection after expiry. A separate read-only query confirmed
+zero test rooms/messages remained and B still had no profile hashtag. These
+were hosted SQL checks, not a multi-connection race or physical-device test.
+
+Signed Android candidate workflow #209 succeeded at `bb7d8c6`:
+https://github.com/mattedhairr/YouDO/actions/runs/36324865970
+CI reported 417 passing tests and verified versionName 7.5.16, versionCode 57,
+and the pinned signing certificate. Artifact archive SHA-256:
+`eba4dd46796a806186c868a1794b9b0939fb7a182df6e03dd0cd7fffefbab296`.
+
+After refreshing the cached client, the browser confirmed v7.5.16, B's Cloud
+live state and no profile hashtag. General's composer was enabled; GATE-2027
+opened read-only with a disabled composer and profile-setting explanation.
+The two missing permanent migration snippets were saved and named in Supabase;
+the dashboard inventory now contains 14 named queries. No migration was rerun
+during that organization pass.
+
+Still required before merge: physical Android install-over/room/touch checks.
+The user is testing workflow #209; results have not yet been reported.
+Batch 10 remains unmerged and unreleased; the Board bridge remains unapplied.

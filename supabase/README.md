@@ -10,7 +10,7 @@ files in this directory.
 - **YouDO — Cloud Backup Revisions Upgrade** → `cloud_backup_revisions.sql`
 - **YouDO — Public Board Initial Setup** → `public_pace.sql`
 - **YouDO — Public Board Evidence Upgrade** → `board_evidence.sql`
-- **YouDO — Board Audit Compatibility Bridge** → `board_evidence_legacy_bridge.sql`
+- **YouDO — Community Chat Rooms Upgrade** → `community_rooms.sql`
 - **YouDO — Community & Moderation Setup** → `community.sql`
 - **YouDO — Community Chat Upgrade** → `community_chat.sql`
 - **YouDO — Community Hashtags Upgrade** → `community_hashtags.sql`
@@ -57,13 +57,33 @@ Saved-query names and presence do not prove that a script was applied. Record a
 successful hosted run and permission checks separately; do not infer production
 schema state from the SQL Editor sidebar.
 
+On September 27, the dashboard inventory was reconciled to these 14 names.
+The missing Board Evidence and Community Chat Rooms snippets were saved from
+their repository sources, with source/order/deployment notes in their
+descriptions. Saving them did not rerun either migration. Their SQL editor
+contents were compared with the source files. The other 12 existing snippets
+were retained; their full contents were not re-audited during this organization
+pass. Temporary verification queries are discarded after use rather than saved
+alongside migrations. The read-only Advisor inspection script remains in
+`operations/inspect_advisors.sql`; historical patches and the unapplied legacy
+bridge remain in Git without separate dashboard bookmarks.
+
 Apply `board_evidence.sql` after the backup revision, Board, Community, and
 Community Hashtags scripts. It replaces client-uploaded public totals with
 session evidence reconciled from each opted-in member's latest cloud backup.
 Existing public total columns are preserved but ignored; private sessions and
 cloud backups are not changed. Offline sessions join the Board after a
-successful sync and reconciliation. Keep this upgrade last if reapplying older
-Community scripts, because they contain the former Board RPC implementation.
+successful sync and reconciliation. Apply it after older Community scripts,
+because they contain the former Board RPC implementation. Apply
+`community_rooms.sql` afterward; older chat scripts would restore obsolete room
+routing if rerun after that upgrade.
+
+`community_rooms.sql` adds fixed message destinations, per-room read markers,
+and server-enforced hashtag-change cooldowns. It was applied to the YouDO live
+project from commit `bb7d8c6` on September 27, 2026. Hosted grants/RLS checks and
+19 disposable-account assertions passed. The assertions ran in a rolled-back
+transaction; a separate query confirmed zero remaining test messages or rooms.
+See `docs/community-rooms.md` for compatibility and remaining device gates.
 
 The owner chose to leave the temporary `board_evidence_legacy_bridge.sql`
 unapplied. The hosted upgrade is already active, so older installed clients
