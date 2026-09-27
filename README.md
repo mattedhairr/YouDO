@@ -186,12 +186,12 @@ Thoughtful feedback from real preparation routines is especially valuable. Expla
 
 ### Run locally
 
-Requirements: a current Node.js installation and npm.
+Requirements: Node.js 22 or 24 and npm. CI uses Node.js 22.
 
 ```bash
 git clone https://github.com/mattedhairr/YouDO.git
 cd YouDO
-npm install
+npm ci
 cp .env.example .env
 npm run dev
 ```
@@ -220,10 +220,18 @@ For mobile confirmation links, deploy the dedicated public confirmation page and
 
 ```bash
 npm run test
+npm run test:sql
 npm run typecheck
 npm run lint
 npm run build
+npm run verify:build
 ```
+
+`npm run test:sql` runs isolated PostgreSQL permission/migration suites using
+the locked PGlite dependency. It does not connect to Supabase or need credentials.
+`npm run benchmark` measures a synthetic workspace with 5,510 goal nodes,
+500 tasks and 5,000 sittings. See [Batch 9 verification](docs/performance-handoff.md)
+for measurements, Advisor decisions, and the remaining manual release gates.
 
 ### Android project
 

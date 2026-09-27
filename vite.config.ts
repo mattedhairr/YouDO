@@ -12,6 +12,9 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png', 'icon-192-maskable.png', 'icon-512-maskable.png', 'apple-touch-icon.png'],
       workbox: {
+        // The app registers the worker itself. Claim the first open page once
+        // precaching finishes so deferred views also work before a reload.
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/auth-confirm\.html$/],

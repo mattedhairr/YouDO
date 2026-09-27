@@ -1,7 +1,7 @@
 // Isolated PostgreSQL verification, no network or production credentials.
-// Install test runtime only: npm install --prefix node_modules/.cache/community-db-test --no-save --no-package-lock @electric-sql/pglite
+// Installed by npm ci. Run all isolated SQL suites with npm run test:sql.
 // Run: node scripts/test-community-sql.mjs
-import { PGlite } from '../node_modules/.cache/community-db-test/node_modules/@electric-sql/pglite/dist/index.js';
+import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 

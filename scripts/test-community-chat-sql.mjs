@@ -1,5 +1,5 @@
 // Isolated PostgreSQL contract tests. See test-community-sql.mjs for runtime setup.
-import { PGlite } from '../node_modules/.cache/community-db-test/node_modules/@electric-sql/pglite/dist/index.js';
+import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 

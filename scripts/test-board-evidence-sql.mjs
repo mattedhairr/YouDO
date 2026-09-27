@@ -1,6 +1,6 @@
 // Isolated PostgreSQL verification. No network or production credentials.
 // Run: node scripts/test-board-evidence-sql.mjs
-import { PGlite } from '../node_modules/.cache/community-db-test/node_modules/@electric-sql/pglite/dist/index.js';
+import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 

@@ -84,8 +84,10 @@ if ('serviceWorker' in navigator) {
       regs.forEach((r) => r.unregister());
     }).catch(() => {});
   } else if (window.location.protocol.startsWith('http')) {
-    window.addEventListener('load', () => {
+    const registerWorker = () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
-    });
+    };
+    if (document.readyState === 'complete') registerWorker();
+    else window.addEventListener('load', registerWorker, { once: true });
   }
 }

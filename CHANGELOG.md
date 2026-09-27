@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.5.15] — 2026-09-27 — Lighter startup (candidate)
+
+- **Lighter startup** — Goals, Calendar, Board and Blueprint Studio load when opened, reducing the initial JavaScript and styles needed for Today.
+- **Offline navigation** — After the web app finishes caching, its first open page can use previously unopened views without a reload. Android includes those views in the APK.
+- **Build checks** — Updated development tools and added database permission tests, offline asset checks and bundle size limits to APK verification.
+- **Android APK** — versionName **7.5.15**, versionCode **56**. Prepared for install-over from **v7.5.14** with the existing signing identity; the physical check is pending. No reinstall, data reset or database migration is required. This is not a published release.
+
+---
+
 ## [v7.5.14] — 2026-09-25 — Board focus from synced sittings
 
 - **Update to use Board** — Board ranking has moved to a new backend. If an older YouDO app shows an empty Board, update to the latest app to see the new Board and your synced focus.

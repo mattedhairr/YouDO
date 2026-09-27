@@ -53,9 +53,12 @@ jobs:
           npm run typecheck
           npm run lint
           npm test
+          npm run test:sql
 
       - name: Build Web Production Assets
-        run: npm run build
+        run: |
+          npm run build
+          npm run verify:build
 
       - name: Sync Capacitor Assets to Android
         run: npx @capacitor/cli sync android

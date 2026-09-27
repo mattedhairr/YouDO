@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clock, Cloud } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
@@ -21,12 +21,8 @@ import {
   netFocusByLocalDateOverlapping,
   reconcileStreakMeta,
 } from './lib/focusTrends';
-import GoalView from './components/GoalView';
 import AddGoalSheet from './components/AddGoalSheet';
 import StepSliceSheet from './components/StepSliceSheet';
-import BlueprintStudio from './components/BlueprintStudio';
-import CalendarView from './components/CalendarView';
-import BoardView from './components/BoardView';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
 import { useTheme } from './hooks/useTheme';
@@ -38,6 +34,13 @@ import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
 import { FALLBACK_APP_QUOTES, fetchAppQuotes, loadCachedAppQuotes, type AppQuote } from './lib/appQuotes';
 import { taskStepStates } from './lib/goalTree';
+
+// Keep Today/session controls in the initial bundle. The PWA precaches these
+// chunks and Android packages them locally, so installed offline use is retained.
+const GoalView = lazy(() => import('./components/GoalView'));
+const BlueprintStudio = lazy(() => import('./components/BlueprintStudio'));
+const CalendarView = lazy(() => import('./components/CalendarView'));
+const BoardView = lazy(() => import('./components/BoardView'));
 
 const pickQuote = (quotes: AppQuote[]): AppQuote | null => quotes.length
   ? quotes[Math.floor(Math.random() * quotes.length)]
@@ -1091,6 +1094,7 @@ function AppInner() {
                   : 'view-fade'
             }
           >
+            <Suspense fallback={<p role="status" className="py-8 text-center text-content-secondary">Opening {view}…</p>}>
             {view === 'tasks' ? (
               <div className="space-y-3">
                 {activityUser && tasks.length === 0 && goals.length === 0 && (
@@ -1496,6 +1500,7 @@ function AppInner() {
                 onOpenDescription={openDescriptionModal}
               />
             )}
+            </Suspense>
           </div>
         </main>
 
@@ -1556,7 +1561,14 @@ function AppInner() {
         onUpdateNode={updateGoalNode}
         onDeleteNode={(id) => { for (const root of goals) deleteGoalNode(root.id, id); }}
       />
-      {blueprintStudioOpen && <BlueprintStudio
+      {blueprintStudioOpen && <Suspense fallback={
+        <Overlay open onClose={closeBlueprintStudio} align="center">
+          <div className="panel p-5 space-y-4">
+            <p role="status">Opening Blueprint Studio…</p>
+            <button onClick={closeBlueprintStudio} className="text-primary">Cancel</button>
+          </div>
+        </Overlay>
+      }><BlueprintStudio
         open={blueprintStudioOpen}
         goals={goals}
         initialPathIds={goalPathIds}
@@ -1567,7 +1579,7 @@ function AppInner() {
           if (result.ok && result.token) setBlueprintUndo({ token: result.token, title });
           return result;
         }}
-      />}
+      /></Suspense>}
       <StepSliceSheet
         open={sliceNodes.length > 0}
         nodes={sliceNodes}
