@@ -1,8 +1,10 @@
 # Board loading and update delivery
 
 Unpublished candidate: v7.5.17 / Android versionCode 58, following v7.5.16.
-The user will supply a third change before the final release. No public release
-or Batch 10 merge is authorized by this implementation checkpoint.
+The user will supply an independent Blueprint Studio / Plan with AI change
+before the final v7.6.0 release. On September 27 the user approved merging Batch
+10 and both update-delivery/Board fixes now. Physical checks below carry forward
+as pending release gates, not passed or waived. Public release remains deferred.
 
 ## Behavior
 
