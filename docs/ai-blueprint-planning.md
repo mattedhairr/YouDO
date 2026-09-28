@@ -51,16 +51,24 @@ syntax validation cannot establish syllabus accuracy or educational outcomes.
 - The initial preview server was stopped and the browser served old cached assets.
   Restarted it on 127.0.0.1:5179; did not clear site data or sign out.
 
-## Remaining release checks
+## Follow-up checks accepted after publication
 
-1. Physical iPad Safari: date input, scrolling with keyboard open, copy/paste or
-   file import, and readable task preview. The screenshot's exact rejected JSON
-   was not supplied, so its particular syntax fault has not been reproduced.
-2. A fresh ChatGPT conversation using the generated prompt, followed by importing
-   the final response. Browser smoke tests used an explicitly labelled QA fixture.
-3. Signed v7.6.0/code59 Android candidate build and physical install-over check.
-4. Carry forward outstanding community/touch and in-app updater gates in
-   `community-rooms.md` and `update-delivery.md`; earlier explicit waivers remain
-   waivers, not passes. Do not publish while required release checks remain open.
+The user chose to publish v7.6.0 and check these afterward. Record any failure
+for a focused hotfix; do not describe an unrun check as passed.
+
+1. Physical iPad Safari layout is unavailable to the user. Tablet and phone
+   browser viewport checks passed; the affected iPad hardware remains untested.
+2. The user will try a fresh ChatGPT conversation with the generated prompt and
+   import its answer tomorrow. Browser checks used a labelled QA fixture. The
+   screenshot's exact rejected JSON was not supplied.
+3. The user will test the v7.6.0 in-app Android installer after publication,
+   including install-over, retained disposable B data and Board/room behavior.
+4. The outstanding physical community/touch checks in `community-rooms.md` and
+   updater checks in `update-delivery.md` remain pending, not passed. Earlier
+   explicit Batch 6 and Batch 9 waivers remain waivers.
+
+Signed v7.6.0/code59 candidate workflow #212 passed at `5e76210` with 437 app
+tests, SQL checks, Android compilation, pinned certificate and release identity:
+https://github.com/mattedhairr/YouDO/actions/runs/36423122633
 
 No SQL or hosted backend changes are required for this feature.

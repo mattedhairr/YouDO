@@ -17,13 +17,13 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
-## [v7.6.0] — 2026-09-28 — Plans that fit your preparation (candidate)
+## [v7.6.0] — 2026-09-28 — Plans that fit your preparation
 
 - **Plan with AI** — Describe your goal, routine and syllabus in guided steps. Copy a prompt that budgets study, practice, revision and catch-up around your available time.
 - **Easier plan import** — Paste an AI response or choose a JSON file, review tasks and checklists, and add the plan to an undoable draft. Incomplete responses get a correction prompt you can take back to AI.
 - **Separate community rooms** — General and exam hashtags have their own conversations. Read every approved room and post in your own exam community, with a wait only while earlier exam-room messages remain after a hashtag change.
 - **Quicker Board and easier updates** — Rankings load alongside sync. Android can verify and download official updates before opening its installer; the website can refresh to a new build without clearing your data. Full update notes are scrollable.
-- **Android APK** — versionName **7.6.0**, versionCode **59**. Candidate for install-over testing; physical iPad layout, remaining community checks and the successful in-app update cycle are still pending. No reinstall or data reset is planned. This release has not been published.
+- **Android APK** — versionName **7.6.0**, versionCode **59**. Uses the same app ID and signing certificate as v7.5.14, with a higher versionCode. Install over the existing app without uninstalling or clearing data; Android asks you to confirm the update.
 
 ---
 
