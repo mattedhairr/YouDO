@@ -1,6 +1,8 @@
 import type { GoalNode } from '../types';
 import { todayISO } from './dates';
 import { uid } from './ids';
+import { readPlanJSON } from './aiPlanInput';
+import { composePlanPrompt } from './aiPlanPrompt';
 
 export const AI_PLAN_MAX_BYTES = 500 * 1024;
 export const AI_PLAN_MAX_NODES = 1_000;
@@ -18,6 +20,10 @@ export interface BuildPlanAnswers {
   syllabusResources: string;
   constraintsPreferences: string;
   additionalInstructions: string;
+  preparationStage?: string;
+  strongTopics?: string;
+  weakTopics?: string;
+  resources?: string;
 }
 
 export interface GeneratedBlueprintNode {
@@ -46,84 +52,34 @@ export interface GeneratedBlueprintSummary {
 }
 
 export type GeneratedBlueprintParseResult =
-  | { ok: true; payload: GeneratedBlueprintPayload; summary: GeneratedBlueprintSummary }
+  | { ok: true; payload: GeneratedBlueprintPayload; summary: GeneratedBlueprintSummary; notes: string[] }
   | { ok: false; error: string };
 
-const PROMPT_TEMPLATE = `You are designing a practical exam-preparation plan for YouDO, a universal goal-tree planner.
-
-USER CONTEXT
-- Today: {{current_date}}
-- Exam or goal: {{exam_name}}
-- Target date: {{target_date}}
-- Time remaining: {{time_remaining}}
-- Available study time: {{daily_time}}, {{days_per_week}} day(s) per week
-- Current preparation status: {{current_status}}
-- Syllabus, subjects, and resources: {{syllabus_resources}}
-- Constraints and planning preferences: {{constraints_preferences}}
-- Additional instructions: {{additional_instructions}}
-
-PLANNING INSTRUCTIONS
-1. Create one root goal for the exam or outcome. Choose a natural tree structure for this preparation instead of forcing fixed Phase, Subject, Chapter, or Task layers.
-2. Break the work into useful branches and actionable endpoint tasks. Include foundation, practice, revision, tests, and mock exams only where they fit the user's situation and available time.
-3. Use startDate and endDate on meaningful branches when the supplied timeline supports them. Dates must use YYYY-MM-DD and must not precede {{current_date}}.
-4. Endpoint tasks may contain up to 8 short checklist steps. Nodes with children must not contain steps.
-5. Keep the plan realistic for the stated daily time. Prefer a clear plan the user can refine over an enormous list.
-6. Do not invent official exam dates, syllabus facts, marks, or weightages. If essential information is missing or uncertain, keep that part general and describe what the user should confirm.
-
-OUTPUT CONTRACT
-Return only valid JSON. Do not use Markdown fences, commentary, or text before or after the JSON.
-Use exactly this top-level shape:
-{
-  "tasks": [],
-  "goals": [
-    {
-      "kind": "goal",
-      "title": "{{exam_name}}",
-      "description": "Optional useful context",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD",
-      "children": []
-    }
-  ]
+export function validateBuildPlanAnswers(answers: BuildPlanAnswers, currentDate = todayISO()): string | null {
+  return validateBuildPlanSection(answers, 0, currentDate) ?? validateBuildPlanSection(answers, 1, currentDate);
 }
 
-The goals array must contain exactly one root. Every descendant must use kind "node". Every node must contain kind, title, and children. Optional fields are description, startDate, endDate, and steps. Use steps only on endpoints.
-Do not output IDs, createdAt, completed, stepDone, todayTaskId, pinned, session history, schedules, settings, account data, or any other fields.`;
-
-const textOrFallback = (value: string, fallback = 'Not provided') => value.trim() || fallback;
-
-export function validateBuildPlanAnswers(answers: BuildPlanAnswers): string | null {
-  if (!answers.examName.trim()) return 'Name the exam or goal.';
-  if (!answers.targetDate && !answers.timeRemaining.trim()) return 'Add a target date or describe the time remaining.';
+export function validateBuildPlanSection(answers: BuildPlanAnswers, section: 0 | 1 | 2, currentDate = todayISO()): string | null {
+  if (section === 2) return null;
+  if (section === 0) {
+    if (!answers.examName.trim()) return 'Name the exam or goal.';
+    if (!answers.targetDate && !answers.timeRemaining.trim()) return 'Add a target date or describe the time remaining.';
+    if (answers.targetDate && !isISODate(answers.targetDate)) return 'Use a valid target date.';
+    if (answers.targetDate && answers.targetDate < currentDate) return 'Choose today or a future target date.';
+    return null;
+  }
   if (!Number.isInteger(answers.dailyHours) || answers.dailyHours < 0 || answers.dailyHours > 23) return 'Study hours must be between 0 and 23.';
   if (!Number.isInteger(answers.dailyMinutes) || answers.dailyMinutes < 0 || answers.dailyMinutes > 59) return 'Study minutes must be between 0 and 59.';
   if (answers.dailyHours === 0 && answers.dailyMinutes === 0) return 'Add the time available on each study day.';
   if (!Number.isInteger(answers.daysPerWeek) || answers.daysPerWeek < 1 || answers.daysPerWeek > 7) return 'Study days must be between 1 and 7.';
-  if (!answers.currentStatus.trim()) return 'Describe the current preparation status.';
-  if (answers.targetDate && !isISODate(answers.targetDate)) return 'Use a valid target date.';
+  if (!answers.currentStatus.trim() && !answers.preparationStage?.trim()) return 'Describe the current preparation status.';
   return null;
 }
 
 export function buildSetupPrompt(answers: BuildPlanAnswers, currentDate = todayISO()): string {
-  const error = validateBuildPlanAnswers(answers);
+  const error = validateBuildPlanAnswers(answers, currentDate);
   if (error) throw new Error(error);
-  const timeParts = [
-    answers.dailyHours ? `${answers.dailyHours} hour${answers.dailyHours === 1 ? '' : 's'}` : '',
-    answers.dailyMinutes ? `${answers.dailyMinutes} minute${answers.dailyMinutes === 1 ? '' : 's'}` : '',
-  ].filter(Boolean);
-  const values: Record<string, string> = {
-    current_date: currentDate,
-    exam_name: answers.examName.trim(),
-    target_date: answers.targetDate || 'Not provided',
-    time_remaining: textOrFallback(answers.timeRemaining),
-    daily_time: timeParts.join(' ') || 'Not provided',
-    days_per_week: String(answers.daysPerWeek),
-    current_status: answers.currentStatus.trim(),
-    syllabus_resources: textOrFallback(answers.syllabusResources),
-    constraints_preferences: textOrFallback(answers.constraintsPreferences),
-    additional_instructions: textOrFallback(answers.additionalInstructions),
-  };
-  return PROMPT_TEMPLATE.replace(/\{\{([a-z_]+)\}\}/g, (_, key: string) => values[key] ?? '');
+  return composePlanPrompt(answers, currentDate);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -137,24 +93,15 @@ function isISODate(value: string): boolean {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
-function stripSingleFence(value: string): string {
-  const trimmed = value.trim().replace(/^\uFEFF/, '');
-  const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return match ? match[1].trim() : trimmed;
-}
-
 function pathLabel(parts: string[]): string {
   return parts.filter(Boolean).join(' / ') || 'Plan';
 }
 
-export function parseGeneratedBlueprint(text: string): GeneratedBlueprintParseResult {
+export function parseGeneratedBlueprint(text: string, context?: { today?: string; targetDate?: string }): GeneratedBlueprintParseResult {
   if (new Blob([text]).size > AI_PLAN_MAX_BYTES) return { ok: false, error: 'The plan is larger than 500 KB.' };
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(stripSingleFence(text));
-  } catch {
-    return { ok: false, error: 'Paste one valid JSON object without extra explanation.' };
-  }
+  const extracted = readPlanJSON(text);
+  if (extracted.error) return { ok: false, error: extracted.error };
+  const decoded = extracted.value;
   const root = asRecord(decoded);
   if (!root) return { ok: false, error: 'The AI response must be one JSON object.' };
   const topKeys = Object.keys(root);
@@ -170,6 +117,8 @@ export function parseGeneratedBlueprint(text: string): GeneratedBlueprintParseRe
   let checklistSteps = 0;
   let earliest = '';
   let latest = '';
+  let hasPastDates = false;
+  let exceedsTarget = false;
   const allowed = new Set(['kind', 'title', 'description', 'startDate', 'endDate', 'children', 'steps']);
 
   const validateNode = (value: unknown, depth: number, parents: string[]): { node?: GeneratedBlueprintNode; error?: string } => {
@@ -198,6 +147,10 @@ export function parseGeneratedBlueprint(text: string): GeneratedBlueprintParseRe
     if (startDate && endDate && startDate > endDate) return { error: `${nextLocation}: end date is before start date.` };
     if (startDate && (!earliest || startDate < earliest)) earliest = startDate;
     if (endDate && (!latest || endDate > latest)) latest = endDate;
+    for (const date of [startDate, endDate]) {
+      if (date && context?.today && date < context.today) hasPastDates = true;
+      if (date && context?.targetDate && date > context.targetDate) exceedsTarget = true;
+    }
 
     const siblingNames = new Set<string>();
     const children: GeneratedBlueprintNode[] = [];
@@ -239,10 +192,22 @@ export function parseGeneratedBlueprint(text: string): GeneratedBlueprintParseRe
 
   const result = validateNode(root.goals[0], 1, []);
   if (result.error || !result.node) return { ok: false, error: result.error ?? 'The plan could not be read.' };
+  if (result.node.children.length === 0) return { ok: false, error: 'The plan contains only a goal title. Ask the AI to include actionable tasks inside children.' };
+  const notes = [...extracted.notes];
+  if (hasPastDates) notes.push('Some work is dated in the past. Review the dates before adding this plan.');
+  if (exceedsTarget) notes.push('Some work is dated after your target date. Ask the AI to revise the timeline or review those dates.');
+  if (nodeCount > 120) notes.push('This is a large plan. Consider asking for fewer tasks and clearer milestones.');
+  const checkDates = (node: GeneratedBlueprintNode, start?: string, end?: string): boolean => {
+    if ((start && ((node.startDate && node.startDate < start) || (node.endDate && node.endDate < start))) ||
+        (end && ((node.startDate && node.startDate > end) || (node.endDate && node.endDate > end)))) return true;
+    return node.children.some(child => checkDates(child, node.startDate || start, node.endDate || end));
+  };
+  if (checkDates(result.node)) notes.push('Some task dates fall outside their parent milestone. Review the timeline.');
   const payload: GeneratedBlueprintPayload = { tasks: [], goals: [result.node] };
   return {
     ok: true,
     payload,
+    notes,
     summary: {
       goalName: result.node.title,
       nodes: nodeCount,

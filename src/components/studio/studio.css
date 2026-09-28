@@ -1,6 +1,6 @@
 /* A compact workspace, not a chain of full-screen instruction cards. */
 .studio { position: relative; height: 100%; width: min(100%, 780px); margin: auto; background: var(--bg-base); color: var(--text-primary); font-size: 14px; line-height: 1.45; overflow: hidden; }
-.studio button, .studio input, .studio textarea { font: inherit; }
+.studio button, .studio input, .studio textarea, .studio select { font: inherit; }
 .studio button { touch-action: manipulation; }
 .studio button:disabled { opacity: .4; cursor: not-allowed; }
 .studio button:focus-visible, .studio summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
@@ -113,7 +113,9 @@
 .studio-tabs button[aria-pressed=true] { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 .studio-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .studio-field > span { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
-.studio-input { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-base); width: 100%; padding: 10px 11px; color: var(--text-primary); outline: none; resize: vertical; }
+.studio-input { box-sizing: border-box; min-width: 0; max-width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-base); width: 100%; padding: 10px 11px; color: var(--text-primary); outline: none; resize: vertical; }
+.studio-input[type="date"] { display: block; appearance: none; -webkit-appearance: none; min-height: 44px; }
+.studio-input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.5em; }
 .studio-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--ring); }
 .studio-input::placeholder { color: var(--text-muted); }
 .studio textarea { min-height: 74px; max-height: 220px; }
@@ -185,7 +187,32 @@
 .studio-ai-validation.is-valid { display: flex; align-items: flex-start; gap: 9px; border-color: color-mix(in srgb, var(--secondary) 38%, var(--border)); background: color-mix(in srgb, var(--secondary) 8%, var(--bg-surface)); }
 .studio-ai-validation.is-valid > svg { color: var(--secondary); margin-top: 1px; }
 .studio-ai-preview { display: flex; flex-direction: column; gap: 12px; }
-.studio-ai-footer { justify-content: space-between; }
+.studio-ai-footer { justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.studio-ai-validation:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+.studio-ai-form .studio-input { font-size: 16px; line-height: 1.5; }
+.studio-ai-section-heading h3 { font-size: 21px; font-weight: 650; letter-spacing: -.025em; outline: none; }
+.studio-ai-section-heading > span { display: block; color: var(--primary); font-size: 10px; letter-spacing: .12em; font-weight: 650; margin-bottom: 5px; }
+.studio-ai-section-heading p, .studio-ai-hint { color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+.studio-ai-section-heading p { margin-top: 5px; }
+.studio-ai-choice { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio-ai-choice button { flex: 1 1 100px; min-height: 44px; border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; font-size: 12px; color: var(--text-secondary); }
+.studio-ai-choice button[aria-pressed="true"] { color: var(--primary); background: var(--primary-soft); border-color: var(--primary); }
+.studio-ai-fieldset { min-width: 0; }
+.studio-ai-fieldset legend { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 9px; }
+.studio-ai-budget, .studio-ai-brief { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-secondary); font-size: 12px; }
+.studio-ai-brief { display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.studio-ai-brief strong { color: var(--text-primary); font-size: 16px; }
+.studio-ai-text-button { text-align: left; min-height: 44px; color: var(--primary); font-size: 12px !important; }
+.studio-ai-instructions { list-style: decimal; padding-left: 20px; display: grid; gap: 10px; font-size: 13px; color: var(--text-secondary); }
+.studio-ai-plan-overview { padding: 14px; border-radius: 10px; background: var(--bg-elevated); overflow-wrap: anywhere; }
+.studio-ai-plan-overview strong { font-size: 12px; }
+.studio-ai-plan-overview p, .studio-ai-node-description { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin-top: 7px; }
+.studio-ai-node-description { padding: 0 10px 10px; }
+.studio-ai-checklist, .studio-ai-notes { list-style: disc; padding-left: 22px; font-size: 12px; color: var(--text-secondary); }
+.studio-ai-checklist li, .studio-ai-notes li { margin: 6px 0; }
+.studio-ai-validation p { overflow-wrap: anywhere; }
+.studio-ai-validation .studio-button { margin-top: 10px; min-height: 44px; }
+.studio-ai-form .studio-disclosure > textarea { margin-top: 10px; }
 .studio-change-details li { padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
 .studio-change-details strong { display: block; font-size: 13px; }
 .studio-change-details span { display: block; font-size: 10px; color: var(--text-secondary); overflow-wrap: anywhere; margin-top: 3px; }

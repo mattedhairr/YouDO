@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AI_PLAN_MAX_DEPTH,
   appendGeneratedBlueprint,
@@ -6,8 +6,11 @@ import {
   materializeGeneratedBlueprint,
   parseGeneratedBlueprint,
   validateBuildPlanAnswers,
+  validateBuildPlanSection,
+  AI_PLAN_MAX_BYTES,
   type BuildPlanAnswers,
 } from './aiPlan';
+import { AI_PLAN_OUTPUT_CONTRACT, buildPlanCorrectionPrompt } from './aiPlanPrompt';
 
 const answers = (patch: Partial<BuildPlanAnswers> = {}): BuildPlanAnswers => ({
   examName: 'GATE 2027',
@@ -35,6 +38,8 @@ const validPlan = () => ({
 });
 
 describe('AI plan prompt', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-28T10:00:00Z')); });
+  afterEach(() => vi.useRealTimers());
   it('validates essential preparation fields', () => {
     expect(validateBuildPlanAnswers(answers())).toBeNull();
     expect(validateBuildPlanAnswers(answers({ examName: '' }))).toBe('Name the exam or goal.');
@@ -54,7 +59,29 @@ describe('AI plan prompt', () => {
 
   it('labels omitted optional context without dropping fields', () => {
     const prompt = buildSetupPrompt(answers({ syllabusResources: '', constraintsPreferences: '', additionalInstructions: '' }), '2026-09-22');
-    expect(prompt.match(/Not provided/g)).toHaveLength(4);
+    expect(prompt).toContain('Syllabus / subjects supplied: Not provided');
+    expect(prompt).toContain('Available books, classes and test series: Not provided');
+  });
+
+  it('lets a preparation stage replace free text and validates each guided section', () => {
+    expect(validateBuildPlanSection(answers({ dailyHours: 0, dailyMinutes: 0 }), 0, '2026-09-28')).toBeNull();
+    expect(validateBuildPlanAnswers(answers({ currentStatus: '', preparationStage: 'Starting out' }), '2026-09-28')).toBeNull();
+    expect(validateBuildPlanSection(answers({ targetDate: '2026-09-27' }), 0, '2026-09-28')).toContain('future');
+    expect(validateBuildPlanSection(answers({ targetDate: '2027-02-30' }), 0)).toContain('valid target');
+    expect(validateBuildPlanSection(answers({ dailyHours: NaN }), 1)).toContain('hours');
+  });
+
+  it('calculates a buffer-inclusive budget and carries all learning context', () => {
+    const prompt = buildSetupPrompt(answers({ preparationStage: 'Partly prepared', strongTopics: 'Networks', weakTopics: 'Signals', resources: 'Class notes', dailyHours: 0, dailyMinutes: 45, daysPerWeek: 5 }), '2026-09-28');
+    expect(prompt).toContain('Weekly capacity: 225 minutes. Initially allocate at most 180 minutes');
+    for (const context of ['Partly prepared', 'Networks', 'Signals', 'Class notes']) expect(prompt).toContain(context);
+    expect(prompt).toContain('test analysis');
+    expect(prompt).toContain('ask at most 3');
+  });
+
+  it('provides an example that the actual importer accepts', () => {
+    const example = AI_PLAN_OUTPUT_CONTRACT.slice(AI_PLAN_OUTPUT_CONTRACT.indexOf('{'), AI_PLAN_OUTPUT_CONTRACT.lastIndexOf('}') + 1);
+    expect(parseGeneratedBlueprint(example).ok).toBe(true);
   });
 });
 
@@ -64,6 +91,66 @@ describe('generated blueprint validation', () => {
     const parsed = parseGeneratedBlueprint(raw);
     expect(parsed).toMatchObject({ ok: true, summary: { goalName: 'GATE 2027', nodes: 3, branches: 2, endpoints: 1, checklistSteps: 2 } });
     expect(parseGeneratedBlueprint(`\`\`\`json\n${raw}\n\`\`\``).ok).toBe(true);
+  });
+
+  it('imports ChatGPT copy formats without changing task text', () => {
+    const plan = validPlan();
+    plan.goals[0].children[0].children[0].title = 'Study "quotes", braces {x}, C:\\notes and ,]';
+    const raw = JSON.stringify(plan);
+    for (const text of ['\uFEFF' + raw, `Here is your plan:\n\`\`\`json\n${raw}\n\`\`\`\nReview the workload.`, `Your plan:\n${raw}\nGood luck.`]) {
+      const parsed = parseGeneratedBlueprint(text);
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) expect(parsed.payload).toEqual(plan);
+    }
+    const corrected = parseGeneratedBlueprint(raw.slice(0, -1) + ',}');
+    expect(corrected.ok).toBe(true);
+    if (corrected.ok) { expect(corrected.payload).toEqual(plan); expect(corrected.notes.join(' ')).toContain('trailing commas'); }
+  });
+
+  it('never chooses between two plans or fills missing content', () => {
+    const raw = JSON.stringify(validPlan());
+    for (const text of [raw + '\n' + raw, `\`\`\`json\n${raw}\n\`\`\`\n\`\`\`json\n${raw}\n\`\`\``, raw.slice(0, -2), raw.replace('"tasks":[]', '"tasks":['), '```json\n' + raw.slice(0, -3)]) {
+      expect(parseGeneratedBlueprint(text).ok).toBe(false);
+    }
+    const truncated = parseGeneratedBlueprint(raw.slice(0, -2));
+    if (!truncated.ok) expect(truncated.error).toContain('cut off');
+  });
+
+  it('rejects duplicate keys that would otherwise silently drop plan content', () => {
+    const duplicate = JSON.stringify(validPlan()).replace('"children":', '"children":[],"children":');
+    const parsed = parseGeneratedBlueprint(duplicate);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error).toContain('repeats the field');
+  });
+
+  it('rejects empty plans, invalid syntax and oversized UTF-8 input', () => {
+    expect(parseGeneratedBlueprint('{"tasks": [], "goals": [{"kind":"goal","title":"Empty","children":[]}]}').ok).toBe(false);
+    const broken = parseGeneratedBlueprint(JSON.stringify(validPlan()).replace('"tasks":', '"tasks" '));
+    if (!broken.ok) expect(broken.error).toContain('syntax error');
+    const huge = parseGeneratedBlueprint('あ'.repeat(Math.ceil(AI_PLAN_MAX_BYTES / 3)));
+    if (!huge.ok) expect(huge.error).toContain('500 KB');
+  });
+
+  it('reports date concerns without silently moving work', () => {
+    const plan = validPlan();
+    Object.assign(plan.goals[0].children[0], { endDate: '2027-03-01' });
+    const parsed = parseGeneratedBlueprint(JSON.stringify(plan), { today: '2026-09-28', targetDate: '2027-02-07' });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.notes.join(' ')).toContain('past');
+      expect(parsed.notes.join(' ')).toContain('after your target');
+      expect(parsed.notes.join(' ')).toContain('parent milestone');
+      expect(parsed.payload).toEqual(plan);
+    }
+  });
+
+  it('makes a correction request with the exact error and complete rejected response', () => {
+    const raw = JSON.stringify(validPlan()).slice(0, -2);
+    const correction = buildPlanCorrectionPrompt('Missing closing bracket', raw, 'Study 2 hours per day');
+    expect(correction).toContain('Missing closing bracket');
+    expect(correction).toContain('Study 2 hours per day');
+    expect(correction).toContain(JSON.stringify(raw));
+    expect(correction).toContain('COMPLETE corrected plan');
   });
 
   it.each([
