@@ -17,6 +17,14 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.6.1] — 2026-09-28 — Clearer Plan with AI guidance
+
+- **Plan with AI** — Form examples now explain what to enter for any exam, course, skill or project without showing a particular person's exam or subjects.
+- **Privacy clarity** — Your answers form a prompt on your device for you to copy and share with an AI tool of your choice.
+- **Android APK** — versionName **7.6.1**, versionCode **60**. Prepared to install over **v7.6.0** with the same app ID and signing certificate; no data reset or database migration is required.
+
+---
+
 ## [v7.6.0] — 2026-09-28 — Plans that fit your preparation
 
 - **Plan with AI** — Describe your goal, routine and syllabus in guided steps. Copy a prompt that budgets study, practice, revision and catch-up around your available time.
