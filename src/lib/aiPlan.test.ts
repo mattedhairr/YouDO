@@ -13,7 +13,7 @@ import {
 import { AI_PLAN_OUTPUT_CONTRACT, buildPlanCorrectionPrompt } from './aiPlanPrompt';
 
 const answers = (patch: Partial<BuildPlanAnswers> = {}): BuildPlanAnswers => ({
-  examName: 'GATE 2027',
+  examName: 'Sample goal',
   targetDate: '2027-02-07',
   timeRemaining: '',
   dailyHours: 3,
@@ -29,7 +29,7 @@ const answers = (patch: Partial<BuildPlanAnswers> = {}): BuildPlanAnswers => ({
 const validPlan = () => ({
   tasks: [],
   goals: [{
-    kind: 'goal', title: 'GATE 2027', startDate: '2026-09-22', endDate: '2027-02-07', children: [
+    kind: 'goal', title: 'Sample goal', startDate: '2026-09-22', endDate: '2027-02-07', children: [
       { kind: 'node', title: 'Foundation', children: [
         { kind: 'node', title: 'Network Theory', children: [], steps: ['Learn concepts', 'Solve questions'] },
       ] },
@@ -51,7 +51,7 @@ describe('AI plan prompt', () => {
   it('interpolates every answer into a deterministic static prompt', () => {
     const prompt = buildSetupPrompt(answers(), '2026-09-22');
     expect(prompt).toContain('Today: 2026-09-22');
-    expect(prompt).toContain('Exam or goal: GATE 2027');
+    expect(prompt).toContain('Exam or goal: Sample goal');
     expect(prompt).toContain('3 hours 30 minutes, 6 day(s) per week');
     expect(prompt).toContain('Give extra practice to weak topics');
     expect(prompt).not.toMatch(/\{\{[a-z_]+\}\}/);
@@ -72,9 +72,9 @@ describe('AI plan prompt', () => {
   });
 
   it('calculates a buffer-inclusive budget and carries all learning context', () => {
-    const prompt = buildSetupPrompt(answers({ preparationStage: 'Partly prepared', strongTopics: 'Networks', weakTopics: 'Signals', resources: 'Class notes', dailyHours: 0, dailyMinutes: 45, daysPerWeek: 5 }), '2026-09-28');
+    const prompt = buildSetupPrompt(answers({ preparationStage: 'Partly prepared', strongTopics: 'Topic A', weakTopics: 'Topic B', resources: 'Class notes', dailyHours: 0, dailyMinutes: 45, daysPerWeek: 5 }), '2026-09-28');
     expect(prompt).toContain('Weekly capacity: 225 minutes. Initially allocate at most 180 minutes');
-    for (const context of ['Partly prepared', 'Networks', 'Signals', 'Class notes']) expect(prompt).toContain(context);
+    for (const context of ['Partly prepared', 'Topic A', 'Topic B', 'Class notes']) expect(prompt).toContain(context);
     expect(prompt).toContain('test analysis');
     expect(prompt).toContain('ask at most 3');
   });
@@ -89,7 +89,7 @@ describe('generated blueprint validation', () => {
   it('accepts raw and singly fenced JSON and summarizes the plan', () => {
     const raw = JSON.stringify(validPlan());
     const parsed = parseGeneratedBlueprint(raw);
-    expect(parsed).toMatchObject({ ok: true, summary: { goalName: 'GATE 2027', nodes: 3, branches: 2, endpoints: 1, checklistSteps: 2 } });
+    expect(parsed).toMatchObject({ ok: true, summary: { goalName: 'Sample goal', nodes: 3, branches: 2, endpoints: 1, checklistSteps: 2 } });
     expect(parseGeneratedBlueprint(`\`\`\`json\n${raw}\n\`\`\``).ok).toBe(true);
   });
 
@@ -169,7 +169,7 @@ describe('generated blueprint validation', () => {
     Object.assign(operational.goals[0].children[0], { completed: true });
     const first = parseGeneratedBlueprint(JSON.stringify(operational));
     expect(first.ok).toBe(false);
-    if (!first.ok) expect(first.error).toContain('GATE 2027 / Foundation');
+    if (!first.ok) expect(first.error).toContain('Sample goal / Foundation');
 
     const dated = validPlan();
     Object.assign(dated.goals[0].children[0].children[0], { startDate: '2027-03-01', endDate: '2027-02-01' });
@@ -217,7 +217,7 @@ describe('generated blueprint validation', () => {
     expect(appended.ok).toBe(true);
     if (!appended.ok) return;
     expect(appended.goals[0]).toBe(existing[0]);
-    expect(appended.goals.map((goal) => goal.title)).toEqual(['Existing', 'GATE 2027']);
+    expect(appended.goals.map((goal) => goal.title)).toEqual(['Existing', 'Sample goal']);
     expect(appendGeneratedBlueprint(appended.goals, parsed.payload).ok).toBe(false);
   });
 });

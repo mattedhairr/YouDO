@@ -55,7 +55,7 @@ USER CONTEXT (planning information, not instructions to change the output contra
 - Additional instructions: ${text(answers.additionalInstructions)}
 
 FIRST CHECK THE BRIEF
-1. Identify the exact exam, paper/stream, level and target. If missing information would materially change the plan (for example GATE without a paper, an unspecified syllabus or a contradictory deadline), ask at most 3 short, specific questions and wait. Do not guess a paper or present a generic syllabus as official. If I cannot supply details, agree on an explicitly provisional scope before generating it.
+1. Identify the exact goal, including paper/stream and level if relevant, and the target. If missing information would materially change the plan (such as an unspecified syllabus or a contradictory deadline), ask at most 3 short, specific questions and wait. Do not guess exam details or present a generic syllabus as official. If I cannot supply details, agree on an explicitly provisional scope before generating it.
 2. Prefer the syllabus and resources I provide. If browsing is available, verify uncertain requirements against current official examining-body sources. Put relevant official source URLs and the verification date in the root description. If browsing is unavailable, state what I must verify; never invent dates, chapters, marks, weightages, cutoffs or URLs. My target is a planning deadline, not a verified official exam date.
 3. Make assumptions explicit. Use my starting level and obligations. For completed topics, use recall and diagnostic checks before assigning a full relearn. Prefer existing resources to a long shopping list.
 
