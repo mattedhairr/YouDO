@@ -21,7 +21,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 - **Plan with AI** — Form examples now explain what to enter for any exam, course, skill or project without showing a particular person's exam or subjects.
 - **Privacy clarity** — Your answers form a prompt on your device for you to copy and share with an AI tool of your choice.
-- **Android APK** — versionName **7.6.1**, versionCode **60**. Prepared to install over **v7.6.0** with the same app ID and signing certificate; no data reset or database migration is required.
+- **Android APK** — versionName **7.6.1**, versionCode **60**. Built to install over **v7.6.0** with the same app ID and signing certificate; no data reset or database migration is required. Physical install-over verification remains pending.
 
 ---
 

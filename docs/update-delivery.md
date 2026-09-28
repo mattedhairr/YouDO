@@ -1,10 +1,9 @@
 # Board loading and update delivery
 
-Unpublished candidate: v7.5.17 / Android versionCode 58, following v7.5.16.
-The user will supply an independent Blueprint Studio / Plan with AI change
-before the final v7.6.0 release. On September 27 the user approved merging Batch
-10 and both update-delivery/Board fixes now. Physical checks below carry forward
-as pending release gates, not passed or waived. Public release remains deferred.
+Released as part of v7.6.0. The v7.5.17 / Android versionCode 58 candidate
+results below are historical. The latest public release is v7.6.1, which keeps
+the updater and Board fixes. Physical updater checks remain pending, not passed
+or waived.
 
 ## Behavior
 
@@ -55,18 +54,18 @@ as pending release gates, not passed or waived. Public release remains deferred.
 - Physical Android install-over/updater checks are still pending. Automated tests
   and a signed build are not a physical pass.
 
-## Before public release
+## Outstanding physical checks after release
 
-1. Verify the signed candidate build and installation over the existing app with
-   disposable B; retain its task, Calendar history and login.
+1. Verify v7.6.1 installation over the existing app with disposable B; retain
+   its task, Calendar history and login.
 2. Test download failure/retry, Android permission denial/allow, cancellation of
-   the installer, and successful installation of a newer signed APK. The candidate
-   cannot install itself or downgrade to the currently public v7.5.14. A later
-   official newer APK is needed for the complete download-to-install check.
+   the installer, and successful installation of v7.6.1 from an older signed
+   build. An installed app cannot install itself or downgrade.
 3. Confirm Board response on the phone and repeat Batch 10's outstanding room
    and release-note touch checks. Keep earlier waived checks recorded as waived.
-4. Finish the user's third change and prepare one release with consistent version,
-   Android versionCode, changelog and the existing release-note format.
+4. The Blueprint Studio change and consistent release identity were completed
+   for v7.6.0; v7.6.1 subsequently corrected the form examples. Neither release
+   turns the unreported physical checks above into passes.
 
 Users on an older shell need one normal APK installation to gain the in-app
 installer. Later official updates can use the new flow. A sideloaded Android app

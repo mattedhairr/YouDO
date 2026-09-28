@@ -1,6 +1,8 @@
 # Community rooms — Batch 10
 
-Candidate v7.5.16, Android code 57. Not deployed or released.
+Released as part of v7.6.0. The v7.5.16 / Android code 57 candidate results
+below are historical; the community-room SQL migration was applied before
+release. Physical room and touch checks remain unreported.
 
 ## Contract
 
@@ -95,8 +97,8 @@ The two missing permanent migration snippets were saved and named in Supabase;
 the dashboard inventory now contains 14 named queries. No migration was rerun
 during that organization pass.
 
-Physical Android install-over/room/touch checks remain pending; results have
-not yet been reported. On September 27 the user explicitly approved merging
-Batch 10 and the subsequent Board/update-delivery fixes before the independent
-Blueprint Studio change. These checks carry forward to the v7.6.0 release gate;
-they are not marked passed or waived. The Board bridge remains unapplied.
+Physical Android room/touch checks remain pending; results have not yet been
+reported. On September 27 the user explicitly approved merging Batch 10 and the
+subsequent Board/update-delivery fixes before the independent Blueprint Studio
+change. The release proceeded with these checks pending, not passed or waived.
+The Board bridge remains unapplied.

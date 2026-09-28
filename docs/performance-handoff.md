@@ -1,7 +1,8 @@
 # Batch 9: performance and handoff
 
-Candidate: v7.5.15 / Android versionCode 56. Public release is deferred.
-Batch 10 starts only after this candidate's remaining gates pass and Batch 9 merges.
+Historical candidate: v7.5.15 / Android versionCode 56. Batch 9 and Batch 10
+were merged and shipped in v7.6.0. The candidate checks below retain their
+original results; outstanding physical checks and explicit waivers are unchanged.
 
 ## Reproduce locally
 
@@ -135,5 +136,5 @@ blocked by Windows holding the preview's esbuild executable open; stopping
 that preview allowed the clean install to complete normally.
 
 Batch 6's extended physical Discard retest remains **waived, not passed**.
-Batch 10 will carry the prepared scrolling release-note fix and separate
-General/hashtag rooms. This batch does not publish those features.
+Batch 10 carried the scrolling release-note fix and separate General/hashtag
+rooms into v7.6.0. This document records Batch 9's earlier candidate checks.

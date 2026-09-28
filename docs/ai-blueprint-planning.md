@@ -1,4 +1,9 @@
-# Plan with AI — v7.6.0 candidate
+# Plan with AI — released in v7.6.0
+
+The v7.6.1 hotfix replaced personal exam and subject examples in the form and
+prompt with general guidance. The official website serves the corrected build;
+the signed v7.6.1 APK is published. Physical iPad and v7.6.1 install-over checks
+remain unreported. The notes below preserve the original v7.6.0 candidate gates.
 
 ## User flow
 
@@ -58,11 +63,11 @@ for a focused hotfix; do not describe an unrun check as passed.
 
 1. Physical iPad Safari layout is unavailable to the user. Tablet and phone
    browser viewport checks passed; the affected iPad hardware remains untested.
-2. The user will try a fresh ChatGPT conversation with the generated prompt and
-   import its answer tomorrow. Browser checks used a labelled QA fixture. The
+2. A fresh ChatGPT conversation with the generated prompt and import of its
+   answer remains unreported. Browser checks used a labelled QA fixture. The
    screenshot's exact rejected JSON was not supplied.
-3. The user will test the v7.6.0 in-app Android installer after publication,
-   including install-over, retained disposable B data and Board/room behavior.
+3. The in-app Android updater and v7.6.1 install-over remain unreported,
+   including retained disposable B data and Board/room behavior.
 4. The outstanding physical community/touch checks in `community-rooms.md` and
    updater checks in `update-delivery.md` remain pending, not passed. Earlier
    explicit Batch 6 and Batch 9 waivers remain waivers.
