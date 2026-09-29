@@ -20,12 +20,18 @@ files in this directory.
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`
 - **YouDO — Manage Community Staff** → `operations/manage_community_staff.sql`
 - **YouDO — Diagnostic — App Usage** → `operations/inspect_app_usage.sql`
+- **YouDO — Diagnostic — Synced App Versions** → `operations/inspect_app_versions.sql`
 
 Copy the complete repository file into the matching private saved query. Do not
 run a selected fragment of a setup or upgrade file. Apply `community_chat.sql`
 after `public_pace.sql` and `community.sql`, then apply `community_hashtags.sql`,
 `community_hashtag_admin.sql`, and `app_quotes.sql`,
 before releasing their dependent clients.
+
+The synced app versions diagnostic puts backups written by the latest release
+first, with the newest uploads at the top of each group. Change its
+`latest_release` value after each public release. A backup's version is its last
+writer, not a reliable reading of every app currently installed by that user.
 
 Apply `cloud_backup_revisions.sql` after `user_backups.sql` and before a client
 that reads the `revision` column or calls `cas_user_backup`. The upgrade is
