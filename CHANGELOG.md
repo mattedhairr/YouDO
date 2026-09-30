@@ -17,7 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
-## [v7.6.3] — 2026-09-30 — Preserved offline access and sign-in layout (candidate)
+## [v7.6.4] — 2026-09-30 — Conversational AI planning in Blueprint Studio
+
+- **Conversational AI mentor** — Blueprint Studio replaces the multi-step form with a single planning prompt. Take it to ChatGPT, Claude, or Gemini to be guided by an expert mentor who asks short, focused questions about your goals, routine, and syllabus.
+- **Realistic schedules with catch-up buffers** — Your AI drafts and confirms a balanced study strategy with a 20% catch-up buffer before outputting your schedule, protecting your plan from burnout and unexpected delays.
+- **Streamlined 2-step flow** — Copy the prompt and launch your AI in one tap, then paste or upload your plan JSON with instant structure preview and automatic syntax correction hints.
+- **Android APK** — versionName **7.6.4**, versionCode **63**. Installs over **v7.6.3**, **v7.6.2**, or **v7.6.1** without clearing app data.
+
+---
+
+## [v7.6.3] — 2026-09-30 — Preserved offline access and sign-in layout
 
 - **Offline workspace** — When an account has been removed, you can continue using your existing device plan offline without creating a new account or losing your local work.
 - **Account transitions** — Your device copy stays strictly local while offline; signing in later lets you choose whether to keep your device plan or restore your cloud backup before syncing.
