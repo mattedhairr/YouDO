@@ -9,7 +9,7 @@
 -- Run only in the trusted project SQL Editor: results contain account emails.
 
 with latest_release as (
-  select '7.6.1'::text as latest_version
+  select '7.6.4'::text as latest_version
 ), observed as (
   select
     u.id as user_id,
