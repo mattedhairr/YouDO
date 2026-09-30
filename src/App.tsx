@@ -34,6 +34,8 @@ import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
 import { FALLBACK_APP_QUOTES, fetchAppQuotes, loadCachedAppQuotes, type AppQuote } from './lib/appQuotes';
 import { taskStepStates } from './lib/goalTree';
+import { hapticSuccess } from './lib/haptics';
+import GoalDestinationSheet from './components/GoalDestinationSheet';
 
 // Keep Today/session controls in the initial bundle. The PWA precaches these
 // chunks and Android packages them locally, so installed offline use is retained.
@@ -129,8 +131,8 @@ function AppInner() {
     applyGoalTreeChange,
     undoGoalTreeChange,
     planTask,
-    copyGoalNode,
-    copyGoalNodes,
+    moveGoalNodes,
+    copyGoalNodesToTarget,
     pasteGoalNode,
     clearClipboard,
     clipboard,
@@ -316,6 +318,10 @@ function AppInner() {
       setSettingsOpen(false);
       return true;
     }
+    if (destinationSheet?.open) {
+      setDestinationSheet(null);
+      return true;
+    }
     if (sliceNodes.length > 0) {
       setSliceNodes([]);
       return true;
@@ -399,12 +405,50 @@ function AppInner() {
     setSliceNodes([node]);
   };
 
+  const [destinationSheet, setDestinationSheet] = useState<{
+    open: boolean;
+    mode: 'move' | 'copy';
+    nodeIds: string[];
+  } | null>(null);
+
+  const closeDestinationSheet = useCallback(() => {
+    setDestinationSheet(null);
+    if (window.history.state?.modal) window.history.back();
+  }, []);
+
   const handleBatchCopy = useCallback(() => {
-    copyGoalNodes(batchSelectedIds);
-    clearSelectionRef.current();
-    setBatchSelectedIds([]);
-    setBatchWorkItemIds([]);
-  }, [copyGoalNodes, batchSelectedIds]);
+    if (batchSelectedIds.length === 0) return;
+    pushModalState();
+    setDestinationSheet({ open: true, mode: 'copy', nodeIds: batchSelectedIds });
+  }, [batchSelectedIds, pushModalState]);
+
+  const handleBatchMove = useCallback(() => {
+    if (batchSelectedIds.length === 0) return;
+    pushModalState();
+    setDestinationSheet({ open: true, mode: 'move', nodeIds: batchSelectedIds });
+  }, [batchSelectedIds, pushModalState]);
+
+  const handleSingleCopy = useCallback((nodeId: string) => {
+    pushModalState();
+    setDestinationSheet({ open: true, mode: 'copy', nodeIds: [nodeId] });
+  }, [pushModalState]);
+
+  const handleDestinationConfirm = useCallback(
+    (targetParentId: string | null) => {
+      if (!destinationSheet) return;
+      if (destinationSheet.mode === 'move') {
+        moveGoalNodes(destinationSheet.nodeIds, targetParentId);
+      } else {
+        copyGoalNodesToTarget(destinationSheet.nodeIds, targetParentId);
+      }
+      hapticSuccess();
+      clearSelectionRef.current();
+      setBatchSelectedIds([]);
+      setBatchWorkItemIds([]);
+      closeDestinationSheet();
+    },
+    [destinationSheet, moveGoalNodes, copyGoalNodesToTarget, closeDestinationSheet],
+  );
 
   const handleBatchDelete = useCallback(() => {
     deleteGoalNodes(batchSelectedIds);
@@ -1490,8 +1534,8 @@ function AppInner() {
                 onEditNode={openEditGoal}
                 onPushNode={handlePushNode}
                 onUnplan={unlinkTask}
-                onCopy={copyGoalNode}
-                onCopyMany={copyGoalNodes}
+                onCopy={handleSingleCopy}
+                onCopyMany={handleBatchCopy}
                 onDeleteMany={deleteGoalNodes}
                 onSelectionChange={handleSelectionChange}
                 clearSelectionRef={clearSelectionRef}
@@ -1531,6 +1575,7 @@ function AppInner() {
             replanCount: batchWorkItemGroups.replan.length,
             unplanCount: batchWorkItemGroups.unplan.length,
             onCopy: handleBatchCopy,
+            onMove: handleBatchMove,
             onDelete: handleBatchDelete,
             onSchedule: handleBatchSchedule,
             onReplan: handleBatchReplan,
@@ -1560,6 +1605,14 @@ function AppInner() {
         onAddChild={addChildNode}
         onUpdateNode={updateGoalNode}
         onDeleteNode={(id) => { for (const root of goals) deleteGoalNode(root.id, id); }}
+      />
+      <GoalDestinationSheet
+        open={Boolean(destinationSheet?.open)}
+        onClose={closeDestinationSheet}
+        mode={destinationSheet?.mode ?? 'move'}
+        selectedIds={destinationSheet?.nodeIds ?? []}
+        goals={goals}
+        onConfirm={handleDestinationConfirm}
       />
       {blueprintStudioOpen && <Suspense fallback={
         <Overlay open onClose={closeBlueprintStudio} align="center">

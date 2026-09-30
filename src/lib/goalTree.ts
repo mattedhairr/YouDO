@@ -432,3 +432,176 @@ export function sameTree(a: GoalNode[], b: GoalNode[]): boolean {
 export function sameTasks(a: Task[], b: Task[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
+
+export function findPathToNode(goals: GoalNode[], id: string): GoalNode[] {
+  const walk = (node: GoalNode): GoalNode[] => {
+    if (node.id === id) return [node];
+    for (const child of node.children) {
+      const path = walk(child);
+      if (path.length) return [node, ...path];
+    }
+    return [];
+  };
+  for (const root of goals) {
+    const path = walk(root);
+    if (path.length) return path;
+  }
+  return [];
+}
+
+export function topNodeSelection(goals: GoalNode[], ids: string[]): string[] {
+  const selected = new Set(ids);
+  return [...selected].filter((id) => {
+    const path = findPathToNode(goals, id);
+    return path.length > 0 && !path.slice(0, -1).some((node) => selected.has(node.id));
+  });
+}
+
+export function reorderMultipleGoalNodes(
+  nodes: GoalNode[],
+  fromIds: string[],
+  toId: string,
+): GoalNode[] {
+  if (fromIds.length === 0) return nodes;
+  if (fromIds.length === 1) return reorderNodesArray(nodes, fromIds[0], toId);
+  const fromSet = new Set(fromIds);
+  if (fromSet.has(toId)) return nodes;
+  const toIdx = nodes.findIndex((n) => n.id === toId);
+  if (toIdx === -1) return nodes;
+
+  const itemsToMove = nodes.filter((n) => fromSet.has(n.id));
+  if (itemsToMove.length === 0) return nodes;
+
+  const remaining = nodes.filter((n) => !fromSet.has(n.id));
+  const newToIdx = remaining.findIndex((n) => n.id === toId);
+  const insertIdx = newToIdx >= 0 ? newToIdx : 0;
+  remaining.splice(insertIdx, 0, ...itemsToMove);
+  return remaining;
+}
+
+export function canMoveGoalNodes(
+  goals: GoalNode[],
+  nodeIds: string[],
+  targetParentId: string | null,
+): boolean {
+  if (nodeIds.length === 0) return false;
+  const roots = topNodeSelection(goals, nodeIds);
+  if (roots.length === 0) return false;
+
+  // Cannot move if target is inside one of the moved roots (circular move)
+  if (targetParentId !== null) {
+    const target = findGoal(goals, targetParentId);
+    if (!target) return false;
+    // Cannot move into a leaf task with execution state
+    if (target.kind !== 'goal' && isGoalEndpoint(target) && hasGoalExecutionState(target)) {
+      return false;
+    }
+    const targetPath = findPathToNode(goals, targetParentId);
+    if (targetPath.some((node) => roots.includes(node.id))) {
+      return false;
+    }
+  }
+
+  // Must have at least one node whose parent is not already targetParentId
+  return roots.some((id) => {
+    let currentParentId: string | null = null;
+    for (const root of goals) {
+      const [found, parent] = findNode(root, id);
+      if (found) {
+        currentParentId = parent?.id ?? null;
+        break;
+      }
+    }
+    return currentParentId !== targetParentId;
+  });
+}
+
+export function moveGoalNodes(
+  goals: GoalNode[],
+  nodeIds: string[],
+  targetParentId: string | null,
+): GoalNode[] {
+  if (!canMoveGoalNodes(goals, nodeIds, targetParentId)) return goals;
+  const roots = topNodeSelection(goals, nodeIds);
+
+  const toMoveIds: string[] = [];
+  const movingNodes: GoalNode[] = [];
+  for (const id of roots) {
+    let currentParentId: string | null = null;
+    let foundNode: GoalNode | null = null;
+    for (const root of goals) {
+      const [found, parent] = findNode(root, id);
+      if (found) {
+        foundNode = found;
+        currentParentId = parent?.id ?? null;
+        break;
+      }
+    }
+    if (foundNode && currentParentId !== targetParentId) {
+      toMoveIds.push(id);
+      movingNodes.push({
+        ...foundNode,
+        kind: targetParentId === null ? 'goal' : foundNode.kind === 'goal' ? 'node' : foundNode.kind,
+      });
+    }
+  }
+
+  if (movingNodes.length === 0) return goals;
+
+  const moveIdSet = new Set(toMoveIds);
+  let remaining = goals.filter((root) => !moveIdSet.has(root.id));
+  remaining = remaining.map((root) => removeNodes(root, moveIdSet));
+
+  if (targetParentId === null) {
+    return [...remaining, ...movingNodes];
+  }
+
+  return remaining.map((root) =>
+    updateNode(root, targetParentId, (target) => ({
+      ...target,
+      children: [...target.children, ...movingNodes],
+    })),
+  );
+}
+
+export function copyGoalNodesToTarget(
+  goals: GoalNode[],
+  nodeIds: string[],
+  targetParentId: string | null,
+): GoalNode[] {
+  const roots = topNodeSelection(goals, nodeIds);
+  if (roots.length === 0) return goals;
+
+  if (targetParentId !== null) {
+    const target = findGoal(goals, targetParentId);
+    if (!target) return goals;
+    if (target.kind !== 'goal' && isGoalEndpoint(target) && hasGoalExecutionState(target)) {
+      return goals;
+    }
+  }
+
+  const clones: GoalNode[] = [];
+  for (const id of roots) {
+    const node = findGoal(goals, id);
+    if (node) {
+      const cloned = cloneNode(node);
+      clones.push({
+        ...cloned,
+        kind: targetParentId === null ? 'goal' : cloned.kind === 'goal' ? 'node' : cloned.kind,
+      });
+    }
+  }
+
+  if (clones.length === 0) return goals;
+
+  if (targetParentId === null) {
+    return [...goals, ...clones];
+  }
+
+  return goals.map((root) =>
+    updateNode(root, targetParentId, (target) => ({
+      ...target,
+      children: [...target.children, ...clones],
+    })),
+  );
+}

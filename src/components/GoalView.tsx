@@ -39,6 +39,7 @@ import Overlay from './Overlay';
 import { useSessionStore } from '../store';
 import { goalBranchContainsTask } from '../lib/goalTree';
 import { deadlineDaysLabel, todayISO } from '../lib/dates';
+import { hapticTick } from '../lib/haptics';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
   if (!targetDate) return 'Scheduled';
@@ -131,12 +132,51 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   const { activeSession } = useSessionStore();
   const runningTask = tasks.find((task) => task.id === activeSession?.taskId);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragIds, setDragIds] = useState<string[]>([]);
   const [overId, setOverId] = useState<string | null>(null);
   const [pathMapOpen, setPathMapOpen] = useState(false);
   const [parentDescriptionExpanded, setParentDescriptionExpanded] = useState(false);
   const siblingStripRef = useRef<HTMLDivElement>(null);
   const pendingSiblingScrollRef = useRef<number | null>(null);
+
+  const longPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isLongPressTriggeredRef = useRef(false);
+
+  const clearLongPress = () => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    pointerStartRef.current = null;
+  };
+
+  const handleNodePointerDown = (nodeId: string, e: React.PointerEvent) => {
+    if (selected.size > 0) return;
+    if ((e.target as HTMLElement).closest('button, input, a')) return;
+
+    clearLongPress();
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    isLongPressTriggeredRef.current = false;
+
+    longPressTimeoutRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      hapticTick();
+      toggleSelect(nodeId);
+    }, 380);
+  };
+
+  const handleNodePointerMove = (e: React.PointerEvent) => {
+    if (!pointerStartRef.current || !longPressTimeoutRef.current) return;
+    const dist = Math.hypot(e.clientX - pointerStartRef.current.x, e.clientY - pointerStartRef.current.y);
+    if (dist > 8) {
+      clearLongPress();
+    }
+  };
+
+  const handleNodePointerUpOrCancel = () => {
+    clearLongPress();
+  };
 
   // Register clearSelection so App can call it when batch actions complete
   useEffect(() => {
@@ -672,34 +712,51 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             <div
               key={child.id}
               id={`goal-node-${child.id}`}
-              role={canDrill ? 'button' : undefined}
-              tabIndex={canDrill ? 0 : undefined}
+              role={canDrill || selected.size > 0 ? 'button' : undefined}
+              tabIndex={canDrill || selected.size > 0 ? 0 : undefined}
               draggable
+              onPointerDown={(e) => handleNodePointerDown(child.id, e)}
+              onPointerMove={handleNodePointerMove}
+              onPointerUp={handleNodePointerUpOrCancel}
+              onPointerCancel={handleNodePointerUpOrCancel}
               onDragStart={(e) => {
+                clearLongPress();
+                const idsToDrag = selected.has(child.id) ? Array.from(selected) : [child.id];
                 e.dataTransfer.setData('text/plain', child.id);
-                setDragId(child.id);
+                setDragIds(idsToDrag);
               }}
               onDragEnter={() => setOverId(child.id)}
               onDragOver={(e) => e.preventDefault()}
               onDragEnd={() => {
-                if (dragId && overId && dragId !== overId) {
-                  reorderGoalNodes(current ? current.id : null, dragId, overId);
+                if (dragIds.length > 0 && overId && !dragIds.includes(overId)) {
+                  reorderGoalNodes(current ? current.id : null, dragIds, overId);
                 }
-                setDragId(null);
+                setDragIds([]);
                 setOverId(null);
               }}
               onClick={() => {
+                if (isLongPressTriggeredRef.current) {
+                  isLongPressTriggeredRef.current = false;
+                  return;
+                }
+                if (selected.size > 0) {
+                  toggleSelect(child.id);
+                  return;
+                }
                 if (canDrill) drillInto(child);
               }}
               onKeyDown={(e) => {
-                if (!canDrill) return;
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  drillInto(child);
+                  if (selected.size > 0) {
+                    toggleSelect(child.id);
+                  } else if (canDrill) {
+                    drillInto(child);
+                  }
                 }
               }}
-              className={`px-3.5 py-3.5 flex flex-col gap-3 bg-surface ${
-                canDrill ? 'cursor-pointer' : ''
+              className={`px-3.5 py-3.5 flex flex-col gap-3 bg-surface select-none ${
+                canDrill || selected.size > 0 ? 'cursor-pointer' : ''
               } ${
                 !isLast ? 'border-b border-subtle' : ''
               } ${
@@ -708,10 +765,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   : isSelected
                     ? 'bg-primary/10'
                     : 'hover:bg-elevated'
-              } ${overId === child.id && dragId !== child.id ? 'ring-2 ring-primary z-10' : ''}`}
+              } ${overId === child.id && !dragIds.includes(child.id) ? 'ring-2 ring-primary z-10' : ''}`}
             >
               <div className="flex items-center gap-2.5">
-                {isWorkItem && (
+                {selected.size > 0 && (
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -782,7 +839,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   {child.steps!.map((s, i) => (
                     <button
                       key={i}
-                      disabled={!!runningTask && goalBranchContainsTask(child, runningTask)}
+                      disabled={selected.size > 0 || (!!runningTask && goalBranchContainsTask(child, runningTask))}
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleGoalStep(child.id, i);
@@ -800,95 +857,103 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 </div>
               )}
 
-              <div className="flex items-center gap-1 pt-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    togglePin(child.id);
-                  }}
-                  className={`p-2 rounded-[10px] ${child.pinned ? 'text-primary bg-primary-soft' : 'text-content-muted hover:text-content-primary hover:bg-elevated'}`}
-                  title={child.pinned ? 'Unpin' : 'Pin'}
-                >
-                  {child.pinned ? <Star size={14} className="fill-primary" /> : <Pin size={14} />}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEditNode(child);
-                  }}
-                  className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
-                  title="Edit"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCopy(child.id);
-                  }}
-                  className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
-                  title="Copy"
-                >
-                  <Copy size={14} />
-                </button>
-                <div className="flex-1" />
-
-                {isWorkItem && (
+              {selected.size === 0 ? (
+                <div className="flex items-center gap-1 pt-1">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleNodeCompletion(child.id);
+                      togglePin(child.id);
                     }}
-                    disabled={!!runningTask && goalBranchContainsTask(child, runningTask)}
-                    className={`h-8 px-2.5 rounded-[10px] text-[11px] font-medium border ${
-                      isDone
-                        ? 'bg-secondary-soft text-secondary border-subtle'
-                        : 'text-content-secondary border-subtle hover:text-content-primary'
-                    }`}
-                    title={runningTask && goalBranchContainsTask(child, runningTask) ? 'Save progress from the running sitting first' : isDone ? 'Mark as incomplete' : 'Mark as done'}
+                    className={`p-2 rounded-[10px] ${child.pinned ? 'text-primary bg-primary-soft' : 'text-content-muted hover:text-content-primary hover:bg-elevated'}`}
+                    title={child.pinned ? 'Unpin' : 'Pin'}
                   >
-                    Done
+                    {child.pinned ? <Star size={14} className="fill-primary" /> : <Pin size={14} />}
                   </button>
-                )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditNode(child);
+                    }}
+                    className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
+                    title="Edit"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCopy(child.id);
+                    }}
+                    className="p-2 rounded-[10px] text-content-muted hover:text-content-primary hover:bg-elevated"
+                    title="Copy"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <div className="flex-1" />
 
-                {isWorkItem && !child.completed && (
-                  isActivelyScheduled ? (
-                    <>
+                  {isWorkItem && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleNodeCompletion(child.id);
+                      }}
+                      disabled={!!runningTask && goalBranchContainsTask(child, runningTask)}
+                      className={`h-8 px-2.5 rounded-[10px] text-[11px] font-medium border ${
+                        isDone
+                          ? 'bg-secondary-soft text-secondary border-subtle'
+                          : 'text-content-secondary border-subtle hover:text-content-primary'
+                      }`}
+                      title={runningTask && goalBranchContainsTask(child, runningTask) ? 'Save progress from the running sitting first' : isDone ? 'Mark as incomplete' : 'Mark as done'}
+                    >
+                      Done
+                    </button>
+                  )}
+
+                  {isWorkItem && !child.completed && (
+                    isActivelyScheduled ? (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPushNode(child);
+                          }}
+                          className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium border border-subtle text-primary"
+                          title="Replan"
+                        >
+                          Replan
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (child.todayTaskId) onUnplan(child.todayTaskId);
+                          }}
+                          className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium bg-error-soft text-error border border-subtle"
+                          title="Unschedule"
+                        >
+                          Unplan
+                        </button>
+                      </>
+                    ) : (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onPushNode(child);
                         }}
-                        className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium border border-subtle text-primary"
-                        title="Replan"
+                        className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium btn-primary"
+                        title={isBacklogged ? 'Schedule backlogged task' : 'Schedule'}
                       >
-                        Replan
+                        Schedule
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (child.todayTaskId) onUnplan(child.todayTaskId);
-                        }}
-                        className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium bg-error-soft text-error border border-subtle"
-                        title="Unschedule"
-                      >
-                        Unplan
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPushNode(child);
-                      }}
-                      className="h-8 px-2.5 rounded-[10px] text-[11px] font-medium btn-primary"
-                      title={isBacklogged ? 'Schedule backlogged task' : 'Schedule'}
-                    >
-                      Schedule
-                    </button>
-                  )
-                )}
-              </div>
+                    )
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between pt-0.5 text-[11px]">
+                  <span className={isSelected ? 'text-primary font-semibold' : 'text-content-muted'}>
+                    {isSelected ? '✓ Selected' : 'Tap to select'}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

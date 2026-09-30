@@ -3,7 +3,7 @@ import { deadlineDaysLabel, formatDDMMYYYY, isToday, localISODate, todayISO } fr
 import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
-import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, goalNodeRole, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, taskStepStates, updateNode, removeNode } from './goalTree';
+import { clearRollupCache, cloneNode, clearBacklogIfComplete, duplicateTaskAsFresh, goalBranchContainsTask, goalNodeRole, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isMutableGoalPlan, isOpenBacklogTask, isTaskComplete, mirrorGoalContentToTask, recomputeCompleted, rescheduleOpenBacklogTask, rollupPct, sanitizeTreeAndTasks, syncLinkedTasksFromGoal, taskStepStates, updateNode, removeNode, canMoveGoalNodes, moveGoalNodes, copyGoalNodesToTarget, reorderMultipleGoalNodes } from './goalTree';
 import type { GoalNode, Task, TaskSession } from '../types';
 
 describe('dates', () => {
@@ -1300,5 +1300,99 @@ describe('session summary', () => {
     const session: TaskSession = { ...sessionAt('2026-08-16', 30 * 60_000), completed: false };
     const { short } = buildSessionSummary(session, task);
     expect(short).toBe('DPP-1 — focused, no steps logged');
+  });
+});
+
+describe('goalTree move, copy, and reorder', () => {
+  const tree: GoalNode[] = [
+    {
+      id: 'g1',
+      title: 'Goal 1',
+      kind: 'goal',
+      createdAt: 1,
+      children: [
+        {
+          id: 'b1',
+          title: 'Branch 1',
+          kind: 'node',
+          createdAt: 1,
+          children: [
+            { id: 't1', title: 'Task 1', kind: 'node', createdAt: 1, children: [] },
+            { id: 't2', title: 'Task 2', kind: 'node', createdAt: 1, children: [] },
+          ],
+        },
+        {
+          id: 'b2',
+          title: 'Branch 2',
+          kind: 'node',
+          createdAt: 1,
+          children: [
+            { id: 't3', title: 'Task 3', kind: 'node', createdAt: 1, children: [] },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'g2',
+      title: 'Goal 2',
+      kind: 'goal',
+      createdAt: 1,
+      children: [],
+    },
+  ];
+
+  it('canMoveGoalNodes detects circular moves and invalid moves', () => {
+    // Cannot move a parent into its own child
+    expect(canMoveGoalNodes(tree, ['g1'], 'b1')).toBe(false);
+    expect(canMoveGoalNodes(tree, ['g1'], 't1')).toBe(false);
+    // Cannot move to the same parent it is already in
+    expect(canMoveGoalNodes(tree, ['t1'], 'b1')).toBe(false);
+    // Can move to another branch
+    expect(canMoveGoalNodes(tree, ['t1'], 'b2')).toBe(true);
+    // Can move branch to another goal
+    expect(canMoveGoalNodes(tree, ['b1'], 'g2')).toBe(true);
+    // Can move branch to root
+    expect(canMoveGoalNodes(tree, ['b1'], null)).toBe(true);
+  });
+
+  it('moveGoalNodes relocates nodes across branches cleanly', () => {
+    const moved = moveGoalNodes(tree, ['t1', 't2'], 'b2');
+    const g1 = moved.find((g) => g.id === 'g1')!;
+    const b1 = g1.children.find((b) => b.id === 'b1')!;
+    const b2 = g1.children.find((b) => b.id === 'b2')!;
+    expect(b1.children.map((c) => c.id)).toEqual([]);
+    expect(b2.children.map((c) => c.id)).toEqual(['t3', 't1', 't2']);
+  });
+
+  it('moveGoalNodes relocates branch to root level as a goal', () => {
+    const moved = moveGoalNodes(tree, ['b1'], null);
+    expect(moved.map((g) => g.id)).toEqual(['g1', 'g2', 'b1']);
+    expect(moved.find((g) => g.id === 'b1')?.kind).toBe('goal');
+  });
+
+  it('copyGoalNodesToTarget creates deep clones at destination', () => {
+    const copied = copyGoalNodesToTarget(tree, ['t1'], 'b2');
+    const g1 = copied.find((g) => g.id === 'g1')!;
+    const b1 = g1.children.find((b) => b.id === 'b1')!;
+    const b2 = g1.children.find((b) => b.id === 'b2')!;
+    // Original untouched
+    expect(b1.children.map((c) => c.id)).toEqual(['t1', 't2']);
+    // Cloned added with new ID
+    expect(b2.children.length).toBe(2);
+    expect(b2.children[1].title).toBe('Task 1');
+    expect(b2.children[1].id).not.toBe('t1');
+  });
+
+  it('reorderMultipleGoalNodes moves multiple items together', () => {
+    const items: GoalNode[] = [
+      { id: '1', title: 'One', kind: 'node', createdAt: 1, children: [] },
+      { id: '2', title: 'Two', kind: 'node', createdAt: 1, children: [] },
+      { id: '3', title: 'Three', kind: 'node', createdAt: 1, children: [] },
+      { id: '4', title: 'Four', kind: 'node', createdAt: 1, children: [] },
+      { id: '5', title: 'Five', kind: 'node', createdAt: 1, children: [] },
+    ];
+    // Drag items 1 and 2 to position of 4
+    const reordered = reorderMultipleGoalNodes(items, ['1', '2'], '4');
+    expect(reordered.map((i) => i.id)).toEqual(['3', '1', '2', '4', '5']);
   });
 });

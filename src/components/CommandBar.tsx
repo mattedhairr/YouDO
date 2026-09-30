@@ -1,4 +1,4 @@
-import { Calendar, Check, Copy, RotateCcw, Settings, Target, Trash2, TrendingUp, X } from 'lucide-react';
+import { Calendar, Check, Copy, FolderInput, RotateCcw, Settings, Target, Trash2, TrendingUp, X } from 'lucide-react';
 import type { View } from '../types';
 
 interface BatchMode {
@@ -7,6 +7,7 @@ interface BatchMode {
   replanCount: number;
   unplanCount: number;
   onCopy: () => void;
+  onMove?: () => void;
   onDelete: () => void;
   onSchedule: () => void;
   onReplan: () => void;
@@ -62,10 +63,15 @@ export default function CommandBar({
               <span className="pl-2 flex-1 text-[12px] font-semibold text-content-secondary tabular-nums">
                 {batch.count} selected
               </span>
-              <button onClick={batch.onCopy} className="h-8 px-2.5 rounded-[9px] text-[11px] font-medium text-content-secondary hover:bg-surface inline-flex items-center gap-1.5" title="Copy selected">
+              <button onClick={batch.onCopy} className="h-8 px-2 rounded-[9px] text-[11px] font-medium text-content-secondary hover:bg-surface inline-flex items-center gap-1" title="Copy selected">
                 <Copy size={13} /> Copy
               </button>
-              <button onClick={batch.onDelete} className="h-8 px-2.5 rounded-[9px] text-[11px] font-medium text-error hover:bg-error-soft inline-flex items-center gap-1.5" title="Delete selected">
+              {batch.onMove && (
+                <button onClick={batch.onMove} className="h-8 px-2 rounded-[9px] text-[11px] font-medium text-content-secondary hover:bg-surface inline-flex items-center gap-1" title="Move selected">
+                  <FolderInput size={13} /> Move
+                </button>
+              )}
+              <button onClick={batch.onDelete} className="h-8 px-2 rounded-[9px] text-[11px] font-medium text-error hover:bg-error-soft inline-flex items-center gap-1" title="Delete selected">
                 <Trash2 size={13} /> Delete
               </button>
               <button onClick={batch.onCancel} className="w-8 h-8 grid place-items-center rounded-[9px] text-content-secondary hover:bg-surface" title="Clear selection">

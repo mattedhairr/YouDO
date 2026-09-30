@@ -46,9 +46,11 @@ import {
   isTaskComplete,
   clearBacklogIfComplete,
   restoreBacklogIfIncomplete,
+  copyGoalNodesToTarget,
+  moveGoalNodes,
   moveNodeInArray,
   removeNodes,
-  reorderNodesArray,
+  reorderMultipleGoalNodes,
   sameTasks,
   sameTree,
   recomputeCompleted,
@@ -182,9 +184,13 @@ interface Store {
   restoreDeletedGoal: (recordId: string) => boolean;
   clearTrash: () => void;
   /** Reorder goal nodes at any level */
-  reorderGoalNodes: (parentId: string | null, fromId: string, toId: string) => void;
+  reorderGoalNodes: (parentId: string | null, fromId: string | string[], toId: string) => void;
   /** Move a goal node up or down */
   moveGoalNode: (parentId: string | null, nodeId: string, direction: 'up' | 'down') => void;
+  /** Move multiple goal nodes to a destination parent (null = root level) */
+  moveGoalNodes: (nodeIds: string[], targetParentId: string | null) => void;
+  /** Copy multiple goal nodes directly to a destination parent (null = root level) */
+  copyGoalNodesToTarget: (nodeIds: string[], targetParentId: string | null) => void;
   /** Toggle completed status of any goal-tree item. */
   toggleNodeCompletion: (nodeId: string) => void;
 
@@ -941,19 +947,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const reorderGoalNodes = useCallback(
-    (parentId: string | null, fromId: string, toId: string) => {
+    (parentId: string | null, fromId: string | string[], toId: string) => {
+      const fromIds = Array.isArray(fromId) ? fromId : [fromId];
       if (parentId === null) {
-        setGoals((prev) => reorderNodesArray(prev, fromId, toId));
+        setGoals((prev) => reorderMultipleGoalNodes(prev, fromIds, toId));
       } else {
         setGoals((prev) =>
           prev.map((root) =>
             updateNode(root, parentId, (n) => ({
               ...n,
-              children: reorderNodesArray(n.children, fromId, toId),
+              children: reorderMultipleGoalNodes(n.children, fromIds, toId),
             })),
           ),
         );
       }
+    },
+    [setGoals],
+  );
+
+  const moveGoalNodesAction = useCallback(
+    (nodeIds: string[], targetParentId: string | null) => {
+      clearRollupCache();
+      setGoals((prev) => moveGoalNodes(prev, nodeIds, targetParentId));
+    },
+    [setGoals],
+  );
+
+  const copyGoalNodesToTargetAction = useCallback(
+    (nodeIds: string[], targetParentId: string | null) => {
+      clearRollupCache();
+      setGoals((prev) => copyGoalNodesToTarget(prev, nodeIds, targetParentId));
     },
     [setGoals],
   );
@@ -1947,7 +1970,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, applyGoalTreeChange, undoGoalTreeChange,
       recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
-      reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
+      reorderGoalNodes, moveGoalNode, moveGoalNodes: moveGoalNodesAction, copyGoalNodesToTarget: copyGoalNodesToTargetAction, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
       exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
@@ -1964,7 +1987,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, applyGoalTreeChange, undoGoalTreeChange, deleteGoalNodes,
       recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
-      reorderGoalNodes, moveGoalNode, toggleNodeCompletion,
+      reorderGoalNodes, moveGoalNode, moveGoalNodesAction, copyGoalNodesToTargetAction, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
       exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
