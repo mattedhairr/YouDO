@@ -17,7 +17,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
-## [v7.6.4] — 2026-09-30 — Conversational AI planning in Blueprint Studio (candidate)
+## [v7.6.4] — 2026-09-30 — Conversational AI planning in Blueprint Studio
 
 - **Conversational AI mentor** — Blueprint Studio replaces the multi-step form with a single planning prompt. Take it to ChatGPT, Claude, or Gemini to be guided by an expert mentor who asks short, focused questions about your goals, routine, and syllabus.
 - **Realistic schedules with catch-up buffers** — Your AI drafts and confirms a balanced study strategy with a 20% catch-up buffer before outputting your schedule, protecting your plan from burnout and unexpected delays.
