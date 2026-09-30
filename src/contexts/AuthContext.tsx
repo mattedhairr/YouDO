@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
   fetchBackupData,
@@ -18,6 +18,7 @@ import { isAuthRecoveryUrl } from '../lib/authRedirect';
 import { requestAccountDeletion } from '../lib/accountDeletion';
 import { updateAccountProfile } from '../lib/accountProfile';
 import { keepCachedWorkspaceOffline, readCachedWorkspaceUser } from '../lib/offlineAuth';
+import { checkAccountAvailability, type AccountAvailability } from '../lib/accountAvailability';
 
 interface AuthActionResult {
   ok: boolean;
@@ -31,9 +32,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   recoveryAuthorizedUserId: string | null;
+  accountNotice: string | null;
   changeRecoveredPassword: (password: string) => Promise<AuthActionResult>;
   cancelPasswordRecovery: () => void;
   signOut: (options?: SignOutOptions) => Promise<AuthActionResult>;
+  verifyAccount: () => Promise<AccountAvailability>;
   deleteAccount: () => Promise<AuthActionResult>;
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
   changeEmail: (currentPassword: string, nextEmail: string) => Promise<AuthActionResult>;
@@ -52,9 +55,11 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: false,
   recoveryAuthorizedUserId: null,
+  accountNotice: null,
   changeRecoveredPassword: async () => ({ ok: false, error: 'Not initialized' }),
   cancelPasswordRecovery: () => undefined,
   signOut: async () => ({ ok: false, error: 'Not initialized' }),
+  verifyAccount: async () => 'unknown',
   deleteAccount: async () => ({ ok: false, error: 'Not initialized' }),
   updateProfile: async () => false,
   changeEmail: async () => ({ ok: false, error: 'Not initialized' }),
@@ -85,11 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(cachedAtBoot);
   const [loading, setLoading] = useState(!cachedAtBoot);
   const [recoveryAuthorizedUserId, setRecoveryAuthorizedUserId] = useState<string | null>(null);
+  const [accountNotice, setAccountNotice] = useState<string | null>(null);
   const recoveryGrant = useRef<RecoveryGrant | null>(null);
   const recoveryRequestPending = useRef(false);
   const currentAuthUserId = useRef<string | null>(null);
   const lastSeenAccountId = useRef<string | null>(cachedAtBoot?.id ?? null);
   const accountSwitchVersion = useRef(0);
+  const accountCheckInFlight = useRef<{ accountId: string; promise: Promise<AccountAvailability> } | null>(null);
+  const deletionInProgress = useRef(false);
 
   useEffect(() => {
     let authEventSeen = false;
@@ -116,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
         resetVisitSnapshotFreeze(session?.user?.id);
       }
+      if (event === 'SIGNED_IN') setAccountNotice(null);
       setUser(current => keepCachedWorkspaceOffline(event, session?.user ?? null,
         readCachedWorkspaceUser(), navigator.onLine) ? current : session?.user ?? null);
       setLoading(false);
@@ -156,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOut = async (options?: SignOutOptions): Promise<AuthActionResult> => {
+  const signOut = useCallback(async (options?: SignOutOptions): Promise<AuthActionResult> => {
     try {
       const accountId = user?.id ?? null;
       const switchVersion = accountSwitchVersion.current;
@@ -183,10 +192,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Unable to sign out.' };
     }
-  };
+  }, [user?.id]);
+
+  const verifyAccount = useCallback((): Promise<AccountAvailability> => {
+    const accountId = user?.id;
+    if (!accountId || !navigator.onLine || deletionInProgress.current) return Promise.resolve('unknown');
+    if (accountCheckInFlight.current?.accountId === accountId) return accountCheckInFlight.current.promise;
+    const switchVersion = accountSwitchVersion.current;
+    const promise = (async (): Promise<AccountAvailability> => {
+      const availability = await checkAccountAvailability(supabase.auth, accountId);
+      if (availability !== 'gone' || deletionInProgress.current || accountSwitchVersion.current !== switchVersion
+        || (currentAuthUserId.current !== null && currentAuthUserId.current !== accountId)) return availability === 'gone' ? 'unknown' : availability;
+      // A vanished backup is not proof of deletion. Only the Auth server can
+      // close this session, and the device workspace stays bound to its owner.
+      const result = await signOut({ clearWorkspace: false });
+      if (!result.ok) return 'unknown';
+      setAccountNotice('This account is no longer available. YouDO signed out and kept its device copy separate from other accounts.');
+      return 'gone';
+    })();
+    accountCheckInFlight.current = { accountId, promise };
+    void promise.finally(() => {
+      if (accountCheckInFlight.current?.promise === promise) accountCheckInFlight.current = null;
+    });
+    return promise;
+  }, [user?.id, signOut]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let lastAttemptAt = 0;
+    const check = () => {
+      if (!navigator.onLine || document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastAttemptAt < 1_500) return;
+      lastAttemptAt = now;
+      void verifyAccount();
+    };
+    check();
+    window.addEventListener('online', check);
+    window.addEventListener('focus', check);
+    window.addEventListener('pageshow', check);
+    document.addEventListener('visibilitychange', check);
+    const interval = window.setInterval(check, 60_000);
+    return () => {
+      window.removeEventListener('online', check);
+      window.removeEventListener('focus', check);
+      window.removeEventListener('pageshow', check);
+      document.removeEventListener('visibilitychange', check);
+      window.clearInterval(interval);
+    };
+  }, [user?.id, verifyAccount]);
 
   const deleteAccount = async (): Promise<AuthActionResult> => {
     let serverDeleted = false;
+    deletionInProgress.current = true;
     try {
       if (!user) throw new Error('Sign in before deleting an account.');
       const accountId = user.id;
@@ -216,6 +274,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ok: false,
         error: `${serverDeleted ? 'The account was deleted, but this device copy was kept for safety. ' : ''}${err instanceof Error ? err.message : 'Unable to delete the account.'}`,
       };
+    } finally {
+      deletionInProgress.current = false;
     }
   };
 
@@ -339,9 +399,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         recoveryAuthorizedUserId,
+        accountNotice,
         changeRecoveredPassword,
         cancelPasswordRecovery,
         signOut,
+        verifyAccount,
         deleteAccount,
         updateProfile,
         changeEmail,

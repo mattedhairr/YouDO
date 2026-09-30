@@ -109,7 +109,7 @@ export default function SettingsSheet({
     updatePacePrefs,
     publishPublicPace,
   } = useStore();
-  const { user, signOut, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
+  const { user, signOut, verifyAccount, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
   const cloudConflictDetails = (() => {
     if (!user) return null;
     try { return parseSyncConflictRecord(localStorage.getItem(STORAGE_KEYS.workspaceSyncConflict), user.id); }
@@ -578,6 +578,9 @@ export default function SettingsSheet({
                           const beforeSync = captureWorkspace();
                           const synced = await syncToCloud();
                           if (!synced.ok) {
+                            // A deleted account cannot sync, but must still be able to
+                            // leave the signed-in view without clearing its device copy.
+                            if (await verifyAccount() === 'gone') return;
                             setMsg({
                               text: `Could not sign out safely: ${synced.error || 'sync failed'}. Export a backup or reconnect first.`,
                               error: true,
