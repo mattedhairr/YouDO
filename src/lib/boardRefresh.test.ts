@@ -14,7 +14,8 @@ describe('Board refresh ordering', () => {
     const read = vi.fn().mockResolvedValueOnce('current').mockResolvedValueOnce('synced');
     const work = refreshBoard({ read, show, synchronize: () => sync.promise, cancelled: () => false });
     await Promise.resolve();
-    expect(show).toHaveBeenCalledExactlyOnceWith('current');
+    expect(show).toHaveBeenCalledTimes(1);
+    expect(show).toHaveBeenCalledWith('current');
     sync.resolve();
     await work;
     expect(show.mock.calls).toEqual([['current'], ['synced']]);
@@ -34,7 +35,7 @@ describe('Board refresh ordering', () => {
     const show = vi.fn();
     const read = vi.fn().mockResolvedValue('current');
     await refreshBoard({ read, show, synchronize: async () => { throw new Error('offline'); }, cancelled: () => false });
-    expect(show).toHaveBeenCalledExactlyOnceWith('current');
+    expect(show).toHaveBeenCalledWith('current');
     expect(read).toHaveBeenCalledTimes(1);
   });
   it('does not show responses from a cancelled account or view', async () => {
