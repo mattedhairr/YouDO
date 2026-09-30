@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
+      - 'release-*'
+      - 'hotfix/**'
+      - 'hotfix-*'
       - 'codex/release-*'
       - 'codex/hotfix-*'
   workflow_dispatch:
