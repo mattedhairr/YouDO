@@ -132,7 +132,7 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
 
   return (
     <div className="auth-scroll-page auth-welcome bg-base text-content-primary px-5">
-      <div className="mx-auto w-full max-w-sm pb-8">
+      <div className="auth-welcome-inner mx-auto w-full max-w-sm pb-8">
         <div className="auth-brand"><Brand /></div>
         <div className="auth-hero text-center">
           <p className="auth-hero-eyebrow">Built for serious aspirants</p>

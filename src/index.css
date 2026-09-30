@@ -1128,8 +1128,13 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
   padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
 }
 .auth-welcome {
-  padding-top: max(1.25rem, calc(var(--safe-area-top) + 0.5rem));
-  padding-bottom: max(2.5rem, calc(env(safe-area-inset-bottom, 0px) + 2rem));
+  padding-top: max(clamp(2rem, 5vh, 3.5rem), calc(env(safe-area-inset-top, 0px) + clamp(1rem, 2.5vh, 2rem)));
+  padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + clamp(3.5rem, 10vh, 6.5rem)), 4.5rem);
+}
+.auth-welcome-inner {
+  min-height: calc(100% + 2.5rem);
+  display: flex;
+  flex-direction: column;
 }
 .auth-brand {
   display: flex;
@@ -1165,8 +1170,11 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
 
 @media (max-height: 640px) {
   .auth-welcome {
-    padding-top: max(0.75rem, var(--safe-area-top));
-    padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem));
+    padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+    padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 2.5rem), 2rem);
+  }
+  .auth-welcome-inner {
+    min-height: calc(100% + 1.5rem);
   }
   .auth-brand {
     min-height: 36px;
@@ -1190,8 +1198,11 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
 
 @media (max-height: 480px) {
   .auth-welcome {
-    padding-top: max(0.5rem, var(--safe-area-top));
-    padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+    padding-top: max(0.5rem, calc(env(safe-area-inset-top, 0px) + 0.25rem));
+    padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 1.5rem), 1.25rem);
+  }
+  .auth-welcome-inner {
+    min-height: calc(100% + 1rem);
   }
   .auth-hero {
     margin-top: 4px;

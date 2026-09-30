@@ -130,9 +130,10 @@ describe('sign-in page and logo layout verification', () => {
       })
     );
 
-    // Verify outer scroll container and responsive hero structure
+    // Verify outer scroll container, inner scrollable content, and responsive hero structure
     expect(html).toContain('auth-scroll-page');
     expect(html).toContain('auth-welcome');
+    expect(html).toContain('auth-welcome-inner');
     expect(html).toContain('auth-hero-eyebrow');
     expect(html).toContain('auth-hero-title');
     expect(html).toContain('auth-hero-desc');
