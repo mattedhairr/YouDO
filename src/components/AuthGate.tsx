@@ -84,7 +84,7 @@ function LoadingGate({ progress, label }: { progress: number; label: string }) {
   );
 }
 
-function AuthWelcome({ allowOffline, onContinueOffline }: { allowOffline: boolean; onContinueOffline: () => void }) {
+function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: { allowOffline: boolean; onContinueOffline: () => void; accountNotice: string | null }) {
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -139,6 +139,8 @@ function AuthWelcome({ allowOffline, onContinueOffline }: { allowOffline: boolea
           <h1 className="mt-2 text-[27px] leading-[1.12] font-semibold">Your preparation deserves a system.</h1>
           <p className="mt-3 text-[13px] leading-relaxed text-content-secondary">Build the blueprint, execute today’s work, and preserve every honest hour.</p>
         </div>
+
+        {accountNotice && <p role="status" className="mt-5 rounded-[14px] border border-secondary/25 bg-secondary-soft p-3 text-[12px] leading-relaxed text-content-secondary">{accountNotice}</p>}
 
         {mode !== 'signup' && summary.hasData && (
           <div className="mt-5 rounded-[14px] border border-secondary/25 bg-secondary-soft p-3 flex gap-3">
@@ -294,7 +296,7 @@ function WorkspaceChoice({
 }
 
 export default function AuthGate({ children }: { children: ReactNode }) {
-  const { user, loading, signOut, cancelPasswordRecovery, updateCloudBackup, fetchLiveBackupInfo } = useAuth();
+  const { user, loading, signOut, accountNotice, cancelPasswordRecovery, updateCloudBackup, fetchLiveBackupInfo } = useAuth();
   useTheme();
   const [gate, setGate] = useState<GateState>('checking');
   const [inspectedUserId, setInspectedUserId] = useState<string | null>(null);
@@ -415,7 +417,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   };
   if (passwordRecovery) return <PasswordRecoveryGate onComplete={leaveRecovery} onCancel={() => { void supabase.auth.signOut({ scope: 'local' }).finally(leaveRecovery); }} />;
   if (!user && offlineMode && !readWorkspaceOwner()) return <Fragment key="offline">{children}</Fragment>;
-  if (!user) return <AuthWelcome allowOffline={!readWorkspaceOwner()} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
+  if (!user) return <AuthWelcome accountNotice={accountNotice} allowOffline={!readWorkspaceOwner()} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
   if (gate === 'checking' || inspectedUserId !== user.id) return <LoadingGate progress={68} label="Checking workspace" />;
   if (gate === 'ready') {
     if (canOpenAccountWorkspace(user.id, inspectedUserId, readWorkspaceOwner())) return <Fragment key={user.id}>{children}</Fragment>;
