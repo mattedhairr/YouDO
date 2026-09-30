@@ -21,7 +21,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 - **Account removal** — When YouDO confirms that a signed-in account or its session no longer exists, it signs out on the device after reconnecting or returning to the app. A missing cloud backup alone does not trigger sign-out.
 - **Device protection** — The deleted account's device copy stays separate from other accounts. Sign out can finish even when cloud sync is impossible because that account is gone.
-- **Android APK** — versionName **7.6.2**, versionCode **61**. Intended to install over **v7.6.1** without clearing app data. Physical install-over and deleted-account checks are pending; this candidate is not yet published.
+- **Android APK** — versionName **7.6.2**, versionCode **61**. Installs over **v7.6.1** without clearing app data.
 
 ---
 
