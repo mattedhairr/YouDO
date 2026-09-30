@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AI_PLAN_MAX_DEPTH,
   appendGeneratedBlueprint,
+  buildMasterPlanningPrompt,
   buildSetupPrompt,
   materializeGeneratedBlueprint,
   parseGeneratedBlueprint,
@@ -82,6 +83,16 @@ describe('AI plan prompt', () => {
   it('provides an example that the actual importer accepts', () => {
     const example = AI_PLAN_OUTPUT_CONTRACT.slice(AI_PLAN_OUTPUT_CONTRACT.indexOf('{'), AI_PLAN_OUTPUT_CONTRACT.lastIndexOf('}') + 1);
     expect(parseGeneratedBlueprint(example).ok).toBe(true);
+  });
+
+  it('builds a conversational master prompt instructing the AI to interview the user', () => {
+    const master = buildMasterPlanningPrompt('2026-09-30');
+    expect(master).toContain('You are the YouDO Master Planning Agent');
+    expect(master).toContain('DO NOT GENERATE THE FINAL PLAN OR JSON FILE RIGHT NOW');
+    expect(master).toContain('ask ONLY 1 or 2 simple, friendly questions');
+    expect(master).toContain('Today is 2026-09-30');
+    expect(master).toContain('Does this roadmap and weekly pace look right to you');
+    expect(master).toContain('FINAL OUTPUT FOR YOUDO');
   });
 });
 

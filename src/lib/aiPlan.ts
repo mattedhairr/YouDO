@@ -2,7 +2,7 @@ import type { GoalNode } from '../types';
 import { todayISO } from './dates';
 import { uid } from './ids';
 import { readPlanJSON } from './aiPlanInput';
-import { composePlanPrompt } from './aiPlanPrompt';
+import { composePlanPrompt, buildMasterPlanningPrompt as createMasterPlanningPrompt } from './aiPlanPrompt';
 
 export const AI_PLAN_MAX_BYTES = 500 * 1024;
 export const AI_PLAN_MAX_NODES = 1_000;
@@ -80,6 +80,10 @@ export function buildSetupPrompt(answers: BuildPlanAnswers, currentDate = todayI
   const error = validateBuildPlanAnswers(answers, currentDate);
   if (error) throw new Error(error);
   return composePlanPrompt(answers, currentDate);
+}
+
+export function buildMasterPlanningPrompt(currentDate = todayISO()): string {
+  return createMasterPlanningPrompt(currentDate);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
