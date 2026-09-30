@@ -51,11 +51,11 @@ function YouDoIcon({ size = 18 }: { size?: number }) {
     <svg
       width={size}
       height={size}
-      viewBox="4 3.5 16 17.5"
+      viewBox="3 3 18 18"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
-      className="block shrink-0"
+      className="block shrink-0 overflow-visible"
     >
       <path
         d="M5 4.5L12 13.25V19.5"

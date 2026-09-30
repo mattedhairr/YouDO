@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.6.3] — 2026-09-30 — Preserved offline access and sign-in layout (candidate)
+
+- **Offline workspace** — When an account has been removed, you can continue using your existing device plan offline without creating a new account or losing your local work.
+- **Account transitions** — Your device copy stays strictly local while offline; signing in later lets you choose whether to keep your device plan or restore your cloud backup before syncing.
+- **Smoother sign-in** — The sign-in page scrolls smoothly across both small and large screens, keeping all actions reachable with the keyboard open or in landscape.
+- **Android APK** — versionName **7.6.3**, versionCode **62**. Installs over **v7.6.2** or **v7.6.1** without clearing app data.
+
+---
+
 ## [v7.6.2] — 2026-09-30 — Deleted-account sign-out (candidate)
 
 - **Account removal** — When YouDO confirms that a signed-in account or its session no longer exists, it signs out on the device after reconnecting or returning to the app. A missing cloud backup alone does not trigger sign-out.

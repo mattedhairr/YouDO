@@ -14,7 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { isAuthRecoveryUrl, resolveAuthRecoveryUrl, resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { authErrorMessage } from '../lib/authError';
 import { parseBackupPayload } from '../lib/backup';
-import { canOpenAccountWorkspace } from '../lib/workspaceAccess';
+import { canContinueOffline, canOpenAccountWorkspace, canOpenOfflineWorkspace } from '../lib/workspaceAccess';
 import { assertWorkspaceUnchanged, captureWorkspace, commitWorkspaceReplacement, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from '../lib/workspaceReplacement';
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
@@ -33,14 +33,14 @@ import {
 
 type GateState = 'checking' | 'ready' | 'legacy' | 'mismatch' | 'failed';
 
-function Brand() {
+export function Brand() {
   return (
-    <div className="inline-flex items-center justify-center" aria-label="YouDO">
-      <svg width="42" height="46" viewBox="4 3.5 16 17.5" fill="none" aria-hidden="true" className="shrink-0">
+    <div className="inline-flex items-center justify-center select-none" aria-label="YouDO">
+      <svg width="40" height="40" viewBox="3 3 18 18" fill="none" aria-hidden="true" className="shrink-0 overflow-visible">
         <path d="M5 4.5L12 13.25V19.5" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M19 4.5L12 13.25L9.25 10" stroke="var(--secondary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="-ml-2 text-[28px] leading-none tracking-[-0.06em] text-content-secondary">ou<span className="font-semibold text-content-primary">DO</span></span>
+      <span className="-ml-1.5 text-[28px] leading-none tracking-[-0.05em] text-content-secondary">ou<span className="font-semibold text-content-primary">DO</span></span>
     </div>
   );
 }
@@ -84,7 +84,7 @@ function LoadingGate({ progress, label }: { progress: number; label: string }) {
   );
 }
 
-function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: { allowOffline: boolean; onContinueOffline: () => void; accountNotice: string | null }) {
+export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: { allowOffline: boolean; onContinueOffline: () => void; accountNotice: string | null }) {
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -132,20 +132,27 @@ function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: { allow
 
   return (
     <div className="auth-scroll-page auth-welcome bg-base text-content-primary px-5">
-      <div className="mx-auto w-full max-w-sm pb-8">
+      <div className="auth-welcome-inner mx-auto w-full max-w-sm pb-8">
         <div className="auth-brand"><Brand /></div>
         <div className="auth-hero text-center">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-primary font-semibold">Built for serious aspirants</p>
-          <h1 className="mt-2 text-[27px] leading-[1.12] font-semibold">Your preparation deserves a system.</h1>
-          <p className="mt-3 text-[13px] leading-relaxed text-content-secondary">Build the blueprint, execute today’s work, and preserve every honest hour.</p>
+          <p className="auth-hero-eyebrow">Built for serious aspirants</p>
+          <h1 className="auth-hero-title">Your preparation deserves a system.</h1>
+          <p className="auth-hero-desc">Build the blueprint, execute today’s work, and preserve every honest hour.</p>
         </div>
 
-        {accountNotice && <p role="status" className="mt-5 rounded-[14px] border border-secondary/25 bg-secondary-soft p-3 text-[12px] leading-relaxed text-content-secondary">{accountNotice}</p>}
+        {accountNotice && (
+          <p role="status" className="mt-4 rounded-[14px] border border-secondary/25 bg-secondary-soft p-3 text-[12px] leading-relaxed text-content-secondary">
+            {accountNotice}
+          </p>
+        )}
 
         {mode !== 'signup' && summary.hasData && (
-          <div className="mt-5 rounded-[14px] border border-secondary/25 bg-secondary-soft p-3 flex gap-3">
+          <div className="mt-4 rounded-[14px] border border-secondary/25 bg-secondary-soft p-3 flex gap-3">
             <ShieldCheck size={18} className="text-secondary shrink-0 mt-0.5" />
-            <div><p className="text-[12px] font-semibold">Your existing device plan is safe</p><p className="text-[11px] text-content-secondary mt-1">Sign in first; YouDO will ask whether to keep this device plan or restore your cloud copy.</p></div>
+            <div>
+              <p className="text-[12px] font-semibold text-content-primary">Your existing device plan is safe</p>
+              <p className="text-[11px] text-content-secondary mt-1 leading-relaxed">Sign in first; YouDO will ask whether to keep this device plan or restore your cloud copy.</p>
+            </div>
           </div>
         )}
 
@@ -306,7 +313,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [remoteAvailable, setRemoteAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [offlineMode, setOfflineMode] = useState(() => readOfflineMode() && !readWorkspaceOwner());
+  const [offlineMode, setOfflineMode] = useState(() => {
+    if (!readOfflineMode()) return false;
+    return canContinueOffline(readLocalWorkspaceSummary().hasData, readWorkspaceOwner());
+  });
   const [passwordRecovery, setPasswordRecovery] = useState(() => isAuthRecoveryUrl(window.location.search));
   const [initialBootComplete, setInitialBootComplete] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(() => {
@@ -416,8 +426,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     setPasswordRecovery(false);
   };
   if (passwordRecovery) return <PasswordRecoveryGate onComplete={leaveRecovery} onCancel={() => { void supabase.auth.signOut({ scope: 'local' }).finally(leaveRecovery); }} />;
-  if (!user && offlineMode && !readWorkspaceOwner()) return <Fragment key="offline">{children}</Fragment>;
-  if (!user) return <AuthWelcome accountNotice={accountNotice} allowOffline={!readWorkspaceOwner()} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
+  const localSummary = readLocalWorkspaceSummary();
+  const localOwner = readWorkspaceOwner();
+  const allowOffline = canContinueOffline(localSummary.hasData, localOwner);
+  if (!user && canOpenOfflineWorkspace({ user, offlineMode, hasLocalWorkspace: localSummary.hasData, owner: localOwner })) return <Fragment key="offline">{children}</Fragment>;
+  if (!user) return <AuthWelcome accountNotice={accountNotice} allowOffline={allowOffline} onContinueOffline={() => { writeOfflineMode(true); setOfflineMode(true); }} />;
   if (gate === 'checking' || inspectedUserId !== user.id) return <LoadingGate progress={68} label="Checking workspace" />;
   if (gate === 'ready') {
     if (canOpenAccountWorkspace(user.id, inspectedUserId, readWorkspaceOwner())) return <Fragment key={user.id}>{children}</Fragment>;
