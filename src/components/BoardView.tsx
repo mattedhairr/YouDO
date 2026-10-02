@@ -228,6 +228,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
   const [anchorISO, setAnchorISO] = useState(todayISO());
   const [communityOpen, setCommunityOpen] = useState(false);
   const [communityStartInAdmin, setCommunityStartInAdmin] = useState(false);
+  const [community, setCommunity] = useState<CommunityContext>(EMPTY_COMMUNITY_CONTEXT());
   const communityUnreadCount = !community.banned
     ? ((community.unread?.chat ?? 0) + (community.unread?.updates ?? 0))
     : 0;
