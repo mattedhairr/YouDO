@@ -70,14 +70,21 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
 
   return (
     <nav className="p-2.5 pb-1.5" aria-label="Chat rooms">
-      <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full relative">
+      <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full relative z-0">
+        {/* Sliding Background */}
+        <div 
+          className="absolute left-1 top-1 bottom-1 rounded-xl bg-elevated border border-subtle shadow-[0_2px_8px_color-mix(in_srgb,var(--text-primary)_4%,transparent)] transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] -z-10"
+          style={{
+            width: secondTabTag ? 'calc((100% - 44px) / 2)' : 'calc(100% - 44px)',
+            transform: !selectedId ? 'translateX(0)' : 'translateX(calc(100% + 4px))',
+          }}
+        />
+
         {/* General Room */}
         <button
           type="button"
-          className={`flex-1 h-9 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 ${
-            !selectedId
-              ? 'bg-elevated text-content-primary border border-subtle shadow-[0_2px_8px_color-mix(in_srgb,var(--text-primary)_4%,transparent)]'
-              : 'text-content-secondary hover:text-content-primary'
+          className={`flex-1 h-9 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-200 ${
+            !selectedId ? 'text-content-primary' : 'text-content-secondary hover:text-content-primary'
           }`}
           aria-pressed={!selectedId}
           onClick={() => tap(undefined)}
@@ -94,11 +101,9 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
         {secondTabTag && (
           <button
             type="button"
-            className={`flex-1 h-9 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 ${
+            className={`flex-1 h-9 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-200 ${
               selectedId === secondTabTag.id
-                ? context.mine?.id === secondTabTag.id 
-                  ? 'bg-elevated text-primary border border-primary/20 shadow-[0_2px_8px_color-mix(in_srgb,var(--primary)_12%,transparent)]'
-                  : 'bg-elevated text-content-primary border border-subtle shadow-[0_2px_8px_color-mix(in_srgb,var(--text-primary)_4%,transparent)]'
+                ? context.mine?.id === secondTabTag.id ? 'text-primary' : 'text-content-primary'
                 : 'text-content-secondary hover:text-content-primary'
             }`}
             aria-pressed={selectedId === secondTabTag.id}
@@ -107,7 +112,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
             <span className="opacity-50 font-bold">#</span>
             <span className="truncate max-w-[110px]">{secondTabTag.label}</span>
             {!!context.roomUnread?.[secondTabTag.id] && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedId === secondTabTag.id ? (context.mine?.id === secondTabTag.id ? 'bg-primary text-on-primary' : 'bg-primary text-on-primary') : 'bg-base text-content-muted'}`}>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedId === secondTabTag.id ? 'bg-primary text-on-primary' : 'bg-base text-content-muted'}`}>
                 {context.roomUnread[secondTabTag.id] > 99 ? '99+' : context.roomUnread[secondTabTag.id]}
               </span>
             )}

@@ -338,7 +338,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     </header>
 
     <div
-      className="c-chat-scroll"
+      key={selectedHashtag ?? 'general'}
+      className="c-chat-scroll fade-in"
       ref={scroll}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
