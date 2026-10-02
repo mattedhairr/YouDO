@@ -24,9 +24,16 @@ export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps 
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
 
-  // Individual state (per-parent texts)
-  const [individualTexts, setIndividualTexts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(parents.map((p) => [p.id, '']))
+  // Individual state (per-parent entry configuration)
+  type IndivConfig = {
+    mode: 'one' | 'list' | 'numbered';
+    text: string;
+    prefix: string;
+    start: string;
+    count: string;
+  };
+  const [indivConfigs, setIndivConfigs] = useState<Record<string, IndivConfig>>(() =>
+    Object.fromEntries(parents.map((p) => [p.id, { mode: 'one', text: '', prefix: '', start: '1', count: '5' }]))
   );
 
   const noun = kind === 'steps' ? 'step' : kind === 'goal' ? 'goal' : 'item';
@@ -42,23 +49,32 @@ export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps 
     return total + sharedNames.filter((name) => !existing.has(name.toLocaleLowerCase())).length;
   }, 0);
 
-  // Individual expected
+  // Individual names calculation per parent
+  const getNamesForConfig = (cfg: IndivConfig): string[] => {
+    if (cfg.mode === 'numbered') {
+      return cfg.prefix.trim() && cfg.start !== '' && cfg.count !== '' && Number.isInteger(Number(cfg.start)) && Number(cfg.start) >= 0 && Number.isInteger(Number(cfg.count)) && Number(cfg.count) > 0 && Number(cfg.count) <= 100
+        ? numberedBlueprintTitles(cfg.prefix, Number(cfg.start), Number(cfg.count))
+        : [];
+    }
+    return normalizeBlueprintTitles(cfg.mode === 'list' ? cfg.text.split(/\r?\n/) : [cfg.text]);
+  };
+
   const individualEntries = useMemo(() => {
     if (scope !== 'individual') return [];
     return parents.map((parent) => {
-      const rawLines = (individualTexts[parent.id] ?? '').split(/\r?\n/);
-      const names = normalizeBlueprintTitles(rawLines);
+      const cfg = indivConfigs[parent.id] ?? { mode: 'one', text: '', prefix: '', start: '1', count: '5' };
+      const names = getNamesForConfig(cfg);
       const existing = new Set((kind === 'steps' ? parent.steps ?? [] : parent.children.map((child) => child.title)).map((title) => title.trim().replace(/\s+/g, ' ').toLocaleLowerCase()));
       const validNames = names.filter((name) => !existing.has(name.toLocaleLowerCase()));
-      return { parent, validNames };
+      return { parent, validNames, cfg };
     });
-  }, [individualTexts, kind, parents, scope]);
+  }, [indivConfigs, kind, parents, scope]);
 
   const individualExpected = individualEntries.reduce((sum, entry) => sum + entry.validNames.length, 0);
 
   const isDirty = scope === 'together'
     ? Boolean(text.trim() || prefix.trim() || description.trim())
-    : Object.values(individualTexts).some((t) => t.trim());
+    : Object.values(indivConfigs).some((c) => c.text.trim() || c.prefix.trim());
 
   useEffect(() => onDirty(isDirty), [isDirty, onDirty]);
 
@@ -107,6 +123,13 @@ export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps 
   const submit = scope === 'together' ? submitTogether : submitIndividual;
   const expectedCount = scope === 'together' ? sharedExpected : individualExpected;
 
+  const updateIndiv = (parentId: string, patch: Partial<IndivConfig>) => {
+    setIndivConfigs((prev) => ({
+      ...prev,
+      [parentId]: { ...(prev[parentId] ?? { mode: 'one', text: '', prefix: '', start: '1', count: '5' }), ...patch },
+    }));
+  };
+
   return <>
     <div className="studio-panel-body">
       <StudioTargets goals={goals} nodes={parents} />
@@ -139,29 +162,83 @@ export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps 
       ) : (
         <div className="studio-individual-list">
           <p className="studio-context" style={{ padding: '8px 12px 4px' }}>
-            Enter different {noun}s for each selected item (one per line):
+            Configure items for each selected task:
           </p>
           {parents.map((parent) => {
-            const lines = (individualTexts[parent.id] ?? '').split(/\r?\n/).filter((l) => l.trim()).length;
+            const cfg = indivConfigs[parent.id] ?? { mode: 'one', text: '', prefix: '', start: '1', count: '5' };
+            const countForThis = getNamesForConfig(cfg).length;
             return (
               <details key={parent.id} open={parents.length <= 4}>
                 <summary>
                   <span>
                     <strong>{parent.title}</strong>
-                    <span>{studioItemPath(goals, parent.id)}{lines > 0 ? ` · ${lines} ${noun}${lines === 1 ? '' : 's'} entered` : ''}</span>
+                    <span>{studioItemPath(goals, parent.id)}{countForThis > 0 ? ` · ${countForThis} ${noun}${countForThis === 1 ? '' : 's'} planned` : ''}</span>
                   </span>
                   <ChevronDown size={15} />
                 </summary>
-                <div style={{ padding: '8px 12px 14px' }}>
-                  <StudioField label={`Items inside "${parent.title}" (one per line)`}>
-                    <textarea
-                      className={fieldClass}
-                      rows={3}
-                      value={individualTexts[parent.id] ?? ''}
-                      onChange={(e) => setIndividualTexts({ ...individualTexts, [parent.id]: e.target.value })}
-                      placeholder={`e.g. Subtopic 1\nSubtopic 2`}
-                    />
-                  </StudioField>
+                <div style={{ padding: '12px 14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <StudioTabs
+                    value={cfg.mode}
+                    onChange={(m) => updateIndiv(parent.id, { mode: m })}
+                    options={[
+                      { value: 'one', label: 'One' },
+                      { value: 'list', label: 'List' },
+                      { value: 'numbered', label: 'Numbered' },
+                    ]}
+                  />
+                  {cfg.mode === 'numbered' ? (
+                    <>
+                      <StudioField label="Name">
+                        <input
+                          className={fieldClass}
+                          value={cfg.prefix}
+                          onChange={(e) => updateIndiv(parent.id, { prefix: e.target.value })}
+                          placeholder="e.g. Topic or Lecture"
+                        />
+                      </StudioField>
+                      <div className="studio-two-columns">
+                        <StudioField label="Start at">
+                          <input
+                            className={fieldClass}
+                            type="number"
+                            min={0}
+                            value={cfg.start}
+                            onChange={(e) => updateIndiv(parent.id, { start: e.target.value })}
+                          />
+                        </StudioField>
+                        <StudioField label="How many">
+                          <input
+                            className={fieldClass}
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={cfg.count}
+                            onChange={(e) => updateIndiv(parent.id, { count: e.target.value })}
+                          />
+                        </StudioField>
+                      </div>
+                    </>
+                  ) : (
+                    <StudioField label={cfg.mode === 'one' ? `${noun[0].toUpperCase()}${noun.slice(1)} name` : 'One name per line'}>
+                      {cfg.mode === 'one' ? (
+                        <input
+                          className={fieldClass}
+                          value={cfg.text}
+                          onChange={(e) => updateIndiv(parent.id, { text: e.target.value })}
+                          placeholder={kind === 'steps' ? 'e.g. Review notes' : 'Name this topic or milestone'}
+                          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                        />
+                      ) : (
+                        <textarea
+                          className={fieldClass}
+                          rows={3}
+                          value={cfg.text}
+                          onChange={(e) => updateIndiv(parent.id, { text: e.target.value })}
+                          placeholder={kind === 'steps' ? 'Watch\nPractise\nReview' : 'Subtopic 1\nSubtopic 2\nSubtopic 3'}
+                        />
+                      )}
+                    </StudioField>
+                  )}
                 </div>
               </details>
             );
