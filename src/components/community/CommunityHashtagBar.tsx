@@ -101,7 +101,6 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
               {isLocked && <Lock size={10} className="c-room-tab-lock" />}
               <span className="c-room-tab-hash">#</span>
               <span className="c-room-tab-label">{tag.label}</span>
-              {isMine && <span className="c-room-tab-mine-tag" title="Your community">You</span>}
               {unreadCount > 0 && (
                 <span className="c-room-tab-badge" aria-label={`${unreadCount} unread`}>
                   {unreadCount > 99 ? '99+' : unreadCount}
