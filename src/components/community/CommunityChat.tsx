@@ -135,7 +135,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     scrollPosition.current=saved.scrollTop;follow.current=saved.scrollTop==null;loadedCount.current=Math.max(CHAT_PAGE_SIZE,saved.messages.filter(m=>m.delivery==='sent').length);
     acknowledged.current.clear();setNewBelow(false);setError('');setDraft('');setReply(null);setEditing(null);setSelected(null);setActionBusy(false);void refresh();
     const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
-    const timer=window.setInterval(onVisible,5_000);
+    const timer=window.setInterval(onVisible,2_000);
     document.addEventListener('visibilitychange',onVisible);window.addEventListener('online',onVisible);
     window.addEventListener('youdo-community-refresh-chat', refresh);
     const generation=cacheLease.current;
@@ -315,10 +315,6 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     }
   };
 
-  const currentHashtagObj = roomContext.hashtags.find(h => h.id === selectedHashtag);
-  const roomDisplayName = selectedHashtag ? `#${currentHashtagObj?.label ?? 'Room'}` : 'General Chat';
-  const isUserRoom = selectedHashtag && selectedHashtag === roomContext.mine?.id;
-
   return <section className="c-chat no-swipe" aria-label="Chat">
     {/* Top Sticky Modern Navigation Bar */}
     <header className="c-chat-top-bar">
@@ -327,16 +323,6 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         onSelect={setSelectedHashtag}
         onContextChange={setRoomContext}
       />
-      <div className="c-room-info-banner">
-        <div className="c-room-info-left">
-          <span className="c-room-title">{roomDisplayName}</span>
-          {isUserRoom && <span className="c-room-mine-badge">Your exam community</span>}
-          {!selectedHashtag && <span className="c-room-general-badge">All board members</span>}
-        </div>
-        <div className="c-room-info-right">
-          <span className="c-room-swipe-hint">Swipe ↔ to change room</span>
-        </div>
-      </div>
     </header>
 
     <div
