@@ -38,7 +38,7 @@ import {
 } from '../store';
 import Overlay from './Overlay';
 import { goalBranchContainsTask } from '../lib/goalTree';
-import { goalTimingLabel, todayISO } from '../lib/dates';
+import { goalTimingLabel } from '../lib/dates';
 import { hapticTick } from '../lib/haptics';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {

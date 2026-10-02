@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, FolderInput, FolderOpen, ListChecks, MoreHorizontal, Pencil, Pin, Plus, Redo2, Search, Sparkles, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, Folder, FolderInput, FolderOpen, ListChecks, MoreHorizontal, Pencil, Pin, Plus, Redo2, Search, Sparkles, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
 import type { GoalNode } from '../types';
 import type { GoalTreeChangeResult } from '../store';
 import { countBlueprintNodes, findBlueprintPath, removeBlueprintNodes } from '../lib/blueprintStudio';

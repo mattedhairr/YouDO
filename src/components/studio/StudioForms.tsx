@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Folder, FolderCheck, FolderInput, LockKeyhole, Plus, Search, Target, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, Copy, Folder, FolderCheck, FolderInput, LockKeyhole, Plus, Search, Target, Trash2 } from 'lucide-react';
 import type { GoalNode } from '../../types';
 import { findGoal, hasGoalExecutionState, isGoalEndpoint } from '../../lib/goalTree';
 import { addBlueprintChildren, addBlueprintSteps, findBlueprintPath, flattenBlueprint, makeBlueprintNode, normalizeBlueprintTitles, numberedBlueprintTitles } from '../../lib/blueprintStudio';
@@ -396,7 +396,6 @@ export function StudioDrillDownPicker({ goals, ids, onClose, onApply }: {
   const [pathIds, setPathIds] = useState<string[]>([]);
   const [query, setQuery] = useState('');
 
-  const movers = ids.map((id) => findGoal(goals, id)).filter((n): n is GoalNode => Boolean(n));
   const currentId = pathIds.length > 0 ? pathIds[pathIds.length - 1] : null;
   const current = currentId ? findGoal(goals, currentId) : null;
 

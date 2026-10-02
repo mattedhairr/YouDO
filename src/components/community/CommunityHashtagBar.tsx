@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronUp, Lock, Plus, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import {
   fetchCommunityRooms,
   requestCommunityHashtag,
@@ -17,10 +17,9 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
   const selectedRef=useRef(selectedId);
   selectedRef.current=selectedId;
   const [context,setContext]=useState<CommunityHashtagContext>({hashtags:[],requests:[]});
-  const [panel,setPanel]=useState<'request'|null>(null);
+  const [panel,setPanel]=useState<'request'|'explore'|null>(null);
   const [exam,setExam]=useState('');
   const [details,setDetails]=useState('');
-  const [expanded,setExpanded]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const refresh=useCallback(async()=>{
