@@ -139,6 +139,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       if (current()) setRefreshError(error instanceof Error ? error.message : 'Could not refresh. Try again.');
     } finally {
       if (current()) setRefreshing(false);
+      window.dispatchEvent(new CustomEvent('youdo-community-refresh-chat'));
     }
   }, [open, userId, mode]);
 

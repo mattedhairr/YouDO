@@ -135,11 +135,13 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     scrollPosition.current=saved.scrollTop;follow.current=saved.scrollTop==null;loadedCount.current=Math.max(CHAT_PAGE_SIZE,saved.messages.filter(m=>m.delivery==='sent').length);
     acknowledged.current.clear();setNewBelow(false);setError('');setDraft('');setReply(null);setEditing(null);setSelected(null);setActionBusy(false);void refresh();
     const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
-    const timer=window.setInterval(onVisible,30_000);
+    const timer=window.setInterval(onVisible,5_000);
     document.addEventListener('visibilitychange',onVisible);window.addEventListener('online',onVisible);
+    window.addEventListener('youdo-community-refresh-chat', refresh);
     const generation=cacheLease.current;
     return()=>{
       mounted.current=false;clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);window.removeEventListener('online',onVisible);
+      window.removeEventListener('youdo-community-refresh-chat', refresh);
       saveChatCache(userId,{messages:messagesRef.current,scrollTop:scrollPosition.current,hasOlder:olderRef.current},generation,roomScope);
     };
   },[refresh,userId,roomScope]);
