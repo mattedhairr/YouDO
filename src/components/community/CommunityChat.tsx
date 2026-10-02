@@ -315,6 +315,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     }
   };
 
+  const currentHashtagObj = roomContext.hashtags.find(h => h.id === selectedHashtag);
+
   return <section className="c-chat no-swipe" aria-label="Chat">
     {/* Top Sticky Modern Navigation Bar */}
     <header className="c-chat-top-bar">
