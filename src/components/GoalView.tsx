@@ -34,6 +34,7 @@ import {
   localISODate,
   rollupPct,
   useStore,
+  useSessionStore,
 } from '../store';
 import Overlay from './Overlay';
 import { goalBranchContainsTask } from '../lib/goalTree';
