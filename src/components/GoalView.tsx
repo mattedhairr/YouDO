@@ -36,9 +36,8 @@ import {
   useStore,
 } from '../store';
 import Overlay from './Overlay';
-import { useSessionStore } from '../store';
 import { goalBranchContainsTask } from '../lib/goalTree';
-import { deadlineDaysLabel, todayISO } from '../lib/dates';
+import { goalTimingLabel, todayISO } from '../lib/dates';
 import { hapticTick } from '../lib/haptics';
 
 function getScheduledDateLabel(targetDate: string | null | undefined): string {
@@ -623,11 +622,20 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 {formatGoalDateRange(current.startDate, current.endDate)}
               </span>
             )}
-            {current.endDate && (
-              <span className={`${current.endDate < todayISO() ? 'text-error' : current.endDate === todayISO() ? 'text-primary' : 'text-secondary'} font-bold`}>
-                {deadlineDaysLabel(current.endDate)}
-              </span>
-            )}
+            {(() => {
+              const timing = goalTimingLabel(current.startDate, current.endDate);
+              if (!timing) return null;
+              const colorClass = timing.status === 'overdue'
+                ? 'text-error'
+                : timing.status === 'due'
+                  ? 'text-primary'
+                  : 'text-secondary';
+              return (
+                <span className={`${colorClass} font-bold`}>
+                  {timing.label}
+                </span>
+              );
+            })()}
           </div>
 
           <div className="mt-2.5 h-1.5 rounded-full bg-border-subtle overflow-hidden">

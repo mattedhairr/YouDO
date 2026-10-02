@@ -49,6 +49,41 @@ export function deadlineDaysLabel(endISO: string, fromISO = todayISO()): string 
   return `Overdue by ${Math.abs(days)} days`;
 }
 
+export type GoalTimingInfo = {
+  label: string;
+  status: 'upcoming' | 'due' | 'active' | 'overdue';
+};
+
+/**
+ * Human timing label for a goal/branch with optional startDate and endDate:
+ * - If startDate is strictly in the future: "X days to start" (or "Starts tomorrow")
+ * - If started (or no startDate) and endDate is present: "X days left" / "Due today" / "Overdue by X days"
+ */
+export function goalTimingLabel(
+  startDate?: string | null,
+  endDate?: string | null,
+  fromISO = todayISO()
+): GoalTimingInfo | null {
+  if (startDate && startDate > fromISO) {
+    const daysToStart = daysBetweenLocalISO(fromISO, startDate);
+    if (daysToStart === 1) {
+      return { label: '1 day to start', status: 'upcoming' };
+    }
+    return { label: `${daysToStart} days to start`, status: 'upcoming' };
+  }
+
+  if (endDate) {
+    const days = daysBetweenLocalISO(fromISO, endDate);
+    if (days === 0) return { label: 'Due today', status: 'due' };
+    if (days === 1) return { label: '1 day left', status: 'active' };
+    if (days > 1) return { label: `${days} days left`, status: 'active' };
+    if (days === -1) return { label: 'Overdue by 1 day', status: 'overdue' };
+    return { label: `Overdue by ${Math.abs(days)} days`, status: 'overdue' };
+  }
+
+  return null;
+}
+
 /** First local midnight strictly after `ts`. */
 export function nextLocalMidnight(ts: number): number {
   const d = new Date(ts);

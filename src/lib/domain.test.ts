@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deadlineDaysLabel, formatDDMMYYYY, isToday, localISODate, todayISO } from './dates';
+import { deadlineDaysLabel, formatDDMMYYYY, goalTimingLabel, isToday, localISODate, todayISO } from './dates';
 import { currentFocusStreak, mergeStreakMeta, netFocusByLocalDate, reconcileStreakMeta, weekHeatmap } from './focusTrends';
 import { formatDuration, formatElapsed, sessionEfficiency } from './format';
 import { computeNetFocusMs, createManualStepSession, finalizeSession, isCountableSession, isManualSession, splitSessionByLocalDate, clampSessionEnd, tickActiveSession, continueAfterInterruption, shouldOfferSessionRecovery, MAX_CONTINUOUS_FOCUS_MS, STALE_HEARTBEAT_MS, pruneSessionHistoryBefore, buildSessionSummary } from './sessionStats';
@@ -17,6 +17,47 @@ describe('dates', () => {
     expect(deadlineDaysLabel('2026-09-06', '2026-09-05')).toBe('1 day left');
     expect(deadlineDaysLabel('2026-09-12', '2026-09-05')).toBe('7 days left');
     expect(deadlineDaysLabel('2026-09-04', '2026-09-05')).toBe('Overdue by 1 day');
+  });
+
+  it('describes goal timing based on start and end dates', () => {
+    // Upcoming: start date is strictly in the future
+    expect(goalTimingLabel('2026-10-21', '2026-11-20', '2026-10-02')).toEqual({
+      label: '19 days to start',
+      status: 'upcoming',
+    });
+    expect(goalTimingLabel('2026-10-03', '2026-10-20', '2026-10-02')).toEqual({
+      label: '1 day to start',
+      status: 'upcoming',
+    });
+
+    // Active: start date has arrived (or today) and end date is in future
+    expect(goalTimingLabel('2026-10-02', '2026-10-21', '2026-10-02')).toEqual({
+      label: '19 days left',
+      status: 'active',
+    });
+    expect(goalTimingLabel(null, '2026-10-21', '2026-10-02')).toEqual({
+      label: '19 days left',
+      status: 'active',
+    });
+
+    // Due today
+    expect(goalTimingLabel('2026-09-01', '2026-10-02', '2026-10-02')).toEqual({
+      label: 'Due today',
+      status: 'due',
+    });
+
+    // Overdue
+    expect(goalTimingLabel('2026-09-01', '2026-10-01', '2026-10-02')).toEqual({
+      label: 'Overdue by 1 day',
+      status: 'overdue',
+    });
+    expect(goalTimingLabel(null, '2026-09-20', '2026-10-02')).toEqual({
+      label: 'Overdue by 12 days',
+      status: 'overdue',
+    });
+
+    // No dates
+    expect(goalTimingLabel(null, null, '2026-10-02')).toBeNull();
   });
 
   it('builds local ISO dates without UTC drift', () => {
