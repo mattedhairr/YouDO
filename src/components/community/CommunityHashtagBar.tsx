@@ -56,72 +56,74 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
     onSelect(id);
   };
 
-  const visibleTags = context.hashtags.filter(tag => tag.id === context.mine?.id || tag.id === selectedId);
+  let secondTabTag = context.hashtags.find(t => t.id === context.mine?.id);
+  if (selectedId && selectedId !== context.mine?.id) {
+    secondTabTag = context.hashtags.find(t => t.id === selectedId) || secondTabTag;
+  }
+
   const otherUnreadCount = context.hashtags.reduce((acc, tag) => {
-    if (tag.id !== context.mine?.id && tag.id !== selectedId) {
+    if (tag.id !== secondTabTag?.id) {
       return acc + (context.roomUnread?.[tag.id] ?? 0);
     }
     return acc;
   }, 0);
 
   return (
-    <nav className="c-room-nav" aria-label="Chat rooms">
-      <div className="c-room-track">
+    <nav className="p-2.5 pb-1.5" aria-label="Chat rooms">
+      <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full relative">
         {/* General Room */}
         <button
           type="button"
-          className={`c-room-tab ${!selectedId ? 'is-active' : ''}`}
+          className={`flex-1 h-9 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 ${
+            !selectedId
+              ? 'bg-elevated text-content-primary border border-subtle shadow-[0_2px_8px_color-mix(in_srgb,var(--text-primary)_4%,transparent)]'
+              : 'text-content-secondary hover:text-content-primary'
+          }`}
           aria-pressed={!selectedId}
           onClick={() => tap(undefined)}
         >
-          <span className="c-room-tab-label">General</span>
+          <span>General</span>
           {!!context.roomUnread?.general && (
-            <span className="c-room-tab-badge" aria-label={`${context.roomUnread.general} unread`}>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${!selectedId ? 'bg-primary text-on-primary' : 'bg-base text-content-muted'}`}>
               {context.roomUnread.general > 99 ? '99+' : context.roomUnread.general}
             </span>
           )}
         </button>
 
-        {/* Visible Hashtag Rooms (Mine + Selected) */}
-        {visibleTags.map((tag) => {
-          const isSelected = selectedId === tag.id;
-          const isMine = context.mine?.id === tag.id;
-          const isLocked = !isMine || !!context.postingUnlockAt;
-          const unreadCount = context.roomUnread?.[tag.id] ?? 0;
+        {/* Second Tab (Mine or Selected) */}
+        {secondTabTag && (
+          <button
+            type="button"
+            className={`flex-1 h-9 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 ${
+              selectedId === secondTabTag.id
+                ? context.mine?.id === secondTabTag.id 
+                  ? 'bg-elevated text-primary border border-primary/20 shadow-[0_2px_8px_color-mix(in_srgb,var(--primary)_12%,transparent)]'
+                  : 'bg-elevated text-content-primary border border-subtle shadow-[0_2px_8px_color-mix(in_srgb,var(--text-primary)_4%,transparent)]'
+                : 'text-content-secondary hover:text-content-primary'
+            }`}
+            aria-pressed={selectedId === secondTabTag.id}
+            onClick={() => tap(secondTabTag.id)}
+          >
+            <span className="opacity-50 font-bold">#</span>
+            <span className="truncate max-w-[110px]">{secondTabTag.label}</span>
+            {!!context.roomUnread?.[secondTabTag.id] && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedId === secondTabTag.id ? (context.mine?.id === secondTabTag.id ? 'bg-primary text-on-primary' : 'bg-primary text-on-primary') : 'bg-base text-content-muted'}`}>
+                {context.roomUnread[secondTabTag.id] > 99 ? '99+' : context.roomUnread[secondTabTag.id]}
+              </span>
+            )}
+          </button>
+        )}
 
-          return (
-            <button
-              type="button"
-              key={tag.id}
-              aria-pressed={isSelected}
-              className={`c-room-tab ${isSelected ? 'is-active' : ''} ${isMine ? 'is-mine-tab' : ''}`}
-              onClick={() => tap(tag.id)}
-            >
-              {isLocked && <Lock size={10} className="c-room-tab-lock" />}
-              <span className="c-room-tab-hash">#</span>
-              <span className="c-room-tab-label">{tag.label}</span>
-              {unreadCount > 0 && (
-                <span className="c-room-tab-badge" aria-label={`${unreadCount} unread`}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
-
-        {/* Explore Hashtags button */}
+        {/* Explore / More button */}
         <button
           type="button"
-          className="c-room-tab c-room-tab-request"
           onClick={() => { setError(''); setPanel('explore'); }}
+          className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-colors relative ${panel === 'explore' ? 'bg-elevated border border-subtle text-content-primary shadow-sm' : 'text-content-muted hover:text-content-primary'}`}
           aria-label="Explore other rooms"
         >
-          <ChevronDown size={14} />
-          <span>More</span>
+          <ChevronDown size={16} />
           {otherUnreadCount > 0 && (
-            <span className="c-room-tab-badge ml-1" aria-label={`${otherUnreadCount} unread in other rooms`}>
-              {otherUnreadCount > 99 ? '99+' : otherUnreadCount}
-            </span>
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-secondary border-2 border-surface" aria-hidden="true" />
           )}
         </button>
       </div>
