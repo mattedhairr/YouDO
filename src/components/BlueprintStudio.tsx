@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, Folder, FolderOpen, ListChecks, MoreHorizontal, Pencil, Pin, Plus, Redo2, Search, Sparkles, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, FolderInput, FolderOpen, ListChecks, Pencil, Pin, Plus, Redo2, Search, Sparkles, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
 import type { GoalNode } from '../types';
 import type { GoalTreeChangeResult } from '../store';
 import { countBlueprintNodes, findBlueprintPath, removeBlueprintNodes } from '../lib/blueprintStudio';
 import { findGoal, hasGoalExecutionState, isGoalEndpoint, recomputeCompleted } from '../lib/goalTree';
 import { duplicateStudioItems, patchStudioItems, reorderStudioItems, studioItemPath, topStudioSelection } from '../lib/studioWorkspace';
 import { StudioButton, StudioPanel, StudioTargets } from './studio/StudioControls';
-import { StudioAction, StudioAddForm, StudioChangeReview, StudioChecklistForm, StudioEditForm, StudioMoveForm, StudioReviewTree, StudioSelectionList } from './studio/StudioForms';
+import { StudioAddForm, StudioChangeReview, StudioChecklistForm, StudioDrillDownPicker, StudioEditForm, StudioReviewTree, StudioSelectionList } from './studio/StudioForms';
 import AIPlanFlow from './studio/AIPlanFlow';
 import Overlay from './Overlay';
 import './studio/studio.css';
 
 type Panel =
   | { type: 'add'; ids: string[]; kind: 'goal' | 'items' | 'steps' }
-  | { type: 'edit' | 'checklist' | 'more' | 'move' | 'remove'; ids: string[] }
+  | { type: 'edit' | 'checklist' | 'remove'; ids: string[] }
   | { type: 'selection' | 'review' | 'ai-plan' };
 type DraftChange = { before: GoalNode[]; after: GoalNode[]; summary: string };
 interface Props {
@@ -38,6 +38,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
   const [query, setQuery] = useState('');
   const [exactMatch, setExactMatch] = useState(false);
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [confirmation, setConfirmation] = useState<'exit' | 'form' | null>(null);
   const [past, setPast] = useState<DraftChange[]>([]);
   const [future, setFuture] = useState<DraftChange[]>([]);
@@ -67,7 +68,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
   const activePath = activeGoalNodeId ? findBlueprintPath(draft, activeGoalNodeId).map((node) => node.id) : [];
   const panelIds = panel && 'ids' in panel ? panel.ids : [];
   const panelNodes = nodesAt(draft, panelIds);
-  const endpointsSelected = selectedNodes.length > 0 && selectedNodes.every((node) => node.kind !== 'goal' && isGoalEndpoint(node));
+
   const markDirty = (dirty: boolean) => { panelDirty.current = dirty; };
 
   const openPanel = (next: Panel) => {
@@ -85,9 +86,8 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
     if (changed || panelDirty.current) setConfirmation('exit');
     else onClose();
   };
-  const visit = (ids: string[], clearSelection = false) => {
+  const visit = (ids: string[]) => {
     setParentIds(ids); setQuery(''); setExactMatch(false);
-    if (clearSelection) { setSelected([]); setSelecting(false); }
     restoreScroll.current = 0;
   };
   const goBack = () => {
@@ -107,7 +107,8 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
       ? commonPath[commonPath.length - 1]
       : path.length > 1 ? path[path.length - 2] : null;
     setParentIds(nextParent ? [nextParent.id] : []);
-    setSelected([]); setSelecting(false); setQuery(''); setExactMatch(false); restoreScroll.current = 0;
+    setQuery(''); setExactMatch(false); restoreScroll.current = 0;
+    // Selection is intentionally preserved — user may have navigated away to select more items.
   };
   backRef.current = goBack;
   useEffect(() => {
@@ -182,12 +183,33 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
     panelDirty.current = false; onClose();
   };
   const toggle = (id: string) => { setSelecting(true); setSelected((ids) => ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id]); };
+  const stopSelecting = () => { setSelected([]); setSelecting(false); };
   const toggleVisible = () => {
     setSelecting(true);
     setSelected((ids) => allVisibleSelected ? ids.filter((id) => !visible.some((node) => node.id === id)) : [...new Set([...ids, ...visible.map((node) => node.id)])]);
   };
   const addHere = () => openPanel({ type: 'add', ids: parentIds, kind: parents.length ? 'items' : 'goal' });
-  const row = (node: GoalNode) => <div key={node.id} className={'studio-item' + (selected.includes(node.id) ? ' is-selected' : '')}>
+  // Long-press-to-select: threshold 420ms; if pointer moves more than 6px it becomes a scroll/drag.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressOrigin = useRef<{ x: number; y: number } | null>(null);
+  const pressCancelled = useRef(false);
+  const startPress = (id: string, x: number, y: number) => {
+    pressCancelled.current = false;
+    pressOrigin.current = { x, y };
+    pressTimer.current = setTimeout(() => {
+      if (!pressCancelled.current) toggle(id);
+    }, 420);
+  };
+  const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  const movePress = (x: number, y: number) => {
+    if (pressOrigin.current && (Math.abs(x - pressOrigin.current.x) > 6 || Math.abs(y - pressOrigin.current.y) > 6)) {
+      pressCancelled.current = true; cancelPress();
+    }
+  };
+  const row = (node: GoalNode) => <div key={node.id} className={'studio-item' + (selected.includes(node.id) ? ' is-selected' : '')}
+    onPointerDown={(e) => { if (!selecting) startPress(node.id, e.clientX, e.clientY); }}
+    onPointerMove={(e) => movePress(e.clientX, e.clientY)}
+    onPointerUp={cancelPress} onPointerCancel={cancelPress}>
     {selecting ? <button type="button" className="studio-icon-button studio-select-box" aria-label={`Select ${node.title}`} aria-pressed={selected.includes(node.id)} onClick={() => toggle(node.id)}>{selected.includes(node.id) ? <CheckSquare2 size={19} /> : <Square size={19} />}</button> : <span className="studio-item-icon">{itemIcon(node)}</span>}
     <button type="button" className="studio-item-label" onClick={() => selecting ? toggle(node.id) : visit([node.id])}><strong>{node.title}{node.pinned && <Pin size={11} />}</strong><span>{node.children.length ? `${node.children.length} items` : node.steps?.length ? `${node.steps.length} checklist steps` : 'No items inside'}{node.completed ? ' · Complete' : node.todayTaskId ? ' · Scheduled' : ''}</span></button>
     {!selecting && <button type="button" className="studio-icon-button" aria-label={`Edit ${node.title}`} onClick={() => openPanel({ type: 'edit', ids: [node.id] })}><Pencil size={15} /></button>}
@@ -195,12 +217,16 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
   </div>;
   const panelTitle = panel?.type === 'add' ? panel.kind === 'steps' ? 'Add checklist steps' : panel.kind === 'goal' ? 'Add goals' : 'Add items'
     : panel?.type === 'edit' ? panelNodes.length === 1 ? 'Edit item' : `Edit ${panelNodes.length} items`
-    : panel?.type === 'checklist' ? 'Edit checklist' : panel?.type === 'more' ? 'More actions'
-    : panel?.type === 'move' ? 'Move items' : panel?.type === 'remove' ? 'Remove from blueprint?'
+    : panel?.type === 'checklist' ? 'Edit checklist' : panel?.type === 'remove' ? 'Remove from blueprint?'
     : panel?.type === 'selection' ? `${selected.length} selected` : panel?.type === 'ai-plan' ? 'Plan with AI' : 'Review blueprint';
   const removeRoots = topStudioSelection(draft, panelIds);
   const removeCount = countBlueprintNodes(nodesAt(draft, removeRoots));
   const removeLocked = removeRoots.some((id) => activePath.includes(id));
+
+  // Smart contextual action for selection bar
+  const selectionRoots = topStudioSelection(draft, selected);
+  const allEndpoints = selectedNodes.length > 0 && selectedNodes.every((node) => node.kind !== 'goal' && isGoalEndpoint(node));
+  const canAddInsideSelection = selectedNodes.every((node) => canAddInside(node));
 
   return <Overlay open={open} onClose={goBack} align="full" scrim={false}>
     <div className="studio">
@@ -228,7 +254,6 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
           <div className="studio-toolbar">
             <StudioButton onClick={addHere} disabled={parents.some((node) => !canAddInside(node))}><Plus size={16} />{multi ? `Add to ${parents.length} branches` : current ? 'Add item' : 'Add goal'}</StudioButton>
             {!current && !multi && <StudioButton quiet onClick={() => openPanel({ type: 'ai-plan' })}><Sparkles size={15} /> Plan with AI</StudioButton>}
-            <StudioButton quiet onClick={() => { setSelecting(!selecting); setSelected([]); }}>{selecting ? 'Done selecting' : 'Select'}</StudioButton>
           </div>
           {current && !canAddInside(current) && <p className="studio-context">This task has recorded work or checklist steps. Edit its checklist below.</p>}
           {(sections.reduce((sum, section) => sum + section.children.length, 0) > 7 || query || multi) && <label className="studio-search"><Search size={16} /><input aria-label="Find items in this view" placeholder="Find an item…" value={query} onChange={(e) => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear filter" onClick={() => setQuery('')}><X size={14} /></button>}</label>}
@@ -248,34 +273,53 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
             </section>;
           })}
         </div>
-        {selected.length > 0 && <div className="studio-selection-bar"><div><button type="button" onClick={() => openPanel({ type: 'selection' })}>{selected.length} selected <ChevronRight size={13} /></button><button type="button" onClick={() => { setSelected([]); setSelecting(false); }}>Clear</button></div><div className="studio-selection-actions">
-          <button type="button" aria-label="Edit selected items" onClick={() => openPanel({ type: 'edit', ids: selected })}><Pencil size={17} /> Edit</button>
-          <button type="button" disabled={selectedNodes.some((node) => !canAddInside(node))} onClick={() => openPanel({ type: 'add', ids: topStudioSelection(draft, selected), kind: 'items' })}><Plus size={18} /> Add inside</button>
-          <button type="button" onClick={() => visit(topStudioSelection(draft, selected), true)}><FolderOpen size={18} /> Open</button>
-          <button type="button" onClick={() => openPanel({ type: 'more', ids: selected })}><MoreHorizontal size={19} /> More</button>
-        </div>{endpointsSelected && <button type="button" className="studio-inline-add" onClick={() => openPanel({ type: 'add', ids: selected, kind: 'steps' })}><ListChecks size={14} /> Add checklist steps to selected tasks</button>}</div>}
+        {selected.length > 0 && <div className="studio-selection-bar">
+          <div className="studio-selection-bar-header">
+            <button type="button" className="studio-selection-count" onClick={() => openPanel({ type: 'selection' })}>
+              {selected.length} selected{(() => {
+                const branches = new Set(selected.map((id) => {
+                  const path = findBlueprintPath(draft, id);
+                  return path.length > 1 ? path[path.length - 2]?.id ?? 'root' : 'root';
+                }));
+                return branches.size > 1 ? ` · ${branches.size} branches` : '';
+              })()}
+              <ChevronRight size={13} />
+            </button>
+            <button type="button" className="studio-selection-stop" onClick={stopSelecting}>Stop selecting</button>
+          </div>
+          <div className="studio-selection-actions">
+            <button type="button" aria-label="Edit selected" onClick={() => openPanel({ type: 'edit', ids: selected })}><Pencil size={17} /><span>Edit</span></button>
+            <button type="button" aria-label="Move selected" onClick={() => setMoveIds(selected)}><FolderInput size={17} /><span>Move</span></button>
+            <button type="button" aria-label="Duplicate selected" onClick={() => { apply(duplicateStudioItems(draft, selected), `Duplicated ${selectionRoots.length} item${selectionRoots.length === 1 ? '' : 's'}`); stopSelecting(); }}><Copy size={17} /><span>Duplicate</span></button>
+            <button type="button" aria-label="Reorder up" onClick={() => apply(reorderStudioItems(draft, selected, 'up'), 'Moved items up')}><ArrowUp size={17} /><span>Up</span></button>
+            <button type="button" aria-label="Reorder down" onClick={() => apply(reorderStudioItems(draft, selected, 'down'), 'Moved items down')}><ArrowDown size={17} /><span>Down</span></button>
+            <button type="button" aria-label="Pin / unpin selected" onClick={() => apply(patchStudioItems(draft, Object.fromEntries(selected.map((id) => [id, { pinned: !selectedNodes.every((n) => n.pinned) }]))), 'Changed pins')}><Pin size={17} /><span>{selectedNodes.every((n) => n.pinned) ? 'Unpin' : 'Pin'}</span></button>
+            <button type="button" className="studio-selection-delete" aria-label="Remove selected" onClick={() => openPanel({ type: 'remove', ids: selected })}><Trash2 size={17} /><span>Delete</span></button>
+          </div>
+          {allEndpoints
+            ? <button type="button" className="studio-selection-contextual" onClick={() => openPanel({ type: 'add', ids: selected, kind: 'steps' })}><ListChecks size={14} /> Add checklist steps to {selected.length} task{selected.length === 1 ? '' : 's'}</button>
+            : canAddInsideSelection
+              ? <button type="button" className="studio-selection-contextual" onClick={() => openPanel({ type: 'add', ids: selectionRoots, kind: 'items' })}><Plus size={14} /> Add items inside selection</button>
+              : null}
+        </div>}
         <footer className="studio-draft-footer"><span role="status">{status || 'Changes stay in this draft until you save.'}</span><div><button type="button" className="studio-icon-button" aria-label="Undo draft edit" disabled={!past.length} onClick={undo}><Undo2 size={17} /></button><button type="button" className="studio-icon-button" aria-label="Redo draft edit" disabled={!future.length} onClick={redo}><Redo2 size={17} /></button></div></footer>
       </div>
       {panel && <StudioPanel title={panelTitle} onClose={dismissPanel} inactive={Boolean(confirmation)}>
         {panel.type === 'add' && <StudioAddForm goals={draft} ids={panel.ids} kind={panel.kind} onApply={apply} onDirty={markDirty} />}
         {panel.type === 'edit' && <StudioEditForm goals={draft} ids={panel.ids} onApply={apply} onDirty={markDirty} />}
         {panel.type === 'checklist' && <StudioChecklistForm goals={draft} ids={panel.ids} onApply={apply} onDirty={markDirty} />}
-        {panel.type === 'move' && <StudioMoveForm goals={draft} ids={panel.ids} onApply={apply} />}
         {panel.type === 'selection' && <StudioSelectionList goals={draft} ids={selected} onToggle={toggle} />}
         {panel.type === 'ai-plan' && <AIPlanFlow goals={draft} onApply={apply} onDirty={markDirty} />}
-        {panel.type === 'more' && <div className="studio-panel-body"><StudioTargets goals={draft} nodes={panelNodes} /><div className="studio-actions">
-          {panelNodes.every((node) => node.kind !== 'goal' && isGoalEndpoint(node)) && <><StudioAction icon={<ListChecks size={17} />} label="Edit checklist steps" onClick={() => openPanel({ type: 'checklist', ids: panelIds })} /><StudioAction icon={<Plus size={17} />} label="Add checklist steps" onClick={() => openPanel({ type: 'add', ids: panelIds, kind: 'steps' })} /></>}
-          <StudioAction icon={<Copy size={17} />} label="Duplicate" detail="Fresh copies, without completion or schedules" onClick={() => apply(duplicateStudioItems(draft, panelIds), `Duplicated ${topStudioSelection(draft, panelIds).length} items`)} />
-          <StudioAction icon={<FolderOpen size={17} />} label="Move to…" onClick={() => openPanel({ type: 'move', ids: panelIds })} />
-          <StudioAction icon={<ArrowUp size={17} />} label="Move up" onClick={() => apply(reorderStudioItems(draft, panelIds, 'up'), 'Moved selected items up')} />
-          <StudioAction icon={<ArrowDown size={17} />} label="Move down" onClick={() => apply(reorderStudioItems(draft, panelIds, 'down'), 'Moved selected items down')} />
-          <StudioAction icon={<Pin size={17} />} label={panelNodes.every((node) => node.pinned) ? 'Unpin selected' : 'Pin selected'} onClick={() => apply(patchStudioItems(draft, Object.fromEntries(panelIds.map((id) => [id, { pinned: !panelNodes.every((node) => node.pinned) }]))), 'Changed pins')} />
-          <StudioAction icon={<Trash2 size={17} />} label="Remove…" danger onClick={() => openPanel({ type: 'remove', ids: panelIds })} />
-        </div></div>}
-        {panel.type === 'remove' && <><div className="studio-panel-body"><StudioTargets goals={draft} nodes={nodesAt(draft, removeRoots)} /><p>Remove {removeCount} item{removeCount === 1 ? '' : 's'}, including anything inside? Undo stays available in this draft.</p><p className="studio-context">Linked current Today plans are removed too. Past focus history stays.</p>{removeLocked && <p role="alert" className="studio-error">One item contains your active focus task. Finish the session first.</p>}</div><footer className="studio-panel-footer"><StudioButton quiet onClick={dismissPanel}>Keep items</StudioButton><StudioButton danger disabled={removeLocked} onClick={() => apply(removeBlueprintNodes(draft, removeRoots), `Removed ${removeCount} items`)}>Remove {removeCount} items</StudioButton></footer></>}
+        {panel.type === 'remove' && <><div className="studio-panel-body"><StudioTargets goals={draft} nodes={nodesAt(draft, removeRoots)} /><p>Remove {removeCount} item{removeCount === 1 ? '' : 's'}, including anything inside? Undo stays available in this draft.</p><p className="studio-context">Linked current Today plans are removed too. Past focus history stays.</p>{removeLocked && <p role="alert" className="studio-error">One item contains your active focus task. Finish the session first.</p>}</div><footer className="studio-panel-footer"><StudioButton quiet onClick={dismissPanel}>Keep items</StudioButton><StudioButton danger disabled={removeLocked} onClick={() => { apply(removeBlueprintNodes(draft, removeRoots), `Removed ${removeCount} items`); stopSelecting(); }}>Remove {removeCount} items</StudioButton></footer></>}
         {panel.type === 'review' && <><div className="studio-panel-body"><p className="studio-context">{past.length} draft edit{past.length === 1 ? '' : 's'} · {countBlueprintNodes(draft)} total items</p><StudioChangeReview before={baseGoals} after={draft} /><details className="studio-disclosure"><summary>View full blueprint <ChevronRight size={14} /></summary><StudioReviewTree nodes={draft} /></details></div><footer className="studio-panel-footer"><StudioButton quiet onClick={dismissPanel}>Keep editing</StudioButton><StudioButton disabled={!changed} onClick={save}><Check size={16} /> Save blueprint</StudioButton></footer></>}
         {error && <p role="alert" className="studio-error studio-panel-error">{error}</p>}
       </StudioPanel>}
+      {moveIds && <StudioDrillDownPicker
+        goals={draft}
+        ids={moveIds}
+        onClose={() => setMoveIds(null)}
+        onApply={(next, summary) => { apply(next, summary); setMoveIds(null); stopSelecting(); }}
+      />}
       {confirmation && <StudioPanel title={confirmation === 'form' ? 'Discard this edit?' : 'Leave without saving?'} onClose={() => setConfirmation(null)}>
         <div className="studio-panel-body"><p>{confirmation === 'form' ? 'This edit has not been applied. Your other draft changes will stay.' : 'Your unsaved blueprint changes will be discarded.'}</p></div>
         <footer className="studio-panel-footer"><StudioButton quiet onClick={() => setConfirmation(null)}>Keep editing</StudioButton><StudioButton danger onClick={() => {

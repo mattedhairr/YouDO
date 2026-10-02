@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, ChevronRight, Copy, Folder, LockKeyhole, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Folder, FolderCheck, FolderInput, LockKeyhole, Plus, Search, Target, Trash2 } from 'lucide-react';
 import type { GoalNode } from '../../types';
 import { findGoal, hasGoalExecutionState, isGoalEndpoint } from '../../lib/goalTree';
-import { addBlueprintChildren, addBlueprintSteps, flattenBlueprint, makeBlueprintNode, normalizeBlueprintTitles, numberedBlueprintTitles } from '../../lib/blueprintStudio';
+import { addBlueprintChildren, addBlueprintSteps, findBlueprintPath, flattenBlueprint, makeBlueprintNode, normalizeBlueprintTitles, numberedBlueprintTitles } from '../../lib/blueprintStudio';
 import { canMoveStudioItems, editStudioSteps, moveStudioItems, patchStudioItems, studioChangeDetails, studioItemPath, type StudioPatch, type StudioStepEdit } from '../../lib/studioWorkspace';
 import { fieldClass, StudioButton, StudioField, StudioTabs, StudioTargets } from './StudioControls';
 
@@ -191,3 +191,174 @@ export function StudioChangeReview({ before, after }: { before: GoalNode[]; afte
   const entry = (change: typeof changes[number]) => <li key={change.id}><strong>{change.title}</strong><span>{change.path}</span><p>{change.detail}</p></li>;
   return <div className="studio-change-details"><ul>{changes.slice(0, 6).map(entry)}</ul>{changes.length > 6 && <details className="studio-disclosure"><summary>{changes.length - 6} more changed items <ChevronDown size={14} /></summary><ul>{changes.slice(6).map(entry)}</ul></details>}</div>;
 }
+
+/** Hierarchical drill-down destination picker — replaces StudioMoveForm for Move actions. */
+export function StudioDrillDownPicker({ goals, ids, onClose, onApply }: {
+  goals: GoalNode[];
+  ids: string[];
+  onClose: () => void;
+  onApply: (next: GoalNode[], summary: string) => void;
+}) {
+  const [pathIds, setPathIds] = useState<string[]>([]);
+  const [query, setQuery] = useState('');
+
+  const movers = ids.map((id) => findGoal(goals, id)).filter((n): n is GoalNode => Boolean(n));
+  const currentId = pathIds.length > 0 ? pathIds[pathIds.length - 1] : null;
+  const current = currentId ? findGoal(goals, currentId) : null;
+
+  // Breadcrumb path for current level
+  const breadcrumb = useMemo(() => currentId ? findBlueprintPath(goals, currentId) : [], [goals, currentId]);
+
+  // Direct children at current level to show as drill-down targets
+  const levelChildren = useMemo(() => {
+    const rawList = current ? current.children : goals;
+    return rawList.filter((node) => {
+      // Cannot enter an endpoint that has execution state (it won't accept children)
+      if (node.kind !== 'goal' && isGoalEndpoint(node) && hasGoalExecutionState(node)) return false;
+      return true;
+    });
+  }, [current, goals]);
+
+  // Flat search results (only shown when searching)
+  const searchResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    const results: { node: GoalNode; path: GoalNode[] }[] = [];
+    const walk = (node: GoalNode, path: GoalNode[]) => {
+      const cur = [...path, node];
+      if (node.title.toLowerCase().includes(q) && !(node.kind !== 'goal' && isGoalEndpoint(node) && hasGoalExecutionState(node))) {
+        results.push({ node, path: cur });
+      }
+      node.children.forEach((child) => walk(child, cur));
+    };
+    goals.forEach((root) => walk(root, []));
+    return results;
+  }, [goals, query]);
+
+  const canMove = canMoveStudioItems(goals, ids, currentId);
+  const count = ids.length;
+
+  const handleConfirm = () => {
+    if (!canMove) return;
+    const next = moveStudioItems(goals, ids, currentId);
+    const destName = current ? current.title : 'All goals';
+    onApply(next, `Moved ${count} item${count === 1 ? '' : 's'} to ${destName}`);
+  };
+
+  const drill = (id: string) => { setQuery(''); setPathIds((prev) => [...prev, id]); };
+  const goUp = () => setPathIds((prev) => prev.slice(0, -1));
+  const jumpTo = (index: number) => { if (index < 0) setPathIds([]); else setPathIds(pathIds.slice(0, index + 1)); };
+
+  return (
+    <div className="studio-panel-scrim" role="dialog" aria-modal="true" aria-label="Move items">
+      <div className="studio-panel studio-drilldown-panel">
+        {/* Header */}
+        <div className="studio-panel-header">
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FolderInput size={17} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+              <h2>Move {count} item{count === 1 ? '' : 's'}</h2>
+            </div>
+            <p>Choose the destination branch</p>
+          </div>
+          <button type="button" className="studio-icon-button" aria-label="Close" onClick={onClose}><ChevronDown size={18} /></button>
+        </div>
+
+        {/* Search */}
+        <div className="studio-drilldown-search">
+          <Search size={14} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search for a destination…"
+            className={fieldClass}
+            aria-label="Search destination"
+          />
+          {query && <button type="button" aria-label="Clear search" onClick={() => setQuery('')} style={{ color: 'var(--text-muted)', padding: '0 6px' }}>×</button>}
+        </div>
+
+        {/* Breadcrumb nav (hidden when searching) */}
+        {!query && (
+          <div className="studio-drilldown-breadcrumb">
+            <button type="button" className="studio-icon-button" onClick={goUp} disabled={pathIds.length === 0} aria-label="Go up one level" style={{ width: 32, height: 32 }}>
+              <ArrowLeft size={15} />
+            </button>
+            <button type="button" className={`studio-drilldown-crumb${currentId === null ? ' is-current' : ''}`} onClick={() => jumpTo(-1)}>All goals</button>
+            {breadcrumb.map((node, i) => (
+              <span key={node.id} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                <ChevronRight size={11} style={{ color: 'var(--text-muted)' }} />
+                <button type="button" className={`studio-drilldown-crumb${i === breadcrumb.length - 1 ? ' is-current' : ''}`} onClick={() => jumpTo(i)}>
+                  {node.title}
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Destination highlight */}
+        {!query && (
+          <div className="studio-drilldown-target">
+            <FolderCheck size={16} />
+            <div>
+              <strong>Moving into:</strong>
+              <span>{current ? current.title : 'All goals (top level)'}</span>
+            </div>
+            {canMove ? <Check size={14} style={{ color: 'var(--secondary)', marginLeft: 'auto', flexShrink: 0 }} /> : null}
+          </div>
+        )}
+
+        {/* Panel body — level list or search results */}
+        <div className="studio-panel-body studio-drilldown-body">
+          {query && searchResults ? (
+            searchResults.length === 0
+              ? <p className="studio-context" style={{ textAlign: 'center', padding: '24px 0' }}>No matching branches</p>
+              : searchResults.map(({ node, path }) => {
+                  const isInvalid = !canMoveStudioItems(goals, ids, node.id);
+                  const bc = path.slice(0, -1).map((n) => n.title).join(' › ');
+                  return (
+                    <button key={node.id} type="button" disabled={isInvalid} onClick={() => { setPathIds(path.map((n) => n.id)); setQuery(''); }}
+                      className={`studio-drilldown-row${isInvalid ? ' is-invalid' : ''}`}>
+                      <Folder size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                      <span>
+                        <strong>{node.title}</strong>
+                        {bc && <span style={{ display: 'block', fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>{bc}</span>}
+                      </span>
+                      {!isInvalid && <ChevronRight size={14} style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: 'auto' }} />}
+                    </button>
+                  );
+                })
+          ) : (
+            levelChildren.length === 0
+              ? <div className="studio-empty" style={{ border: 'none', padding: '16px 0' }}>
+                  <p style={{ fontSize: 12 }}>No sub-branches here. Items will land in <strong>{current?.title ?? 'All goals'}</strong>.</p>
+                </div>
+              : levelChildren.map((child) => {
+                  const isInvalid = !canMoveStudioItems(goals, ids, child.id);
+                  const isGoal = child.kind === 'goal';
+                  return (
+                    <button key={child.id} type="button" disabled={isInvalid} onClick={() => drill(child.id)}
+                      className={`studio-drilldown-row${isInvalid ? ' is-invalid' : ''}`}>
+                      {isGoal ? <Target size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} /> : <Folder size={15} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />}
+                      <span>
+                        <strong>{child.title}</strong>
+                        <span style={{ display: 'block', fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>
+                          {isInvalid ? 'Cannot move here' : `${child.children.length} sub-item${child.children.length === 1 ? '' : 's'}`}
+                        </span>
+                      </span>
+                      {!isInvalid && <ChevronRight size={14} style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: 'auto' }} />}
+                    </button>
+                  );
+                })
+          )}
+        </div>
+
+        {/* Footer */}
+        <footer className="studio-panel-footer">
+          <StudioButton quiet onClick={onClose}>Cancel</StudioButton>
+          <StudioButton disabled={!canMove} onClick={handleConfirm}><FolderInput size={15} /> Move here</StudioButton>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
