@@ -56,14 +56,13 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
     onSelect(id);
   };
 
-  // Reorder hashtags so user's assigned hashtag is immediately after General
-  const sortedHashtags = [ ...context.hashtags ].sort((a, b) => {
-    const aIsMine = context.mine?.id === a.id;
-    const bIsMine = context.mine?.id === b.id;
-    if (aIsMine && !bIsMine) return -1;
-    if (!aIsMine && bIsMine) return 1;
-    return 0;
-  });
+  const visibleTags = context.hashtags.filter(tag => tag.id === context.mine?.id || tag.id === selectedId);
+  const otherUnreadCount = context.hashtags.reduce((acc, tag) => {
+    if (tag.id !== context.mine?.id && tag.id !== selectedId) {
+      return acc + (context.roomUnread?.[tag.id] ?? 0);
+    }
+    return acc;
+  }, 0);
 
   return (
     <nav className="c-room-nav" aria-label="Chat rooms">
@@ -83,8 +82,8 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
           )}
         </button>
 
-        {/* Hashtag Rooms (User's room is first immediately after General) */}
-        {sortedHashtags.map((tag) => {
+        {/* Visible Hashtag Rooms (Mine + Selected) */}
+        {visibleTags.map((tag) => {
           const isSelected = selectedId === tag.id;
           const isMine = context.mine?.id === tag.id;
           const isLocked = !isMine || !!context.postingUnlockAt;
@@ -110,47 +109,82 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
           );
         })}
 
-        {/* Request Hashtag button */}
+        {/* Explore Hashtags button */}
         <button
           type="button"
           className="c-room-tab c-room-tab-request"
-          onClick={() => { setError(''); setPanel('request'); }}
-          aria-label="Request a hashtag"
+          onClick={() => { setError(''); setPanel('explore'); }}
+          aria-label="Explore other rooms"
         >
-          <Plus size={12} />
-          <span>Request</span>
+          <ChevronDown size={14} />
+          <span>More</span>
+          {otherUnreadCount > 0 && (
+            <span className="c-room-tab-badge ml-1" aria-label={`${otherUnreadCount} unread in other rooms`}>
+              {otherUnreadCount > 99 ? '99+' : otherUnreadCount}
+            </span>
+          )}
         </button>
       </div>
 
       {error && !panel && <p className="c-hashtag-inline-error">{error}</p>}
 
       <Overlay open={panel !== null} onClose={() => setPanel(null)} align="bottom">
-        <section className="c-hashtag-sheet">
-          <header>
-            <div>
-              <span>EXAM CHAT</span>
-              <h3>Request a hashtag</h3>
-            </div>
-            <button type="button" onClick={() => setPanel(null)} aria-label="Close"><X size={17} /></button>
-          </header>
-          <>
-            {context.requests.length > 0 && (
-              <div className="c-hashtag-request-list">
-                {context.requests.map((item) => (
-                  <div className={`c-hashtag-request-state is-${item.status}`} key={item.id}>
-                    <strong>{item.status === 'waiting' ? 'Admin replied' : item.status === 'declined' ? 'Not approved' : 'Request sent'}</strong>
-                    <span>#{item.examName}</span>
-                    {item.adminResponse && <p>{item.adminResponse}</p>}
-                  </div>
-                ))}
+        {panel === 'explore' && (
+          <section className="c-hashtag-sheet">
+            <header>
+              <div>
+                <span>EXAM CHAT</span>
+                <h3>Explore rooms</h3>
               </div>
-            )}
-            <label>Exam name<input value={exam} onChange={(e) => setExam(e.target.value)} maxLength={50} placeholder="e.g. GATE, NEET PG, UPSC CSE" /></label>
-            <label>Helpful context <small>optional</small><textarea value={details} onChange={(e) => setDetails(e.target.value)} maxLength={240} rows={3} placeholder="Branch, stage, or anything the admin should know" /></label>
-            <button type="button" className="c-hashtag-submit" disabled={busy || exam.trim().length < 2} onClick={() => void request()}>{busy ? 'Sending…' : 'Send request'}</button>
-          </>
-          {error && <p role="alert" className="c-hashtag-sheet-error">{error}</p>}
-        </section>
+              <button type="button" onClick={() => setPanel(null)} aria-label="Close"><X size={17} /></button>
+            </header>
+            <div className="mt-2 flex max-h-[50vh] flex-col gap-2 overflow-y-auto pb-4">
+              {context.hashtags.map(tag => {
+                const unreadCount = context.roomUnread?.[tag.id] ?? 0;
+                return (
+                  <button key={tag.id} type="button" onClick={() => { tap(tag.id); setPanel(null); }} className="flex items-center justify-between rounded-xl border border-subtle p-3.5 text-left transition-colors hover:bg-surface">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-content-primary">#{tag.label}</span>
+                      {context.mine?.id === tag.id && <span className="rounded-full bg-secondary-soft px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-secondary">Your exam</span>}
+                    </div>
+                    {unreadCount > 0 && <span className="c-room-tab-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <button type="button" className="c-hashtag-submit mt-2 w-full" onClick={() => setPanel('request')}>Request a new exam hashtag</button>
+          </section>
+        )}
+        
+        {panel === 'request' && (
+          <section className="c-hashtag-sheet">
+            <header>
+              <div>
+                <button type="button" onClick={() => setPanel('explore')} className="mr-2 inline-flex items-center text-content-muted" aria-label="Back"><ChevronDown size={17} className="rotate-90" /></button>
+                <span>EXAM CHAT</span>
+                <h3>Request a hashtag</h3>
+              </div>
+              <button type="button" onClick={() => setPanel(null)} aria-label="Close"><X size={17} /></button>
+            </header>
+            <>
+              {context.requests.length > 0 && (
+                <div className="c-hashtag-request-list">
+                  {context.requests.map((item) => (
+                    <div className={`c-hashtag-request-state is-${item.status}`} key={item.id}>
+                      <strong>{item.status === 'waiting' ? 'Admin replied' : item.status === 'declined' ? 'Not approved' : 'Request sent'}</strong>
+                      <span>#{item.examName}</span>
+                      {item.adminResponse && <p>{item.adminResponse}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <label>Exam name<input value={exam} onChange={(e) => setExam(e.target.value)} maxLength={50} placeholder="e.g. GATE, NEET PG, UPSC CSE" /></label>
+              <label>Helpful context <small>optional</small><textarea value={details} onChange={(e) => setDetails(e.target.value)} maxLength={240} rows={3} placeholder="Branch, stage, or anything the admin should know" /></label>
+              <button type="button" className="c-hashtag-submit" disabled={busy || exam.trim().length < 2} onClick={() => void request()}>{busy ? 'Sending…' : 'Send request'}</button>
+            </>
+            {error && <p role="alert" className="c-hashtag-sheet-error">{error}</p>}
+          </section>
+        )}
       </Overlay>
     </nav>
   );
