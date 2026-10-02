@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.6.5] — 2026-10-02 — Community experience overhaul, live chat sync, and Blueprint multi-planning
+
+- **Streamlined community navigation** — Room switcher redesigned into a clean segmented control showing General and your active exam group side-by-side with smooth sliding transitions, plus a dedicated Explore drawer for other hashtags.
+- **Real-time chat sync & instant refresh** — Live background sync now refreshes every 2 seconds for immediate multi-device updates, and the header reload button triggers an instant chat sync.
+- **Modern message actions** — Long-press options upgraded to an iOS-style bottom sheet with quote preview card, distinct action icons, danger styling for deletions, tactile haptics, and a separate cancel button.
+- **Goal date clarity** — Goal timeline badges now show "X days to start" for upcoming goals and transition to "X days left" once in progress.
+- **Blueprint multi-planning** — Support for adding tasks inside multiple selected parents simultaneously with individual or shared modes (One, List, Numbered), streamlined action dock, and hierarchical drill-down move picker.
+- **Android APK** — versionName **7.6.5**, versionCode **64**. Installs over **v7.6.4**, **v7.6.3**, or **v7.6.2** without clearing app data.
+
+---
+
 ## [v7.6.4] — 2026-09-30 — Conversational AI planning in Blueprint Studio
 
 - **Conversational AI mentor** — Blueprint Studio replaces the multi-step form with a single planning prompt. Take it to ChatGPT, Claude, or Gemini to be guided by an expert mentor who asks short, focused questions about your goals, routine, and syllabus.
