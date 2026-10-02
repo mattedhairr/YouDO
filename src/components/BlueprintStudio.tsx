@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, FolderInput, FolderOpen, ListChecks, Pencil, Pin, Plus, Redo2, Search, Sparkles, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Check, CheckSquare2, ChevronRight, Circle, Copy, FolderInput, FolderOpen, ListChecks, MoreHorizontal, Pencil, Pin, Plus, Redo2, Search, Sparkles, Square, Target, Trash2, Undo2, Wand2, X } from 'lucide-react';
 import type { GoalNode } from '../types';
 import type { GoalTreeChangeResult } from '../store';
 import { countBlueprintNodes, findBlueprintPath, removeBlueprintNodes } from '../lib/blueprintStudio';
 import { findGoal, hasGoalExecutionState, isGoalEndpoint, recomputeCompleted } from '../lib/goalTree';
 import { duplicateStudioItems, patchStudioItems, reorderStudioItems, studioItemPath, topStudioSelection } from '../lib/studioWorkspace';
 import { StudioButton, StudioPanel, StudioTargets } from './studio/StudioControls';
-import { StudioAddForm, StudioChangeReview, StudioChecklistForm, StudioDrillDownPicker, StudioEditForm, StudioReviewTree, StudioSelectionList } from './studio/StudioForms';
+import { StudioAction, StudioAddForm, StudioChangeReview, StudioChecklistForm, StudioDrillDownPicker, StudioEditForm, StudioReviewTree, StudioSelectionList } from './studio/StudioForms';
 import AIPlanFlow from './studio/AIPlanFlow';
 import Overlay from './Overlay';
 import './studio/studio.css';
 
 type Panel =
   | { type: 'add'; ids: string[]; kind: 'goal' | 'items' | 'steps' }
-  | { type: 'edit' | 'checklist' | 'remove'; ids: string[] }
+  | { type: 'edit' | 'checklist' | 'more' | 'remove'; ids: string[] }
   | { type: 'selection' | 'review' | 'ai-plan' };
 type DraftChange = { before: GoalNode[]; after: GoalNode[]; summary: string };
 interface Props {
@@ -223,7 +223,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
   const removeCount = countBlueprintNodes(nodesAt(draft, removeRoots));
   const removeLocked = removeRoots.some((id) => activePath.includes(id));
 
-  // Smart contextual action for selection bar
+  // Smart contextual actions for selection bar
   const selectionRoots = topStudioSelection(draft, selected);
   const allEndpoints = selectedNodes.length > 0 && selectedNodes.every((node) => node.kind !== 'goal' && isGoalEndpoint(node));
   const canAddInsideSelection = selectedNodes.every((node) => canAddInside(node));
@@ -291,16 +291,29 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
             <button type="button" aria-label="Edit selected" onClick={() => openPanel({ type: 'edit', ids: selected })}><Pencil size={17} /><span>Edit</span></button>
             <button type="button" aria-label="Move selected" onClick={() => setMoveIds(selected)}><FolderInput size={17} /><span>Move</span></button>
             <button type="button" aria-label="Duplicate selected" onClick={() => { apply(duplicateStudioItems(draft, selected), `Duplicated ${selectionRoots.length} item${selectionRoots.length === 1 ? '' : 's'}`); stopSelecting(); }}><Copy size={17} /><span>Duplicate</span></button>
-            <button type="button" aria-label="Reorder up" onClick={() => apply(reorderStudioItems(draft, selected, 'up'), 'Moved items up')}><ArrowUp size={17} /><span>Up</span></button>
-            <button type="button" aria-label="Reorder down" onClick={() => apply(reorderStudioItems(draft, selected, 'down'), 'Moved items down')}><ArrowDown size={17} /><span>Down</span></button>
-            <button type="button" aria-label="Pin / unpin selected" onClick={() => apply(patchStudioItems(draft, Object.fromEntries(selected.map((id) => [id, { pinned: !selectedNodes.every((n) => n.pinned) }]))), 'Changed pins')}><Pin size={17} /><span>{selectedNodes.every((n) => n.pinned) ? 'Unpin' : 'Pin'}</span></button>
+            <button type="button" aria-label="More actions" onClick={() => openPanel({ type: 'more', ids: selected })}><MoreHorizontal size={17} /><span>More</span></button>
             <button type="button" className="studio-selection-delete" aria-label="Remove selected" onClick={() => openPanel({ type: 'remove', ids: selected })}><Trash2 size={17} /><span>Delete</span></button>
           </div>
-          {allEndpoints
-            ? <button type="button" className="studio-selection-contextual" onClick={() => openPanel({ type: 'add', ids: selected, kind: 'steps' })}><ListChecks size={14} /> Add checklist steps to {selected.length} task{selected.length === 1 ? '' : 's'}</button>
-            : canAddInsideSelection
-              ? <button type="button" className="studio-selection-contextual" onClick={() => openPanel({ type: 'add', ids: selectionRoots, kind: 'items' })}><Plus size={14} /> Add items inside selection</button>
-              : null}
+          {canAddInsideSelection && (
+            <div className="studio-selection-contextual-group">
+              <button
+                type="button"
+                className="studio-selection-contextual"
+                onClick={() => openPanel({ type: 'add', ids: selectionRoots, kind: 'items' })}
+              >
+                <Plus size={14} /> Add items inside {selected.length > 1 ? `each (${selected.length})` : 'task'}
+              </button>
+              {allEndpoints && (
+                <button
+                  type="button"
+                  className="studio-selection-contextual is-secondary"
+                  onClick={() => openPanel({ type: 'add', ids: selected, kind: 'steps' })}
+                >
+                  <ListChecks size={14} /> Add checklist steps
+                </button>
+              )}
+            </div>
+          )}
         </div>}
         <footer className="studio-draft-footer"><span role="status">{status || 'Changes stay in this draft until you save.'}</span><div><button type="button" className="studio-icon-button" aria-label="Undo draft edit" disabled={!past.length} onClick={undo}><Undo2 size={17} /></button><button type="button" className="studio-icon-button" aria-label="Redo draft edit" disabled={!future.length} onClick={redo}><Redo2 size={17} /></button></div></footer>
       </div>
@@ -310,6 +323,29 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
         {panel.type === 'checklist' && <StudioChecklistForm goals={draft} ids={panel.ids} onApply={apply} onDirty={markDirty} />}
         {panel.type === 'selection' && <StudioSelectionList goals={draft} ids={selected} onToggle={toggle} />}
         {panel.type === 'ai-plan' && <AIPlanFlow goals={draft} onApply={apply} onDirty={markDirty} />}
+        {panel.type === 'more' && <div className="studio-panel-body">
+          <StudioTargets goals={draft} nodes={panelNodes} />
+          <div className="studio-actions">
+            <StudioAction
+              icon={<ArrowUp size={17} />}
+              label="Move up"
+              detail="Reorder earlier among siblings"
+              onClick={() => { apply(reorderStudioItems(draft, panelIds, 'up'), 'Moved items up'); dismissPanel(); }}
+            />
+            <StudioAction
+              icon={<ArrowDown size={17} />}
+              label="Move down"
+              detail="Reorder later among siblings"
+              onClick={() => { apply(reorderStudioItems(draft, panelIds, 'down'), 'Moved items down'); dismissPanel(); }}
+            />
+            <StudioAction
+              icon={<Pin size={17} />}
+              label={panelNodes.every((n) => n.pinned) ? 'Unpin selected' : 'Pin selected'}
+              detail="Toggle pin for quick access"
+              onClick={() => { apply(patchStudioItems(draft, Object.fromEntries(panelIds.map((id) => [id, { pinned: !panelNodes.every((n) => n.pinned) }]))), 'Changed pins'); dismissPanel(); }}
+            />
+          </div>
+        </div>}
         {panel.type === 'remove' && <><div className="studio-panel-body"><StudioTargets goals={draft} nodes={nodesAt(draft, removeRoots)} /><p>Remove {removeCount} item{removeCount === 1 ? '' : 's'}, including anything inside? Undo stays available in this draft.</p><p className="studio-context">Linked current Today plans are removed too. Past focus history stays.</p>{removeLocked && <p role="alert" className="studio-error">One item contains your active focus task. Finish the session first.</p>}</div><footer className="studio-panel-footer"><StudioButton quiet onClick={dismissPanel}>Keep items</StudioButton><StudioButton danger disabled={removeLocked} onClick={() => { apply(removeBlueprintNodes(draft, removeRoots), `Removed ${removeCount} items`); stopSelecting(); }}>Remove {removeCount} items</StudioButton></footer></>}
         {panel.type === 'review' && <><div className="studio-panel-body"><p className="studio-context">{past.length} draft edit{past.length === 1 ? '' : 's'} · {countBlueprintNodes(draft)} total items</p><StudioChangeReview before={baseGoals} after={draft} /><details className="studio-disclosure"><summary>View full blueprint <ChevronRight size={14} /></summary><StudioReviewTree nodes={draft} /></details></div><footer className="studio-panel-footer"><StudioButton quiet onClick={dismissPanel}>Keep editing</StudioButton><StudioButton disabled={!changed} onClick={save}><Check size={16} /> Save blueprint</StudioButton></footer></>}
         {error && <p role="alert" className="studio-error studio-panel-error">{error}</p>}

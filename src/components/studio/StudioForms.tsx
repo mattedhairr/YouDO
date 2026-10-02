@@ -12,6 +12,10 @@ const getNodes = (goals: GoalNode[], ids: string[]) => ids.map((id) => findGoal(
 
 export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps & { kind: 'goal' | 'items' | 'steps' }) {
   const parents = useMemo(() => getNodes(goals, ids), [goals, ids]);
+  const single = parents.length <= 1;
+  const [scope, setScope] = useState<'together' | 'individual'>('together');
+
+  // Shared / together state
   const [mode, setMode] = useState<'one' | 'list' | 'numbered'>('one');
   const [text, setText] = useState('');
   const [prefix, setPrefix] = useState('');
@@ -19,47 +23,160 @@ export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps 
   const [count, setCount] = useState('5');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
-  useEffect(() => onDirty(Boolean(text.trim() || prefix.trim() || description.trim())), [text, prefix, description, onDirty]);
-  const names = mode === 'numbered'
+
+  // Individual state (per-parent texts)
+  const [individualTexts, setIndividualTexts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(parents.map((p) => [p.id, '']))
+  );
+
+  const noun = kind === 'steps' ? 'step' : kind === 'goal' ? 'goal' : 'item';
+  const blocked = kind === 'items' ? parents.filter((node) => node.kind !== 'goal' && isGoalEndpoint(node) && hasGoalExecutionState(node)) : [];
+
+  const sharedNames = mode === 'numbered'
     ? prefix.trim() && start !== '' && count !== '' && Number.isInteger(Number(start)) && Number(start) >= 0 && Number.isInteger(Number(count)) && Number(count) > 0 && Number(count) <= 100
       ? numberedBlueprintTitles(prefix, Number(start), Number(count)) : []
     : normalizeBlueprintTitles(mode === 'list' ? text.split(/\r?\n/) : [text]);
-  const blocked = kind === 'items' ? parents.filter((node) => node.kind !== 'goal' && isGoalEndpoint(node) && hasGoalExecutionState(node)) : [];
-  const expected = kind === 'goal' ? names.length : parents.reduce((total, parent) => {
+
+  const sharedExpected = kind === 'goal' ? sharedNames.length : parents.reduce((total, parent) => {
     const existing = new Set((kind === 'steps' ? parent.steps ?? [] : parent.children.map((child) => child.title)).map((title) => title.trim().replace(/\s+/g, ' ').toLocaleLowerCase()));
-    return total + names.filter((name) => !existing.has(name.toLocaleLowerCase())).length;
+    return total + sharedNames.filter((name) => !existing.has(name.toLocaleLowerCase())).length;
   }, 0);
-  const noun = kind === 'steps' ? 'step' : kind === 'goal' ? 'goal' : 'item';
-  const submit = () => {
-    if (names.length === 0 || blocked.length > 0 || expected === 0) return;
+
+  // Individual expected
+  const individualEntries = useMemo(() => {
+    if (scope !== 'individual') return [];
+    return parents.map((parent) => {
+      const rawLines = (individualTexts[parent.id] ?? '').split(/\r?\n/);
+      const names = normalizeBlueprintTitles(rawLines);
+      const existing = new Set((kind === 'steps' ? parent.steps ?? [] : parent.children.map((child) => child.title)).map((title) => title.trim().replace(/\s+/g, ' ').toLocaleLowerCase()));
+      const validNames = names.filter((name) => !existing.has(name.toLocaleLowerCase()));
+      return { parent, validNames };
+    });
+  }, [individualTexts, kind, parents, scope]);
+
+  const individualExpected = individualEntries.reduce((sum, entry) => sum + entry.validNames.length, 0);
+
+  const isDirty = scope === 'together'
+    ? Boolean(text.trim() || prefix.trim() || description.trim())
+    : Object.values(individualTexts).some((t) => t.trim());
+
+  useEffect(() => onDirty(isDirty), [isDirty, onDirty]);
+
+  const submitTogether = () => {
+    if (sharedNames.length === 0 || blocked.length > 0 || sharedExpected === 0) return;
     let next: GoalNode[]; let newIds: string[] = [];
     if (kind === 'goal') {
-      const roots = names.map((title) => makeBlueprintNode('goal', title));
+      const roots = sharedNames.map((title) => makeBlueprintNode('goal', title));
       next = [...goals, ...roots]; newIds = roots.map((node) => node.id);
-    } else if (kind === 'steps') next = addBlueprintSteps(goals, ids, names).goals;
-    else { const result = addBlueprintChildren(goals, ids, 'node', names); next = result.goals; newIds = result.createdIds; }
-    if (description.trim() && newIds.length) next = patchStudioItems(next, Object.fromEntries(newIds.map((id) => [id, { description: description.trim() }])));
+    } else if (kind === 'steps') {
+      next = addBlueprintSteps(goals, ids, sharedNames).goals;
+    } else {
+      const result = addBlueprintChildren(goals, ids, 'node', sharedNames);
+      next = result.goals; newIds = result.createdIds;
+    }
+    if (description.trim() && newIds.length) {
+      next = patchStudioItems(next, Object.fromEntries(newIds.map((id) => [id, { description: description.trim() }])));
+    }
     if (JSON.stringify(next) === JSON.stringify(goals)) { setError('These names already exist here.'); return; }
-    onApply(next, `Added ${expected} ${noun}${expected === 1 ? '' : 's'}${parents.length === 1 ? ` in ${parents[0].title}` : parents.length > 1 ? ` across ${parents.length} branches` : ''}`);
+    onApply(next, `Added ${sharedExpected} ${noun}${sharedExpected === 1 ? '' : 's'}${parents.length === 1 ? ` in ${parents[0].title}` : ` across ${parents.length} branches`}`);
   };
+
+  const submitIndividual = () => {
+    if (individualExpected === 0 || blocked.length > 0) return;
+    let next: GoalNode[] = goals;
+    let totalAdded = 0;
+    for (const { parent, validNames } of individualEntries) {
+      if (validNames.length === 0) continue;
+      if (kind === 'steps') {
+        const res = addBlueprintSteps(next, [parent.id], validNames);
+        next = res.goals;
+        totalAdded += res.added;
+      } else {
+        const res = addBlueprintChildren(next, [parent.id], 'node', validNames);
+        next = res.goals;
+        totalAdded += res.added;
+      }
+    }
+    if (totalAdded === 0 || JSON.stringify(next) === JSON.stringify(goals)) {
+      setError('These names already exist in their respective tasks.');
+      return;
+    }
+    onApply(next, `Added ${totalAdded} ${noun}${totalAdded === 1 ? '' : 's'} across ${parents.length} branches`);
+  };
+
+  const submit = scope === 'together' ? submitTogether : submitIndividual;
+  const expectedCount = scope === 'together' ? sharedExpected : individualExpected;
+
   return <>
     <div className="studio-panel-body">
       <StudioTargets goals={goals} nodes={parents} />
-      {parents.length > 1 && <p className="studio-context">Add the same {noun}s to each selected {kind === 'steps' ? 'task' : 'branch'}.</p>}
-      <StudioTabs value={mode} onChange={(value) => { setMode(value); setError(''); }} options={[{ value: 'one', label: 'One' }, { value: 'list', label: 'List' }, { value: 'numbered', label: 'Numbered' }]} />
-      {mode === 'numbered' ? <>
-        <StudioField label="Name"><input className={fieldClass} value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="e.g. Lecture" /></StudioField>
-        <div className="studio-two-columns"><StudioField label="Start at"><input className={fieldClass} type="number" min={0} value={start} onChange={(e) => setStart(e.target.value)} /></StudioField><StudioField label="How many"><input className={fieldClass} type="number" min={1} max={100} value={count} onChange={(e) => setCount(e.target.value)} /></StudioField></div>
-      </> : <StudioField label={mode === 'one' ? `${noun[0].toUpperCase()}${noun.slice(1)} name` : 'One name per line'}>
-        {mode === 'one' ? <input className={fieldClass} value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'goal' ? 'Name your goal' : kind === 'steps' ? 'e.g. Review notes' : 'Name this topic or milestone'} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} />
-          : <textarea className={fieldClass} rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'steps' ? 'Watch\nPractise\nReview' : 'Chapter 1\nChapter 2\nChapter 3'} />}
-      </StudioField>}
-      {kind !== 'steps' && <details className="studio-disclosure"><summary>Description <ChevronDown size={14} /></summary><StudioField label="Description (optional)"><textarea className={fieldClass} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Useful context for these items" /></StudioField></details>}
-      {names.length > 0 && <div className="studio-add-preview"><span>{names.slice(0, 4).join(' · ')}{names.length > 4 ? ` · +${names.length - 4}` : ''}</span><strong>{expected} new {noun}{expected === 1 ? '' : 's'}</strong></div>}
+
+      {!single && (
+        <StudioTabs
+          value={scope}
+          onChange={(val) => { setScope(val); setError(''); }}
+          options={[
+            { value: 'together', label: 'Same for all' },
+            { value: 'individual', label: 'Individually' },
+          ]}
+        />
+      )}
+
+      {scope === 'together' ? (
+        <>
+          {parents.length > 1 && <p className="studio-context">Add the same {noun}s to each of the {parents.length} selected items.</p>}
+          <StudioTabs value={mode} onChange={(value) => { setMode(value); setError(''); }} options={[{ value: 'one', label: 'One' }, { value: 'list', label: 'List' }, { value: 'numbered', label: 'Numbered' }]} />
+          {mode === 'numbered' ? <>
+            <StudioField label="Name"><input className={fieldClass} value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="e.g. Topic or Lecture" /></StudioField>
+            <div className="studio-two-columns"><StudioField label="Start at"><input className={fieldClass} type="number" min={0} value={start} onChange={(e) => setStart(e.target.value)} /></StudioField><StudioField label="How many"><input className={fieldClass} type="number" min={1} max={100} value={count} onChange={(e) => setCount(e.target.value)} /></StudioField></div>
+          </> : <StudioField label={mode === 'one' ? `${noun[0].toUpperCase()}${noun.slice(1)} name` : 'One name per line'}>
+            {mode === 'one' ? <input className={fieldClass} value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'goal' ? 'Name your goal' : kind === 'steps' ? 'e.g. Review notes' : 'Name this topic or milestone'} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} />
+              : <textarea className={fieldClass} rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={kind === 'steps' ? 'Watch\nPractise\nReview' : 'Chapter 1\nChapter 2\nChapter 3'} />}
+          </StudioField>}
+          {kind !== 'steps' && <details className="studio-disclosure"><summary>Description <ChevronDown size={14} /></summary><StudioField label="Description (optional)"><textarea className={fieldClass} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Useful context for these items" /></StudioField></details>}
+          {sharedNames.length > 0 && <div className="studio-add-preview"><span>{sharedNames.slice(0, 4).join(' · ')}{sharedNames.length > 4 ? ` · +${sharedNames.length - 4}` : ''}</span><strong>{sharedExpected} new {noun}{sharedExpected === 1 ? '' : 's'}</strong></div>}
+        </>
+      ) : (
+        <div className="studio-individual-list">
+          <p className="studio-context" style={{ padding: '8px 12px 4px' }}>
+            Enter different {noun}s for each selected item (one per line):
+          </p>
+          {parents.map((parent) => {
+            const lines = (individualTexts[parent.id] ?? '').split(/\r?\n/).filter((l) => l.trim()).length;
+            return (
+              <details key={parent.id} open={parents.length <= 4}>
+                <summary>
+                  <span>
+                    <strong>{parent.title}</strong>
+                    <span>{studioItemPath(goals, parent.id)}{lines > 0 ? ` · ${lines} ${noun}${lines === 1 ? '' : 's'} entered` : ''}</span>
+                  </span>
+                  <ChevronDown size={15} />
+                </summary>
+                <div style={{ padding: '8px 12px 14px' }}>
+                  <StudioField label={`Items inside "${parent.title}" (one per line)`}>
+                    <textarea
+                      className={fieldClass}
+                      rows={3}
+                      value={individualTexts[parent.id] ?? ''}
+                      onChange={(e) => setIndividualTexts({ ...individualTexts, [parent.id]: e.target.value })}
+                      placeholder={`e.g. Subtopic 1\nSubtopic 2`}
+                    />
+                  </StudioField>
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      )}
+
       {blocked.length > 0 && <p role="alert" className="studio-error">{blocked.length} selected task{blocked.length === 1 ? '' : 's'} already contain steps or recorded work. Add checklist steps instead.</p>}
       {error && <p role="alert" className="studio-error">{error}</p>}
     </div>
-    <footer className="studio-panel-footer"><StudioButton onClick={submit} disabled={expected === 0 || blocked.length > 0}><Plus size={15} /> Add {expected || ''} {noun}{expected === 1 ? '' : 's'}</StudioButton></footer>
+    <footer className="studio-panel-footer">
+      <StudioButton onClick={submit} disabled={expectedCount === 0 || blocked.length > 0}>
+        <Plus size={15} /> Add {expectedCount || ''} {noun}{expectedCount === 1 ? '' : 's'}
+      </StudioButton>
+    </footer>
   </>;
 }
 
