@@ -980,10 +980,51 @@ input[type='datetime-local'] {
   align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 6px 12px;
   border: 1px solid var(--border-subtle); border-radius: 12px;
   background: var(--bg-elevated); color: var(--primary); text-align: left;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.board-community-link.has-unread {
+  border-color: color-mix(in srgb, var(--secondary) 42%, var(--border-subtle));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--secondary-soft) 30%, var(--bg-elevated)), var(--bg-elevated));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--secondary) 12%, transparent);
 }
 .board-community-icon { position: relative; display: grid; width: 18px; height: 18px; place-items: center; }
 .board-community-label { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .board-unread { position:absolute;right:-4px;top:-4px;width:7px;height:7px;border:2px solid var(--bg-elevated);border-radius:50%;background:var(--secondary);box-sizing:content-box;box-shadow:0 0 0 2px color-mix(in srgb,var(--secondary) 12%,transparent); }
+.board-unread-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--on-secondary, #000);
+  font-size: 10.5px;
+  font-weight: 750;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--secondary) 50%, transparent);
+}
+.board-unread-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: board-pulse-glow 1.8s ease-in-out infinite;
+}
+.board-unread-count {
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.board-unread-text {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+}
+@keyframes board-pulse-glow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
 .board-room-status { font-size: 10px; color: var(--text-muted); }
 .board-community-actions.with-admin { display: grid; grid-template-columns: minmax(0,1fr) 84px; gap: 8px; }
 .board-admin-link { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-elevated); color: var(--secondary); font-size: 11px; font-weight: 600; }

@@ -7,7 +7,8 @@ import type { CommunityHashtagContext } from '../../lib/communityHashtags';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
 import Overlay from '../Overlay';
 import CommunityHashtagBar from './CommunityHashtagBar';
-import './community.css';
+import { STORAGE_KEYS } from '../../lib/storageKeys';
+import { hapticTick } from '../../lib/haptics';
 
 interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void }
 const clock = new Intl.DateTimeFormat(undefined,{ hour:'numeric',minute:'2-digit' });
@@ -15,7 +16,25 @@ const MESSAGE_ACTION_WINDOW_MS = 15 * 60 * 1000;
 const LONG_PRESS_MS = 460;
 const DOUBLE_TAP_MS = 320;
 export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings }: Props) {
-  const initial = useMemo(() => readChatCache(userId,'room:general'),[userId]);
+  const [selectedHashtag, setSelectedHashtagState] = useState<string | undefined>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.lastCommunityRoom);
+      return saved && saved !== 'general' ? saved : undefined;
+    } catch {
+      return undefined;
+    }
+  });
+
+  const setSelectedHashtag = useCallback((id?: string) => {
+    setSelectedHashtagState(id);
+    try {
+      localStorage.setItem(STORAGE_KEYS.lastCommunityRoom, id ?? 'general');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const initial = useMemo(() => readChatCache(userId, `room:${selectedHashtag ?? 'general'}`),[userId, selectedHashtag]);
   const cacheLease = useRef(chatCacheGeneration());
   const [messages,setMessages] = useState(initial.messages);
   const [hasOlder,setHasOlder] = useState(initial.hasOlder);
@@ -30,7 +49,6 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [actionError,setActionError] = useState('');
   const [newBelow,setNewBelow] = useState(false);
   const [updateOpen,setUpdateOpen] = useState(false);
-  const [selectedHashtag,setSelectedHashtag] = useState<string>();
   const [roomContext,setRoomContext] = useState<CommunityHashtagContext>({hashtags:[],requests:[]});
   const roomScope=`room:${selectedHashtag??'general'}`;
   const canWriteRoom=roomContext.roomsEnabled===true && (!selectedHashtag || (selectedHashtag===roomContext.mine?.id && !roomContext.postingUnlockAt));
@@ -248,8 +266,92 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   };
   const selectedCanModify=!!selected && selected.authorId===userId && selected.kind==='chat' && selected.delivery==='sent'
     && Date.now()-Date.parse(selected.createdAt)<MESSAGE_ACTION_WINDOW_MS;
+
+  // Ordered list of room IDs for swipe gesture navigation: [undefined (General), user's hashtag, ...other hashtags]
+  const orderedRoomIds = useMemo(() => {
+    const list: (string | undefined)[] = [undefined];
+    const sorted = [...roomContext.hashtags].sort((a, b) => {
+      const aIsMine = roomContext.mine?.id === a.id;
+      const bIsMine = roomContext.mine?.id === b.id;
+      if (aIsMine && !bIsMine) return -1;
+      if (!aIsMine && bIsMine) return 1;
+      return 0;
+    });
+    sorted.forEach((tag) => list.push(tag.id));
+    return list;
+  }, [roomContext.hashtags, roomContext.mine?.id]);
+
+  const touchStartCoord = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartCoord.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartCoord.current || e.changedTouches.length === 0) return;
+    const dx = e.changedTouches[0].clientX - touchStartCoord.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartCoord.current.y;
+    touchStartCoord.current = null;
+
+    // Must be predominantly horizontal gesture: min 60px horizontal, max 45px vertical
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 45) {
+      const currentIndex = orderedRoomIds.indexOf(selectedHashtag);
+      if (currentIndex === -1) return;
+
+      if (dx < 0 && currentIndex < orderedRoomIds.length - 1) {
+        // Swipe left -> next room
+        hapticTick();
+        setSelectedHashtag(orderedRoomIds[currentIndex + 1]);
+      } else if (dx > 0 && currentIndex > 0) {
+        // Swipe right -> previous room
+        hapticTick();
+        setSelectedHashtag(orderedRoomIds[currentIndex - 1]);
+      }
+    }
+  };
+
+  const currentHashtagObj = roomContext.hashtags.find(h => h.id === selectedHashtag);
+  const roomDisplayName = selectedHashtag ? `#${currentHashtagObj?.label ?? 'Room'}` : 'General Chat';
+  const isUserRoom = selectedHashtag && selectedHashtag === roomContext.mine?.id;
+
   return <section className="c-chat" aria-label="Chat">
-    <div className="c-chat-scroll" ref={scroll} onScroll={()=>{const root=scroll.current;if(root){scrollPosition.current=root.scrollTop;if(root.clientWidth===viewport.current.width && root.clientHeight===viewport.current.height){follow.current=root.scrollHeight-root.scrollTop-root.clientHeight<72;if(follow.current)setNewBelow(false);}}}}>
+    {/* Top Sticky Modern Navigation Bar */}
+    <header className="c-chat-top-bar">
+      <CommunityHashtagBar
+        selectedId={selectedHashtag}
+        onSelect={setSelectedHashtag}
+        onContextChange={setRoomContext}
+      />
+      <div className="c-room-info-banner">
+        <div className="c-room-info-left">
+          <span className="c-room-title">{roomDisplayName}</span>
+          {isUserRoom && <span className="c-room-mine-badge">Your exam community</span>}
+          {!selectedHashtag && <span className="c-room-general-badge">All board members</span>}
+        </div>
+        <div className="c-room-info-right">
+          <span className="c-room-swipe-hint">Swipe ↔ to change room</span>
+        </div>
+      </div>
+    </header>
+
+    <div
+      className="c-chat-scroll"
+      ref={scroll}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onScroll={() => {
+        const root = scroll.current;
+        if (root) {
+          scrollPosition.current = root.scrollTop;
+          if (root.clientWidth === viewport.current.width && root.clientHeight === viewport.current.height) {
+            follow.current = root.scrollHeight - root.scrollTop - root.clientHeight < 72;
+            if (follow.current) setNewBelow(false);
+          }
+        }
+      }}
+    >
       <details className="c-guidance"><summary><ShieldCheck size={16}/> A little encouragement goes a long way</summary><p>Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.</p></details>
       {context.settings.announcement && <section className={`c-update-event ${context.unread?.updates?'is-new':''} ${updateOpen?'is-open':''}`}>
         <button type="button" aria-expanded={updateOpen} onClick={toggleUpdate}>
@@ -262,7 +364,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       </section>}
       {hasOlder && <button className="c-text-button c-load" disabled={loading} onClick={()=>void loadOlder()}>{loading?'Loading…':'Earlier messages'}</button>}
       {loading && messages.length===0 ? <div className="c-skeleton" role="status" aria-label="Loading chat"><i/><i/><i/></div>
-        : messages.length===0 && !error ? <div className="c-empty"><Heart size={28}/><h3>A quiet room. A shared ambition.</h3><p>Share a useful thought or encourage a fellow aspirant.</p></div>:null}
+        : messages.length===0 && !error ? <div className="c-empty"><Heart size={28}/><h3>A quiet room. A shared ambition.</h3><p>{selectedHashtag ? `Welcome to #${currentHashtagObj?.label ?? 'your room'}. Share questions and tips!` : 'Share a useful thought or encourage a fellow aspirant.'}</p></div>:null}
       <ol className="c-messages">{messages.map(message=>{
         const mine=message.authorId===userId;
         const parent=message.replyToId?map.get(message.replyToId):undefined;
@@ -287,11 +389,35 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     </div>
     {newBelow && <button className="c-new" onClick={()=>{follow.current=true;if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;setNewBelow(false);}}>New messages <ArrowDown size={15}/></button>}
     <footer className="c-composer">
-      <CommunityHashtagBar selectedId={selectedHashtag} onSelect={setSelectedHashtag} onContextChange={setRoomContext}/>
       {error && <p role="status" className="c-feedback">{error} <button onClick={()=>void refresh()} aria-label="Refresh chat"><RefreshCw size={15}/></button></p>}
       {(reply || editing) && <div className="c-replying"><Reply size={16}/><span><strong>{editing?'Editing your message':'Replying'}</strong>{(editing??reply)?.body}</span><button aria-label="Cancel reply or edit" onClick={()=>{setReply(null);if(editing)setDraft('');setEditing(null);}}><X size={18}/></button></div>}
       {!canWriteRoom&&<div className="c-hashtag-readonly" role="status"><Lock size={13}/><div><p>{!roomContext.roomsEnabled?'Room access could not be confirmed.':selectedHashtag===roomContext.mine?.id&&roomContext.postingUnlockAt?`Your earlier hashtag messages expire by ${new Date(roomContext.postingUnlockAt).toLocaleString()}. Posting unlocks after they expire; General stays open.`:'Read-only room · choose this hashtag in your profile to post.'}</p><button type="button" onClick={onOpenBoardSettings}>Profile settings</button></div></div>}
-      <div className="c-composer-row"><textarea ref={composer} aria-label={editing?'Edit message':'Message'} rows={1} maxLength={240} value={draft} disabled={!context.canPost||!canWriteRoom} placeholder={!canWriteRoom?'Read-only room…':context.canPost?'Share something useful…':'Posting is paused for now'} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();send();}}}/><button className="c-primary c-send" aria-label={editing?'Save edit':'Send message'} disabled={!draft.trim()||!context.canPost||!canWriteRoom||actionBusy} onClick={send}>{editing?<Check size={19}/>:<Send size={19}/>}</button></div>
+      <div className="c-composer-row">
+        <textarea
+          ref={composer}
+          aria-label={editing ? 'Edit message' : 'Message'}
+          rows={1}
+          maxLength={240}
+          value={draft}
+          disabled={!context.canPost || !canWriteRoom}
+          placeholder={!canWriteRoom ? 'Read-only room…' : context.canPost ? (selectedHashtag ? `Message #${currentHashtagObj?.label ?? 'room'}…` : 'Share with General room…') : 'Posting is paused for now'}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              send();
+            }
+          }}
+        />
+        <button
+          className="c-primary c-send"
+          aria-label={editing ? 'Save edit' : 'Send message'}
+          disabled={!draft.trim() || !context.canPost || !canWriteRoom || actionBusy}
+          onClick={send}
+        >
+          {editing ? <Check size={19} /> : <Send size={19} />}
+        </button>
+      </div>
       <p className="c-composer-note">Hold for options · double-tap to reply<span>{draft.length}/240</span></p>
     </footer>
     {selected && <Overlay open onClose={()=>{if(!actionBusy)setSelected(null);}} align="bottom"><div className="c-action-sheet">
