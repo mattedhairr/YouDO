@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.7.1] - 2026-10-03 - Hotfix: update checker, hashtag panel, and badge fixes
+
+- **APK Update Fixed** - The in-app update checker no longer shows "APK signing information is missing" on Android 9 and above. Sideloaded updates now install correctly.
+- **Hashtag Requests Moved** - Admin hashtag requests now live inside the Hashtags tab (where they logically belong) instead of the Review tab, and each tab now shows the correct badge count.
+- **Hashtag UI Redesigned** - The "Choose your exam" and "Request a hashtag" bottom sheets now match the modern iOS-style design used throughout the app.
+- **Admin Label Fixed** - The request summary in the Hashtags admin panel correctly shows the number of requests and how many have received an admin reply.
+- **Android APK** - versionName **7.7.1**, versionCode **66**. Installs safely over v7.7.0.
+
+---
+
 ## [v7.7.0] - 2026-10-03 - iOS-style UI/UX overhaul and offline export fix
 
 - **iOS-style Interface** - Menus, task cards, and settings have been completely rebuilt to slide up natively from the bottom with grouped cards, grab handles, and haptic feedback.
