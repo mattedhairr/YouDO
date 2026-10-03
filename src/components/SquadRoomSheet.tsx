@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronDown, MessageSquare, Settings } from 'lucide-react';
+import { ChevronLeft, ChevronDown, Settings, Send } from 'lucide-react';
 import Overlay from './Overlay';
 
 interface Props {
@@ -9,16 +9,17 @@ interface Props {
 
 export default function SquadRoomSheet({ open, onClose }: Props) {
   const [goalType, setGoalType] = useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
+  const [activeTab, setActiveTab] = useState<'board' | 'chat'>('board');
+  const [message, setMessage] = useState('');
 
   if (!open) return null;
 
   // Mock Data
-  // In this concept, everyone has to hit their 100% for the top to form a solid block.
   const members = [
-    { id: '1', name: 'You', current: 20, target: 25, avatar: 'Y', colorFrom: 'from-primary/20', colorTo: 'to-primary', colorText: 'text-primary' },
-    { id: '2', name: 'Alex', current: 25, target: 25, avatar: 'A', colorFrom: 'from-secondary/20', colorTo: 'to-secondary', colorText: 'text-secondary' },
-    { id: '3', name: 'Sam', current: 12, target: 25, avatar: 'S', colorFrom: 'from-blue-500/20', colorTo: 'to-blue-500', colorText: 'text-blue-500' },
-    { id: '4', name: 'Jamie', current: 25, target: 25, avatar: 'J', colorFrom: 'from-purple-500/20', colorTo: 'to-purple-500', colorText: 'text-purple-500' },
+    { id: '1', name: 'You', current: 20, target: 25, avatar: 'Y' },     // 80%
+    { id: '2', name: 'Alex', current: 25, target: 25, avatar: 'A' },    // 100%
+    { id: '3', name: 'Sam', current: 12, target: 25, avatar: 'S' },     // 48%
+    { id: '4', name: 'Jamie', current: 25, target: 25, avatar: 'J' },   // 100%
   ];
 
   const totalCurrent = members.reduce((sum, m) => sum + m.current, 0);
@@ -27,6 +28,7 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
   return (
     <Overlay open={open} onClose={onClose}>
       <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto rounded-t-[24px] flex flex-col h-[90vh]">
+        
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-subtle bg-elevated rounded-t-[24px]">
           <button onClick={onClose} className="p-2 -ml-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors">
@@ -40,110 +42,175 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-5">
-          
-          {/* Target Selector & Overall Progress */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <button className="flex items-center gap-1.5 text-[12px] font-bold text-primary bg-primary-soft px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors">
-                {goalType} Target <ChevronDown size={14} />
-              </button>
-              <p className="text-[12px] text-content-muted mt-2 font-medium">
-                Team Total: <span className="text-content-primary font-bold">{totalCurrent}h</span> / {totalTarget}h
-              </p>
-            </div>
-            <button className="flex items-center gap-2 bg-secondary-soft text-secondary px-4 py-2 rounded-xl font-bold text-[13px] hover:bg-secondary/20 transition-colors">
-              <MessageSquare size={16} />
-              Open Chat
+        {/* Master Toggle (Board | Chat) */}
+        <div className="px-4 py-3 bg-[var(--bg-default)] border-b border-subtle sticky top-0 z-10">
+          <div className="flex bg-surface border border-subtle rounded-full p-1 max-w-[240px] mx-auto">
+            <button
+              onClick={() => setActiveTab('board')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                activeTab === 'board' ? 'bg-primary text-on-primary' : 'text-content-muted hover:text-content-primary'
+              }`}
+            >
+              Board
+            </button>
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition-colors ${
+                activeTab === 'chat' ? 'bg-primary text-on-primary' : 'text-content-muted hover:text-content-primary'
+              }`}
+            >
+              Chat
             </button>
           </div>
+        </div>
 
-          {/* THE PILLARS (Vertical Progress) */}
-          <div className="bg-elevated border border-subtle rounded-[20px] p-5 mb-8">
-            <div className="flex gap-2 h-48 items-end relative">
-              {/* Background grid lines (optional for aesthetics) */}
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
-                <div className="border-t border-content-primary w-full" />
-                <div className="border-t border-content-primary w-full" />
-                <div className="border-t border-content-primary w-full" />
-                <div className="border-t border-content-primary w-full" />
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto flex flex-col bg-[var(--bg-default)]">
+          {activeTab === 'board' ? (
+            <div className="p-5">
+              
+              {/* Target Selector */}
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <button className="flex items-center gap-1.5 text-[12px] font-bold text-primary bg-primary-soft px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors">
+                    {goalType} Target <ChevronDown size={14} />
+                  </button>
+                </div>
+                <div className="text-right">
+                  <p className="text-[12px] text-content-muted font-medium">Team Total</p>
+                  <p className="text-[14px] font-bold text-content-primary">{totalCurrent}h <span className="text-content-muted">/ {totalTarget}h</span></p>
+                </div>
               </div>
 
-              {members.map((member) => {
-                const pct = Math.min((member.current / member.target) * 100, 100);
-                return (
-                  <div key={member.id} className="flex-1 flex flex-col items-center h-full justify-end group">
+              {/* T-SHAPE WATER PIPES (Uniform Primary Color) */}
+              <div className="bg-elevated border border-subtle rounded-[20px] p-5 pb-6 mb-8">
+                <div className="flex gap-1 h-[180px] items-end justify-center px-2">
+                  {members.map((member) => {
+                    const rawPct = (member.current / member.target) * 100;
+                    const pct = Math.min(rawPct, 100);
                     
-                    {/* The Bar */}
-                    <div className="w-full relative bg-[var(--bg-default)] rounded-t-[10px] overflow-hidden shadow-inner h-full flex items-end">
-                      <div 
-                        className={`w-full rounded-t-[10px] bg-gradient-to-t ${member.colorFrom} ${member.colorTo} transition-all duration-1000 ease-out`}
-                        style={{ height: `${pct}%` }}
-                      >
-                        {/* Dark tip indicator */}
-                        {pct > 0 && (
-                          <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/30 rounded-t-[10px]" />
-                        )}
-                      </div>
-                    </div>
+                    // The pipe represents 0-85%. The cap represents 85-100%.
+                    const pipePct = Math.min((pct / 85) * 100, 100);
+                    const capPct = pct > 85 ? ((pct - 85) / 15) * 100 : 0;
 
-                    {/* Member Info Below Bar */}
-                    <div className="mt-3 text-center w-full">
-                      <div className={`w-7 h-7 mx-auto rounded-full bg-surface border border-subtle flex items-center justify-center text-[10px] font-bold ${member.colorText} shadow-sm`}>
-                        {member.avatar}
+                    return (
+                      <div key={member.id} className="flex-1 flex flex-col items-center h-full justify-end group">
+                        
+                        {/* The T-Shape Structure */}
+                        <div className="w-full flex flex-col items-center h-[140px]">
+                          {/* Top Cap (Horizontal) */}
+                          <div className="w-full h-4 border-2 border-b-0 border-subtle border-dashed rounded-t-md relative overflow-hidden flex items-end">
+                            <div 
+                              className="w-full bg-primary transition-all duration-1000 ease-out"
+                              style={{ height: `${capPct}%` }}
+                            />
+                          </div>
+                          
+                          {/* Vertical Pipe */}
+                          <div className="w-6 flex-1 border-x-2 border-subtle border-dashed relative overflow-hidden flex items-end">
+                            <div 
+                              className="w-full bg-gradient-to-t from-primary/30 to-primary transition-all duration-1000 ease-out relative"
+                              style={{ height: `${pipePct}%` }}
+                            >
+                              {/* Dark Tip indicator in the pipe (only visible if cap isn't filling yet) */}
+                              {pipePct > 0 && capPct === 0 && (
+                                <div className="absolute top-0 left-0 right-0 h-1 bg-black/20" />
+                              )}
+                            </div>
+                          </div>
+                          {/* Bottom seal for the pipe */}
+                          <div className="w-6 border-b-2 border-subtle border-dashed" />
+                        </div>
+
+                        {/* Member Info Below Pipe */}
+                        <div className="mt-4 text-center w-full">
+                          <p className="text-[12px] font-bold text-content-primary truncate">{member.name}</p>
+                          <p className="text-[10px] text-primary font-semibold mt-0.5">{member.current}h</p>
+                        </div>
                       </div>
-                      <p className="text-[11px] font-semibold text-content-primary mt-1.5 truncate">{member.name}</p>
-                      <p className="text-[10px] text-content-muted">{member.current}h</p>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ACTIVITY BOARD */}
+              <div>
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-content-muted mb-4 px-1">
+                  Activity Board
+                </h3>
+                <div className="space-y-3">
+                  <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" />
+                    <p className="text-[13px] text-content-primary">
+                      <span className="font-bold">Alex</span> has completed his work and reached the top!
+                    </p>
+                  </div>
+                  <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_var(--primary)]" />
+                    <p className="text-[13px] text-content-primary">
+                      <span className="font-bold">Jamie</span> has completed his work and reached the top!
+                    </p>
+                  </div>
+                  <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary/50" />
+                    <p className="text-[13px] text-content-primary">
+                      <span className="font-bold">You</span> logged 4 hours. Keep pushing to the cap!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          ) : (
+            /* CHAT TAB */
+            <div className="flex-1 flex flex-col">
+              <div className="flex-1 p-4 flex flex-col justify-end min-h-[250px]">
+                <div className="space-y-4">
+                  <div className="flex items-end gap-2 opacity-50">
+                    <div className="flex-1 border-b border-subtle" />
+                    <span className="text-[10px] uppercase font-semibold text-content-muted">Today</span>
+                    <div className="flex-1 border-b border-subtle" />
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold shrink-0">A</div>
+                    <div>
+                      <div className="bg-elevated border border-subtle px-3.5 py-2 rounded-[14px] rounded-tl-none">
+                        <p className="text-[13px] text-content-primary">I hit my target for today!</p>
+                      </div>
+                      <p className="text-[10px] text-content-muted mt-1 ml-1">Alex • 2:15 PM</p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-            
-            {/* Mission Status Text */}
-            <div className="mt-6 text-center border-t border-subtle pt-4">
-              <p className="text-[12px] font-medium text-content-secondary">
-                {totalCurrent >= totalTarget 
-                  ? "Mission accomplished! The pillar is complete." 
-                  : "We are missing pieces. Keep pushing to reach the top!"}
-              </p>
-            </div>
-          </div>
 
-          {/* ACTIVITY BOARD */}
-          <div>
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-content-muted mb-4 px-1">
-              Activity Board
-            </h3>
-            <div className="space-y-3">
-              <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-secondary" />
-                <p className="text-[13px] text-content-primary">
-                  <span className="font-bold">Alex</span> has done his work and hit 100%!
-                </p>
+                  <div className="flex gap-3 flex-row-reverse">
+                    <div className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center text-xs font-bold shrink-0">Y</div>
+                    <div className="flex flex-col items-end">
+                      <div className="bg-primary/20 border border-primary/30 px-3.5 py-2 rounded-[14px] rounded-tr-none">
+                        <p className="text-[13px] text-primary">Awesome, I'm almost there. 4 more hours to go!</p>
+                      </div>
+                      <p className="text-[10px] text-content-muted mt-1 mr-1">4:30 PM</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-purple-500" />
-                <p className="text-[13px] text-content-primary">
-                  <span className="font-bold">Jamie</span> has done his work and hit 100%!
-                </p>
-              </div>
-              <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-primary" />
-                <p className="text-[13px] text-content-primary">
-                  <span className="font-bold">You</span> logged 4 hours of focus time.
-                </p>
-              </div>
-              <div className="bg-[var(--bg-default)] border border-dashed border-subtle p-3.5 rounded-[16px] flex items-center gap-3 opacity-60">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <p className="text-[13px] text-content-primary">
-                  <span className="font-bold">Sam</span> is falling behind on today's target.
-                </p>
+
+              {/* Chat Input */}
+              <div className="p-3 border-t border-subtle bg-elevated rounded-b-[24px]">
+                <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-subtle rounded-full pl-4 pr-1.5 py-1.5">
+                  <input 
+                    type="text" 
+                    placeholder="Send a message..."
+                    className="flex-1 bg-transparent text-[13px] text-content-primary outline-none"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                  />
+                  <button className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${message.trim() ? 'bg-primary text-on-primary' : 'bg-surface text-content-muted'}`}>
+                    <Send size={14} className={message.trim() ? 'ml-0.5' : ''} />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-
+          )}
         </div>
       </div>
     </Overlay>
