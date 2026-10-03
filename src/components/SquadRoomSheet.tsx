@@ -84,73 +84,72 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Shared Team Progress Bar */}
+              {/* Combined Companion Progress Card */}
               {(() => {
                 const totalCurrent = members.reduce((sum, m) => sum + m.current[goalType], 0);
                 const totalTarget = members.length * target;
                 const teamPct = Math.min((totalCurrent / totalTarget) * 100, 100);
                 return (
-                  <div className="bg-elevated border border-subtle rounded-[18px] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[13px] font-bold text-content-primary">Team Progress</p>
-                      <p className="text-[12px] font-bold text-primary">{totalCurrent}h / {totalTarget}h</p>
+                  <div className="bg-elevated border border-subtle rounded-[18px] overflow-hidden">
+                    {/* Collective Bar */}
+                    <div className="p-4 border-b border-subtle">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[13px] font-bold text-content-primary">Companion Progress</p>
+                        <p className="text-[12px] font-bold text-primary">{totalCurrent}h / {totalTarget}h</p>
+                      </div>
+                      <div className="h-3 bg-[var(--bg-default)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${teamPct}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-content-muted mt-2">{Math.round(teamPct)}% of companion {goalType.toLowerCase()} target complete</p>
                     </div>
-                    <div className="h-3 bg-[var(--bg-default)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
-                        style={{ width: `${teamPct}%` }}
-                      />
+
+                    {/* Individual Members (no gap, same card) */}
+                    <div className="divide-y divide-subtle">
+                      {members.map((member) => {
+                        const current = member.current[goalType];
+                        const pct = Math.min((current / target) * 100, 100);
+                        const done = current >= target;
+                        const overdo = current > target ? current - target : 0;
+
+                        return (
+                          <div key={member.id} className="p-4">
+                            <div className="flex items-center gap-3 mb-2.5">
+                              <div className="w-8 h-8 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
+                                {member.avatar}
+                              </div>
+                              <div className="flex-1 flex items-center justify-between">
+                                <p className="text-[13px] font-semibold text-content-primary">{member.name}</p>
+                                <p className={`text-[12px] font-bold ${done ? 'text-primary' : 'text-content-secondary'}`}>
+                                  {Math.min(current, target)}h / {target}h
+                                </p>
+                              </div>
+                            </div>
+                            <div className="h-2 bg-[var(--bg-default)] rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <div className="mt-2 flex items-center justify-between">
+                              {done ? (
+                                <p className="text-[11px] text-primary font-semibold">✓ Target hit!</p>
+                              ) : (
+                                <p className="text-[11px] text-content-muted">{target - current}h remaining</p>
+                              )}
+                              {overdo > 0 && (
+                                <p className="text-[11px] text-primary/70 font-medium">+{overdo}h overdo contribution</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <p className="text-[11px] text-content-muted mt-2">{Math.round(teamPct)}% of team {goalType.toLowerCase()} target complete</p>
                   </div>
                 );
               })()}
-
-              {/* Individual Members */}
-              <div className="bg-elevated border border-subtle rounded-[18px] divide-y divide-subtle overflow-hidden">
-                {members.map((member) => {
-                  const current = member.current[goalType];
-                  const pct = Math.min((current / target) * 100, 100);
-                  const done = current >= target;
-                  const overdo = current > target ? current - target : 0;
-
-                  return (
-                    <div key={member.id} className="p-4">
-                      <div className="flex items-center gap-3 mb-2.5">
-                        <div className="w-8 h-8 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
-                          {member.avatar}
-                        </div>
-                        <div className="flex-1 flex items-center justify-between">
-                          <p className="text-[13px] font-semibold text-content-primary">{member.name}</p>
-                          <p className={`text-[12px] font-bold ${done ? 'text-primary' : 'text-content-secondary'}`}>
-                            {Math.min(current, target)}h / {target}h
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Horizontal Progress Bar */}
-                      <div className="h-2 bg-[var(--bg-default)] rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-
-                      {/* Status Row */}
-                      <div className="mt-2 flex items-center justify-between">
-                        {done ? (
-                          <p className="text-[11px] text-primary font-semibold">✓ Target hit!</p>
-                        ) : (
-                          <p className="text-[11px] text-content-muted">{target - current}h remaining</p>
-                        )}
-                        {overdo > 0 && (
-                          <p className="text-[11px] text-primary/70 font-medium">+{overdo}h overdo contribution</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
 
               {/* Activity Board */}
               <div>
