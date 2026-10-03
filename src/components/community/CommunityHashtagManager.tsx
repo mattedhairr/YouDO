@@ -41,11 +41,7 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
   </div>;
 
   return <div className="flex flex-col gap-3" aria-label="Manage exam hashtags">
-    <div className="flex justify-end">
-      <button type="button" disabled={Boolean(setupError)||busy||working} onClick={()=>startEdit()} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-[10px] font-bold text-on-primary active:scale-95 transition-transform"><Plus size={13}/> Add</button>
-    </div>
     {setupError&&<p role="alert" className="admin-hashtag-manager-setup">Hashtag management needs the admin database upgrade. Apply it, then refresh.</p>}
-    {editing==='new'&&editor()}
     {!setupError&&active.length===0&&<p className="admin-hashtag-manager-empty">No approved hashtags yet.</p>}
     {!setupError&&<ul className="admin-hashtag-manager-list">{active.map(tag=><li key={tag.id}>
       <div className="admin-hashtag-manager-row"><span className="admin-hashtag-manager-icon"><Hash size={14}/></span><div><strong>#{tag.label}</strong><small>{tag.memberCount} member{tag.memberCount===1?'':'s'}</small></div>
@@ -57,6 +53,14 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
         <div><button type="button" disabled={busy||working} onClick={()=>void act('archive',tag)}>Delete hashtag</button><button type="button" onClick={()=>setConfirmDelete(null)}>Cancel</button></div>
       </div>}
     </li>)}</ul>}
+    {editing==='new'?editor():<button 
+      type="button" 
+      disabled={Boolean(setupError)||busy||working} 
+      onClick={()=>startEdit()} 
+      className="mt-1 w-full py-2.5 rounded-xl text-xs font-semibold text-content-secondary bg-surface border border-dashed border-subtle hover:border-content-muted hover:text-content-primary transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98]"
+    >
+      <Plus size={14}/> Add Hashtag
+    </button>}
     {!setupError&&removed.length>0&&<details className="admin-hashtag-manager-removed"><summary>Removed hashtags ({removed.length})</summary><ul>{removed.map(tag=><li key={tag.id} className="flex justify-between items-center w-full"><span>#{tag.label}</span><div className="flex gap-1.5"><button type="button" disabled={busy||working} onClick={()=>void act('restore',tag)}><RotateCcw size={12}/> Restore</button><button type="button" disabled={busy||working} onClick={()=>void act('delete',tag)} aria-label={`Permanently delete #${tag.label}`} className="!text-error !px-2"><Trash2 size={14}/></button></div></li>)}</ul></details>}
     {error&&<p role="alert" className="admin-quotes-error">{error}</p>}
   </div>;
