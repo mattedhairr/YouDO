@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, MoreVertical, Send, Target, Users } from 'lucide-react';
+import { ChevronLeft, ChevronDown, MessageSquare, Settings } from 'lucide-react';
 import Overlay from './Overlay';
 
 interface Props {
@@ -8,21 +8,21 @@ interface Props {
 }
 
 export default function SquadRoomSheet({ open, onClose }: Props) {
-  const [message, setMessage] = useState('');
+  const [goalType, setGoalType] = useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
 
   if (!open) return null;
 
   // Mock Data
-  const squadGoal = 100; // 100 hours
-  const currentTotal = 68; // 68 hours
-  const progressPercent = (currentTotal / squadGoal) * 100;
-
+  // In this concept, everyone has to hit their 100% for the top to form a solid block.
   const members = [
-    { id: '1', name: 'You', contribution: 24, avatar: 'Y', color: 'bg-primary-soft text-primary border-primary/20' },
-    { id: '2', name: 'Alex', contribution: 18, avatar: 'A', color: 'bg-secondary-soft text-secondary border-secondary/20' },
-    { id: '3', name: 'Sam', contribution: 15, avatar: 'S', color: 'bg-blue-500/20 text-blue-400 border-blue-500/20' },
-    { id: '4', name: 'Jamie', contribution: 11, avatar: 'J', color: 'bg-purple-500/20 text-purple-400 border-purple-500/20' },
+    { id: '1', name: 'You', current: 20, target: 25, avatar: 'Y', colorFrom: 'from-primary/20', colorTo: 'to-primary', colorText: 'text-primary' },
+    { id: '2', name: 'Alex', current: 25, target: 25, avatar: 'A', colorFrom: 'from-secondary/20', colorTo: 'to-secondary', colorText: 'text-secondary' },
+    { id: '3', name: 'Sam', current: 12, target: 25, avatar: 'S', colorFrom: 'from-blue-500/20', colorTo: 'to-blue-500', colorText: 'text-blue-500' },
+    { id: '4', name: 'Jamie', current: 25, target: 25, avatar: 'J', colorFrom: 'from-purple-500/20', colorTo: 'to-purple-500', colorText: 'text-purple-500' },
   ];
+
+  const totalCurrent = members.reduce((sum, m) => sum + m.current, 0);
+  const totalTarget = members.reduce((sum, m) => sum + m.target, 0);
 
   return (
     <Overlay open={open} onClose={onClose}>
@@ -32,121 +32,118 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
           <button onClick={onClose} className="p-2 -ml-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors">
             <ChevronLeft size={24} />
           </button>
-          <div className="text-center">
-            <h2 className="text-[15px] font-bold text-content-primary">GATE 2027 Achievers</h2>
-            <p className="text-[11px] text-content-muted flex items-center justify-center gap-1 mt-0.5">
-              <Users size={10} /> 4 members
-            </p>
+          <div className="text-center flex-1">
+            <h2 className="text-[16px] font-bold text-content-primary">GATE 2027 Achievers</h2>
           </div>
-          <button className="p-2 -mr-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors">
-            <MoreVertical size={20} />
+          <button className="p-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors">
+            <Settings size={20} />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto flex flex-col">
-          {/* TOP HALF: Stats & Contributions */}
-          <div className="p-5 border-b border-subtle bg-[var(--bg-default)]">
-            
-            {/* Big Shared Progress Bar */}
-            <div className="bg-elevated border border-subtle rounded-[16px] p-4 mb-5">
-              <div className="flex justify-between items-end mb-3">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
-                    <Target size={12} /> Weekly Target
-                  </p>
-                  <p className="text-[22px] font-bold text-content-primary leading-tight mt-1">
-                    {currentTotal}h <span className="text-[14px] text-content-muted font-medium">/ {squadGoal}h</span>
-                  </p>
-                </div>
-                <div className="text-[13px] font-bold text-primary bg-primary-soft px-2 py-1 rounded-lg">
-                  {Math.round(progressPercent)}%
-                </div>
-              </div>
-              
-              <div className="h-2.5 bg-track rounded-full overflow-hidden flex">
-                {members.map((member) => (
-                  <div 
-                    key={member.id}
-                    className="h-full border-r border-black/20 last:border-0"
-                    style={{ 
-                      width: `${(member.contribution / squadGoal) * 100}%`,
-                      backgroundColor: member.name === 'You' ? 'var(--primary)' : 'var(--content-secondary)' 
-                    }}
-                  />
-                ))}
-              </div>
-              <p className="text-[11px] text-content-secondary mt-2 text-center font-medium">
-                32 hours remaining to hit the goal!
-              </p>
-            </div>
-
-            {/* Contributions List */}
+        <div className="flex-1 overflow-y-auto p-5">
+          
+          {/* Target Selector & Overall Progress */}
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-content-muted mb-3 px-1">
-                Contributions
+              <button className="flex items-center gap-1.5 text-[12px] font-bold text-primary bg-primary-soft px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors">
+                {goalType} Target <ChevronDown size={14} />
+              </button>
+              <p className="text-[12px] text-content-muted mt-2 font-medium">
+                Team Total: <span className="text-content-primary font-bold">{totalCurrent}h</span> / {totalTarget}h
               </p>
-              <div className="flex gap-3 overflow-x-auto pb-2 px-1 snap-x">
-                {members.map((member) => (
-                  <div key={member.id} className="snap-start shrink-0 bg-elevated border border-subtle rounded-[14px] p-3 w-[100px] flex flex-col items-center">
-                    <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center font-bold text-lg border mb-2 ${member.color}`}>
-                      {member.avatar}
-                    </div>
-                    <p className="text-[12px] font-semibold text-content-primary truncate w-full text-center">{member.name}</p>
-                    <p className="text-[11px] text-content-secondary mt-0.5">{member.contribution}h</p>
-                  </div>
-                ))}
-              </div>
             </div>
-          </div>
-
-          {/* BOTTOM HALF: Chat */}
-          <div className="flex-1 p-4 flex flex-col justify-end min-h-[250px]">
-            {/* Dummy Messages */}
-            <div className="space-y-4 mb-4">
-              <div className="flex items-end gap-2 opacity-50">
-                <div className="flex-1 border-b border-subtle" />
-                <span className="text-[10px] uppercase font-semibold text-content-muted">Today</span>
-                <div className="flex-1 border-b border-subtle" />
-              </div>
-              
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-secondary-soft text-secondary flex items-center justify-center text-xs font-bold shrink-0">A</div>
-                <div>
-                  <div className="bg-elevated border border-subtle px-3.5 py-2 rounded-[14px] rounded-tl-none">
-                    <p className="text-[13px] text-content-primary">I'm going to pull a 4-hour session tonight. We need to hit that 100h goal!</p>
-                  </div>
-                  <p className="text-[10px] text-content-muted mt-1 ml-1">Alex • 2:15 PM</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 flex-row-reverse">
-                <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold shrink-0">Y</div>
-                <div className="flex flex-col items-end">
-                  <div className="bg-primary/20 border border-primary/30 px-3.5 py-2 rounded-[14px] rounded-tr-none">
-                    <p className="text-[13px] text-primary">Let's go! I'll join you in 30 mins.</p>
-                  </div>
-                  <p className="text-[10px] text-content-muted mt-1 mr-1">4:30 PM</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Chat Input */}
-        <div className="p-3 border-t border-subtle bg-elevated rounded-b-[24px]">
-          <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-subtle rounded-full pl-4 pr-1.5 py-1.5">
-            <input 
-              type="text" 
-              placeholder="Send a message..."
-              className="flex-1 bg-transparent text-[13px] text-content-primary outline-none"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <button className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${message.trim() ? 'bg-primary text-on-primary' : 'bg-surface text-content-muted'}`}>
-              <Send size={14} className={message.trim() ? 'ml-0.5' : ''} />
+            <button className="flex items-center gap-2 bg-secondary-soft text-secondary px-4 py-2 rounded-xl font-bold text-[13px] hover:bg-secondary/20 transition-colors">
+              <MessageSquare size={16} />
+              Open Chat
             </button>
           </div>
+
+          {/* THE PILLARS (Vertical Progress) */}
+          <div className="bg-elevated border border-subtle rounded-[20px] p-5 mb-8">
+            <div className="flex gap-2 h-48 items-end relative">
+              {/* Background grid lines (optional for aesthetics) */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
+                <div className="border-t border-content-primary w-full" />
+                <div className="border-t border-content-primary w-full" />
+                <div className="border-t border-content-primary w-full" />
+                <div className="border-t border-content-primary w-full" />
+              </div>
+
+              {members.map((member) => {
+                const pct = Math.min((member.current / member.target) * 100, 100);
+                return (
+                  <div key={member.id} className="flex-1 flex flex-col items-center h-full justify-end group">
+                    
+                    {/* The Bar */}
+                    <div className="w-full relative bg-[var(--bg-default)] rounded-t-[10px] overflow-hidden shadow-inner h-full flex items-end">
+                      <div 
+                        className={`w-full rounded-t-[10px] bg-gradient-to-t ${member.colorFrom} ${member.colorTo} transition-all duration-1000 ease-out`}
+                        style={{ height: `${pct}%` }}
+                      >
+                        {/* Dark tip indicator */}
+                        {pct > 0 && (
+                          <div className="absolute top-0 left-0 right-0 h-1.5 bg-black/30 rounded-t-[10px]" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Member Info Below Bar */}
+                    <div className="mt-3 text-center w-full">
+                      <div className={`w-7 h-7 mx-auto rounded-full bg-surface border border-subtle flex items-center justify-center text-[10px] font-bold ${member.colorText} shadow-sm`}>
+                        {member.avatar}
+                      </div>
+                      <p className="text-[11px] font-semibold text-content-primary mt-1.5 truncate">{member.name}</p>
+                      <p className="text-[10px] text-content-muted">{member.current}h</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Mission Status Text */}
+            <div className="mt-6 text-center border-t border-subtle pt-4">
+              <p className="text-[12px] font-medium text-content-secondary">
+                {totalCurrent >= totalTarget 
+                  ? "Mission accomplished! The pillar is complete." 
+                  : "We are missing pieces. Keep pushing to reach the top!"}
+              </p>
+            </div>
+          </div>
+
+          {/* ACTIVITY BOARD */}
+          <div>
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-content-muted mb-4 px-1">
+              Activity Board
+            </h3>
+            <div className="space-y-3">
+              <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-secondary" />
+                <p className="text-[13px] text-content-primary">
+                  <span className="font-bold">Alex</span> has done his work and hit 100%!
+                </p>
+              </div>
+              <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-purple-500" />
+                <p className="text-[13px] text-content-primary">
+                  <span className="font-bold">Jamie</span> has done his work and hit 100%!
+                </p>
+              </div>
+              <div className="bg-elevated border border-subtle p-3.5 rounded-[16px] flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <p className="text-[13px] text-content-primary">
+                  <span className="font-bold">You</span> logged 4 hours of focus time.
+                </p>
+              </div>
+              <div className="bg-[var(--bg-default)] border border-dashed border-subtle p-3.5 rounded-[16px] flex items-center gap-3 opacity-60">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <p className="text-[13px] text-content-primary">
+                  <span className="font-bold">Sam</span> is falling behind on today's target.
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </Overlay>
