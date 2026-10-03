@@ -82,50 +82,54 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                 </div>
               </div>
 
-              {/* T-SHAPE WATER PIPES (Uniform Primary Color) */}
-              <div className="bg-elevated border border-subtle rounded-[20px] p-5 pb-6 mb-8">
-                <div className="flex gap-1 h-[180px] items-end justify-center px-2">
+              {/* T-SHAPE WATER PIPES (Premium Glow Design) */}
+              <div className="bg-[var(--bg-default)] border border-subtle rounded-[24px] p-6 mb-8 shadow-sm">
+                <div className="flex h-[200px] items-end justify-center gap-1">
                   {members.map((member) => {
                     const rawPct = (member.current / member.target) * 100;
                     const pct = Math.min(rawPct, 100);
                     
-                    // The pipe represents 0-85%. The cap represents 85-100%.
-                    const pipePct = Math.min((pct / 85) * 100, 100);
-                    const capPct = pct > 85 ? ((pct - 85) / 15) * 100 : 0;
+                    // The pipe represents 0-90%. The top cap represents 90-100%.
+                    const pipePct = Math.min((pct / 90) * 100, 100);
+                    const capPct = pct > 90 ? ((pct - 90) / 10) * 100 : 0;
 
                     return (
                       <div key={member.id} className="flex-1 flex flex-col items-center h-full justify-end group">
                         
                         {/* The T-Shape Structure */}
                         <div className="w-full flex flex-col items-center h-[140px]">
-                          {/* Top Cap (Horizontal) */}
-                          <div className="w-full h-4 border-2 border-b-0 border-subtle border-dashed rounded-t-md relative overflow-hidden flex items-end">
+                          
+                          {/* Top Cap (Horizontal Spread) */}
+                          <div className="w-full h-5 bg-elevated border-2 border-subtle rounded-t-[8px] border-b-0 relative overflow-hidden flex justify-center items-center">
+                            {/* Water spreading horizontally from the center */}
                             <div 
-                              className="w-full bg-primary transition-all duration-1000 ease-out"
-                              style={{ height: `${capPct}%` }}
+                              className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_12px_var(--primary)]"
+                              style={{ width: `${capPct}%` }}
                             />
                           </div>
                           
                           {/* Vertical Pipe */}
-                          <div className="w-6 flex-1 border-x-2 border-subtle border-dashed relative overflow-hidden flex items-end">
+                          <div className="w-7 flex-1 bg-elevated border-2 border-subtle border-t-0 rounded-b-full relative overflow-hidden flex items-end">
+                            {/* Water rising vertically */}
                             <div 
-                              className="w-full bg-gradient-to-t from-primary/30 to-primary transition-all duration-1000 ease-out relative"
+                              className="w-full bg-gradient-to-t from-primary/10 via-primary/80 to-primary transition-all duration-1000 ease-out relative"
                               style={{ height: `${pipePct}%` }}
                             >
-                              {/* Dark Tip indicator in the pipe (only visible if cap isn't filling yet) */}
-                              {pipePct > 0 && capPct === 0 && (
-                                <div className="absolute top-0 left-0 right-0 h-1 bg-black/20" />
+                              {/* Glowing tip indicator in the pipe */}
+                              {pipePct > 0 && pipePct < 100 && (
+                                <div className="absolute top-0 left-0 right-0 h-1 bg-white/40 shadow-[0_-4px_12px_var(--primary)]" />
                               )}
                             </div>
                           </div>
-                          {/* Bottom seal for the pipe */}
-                          <div className="w-6 border-b-2 border-subtle border-dashed" />
                         </div>
 
                         {/* Member Info Below Pipe */}
-                        <div className="mt-4 text-center w-full">
+                        <div className="mt-5 text-center w-full">
+                          <div className="w-8 h-8 mx-auto rounded-full bg-surface border border-subtle flex items-center justify-center text-[11px] font-bold text-content-primary shadow-sm mb-1.5">
+                            {member.avatar}
+                          </div>
                           <p className="text-[12px] font-bold text-content-primary truncate">{member.name}</p>
-                          <p className="text-[10px] text-primary font-semibold mt-0.5">{member.current}h</p>
+                          <p className="text-[11px] text-primary font-semibold mt-0.5">{member.current}h</p>
                         </div>
                       </div>
                     );
