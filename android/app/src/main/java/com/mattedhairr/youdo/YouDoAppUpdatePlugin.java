@@ -52,8 +52,16 @@ public class YouDoAppUpdatePlugin extends Plugin {
         return !first && "release-assets.githubusercontent.com".equals(url.getHost());
     }
     private static Set<String> signers(PackageInfo info) throws Exception {
-        Signature[] signatures = Build.VERSION.SDK_INT >= 28
-            ? (info.signingInfo == null ? null : info.signingInfo.getApkContentsSigners()) : info.signatures;
+        Signature[] signatures;
+        if (Build.VERSION.SDK_INT >= 28) {
+            if (info.signingInfo == null) throw new Exception("APK signing information is missing.");
+            Signature[] contents = info.signingInfo.getApkContentsSigners();
+            // Fall back to signing certificate history (covers v3 rotated signers)
+            signatures = (contents != null && contents.length > 0)
+                ? contents : info.signingInfo.getSigningCertificateHistory();
+        } else {
+            signatures = info.signatures;
+        }
         if (signatures == null || signatures.length == 0) throw new Exception("APK signing information is missing.");
         Set<String> result = new HashSet<>();
         for (Signature signature : signatures) result.add(hex(MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())));
@@ -69,6 +77,11 @@ public class YouDoAppUpdatePlugin extends Plugin {
         PackageManager pm = getContext().getPackageManager();
         int flags = Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES : PackageManager.GET_SIGNATURES;
         PackageInfo candidate = pm.getPackageArchiveInfo(file.getAbsolutePath(), flags);
+        // On API 28+, signingInfo requires sourceDir to be set on the candidate's applicationInfo
+        if (candidate != null && candidate.applicationInfo != null && Build.VERSION.SDK_INT >= 28) {
+            candidate.applicationInfo.sourceDir = file.getAbsolutePath();
+            candidate.applicationInfo.publicSourceDir = file.getAbsolutePath();
+        }
         PackageInfo installed = pm.getPackageInfo(getContext().getPackageName(), flags);
         if (candidate == null || !installed.packageName.equals(candidate.packageName)
             || !version.equals(candidate.versionName) || !signers(installed).equals(signers(candidate))) {
