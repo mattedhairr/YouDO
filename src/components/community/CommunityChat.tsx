@@ -267,8 +267,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       else if(mounted.current)setError('The update opened, but its unread marker could not be cleared.');
     }).finally(()=>{updateReading.current=false;});
   };
-  const selectedCanModify=!!selected && selected.authorId===userId && selected.kind==='chat' && selected.delivery==='sent'
-    && Date.now()-Date.parse(selected.createdAt)<MESSAGE_ACTION_WINDOW_MS;
+  const selectedCanModify = !!selected && selected.authorId === userId && selected.kind === 'chat' && selected.delivery === 'sent'
+    && (context.isAdmin || Date.now() - Date.parse(selected.createdAt) < MESSAGE_ACTION_WINDOW_MS);
 
   // Ordered list of room IDs for swipe gesture navigation: [undefined (General), user's hashtag, ...other hashtags]
   const orderedRoomIds = useMemo(() => {
@@ -492,7 +492,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           </div>
 
           {/* Admin Moderation Box */}
-          {context.isAdmin && selected.delivery === 'sent' && (
+          {context.isAdmin && selected.delivery === 'sent' && selected.authorId !== userId && (
             <div className="bg-surface border border-error/30 rounded-2xl p-3 flex flex-col gap-2 shadow-sm">
               <label htmlFor="remove-reason" className="text-[10px] font-bold uppercase tracking-wider text-error">
                 Moderation removal

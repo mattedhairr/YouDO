@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Diagnostic — App Usage
 -- Canonical source for the private Supabase saved query:
 -- YouDO â€” Diagnostic â€” App Usage
 --

@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Managed App Quotes
 -- YouDO managed header quotes. Apply after community.sql.
 -- Additive, rerunnable, and compatible with clients that keep local quotes.
 

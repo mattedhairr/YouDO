@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Manage Community Staff
 -- Canonical source for the private Supabase saved query:
 -- YouDO â€” Manage Community Staff
 --

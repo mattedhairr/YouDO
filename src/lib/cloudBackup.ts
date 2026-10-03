@@ -186,3 +186,13 @@ export function visitSnapshotLabel(indexFromNewest: number): string {
   if (indexFromNewest === 1) return 'Previous safety copy';
   return `Safety copy ${indexFromNewest + 1}`;
 }
+
+export async function deleteLiveBackup(userId: string): Promise<boolean> {
+  const { error } = await supabase.from('user_backups').delete().eq('user_id', userId);
+  if (error) {
+    console.error('Failed to delete live backup:', error);
+    return false;
+  }
+  return true;
+}
+

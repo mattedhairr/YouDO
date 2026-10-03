@@ -38,7 +38,7 @@ import type { BackupSummary } from '../lib/backup';
 import { formatBackupStamp, formatDuration } from '../lib/format';
 import { useSessionStore, useStore } from '../store';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { readLocalWorkspaceSummary, requestAccountAccess, STORAGE_KEYS } from '../lib/storageKeys';
+import {  requestAccountAccess, STORAGE_KEYS } from '../lib/storageKeys';
 import { hapticTick, setHapticsPreference } from '../lib/haptics';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
 import { PACE_CHEATING_GUIDE, PACE_HONEST_QUOTE, paceWindowTotals } from '../lib/paceBoard';
@@ -97,6 +97,7 @@ export default function SettingsSheet({
     importBackup,
     syncToCloud,
     cloudSyncConflict,
+    clearCloudData,
     restoreFromCloud,
     restoreFromVisitSnapshot,
     listCloudRestorePoints,
@@ -118,10 +119,7 @@ export default function SettingsSheet({
   const { activeSession } = useSessionStore();
   // An empty plan can still have focus history or durable deletion evidence.
   // Never present uploading that copy as a full cloud clear.
-  const canClearCloud = (() => {
-    try { return !readLocalWorkspaceSummary().hasData; }
-    catch { return false; }
-  })();
+
   const [theme, setTheme] = useTheme();
   const [reducedEffects, setReducedEffects] = useReducedEffects();
   const publicBoardRef = useRef<HTMLElement>(null);
@@ -500,47 +498,45 @@ export default function SettingsSheet({
                     </div>
                   )}
 
-                  {canClearCloud && (
-                    confirmWipeCloud ? (
-                      <div className="mt-2 rounded-[12px] border border-error/30 bg-error-soft p-3 space-y-2">
-                        <p className="text-[12px] text-content-secondary leading-relaxed">
-                          This device has no goals or cards. Clearing the cloud backup removes the copy on your other devices too. This cannot be undone from here.
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const res = await syncToCloud({ allowEmpty: true });
-                              setConfirmWipeCloud(false);
-                              setMsg(
-                                res.ok
-                                  ? { text: '✓ Cloud backup cleared.' }
-                                  : { text: `✗ ${res.error || 'Failed to clear cloud backup.'}`, error: true },
-                              );
-                            }}
-                            className="flex-1 h-10 rounded-[12px] bg-error text-on-primary text-[12px] font-semibold"
-                          >
-                            Yes, clear cloud
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmWipeCloud(false)}
-                            className="flex-1 h-10 rounded-[12px] border border-subtle text-[12px] font-medium text-content-secondary"
-                          >
-                            Cancel
-                          </button>
-                        </div>
+                                    {confirmWipeCloud ? (
+                    <div className="mt-2 rounded-[12px] border border-error/30 bg-error-soft p-3 space-y-2">
+                      <p className="text-[12px] text-content-secondary leading-relaxed">
+                        Clearing the cloud backup permanently deletes your data from the server. Your local device copy will NOT be deleted.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const success = await clearCloudData();
+                            setConfirmWipeCloud(false);
+                            setMsg(
+                              success
+                                ? { text: ' Cloud backup permanently cleared.' }
+                                : { text: ' Failed to clear cloud backup.', error: true },
+                            );
+                          }}
+                          className="flex-1 h-10 rounded-[12px] bg-error text-on-primary text-[12px] font-semibold"
+                        >
+                          Yes, clear cloud
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmWipeCloud(false)}
+                          className="flex-1 h-10 rounded-[12px] border border-subtle text-[12px] font-medium text-content-secondary"
+                        >
+                          Cancel
+                        </button>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmWipeCloud(true)}
-                        className="mt-2 w-full h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
-                      >
-                        <Trash2 size={14} />
-                        Clear cloud backup
-                      </button>
-                    )
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmWipeCloud(true)}
+                      className="mt-2 w-full h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 size={14} />
+                      Clear cloud backup
+                    </button>
                   )}
 
                   <div className="settings-account-actions mt-2 grid grid-cols-3 gap-1">

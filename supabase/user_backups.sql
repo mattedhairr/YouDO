@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Cloud Backup Setup
 -- Run this SQL in your Supabase Dashboard > SQL Editor
 
 begin;

@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Community & Moderation Setup
 -- YouDO community layer: earned kudos, a rolling 24-hour room,
 -- and least-privilege moderation. Safe to rerun in the Supabase SQL editor.
 

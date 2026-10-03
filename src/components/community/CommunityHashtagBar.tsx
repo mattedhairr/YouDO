@@ -68,7 +68,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
   }, 0);
 
   return (
-    <nav className="p-2.5 pb-1.5" aria-label="Chat rooms">
+    <nav className="px-3 pb-2 pt-1" aria-label="Chat rooms">
       <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full relative z-0">
         {/* Sliding Background */}
         <div 

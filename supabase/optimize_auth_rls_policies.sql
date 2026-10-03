@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Optimize Auth RLS Policies
 -- Apply this once to an existing YouDO Supabase project.
 -- It preserves the same ownership rules while evaluating auth.uid() once per
 -- statement, as recommended by Supabase's RLS performance advisor.

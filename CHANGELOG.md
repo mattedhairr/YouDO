@@ -20,6 +20,8 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 ## [v7.7.0] - 2026-10-03 - iOS-style UI/UX overhaul and offline export fix
 
 - **iOS-style Interface** - Menus, task cards, and settings have been completely rebuilt to slide up natively from the bottom with grouped cards, grab handles, and haptic feedback.
+- **Community & Admin Tools** - Slimmer top navigation for chat rooms, permanent hashtag deletion, and full admin edit access on their own messages.
+- **Clear Cloud Data** - Added a dedicated option in Backup & Sync to securely wipe your cloud copy without losing your local device data.
 - **Direct JSON Backups** - Exporting an offline JSON backup on the web no longer opens a confusing share menu, but directly downloads the file to your device.
 - **Android APK** - versionName **7.7.0**, versionCode **65**. Installs safely over v7.6.5.
 

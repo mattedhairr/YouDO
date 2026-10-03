@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO � Admin Hashtag Management
 -- Apply after community_hashtags.sql. Additive and safe to rerun.
 -- Run the whole query in the private Supabase SQL Editor before enabling the client.
 
@@ -25,7 +26,7 @@ declare tag public.community_hashtags;
 declare removed_members bigint := 0;
 begin
   if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
-  if requested_action not in ('create','rename','archive','restore') then raise exception 'Unknown hashtag action'; end if;
+  if requested_action not in ('create','rename','archive','restore','delete') then raise exception 'Unknown hashtag action'; end if;
   if requested_action in ('create','rename') then
     if char_length(clean_label) not between 2 and 24 or char_length(normalized_tag)<2 then
       raise exception 'Write a recognisable hashtag label of 2–24 characters';
@@ -70,7 +71,12 @@ begin
       update public.community_hashtags set active=false,updated_at=now() where id=tag.id returning * into tag;
       insert into public.community_audit_log(admin_id,action,reason)
         values(auth.uid(),'hashtag.admin.archived','#'||tag.label||' · '||removed_members||' members unassigned');
-    else
+      elsif requested_action='delete' then
+        if tag.active then raise exception 'Hashtag must be removed first'; end if;
+        delete from public.community_hashtags where id=tag.id;
+        insert into public.community_audit_log(admin_id,action,reason)
+          values(auth.uid(),'hashtag.admin.deleted','#'||tag.label);
+      else
       if tag.active then raise exception 'Hashtag is already active'; end if;
       update public.community_hashtags set active=true,updated_at=now() where id=tag.id returning * into tag;
       insert into public.community_audit_log(admin_id,action,reason)

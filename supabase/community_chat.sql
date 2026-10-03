@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Community Chat Upgrade
 -- Apply after public_pace.sql and community.sql. Additive, rerunnable upgrade.
 -- Legacy inbox/post/read RPCs remain supported. No production credentials needed.
 begin;

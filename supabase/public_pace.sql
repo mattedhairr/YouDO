@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Public Board Initial Setup
 -- Run once in the Supabase SQL editor (project that YouDO already uses for auth/backups).
 -- Board stays hidden in-app until 10 people opt in; this table is still required.
 

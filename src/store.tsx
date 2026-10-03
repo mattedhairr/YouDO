@@ -224,6 +224,7 @@ interface Store {
   workspaceStorageError: string;
   /** Restore state from Supabase cloud metadata */
   restoreFromCloud: () => Promise<boolean>;
+  clearCloudData: () => Promise<boolean>;
   restoreFromVisitSnapshot: (snapshotId: string) => Promise<boolean>;
   listCloudRestorePoints: () => Promise<{
     live: { updatedAt: string; summary: BackupSummary | null } | null;
@@ -318,7 +319,7 @@ const isArray = (value: unknown) => Array.isArray(value);
 const isRecord = (value: unknown) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { user, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot } = useAuth();
+  const { user, deleteCloudBackup, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot } = useAuth();
   const [tasks, setTasks] = useLocalStorage<Task[]>(STORAGE_KEYS.tasks, SEED_TASKS, { ...atomicStorage, validate: isStoredTaskList });
   const [goals, setGoals] = useLocalStorage<GoalNode[]>(STORAGE_KEYS.goals, SEED_GOALS, { ...atomicStorage, validate: isStoredGoalTree });
   const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>(STORAGE_KEYS.deletedGoals, [], { ...atomicStorage, validate: isArray });
@@ -1606,7 +1607,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [setStreakMeta],
   );
 
-  const persistCloudFingerprint = useCallback((fingerprint: string): boolean => {
+  const persistCloudFingerprint = useCallback((fingerprint: string | null): boolean => {
     try {
       commitWorkspaceMutation({ [STORAGE_KEYS.workspaceCloudFingerprint]: fingerprint, [STORAGE_KEYS.workspaceSyncConflict]: null });
       return true;
@@ -1806,6 +1807,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return run;
   }, [performCloudSync]);
 
+  const clearCloudData = useCallback(async (): Promise<boolean> => {
+    const success = await deleteCloudBackup();
+    if (success) {
+      persistCloudFingerprint(null);
+      setCloudSyncConflict(false);
+    }
+    return success;
+  }, [deleteCloudBackup, persistCloudFingerprint]);
+
   const restoreFromCloud = useCallback(async (): Promise<boolean> => {
     const owner = userIdRef.current;
     const scope = workspaceScopeRef.current;
@@ -1959,7 +1969,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, moveGoalNodes: moveGoalNodesAction, copyGoalNodesToTarget: copyGoalNodesToTargetAction, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard, deleteGoalNodes,
-      exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, clearCloudData, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       pruneOldSessions,
       sessionHistory,
       completeSessionSteps,
@@ -1976,7 +1986,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reorderGoalNodes, moveGoalNode, moveGoalNodesAction, copyGoalNodesToTargetAction, toggleNodeCompletion,
       planTask, planBatch, unlinkTask, toggleGoalStep, togglePin,
       copyGoalNode, copyGoalNodes, pasteGoalNode, clipboard, clearClipboard,
-      exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
+      exportBackup, importBackup, syncToCloud, cloudSyncConflict, workspaceStorageError, clearCloudData, restoreFromCloud, restoreFromVisitSnapshot, listCloudRestorePoints,
       pruneOldSessions,
       sessionHistory, completeSessionSteps, streakMeta, setStreakMeta, setStreakBarHours,
       pacePrefs, updatePacePrefs, publishPublicPace],

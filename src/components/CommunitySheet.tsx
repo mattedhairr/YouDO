@@ -245,7 +245,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
 
   return <Overlay open={open} onClose={onClose} align="full">
     <div className="community-shell app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base">
-      <header className="flex shrink-0 items-center gap-2 border-b border-subtle bg-elevated px-3 pb-3 pt-[max(0.75rem,var(--safe-area-top))]">
+      <header className={`flex shrink-0 items-center gap-2 bg-elevated px-3 pt-[max(0.75rem,var(--safe-area-top))] ${mode === 'room' && context.chatV2 ? 'pb-1' : 'border-b border-subtle pb-3'}`}>
         <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-content-secondary hover:bg-surface" aria-label="Close community"><ArrowLeft size={19} /></button>
         <span className="grid size-9 place-items-center rounded-xl border border-primary/20 bg-primary-soft text-primary">{mode === 'admin' ? <Gauge size={17} /> : <MessageCircle size={17} />}</span>
         <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p><h2 className="text-[16px] font-bold text-content-primary">{mode === 'admin' ? 'Community admin' : 'Community'}</h2></div>

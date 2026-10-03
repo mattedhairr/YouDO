@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Community Hashtags Upgrade
 -- Apply after community_chat.sql. Additive and safe to rerun.
 -- Hashtags classify members, not individual messages: changing a profile tag
 -- changes which exam feed contains that member's currently visible messages.

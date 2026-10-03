@@ -7,6 +7,7 @@ import {
   listVisitSnapshots,
   resetVisitSnapshotFreeze,
   upsertLiveBackup,
+  deleteLiveBackup,
   type VisitSnapshotMeta,
 } from '../lib/cloudBackup';
 import { supabase } from '../lib/supabase';
@@ -41,6 +42,7 @@ interface AuthContextType {
   updateProfile: (profile: { fullName?: string; avatarUrl?: string }) => Promise<boolean>;
   changeEmail: (currentPassword: string, nextEmail: string) => Promise<AuthActionResult>;
   changePassword: (currentPassword: string, nextPassword: string) => Promise<AuthActionResult>;
+  deleteCloudBackup: () => Promise<boolean>;
   updateCloudBackup: (
     backupData: unknown,
     options: { expectedRevision: number; expectedUserId?: string; requireSafetyCopy?: boolean },
@@ -64,6 +66,7 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: async () => false,
   changeEmail: async () => ({ ok: false, error: 'Not initialized' }),
   changePassword: async () => ({ ok: false, error: 'Not initialized' }),
+  deleteCloudBackup: async () => false,
   updateCloudBackup: async () => ({ ok: false, error: 'Not initialized' }),
   fetchCloudBackup: async () => null,
   fetchLiveBackupInfo: async () => null,
@@ -344,6 +347,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteCloudBackup = async (): Promise<boolean> => {
+    try {
+      const userId = await currentUserId();
+      if (!userId) return false;
+      return await deleteLiveBackup(userId);
+    } catch (err) {
+      console.error('deleteCloudBackup failed:', err);
+      return false;
+    }
+  };
+
   const updateCloudBackup = async (
     backupData: unknown,
     options: { expectedRevision: number; expectedUserId?: string; requireSafetyCopy?: boolean },
@@ -408,6 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         changeEmail,
         changePassword,
+        deleteCloudBackup,
         updateCloudBackup,
         fetchCloudBackup,
         fetchLiveBackupInfo,

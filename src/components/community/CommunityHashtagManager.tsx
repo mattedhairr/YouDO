@@ -21,7 +21,7 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
   const startEdit=(tag?:AdminCommunityHashtag)=>{
     setEditing(tag?.id??'new');setLabel(tag?.label??'');setConfirmDelete(null);setError('');
   };
-  const act=async(action:'create'|'rename'|'archive'|'restore',tag?:AdminCommunityHashtag)=>{
+  const act=async(action:'create'|'rename'|'archive'|'restore'|'delete',tag?:AdminCommunityHashtag)=>{
     if(working)return;
     setWorking(true);setError('');
     try {
@@ -57,7 +57,7 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
         <div><button type="button" disabled={busy||working} onClick={()=>void act('archive',tag)}>Delete hashtag</button><button type="button" onClick={()=>setConfirmDelete(null)}>Cancel</button></div>
       </div>}
     </li>)}</ul>}
-    {!setupError&&removed.length>0&&<details className="admin-hashtag-manager-removed"><summary>Removed hashtags ({removed.length})</summary><ul>{removed.map(tag=><li key={tag.id}><span>#{tag.label}</span><button type="button" disabled={busy||working} onClick={()=>void act('restore',tag)}><RotateCcw size={12}/> Restore</button></li>)}</ul></details>}
+    {!setupError&&removed.length>0&&<details className="admin-hashtag-manager-removed"><summary>Removed hashtags ({removed.length})</summary><ul>{removed.map(tag=><li key={tag.id} className="flex justify-between items-center w-full"><span>#{tag.label}</span><div className="flex gap-1.5"><button type="button" disabled={busy||working} onClick={()=>void act('restore',tag)}><RotateCcw size={12}/> Restore</button><button type="button" disabled={busy||working} onClick={()=>void act('delete',tag)} aria-label={`Permanently delete #${tag.label}`} className="!text-error !px-2"><Trash2 size={14}/></button></div></li>)}</ul></details>}
     {error&&<p role="alert" className="admin-quotes-error">{error}</p>}
   </section>;
 }

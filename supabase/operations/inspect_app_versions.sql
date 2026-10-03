@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Diagnostic — Synced App Versions
 -- Canonical source for the private Supabase saved query:
 -- YouDO â€” Diagnostic â€” Synced App Versions
 --

@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Community Chat Rooms Upgrade
 -- Apply after community_hashtag_admin.sql and board_evidence.sql.
 -- Existing messages remain General. No data is deleted or reclassified.
 begin;

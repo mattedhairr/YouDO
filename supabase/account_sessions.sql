@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Account Sessions
 -- YouDO account sessions: own-session visibility and guarded remote revocation.
 -- Run the whole file once in the Supabase SQL editor. It is safe to rerun.
 begin;

@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Cloud Backup Revisions Upgrade
 -- Apply after user_backups.sql, before releasing a client that reads revision.
 -- Additive and safe to rerun. Existing direct clients remain supported: the
 -- trigger assigns a new server revision and timestamp to every write.

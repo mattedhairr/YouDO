@@ -86,7 +86,7 @@ export async function fetchAdminCommunityHashtags(): Promise<AdminCommunityHasht
   if(error)throw new Error(error.message||'Could not load managed hashtags.');
   return (Array.isArray(data)?data:[]).flatMap(value=>{const item=parseAdminCommunityHashtag(value);return item?[item]:[];});
 }
-export async function manageCommunityHashtag(action:'create'|'rename'|'archive'|'restore',id?:string,label?:string): Promise<void> {
+export async function manageCommunityHashtag(action:'create'|'rename'|'archive'|'restore'|'delete',id?:string,label?:string): Promise<void> {
   const {error}=await supabase.rpc('manage_community_hashtag',{
     requested_action:action,target_hashtag:id??null,requested_label:label??null,
   });

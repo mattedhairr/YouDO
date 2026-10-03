@@ -1,3 +1,4 @@
+-- Supabase Snippet Name: YouDO — Public Board Evidence Upgrade
 -- Apply after cloud_backup_revisions.sql, public_pace.sql, community.sql,
 -- and community_hashtags.sql. Public totals are derived from the revisioned
 -- private cloud copy; direct client writes to legacy total columns are ignored.
