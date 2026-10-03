@@ -959,8 +959,15 @@ export default function SettingsSheet({
             {(availableUpdate || !Capacitor.isNativePlatform()) && <div className="px-4 pb-3"><UpdateAction release={availableUpdate} /></div>}
             {availableUpdate && availableUpdate.highlights.length > 0 && (
               <div className="border-t border-subtle px-4 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">What’s new</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{availableUpdate.highlights.join(' · ')}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-2.5">What's new</p>
+                <ul className="space-y-2">
+                  {availableUpdate.highlights.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="mt-[5px] size-1.5 shrink-0 rounded-full bg-primary" />
+                      <span className="text-[11px] leading-relaxed text-content-secondary">{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
