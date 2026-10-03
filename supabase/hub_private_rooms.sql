@@ -47,32 +47,70 @@ create table if not exists public.squad_members (
   primary key (squad_id, user_id)
 );
 
+-- 5. Direct Messages Table (Strictly 1-on-1, No Admin Bypass)
+create table if not exists public.direct_messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references auth.users (id) on delete cascade,
+  receiver_id uuid not null references auth.users (id) on delete cascade,
+  content text not null,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- 6. Squad Room Messages Table (Strictly Accepted Room Members Only, No Admin Bypass)
+create table if not exists public.squad_messages (
+  id uuid primary key default gen_random_uuid(),
+  squad_id uuid not null references public.squads (id) on delete cascade,
+  sender_id uuid not null references auth.users (id) on delete cascade,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
 -- Turn on Row Level Security (RLS)
 alter table public.profiles enable row level security;
 alter table public.friendships enable row level security;
 alter table public.squads enable row level security;
 alter table public.squad_members enable row level security;
+alter table public.direct_messages enable row level security;
+alter table public.squad_messages enable row level security;
 
--- Basic RLS Policies (Can be restricted further later)
+-- STRICT PRIVACY POLICIES (NO ADMIN OVERRIDES)
 
 -- Profiles: Anyone can read profiles. Users can only update their own.
 create policy "Profiles are viewable by everyone" on public.profiles for select using (true);
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
 create policy "Users can insert own profile" on public.profiles for insert with check (auth.uid() = id);
 
--- Friendships: Users can see friendships they are part of.
+-- Friendships: Only participants can view their friendships.
 create policy "Users view own friendships" on public.friendships for select using (auth.uid() = requester_id or auth.uid() = receiver_id);
 create policy "Users can insert friendships" on public.friendships for insert with check (auth.uid() = requester_id);
 create policy "Users can update own friendships" on public.friendships for update using (auth.uid() = requester_id or auth.uid() = receiver_id);
 
--- Squads: Users can see squads if they are a member.
+-- Squads: STRICTLY member-only visibility. Non-members and admins cannot view squads they are not in.
 create policy "Users view squads they are in" on public.squads for select using (
-  exists (select 1 from public.squad_members where squad_id = squads.id and user_id = auth.uid())
+  exists (select 1 from public.squad_members where squad_id = squads.id and user_id = auth.uid() and status = 'accepted')
 );
 create policy "Users can create squads" on public.squads for insert with check (auth.uid() = created_by);
 
--- Squad Members: Users can see members of their squads.
+-- Squad Members: STRICTLY member-only visibility.
 create policy "Users view members of their squads" on public.squad_members for select using (
-  exists (select 1 from public.squad_members sm where sm.squad_id = squad_members.squad_id and sm.user_id = auth.uid())
+  exists (select 1 from public.squad_members sm where sm.squad_id = squad_members.squad_id and sm.user_id = auth.uid() and sm.status = 'accepted')
 );
 create policy "Users can join squads" on public.squad_members for insert with check (auth.uid() = user_id);
+
+-- Direct Messages: ZERO ADMIN BYPASS. Only sender or receiver can select or send.
+create policy "DMs viewable only by participants" on public.direct_messages for select using (
+  auth.uid() = sender_id or auth.uid() = receiver_id
+);
+create policy "Users send DMs as themselves" on public.direct_messages for insert with check (
+  auth.uid() = sender_id
+);
+
+-- Squad Messages: ZERO ADMIN BYPASS. Strictly accepted members can view and post.
+create policy "Squad messages viewable only by accepted members" on public.squad_messages for select using (
+  exists (select 1 from public.squad_members where squad_id = squad_messages.squad_id and user_id = auth.uid() and status = 'accepted')
+);
+create policy "Squad members can post messages" on public.squad_messages for insert with check (
+  auth.uid() = sender_id and
+  exists (select 1 from public.squad_members where squad_id = squad_messages.squad_id and user_id = auth.uid() and status = 'accepted')
+);
