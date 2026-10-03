@@ -85,7 +85,6 @@ export default function CommunityHashtagAdmin({
     <section className="admin-hashtag-requests">
       <div className="admin-hashtag-heading">
         <div>
-          <p>Exam communities</p>
           <h3>Hashtag requests</h3>
           <small>Review matching exams together. Chat with requesters or approve when ready.</small>
         </div>
