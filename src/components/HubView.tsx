@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Bell, UserPlus, UsersRound } from 'lucide-react';
 import BoardView from './BoardView';
+import UserProfileSheet from './UserProfileSheet';
 
 export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: () => void }) {
   const [activeTab, setActiveTab] = useState<'social' | 'private'>('social');
   const [privateSubTab, setPrivateSubTab] = useState<'dms' | 'rooms'>('dms');
+  const [showTestProfile, setShowTestProfile] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
@@ -76,9 +78,15 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
 
             {/* Private Content Placeholder */}
             {privateSubTab === 'dms' ? (
-              <div className="text-center py-12">
+              <div className="text-center py-12 flex flex-col items-center">
                 <p className="text-[14px] font-semibold text-content-primary">Direct Messages</p>
-                <p className="text-[12px] text-content-muted mt-1.5">Your friends and chats will appear here.</p>
+                <p className="text-[12px] text-content-muted mt-1.5 mb-6">Your friends and chats will appear here.</p>
+                <button 
+                  onClick={() => setShowTestProfile(true)}
+                  className="px-5 py-2.5 bg-primary/10 text-primary border border-primary/20 rounded-[12px] text-[13px] font-semibold hover:bg-primary/20 transition-colors"
+                >
+                  Test Sample Profile
+                </button>
               </div>
             ) : (
               <div className="text-center py-12">
@@ -89,6 +97,7 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
           </div>
         )}
       </div>
+      <UserProfileSheet open={showTestProfile} onClose={() => setShowTestProfile(false)} />
     </div>
   );
 }
