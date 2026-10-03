@@ -339,7 +339,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             </div>
           </> : <p className="p-6 text-center text-[12px] text-content-muted">{refreshing ? 'Loading activity...' : 'Activity is unavailable. Refresh to try again.'}</p>}
         </section>
-        <nav className="flex items-center gap-6 overflow-x-auto border-b border-subtle mb-6 px-2" style={{ scrollbarWidth: 'none' }} aria-label="Admin sections">
+        <nav className="flex items-center gap-6 overflow-x-auto border-b border-subtle mb-4 px-2" style={{ scrollbarWidth: 'none' }} aria-label="Admin sections">
           {(['review', 'hashtags', 'controls', 'quotes', 'history'] as const).map((tab) => {
             const label = tab === 'review' ? 'Review' : tab === 'hashtags' ? 'Hashtags' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Safety log';
             const count = tab === 'review' ? reports.length + appeals.length : tab === 'hashtags' ? hashtagRequests.length : 0;
@@ -385,7 +385,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </section>
         </div>
         <div hidden={adminTab !== 'hashtags' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full mb-6">
+          <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full mb-3">
             <button
               onClick={() => setHashtagSubTab('requests')}
               type="button"

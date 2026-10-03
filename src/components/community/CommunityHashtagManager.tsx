@@ -40,8 +40,8 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
     </div>
   </div>;
 
-  return <section className="admin-hashtag-manager" aria-label="Manage exam hashtags">
-    <header className="flex justify-end mb-3">
+  return <div className="flex flex-col gap-3" aria-label="Manage exam hashtags">
+    <header className="flex justify-end">
       <button type="button" disabled={Boolean(setupError)||busy||working} onClick={()=>startEdit()} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-[10px] font-bold text-on-primary active:scale-95 transition-transform"><Plus size={13}/> Add</button>
     </header>
     {setupError&&<p role="alert" className="admin-hashtag-manager-setup">Hashtag management needs the admin database upgrade. Apply it, then refresh.</p>}
@@ -59,5 +59,5 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
     </li>)}</ul>}
     {!setupError&&removed.length>0&&<details className="admin-hashtag-manager-removed"><summary>Removed hashtags ({removed.length})</summary><ul>{removed.map(tag=><li key={tag.id} className="flex justify-between items-center w-full"><span>#{tag.label}</span><div className="flex gap-1.5"><button type="button" disabled={busy||working} onClick={()=>void act('restore',tag)}><RotateCcw size={12}/> Restore</button><button type="button" disabled={busy||working} onClick={()=>void act('delete',tag)} aria-label={`Permanently delete #${tag.label}`} className="!text-error !px-2"><Trash2 size={14}/></button></div></li>)}</ul></details>}
     {error&&<p role="alert" className="admin-quotes-error">{error}</p>}
-  </section>;
+  </div>;
 }
