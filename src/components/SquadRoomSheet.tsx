@@ -104,15 +104,15 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                         <div className="w-full flex flex-col items-center h-[140px]">
                           
                           {/* Top Cap (Horizontal Spread) */}
-                          <div className={`w-full h-5 bg-elevated border-y-2 border-subtle relative flex justify-center items-center z-10
+                          <div className={`w-full h-5 bg-elevated border-y-2 border-subtle relative flex justify-center items-end z-10
                             ${isFirst ? 'border-l-2 rounded-tl-[8px]' : ''}
                             ${isLast ? 'border-r-2 rounded-tr-[8px]' : ''}
                           `}>
-                            {/* Water spreading horizontally from the center with glow */}
+                            {/* Water rising vertically in the wide cap */}
                             <div 
-                              className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_4px_12px_var(--primary)]"
+                              className="w-full bg-primary transition-all duration-1000 ease-out shadow-[0_4px_12px_var(--primary)]"
                               style={{ 
-                                width: `${capPct}%`,
+                                height: `${capPct}%`,
                                 borderRadius: (isFirst && capPct === 100) ? '6px 0 0 0' : (isLast && capPct === 100) ? '0 6px 0 0' : '0'
                               }}
                             />
