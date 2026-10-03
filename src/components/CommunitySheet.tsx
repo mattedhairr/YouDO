@@ -313,35 +313,93 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <p className="mt-1 text-right text-[9px] text-content-muted">{draft.length}/240</p>
         </footer>
       </> : <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <section className="admin-activity" aria-label="Community pulse">
-          <div className="admin-activity-heading"><div><Activity size={14} /><h3>Community pulse</h3></div><span>{activity ? 'Board members' : refreshing ? 'Loading…' : 'Unavailable'}</span></div>
-          {activity ? <>
-            <div className="admin-activity-values">
-              <div><strong>{activity.activeRecently}</strong><span>Active recently</span><small>last 5 min</small></div>
-              <div><strong>{activity.visitedToday}</strong><span>Used today</span><small>of {activity.boardMembers} members</small></div>
+        <section className="mb-6 rounded-[24px] bg-gradient-to-br from-surface to-base border border-subtle overflow-hidden shadow-sm" aria-label="Community pulse">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-subtle/40 bg-surface/40">
+            <div className="flex items-center gap-2.5 text-primary">
+              <div className="grid place-items-center size-7 rounded-lg bg-primary/10">
+                <Activity size={15} className="animate-pulse" />
+              </div>
+              <h3 className="text-[13px] font-bold tracking-wide">Community Pulse</h3>
             </div>
-            <details><summary>How pulse works <ChevronDown size={12} /></summary><p>Opted-in Board members using a supported build. Recent activity means the app was open within five minutes; someone may have since left. Used today resets at 00:00 UTC (05:30 in India). Updated {timeLabel(activity.asOf)}.</p></details>
-          </> : <p className="px-4 pb-4 text-[12px] text-content-muted">{refreshing ? 'Loading activity…' : 'Activity is unavailable. Refresh to try again.'}</p>}
+            <span className="text-[10px] font-bold text-content-muted uppercase tracking-widest">{activity ? 'Board members' : refreshing ? 'Loading...' : 'Unavailable'}</span>
+          </div>
+          {activity ? <>
+            <div className="grid grid-cols-2 divide-x divide-subtle/50 p-5">
+              <div className="flex flex-col items-center justify-center text-center px-2">
+                <strong className="text-3xl font-extrabold text-content-primary mb-1.5">{activity.activeRecently}</strong>
+                <span className="text-[10px] font-bold text-content-secondary uppercase tracking-widest">Active recently</span>
+                <small className="text-[9px] text-content-muted mt-1">last 5 min</small>
+              </div>
+              <div className="flex flex-col items-center justify-center text-center px-2">
+                <strong className="text-3xl font-extrabold text-content-primary mb-1.5">{activity.visitedToday}</strong>
+                <span className="text-[10px] font-bold text-content-secondary uppercase tracking-widest">Used today</span>
+                <small className="text-[9px] text-content-muted mt-1">of {activity.boardMembers} members</small>
+              </div>
+            </div>
+            <details className="group border-t border-subtle/40 text-[11px]">
+              <summary className="flex items-center justify-center gap-1.5 py-3 text-content-muted cursor-pointer hover:text-content-secondary hover:bg-surface/50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                <span className="font-semibold">How pulse works</span>
+                <ChevronDown size={13} className="transition-transform duration-300 group-open:-rotate-180" />
+              </summary>
+              <div className="px-5 pb-5 text-content-secondary leading-relaxed text-center opacity-0 group-open:animate-in group-open:fade-in group-open:slide-in-from-top-2 duration-300">
+                Opted-in Board members using a supported build. Recent activity means the app was open within five minutes; someone may have since left. Used today resets at 00:00 UTC (05:30 in India). Updated {timeLabel(activity.asOf)}.
+              </div>
+            </details>
+          </> : <p className="p-6 text-center text-[12px] text-content-muted">{refreshing ? 'Loading activity...' : 'Activity is unavailable. Refresh to try again.'}</p>}
         </section>
-        <nav className="admin-nav" aria-label="Admin sections">{(['review', 'hashtags', 'controls', 'quotes', 'history'] as const).map((tab) => <button key={tab} type="button" aria-pressed={adminTab === tab} onClick={() => { setAdminTab(tab); setStatus(''); }}>{tab === 'review' ? 'Review' : tab === 'hashtags' ? 'Hashtags' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Safety log'}{tab === 'review' && reports.length + appeals.length > 0 && <span>{reports.length + appeals.length}</span>}{tab === 'hashtags' && hashtagRequests.length > 0 && <span>{hashtagRequests.length}</span>}</button>)}</nav>
+        <nav className="flex items-center gap-2 overflow-x-auto border-b border-subtle pb-4 mb-5" style={{ scrollbarWidth: 'none' }} aria-label="Admin sections">
+          {(['review', 'hashtags', 'controls', 'quotes', 'history'] as const).map((tab) => {
+            const label = tab === 'review' ? 'Review' : tab === 'hashtags' ? 'Hashtags' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Safety log';
+            const count = tab === 'review' ? reports.length + appeals.length : tab === 'hashtags' ? hashtagRequests.length : 0;
+            const active = adminTab === tab;
+            return (
+              <button key={tab} type="button" aria-pressed={active} onClick={() => { setAdminTab(tab); setStatus(''); }} className={`relative shrink-0 flex items-center gap-2 h-9 px-4 rounded-full text-[11.5px] font-bold transition-all duration-200 ease-out active:scale-95 ${active ? 'bg-primary text-on-primary shadow-md shadow-primary/20' : 'bg-surface text-content-secondary hover:bg-surface-hover hover:text-content-primary border border-subtle/50'}`}>
+                <span>{label}</span>
+                {count > 0 && <span className={`grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full text-[9.5px] font-extrabold ${active ? 'bg-on-primary text-primary' : 'bg-primary-soft text-primary'}`}>{count}</span>}
+              </button>
+            );
+          })}
+        </nav>
         {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
-        <div hidden={adminTab !== 'controls'}>
-        <section className="admin-control-list">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-[12px] font-semibold text-content-primary">Community room</p><p className="text-[10px] text-content-muted">Pause messages and automatic notes</p></div><Toggle disabled={busy || savingFeature} checked={context.settings.roomEnabled} onChange={() => void setFeature('roomEnabled', !context.settings.roomEnabled)} label="Toggle community room" /></div>
-          <div className="my-3 h-px bg-border-subtle" />
-          <div className="flex items-center justify-between gap-3"><div><p className="text-[12px] font-semibold text-content-primary">Kudos</p><p className="text-[10px] text-content-muted">Recognition for the top three</p></div><Toggle disabled={busy || savingFeature} checked={context.settings.appreciationsEnabled} onChange={() => void setFeature('appreciationsEnabled', !context.settings.appreciationsEnabled)} label="Toggle Kudos" /></div>
+        <div hidden={adminTab !== 'controls'} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <section className="rounded-[24px] border border-subtle bg-surface overflow-hidden shadow-sm">
+          <div className="flex items-center justify-between p-5 border-b border-subtle/50">
+            <div>
+              <p className="text-[13px] font-bold text-content-primary">Community room</p>
+              <p className="text-[11px] text-content-muted mt-1">Pause messages and automatic notes</p>
+            </div>
+            <Toggle disabled={busy || savingFeature} checked={context.settings.roomEnabled} onChange={() => void setFeature('roomEnabled', !context.settings.roomEnabled)} label="Toggle community room" />
+          </div>
+          <div className="flex items-center justify-between p-5">
+            <div>
+              <p className="text-[13px] font-bold text-content-primary">Kudos</p>
+              <p className="text-[11px] text-content-muted mt-1">Recognition for the top three</p>
+            </div>
+            <Toggle disabled={busy || savingFeature} checked={context.settings.appreciationsEnabled} onChange={() => void setFeature('appreciationsEnabled', !context.settings.appreciationsEnabled)} label="Toggle Kudos" />
+          </div>
         </section>
-        <section className="mt-4 rounded-[15px] border border-subtle bg-surface p-3.5"><label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Board broadcast</label><textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="mt-2 w-full resize-y rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] outline-none focus:border-primary" /><p className="mt-1.5 text-[9.5px] leading-relaxed text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p><button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || announcement.trim() === context.settings.announcement} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-on-primary"><Check size={14} /> Publish</button></section>
+        <section className="mt-5 rounded-[24px] border border-subtle bg-surface p-5 shadow-sm">
+          <label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-3">
+            <MessageCircle size={14} /> Board broadcast
+          </label>
+          <textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="w-full resize-y rounded-[16px] border border-subtle bg-base p-3.5 text-[12.5px] text-content-primary outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
+          <p className="mt-2.5 text-[10.5px] text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p>
+          <div className="mt-5 flex justify-end">
+            <button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || announcement.trim() === context.settings.announcement} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-[12px] font-bold text-on-primary shadow-sm disabled:opacity-40 transition-transform active:scale-95">
+              <Check size={16} /> Publish Broadcast
+            </button>
+          </div>
+        </section>
         </div>
-        <div hidden={adminTab !== 'hashtags' || !adminLoaded}>
+        <div hidden={adminTab !== 'hashtags' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
           <div className="mt-5"></div>
           <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
         </div>
-        <div hidden={adminTab !== 'quotes' || !adminLoaded}>
+        <div hidden={adminTab !== 'quotes' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <CommunityQuoteAdmin quotes={quotes} busy={busy} setupError={quoteLoadError} onRefresh={refresh}/>
         </div>
-        <div className="admin-review-stack" hidden={adminTab !== 'review' || !adminLoaded}>
+        <div className="admin-review-stack animate-in fade-in slide-in-from-bottom-2 duration-300" hidden={adminTab !== 'review' || !adminLoaded}>
         {appeals.length > 0 && <section className="admin-review-section mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Appeals</p><h3 className="text-[14px] font-semibold text-content-primary">Private review requests</h3></div><span className="rounded-full bg-secondary-soft px-2 py-1 text-[10px] font-bold text-secondary">{appeals.length}</span></div><div className="space-y-2">{appeals.map((appeal) => { const member = members.find((item) => item.userId === appeal.userId); const name = names.get(appeal.userId) || member?.displayName || appeal.userId.slice(0, 8); const expanded = reviewingAppeal === appeal.id; return <article key={appeal.id} className="rounded-[14px] border border-secondary/20 bg-secondary-soft/15 p-3"><div className="flex items-start gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><div className="min-w-0 flex-1"><p className="text-[11.5px] font-semibold text-content-primary">{name}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{appeal.message}</p><p className="mt-1.5 text-[9px] text-content-muted">Sent {new Date(appeal.createdAt).toLocaleString()}</p></div></div>{!expanded ? <button type="button" onClick={() => { setReviewingAppeal(appeal.id); setAppealResponse(''); }} className="mt-2 h-8 rounded-lg border border-secondary/25 px-3 text-[10px] font-semibold text-secondary">Review</button> : <div className="mt-3 border-t border-subtle pt-3"><textarea value={appealResponse} onChange={(event) => setAppealResponse(event.target.value)} maxLength={600} rows={3} placeholder="Private note to this user" className="w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2 text-[10.5px] outline-none focus:border-primary" /><div className="mt-2 flex flex-wrap gap-1.5"><button type="button" disabled={busy} onClick={() => void reviewAppeal(appeal, 'approve')} className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-on-secondary">Approve & restore</button><button type="button" disabled={busy || appealResponse.trim().length < 5} onClick={() => void reviewAppeal(appeal, 'decline')} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error disabled:opacity-40">Decline</button><button type="button" onClick={() => setReviewingAppeal(null)} className="px-2 text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div></section>}
         <section className="admin-review-section admin-report-section mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-primary">Report queue</p><h3 className="text-[14px] font-semibold text-content-primary">Needs a decision</h3></div><span className="rounded-full bg-error-soft px-2 py-1 text-[10px] font-bold text-error">{reports.length}</span></div>
           {reports.length === 0 ? <div className="rounded-[14px] border border-dashed border-subtle p-5 text-center text-[11px] text-content-muted">Nothing waiting. Nice and quiet.</div>
@@ -349,7 +407,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </section>
         {activeMembers.length > 0 && <section className="mt-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-content-muted">Restrictions</p><div className="overflow-hidden rounded-[14px] border border-subtle bg-surface">{activeMembers.map((member) => <div key={member.userId} className="flex items-center gap-2 border-b border-subtle p-3 last:border-0">{member.banned ? <UserRoundX size={15} className="text-error" /> : <AlertTriangle size={15} className="text-primary" />}<div className="min-w-0 flex-1"><p className="truncate text-[11.5px] font-semibold text-content-primary">{names.get(member.userId) || member.displayName || member.userId.slice(0, 8)}</p><p className="text-[9.5px] text-content-muted">{member.banned ? 'Community banned' : `Muted until ${new Date(member.mutedUntil!).toLocaleString()}`}</p></div><button type="button" disabled={busy} onClick={() => void moderate(member.userId, 'restore')} className="inline-flex items-center gap-1 text-[10px] font-semibold text-secondary"><UserRoundCheck size={13} /> Restore</button></div>)}</div></section>}
         </div>
-        <div hidden={adminTab !== 'history' || !adminLoaded}>
+        <div hidden={adminTab !== 'history' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {audit.length === 0 && <p className="community-empty">No moderation actions yet.</p>}
         {audit.length > 0 && <ol className="admin-audit-log">{visibleAudit.map((entry) => {
           const targetName = names.get(entry.targetUserId ?? '') || members.find((member) => member.userId === entry.targetUserId)?.displayName;
