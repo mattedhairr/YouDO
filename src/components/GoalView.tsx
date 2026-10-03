@@ -442,28 +442,23 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       </div>
 
       <Overlay open={pathMapOpen} onClose={() => setPathMapOpen(false)} align="bottom">
-        <div className="panel sheet-up p-4 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Where you are</p>
-              <h3 className="text-sm font-bold text-content-primary">Jump to a level</h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setPathMapOpen(false)}
-              className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-elevated"
-              aria-label="Close path map"
-            >
-              <X size={16} />
-            </button>
+        <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] flex flex-col gap-3">
+          {/* Grab Handle */}
+          <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
+
+          {/* Header */}
+          <div className="px-1 shrink-0">
+            <h3 className="text-[14px] font-bold text-content-primary">Jump to a level</h3>
+            <p className="text-[11px] font-medium text-content-muted mt-0.5">Where you are</p>
           </div>
-          <div className="bg-elevated rounded-[12px] border border-subtle overflow-hidden max-h-[55vh] overflow-y-auto no-scrollbar">
+
+          <div className="bg-surface rounded-2xl border border-subtle overflow-hidden divide-y divide-subtle max-h-[55vh] overflow-y-auto no-scrollbar shadow-sm">
             <button
               type="button"
               onClick={() => jumpToPathIndex(-1)}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface border-b border-subtle"
+              className="w-full flex items-center gap-2.5 px-3.5 h-12 text-left hover:bg-elevated transition-colors"
             >
-              <Target size={14} className="text-primary shrink-0" />
+              <Target size={15} className="text-primary shrink-0" />
               <span className="text-[13px] font-semibold text-content-primary">All Goals</span>
             </button>
             {path.map((n, i) => {
@@ -475,12 +470,12 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   key={n.id}
                   type="button"
                   onClick={() => jumpToPathIndex(i)}
-                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-surface ${
-                    i < path.length - 1 ? 'border-b border-subtle' : ''
-                  } ${isHere ? 'bg-primary-soft' : ''}`}
-                  style={{ paddingLeft: `${14 + Math.min(i, 5) * 12}px` }}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 min-h-[48px] text-left hover:bg-elevated transition-colors ${
+                    isHere ? 'bg-primary-soft/50' : ''
+                  }`}
+                  style={{ paddingLeft: `${14 + Math.min(i + 1, 5) * 12}px` }}
                 >
-                  <MetaIcon size={14} style={{ color: meta.tint }} className="shrink-0" />
+                  <MetaIcon size={15} style={{ color: meta.tint }} className="shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className={`block text-[13px] font-semibold truncate ${isHere ? 'text-primary' : 'text-content-primary'}`}>
                       {n.title}

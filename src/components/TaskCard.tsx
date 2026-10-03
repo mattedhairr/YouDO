@@ -374,95 +374,109 @@ export default function TaskCard({
         )}
       </div>
 
-      <Overlay open={expanded} onClose={() => setExpanded(false)} align="center">
-        <div className="panel sheet-up max-h-[85vh] overflow-y-auto no-scrollbar p-4 space-y-4" onClick={(e) => e.stopPropagation()}>
-          <div className="space-y-1.5">
-            {originBadgeNodes.length > 0 && (
-              <p className="text-[11px] font-semibold text-primary">
-                {originBadgeNodes.map((n) => n.title).join(' · ')}
-              </p>
+      <Overlay open={expanded} onClose={() => setExpanded(false)} align="bottom">
+        <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+          {/* Grab Handle */}
+          <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
+            
+            {/* Header / Info Section */}
+            <div className="px-1 space-y-1.5">
+              {originBadgeNodes.length > 0 && (
+                <p className="text-[11px] font-bold text-primary uppercase tracking-wide">
+                  {originBadgeNodes.map((n) => n.title).join(' · ')}
+                </p>
+              )}
+              <h3 className={`text-[20px] font-bold leading-tight ${complete ? 'line-through text-content-muted' : 'text-content-primary'}`}>
+                {task.title}
+              </h3>
+              {originContextNodes.length > 0 && (
+                <p className="text-[13px] font-medium text-content-muted leading-snug">
+                  {originContextNodes.map((n) => n.title).join(' / ')}
+                </p>
+              )}
+            </div>
+
+            {/* Resume Note Card */}
+            {!complete && task.resumeNote && (
+              <div className="bg-primary-soft/40 border border-primary/20 rounded-2xl p-4 shadow-sm">
+                <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+                  <StickyNote size={14} strokeWidth={2.5} /> Continue from here
+                </p>
+                <p className="mt-2 whitespace-pre-wrap text-[14px] font-medium leading-relaxed text-content-primary">
+                  {task.resumeNote}
+                </p>
+              </div>
             )}
-            <h3 className={`text-[16px] font-semibold leading-snug ${complete ? 'line-through text-content-muted' : 'text-content-primary'}`}>
-              {task.title}
-            </h3>
-            {originContextNodes.length > 0 && (
-              <p className="text-[12px] text-content-muted leading-snug">
-                {originContextNodes.map((n) => n.title).join(' / ')}
-              </p>
+
+            {/* Steps Card */}
+            {hasSteps && (
+              <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                <div className="flex items-center justify-between px-4 h-11 bg-elevated/40 border-b border-subtle">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-content-muted">Steps</span>
+                  <span className={`text-[12px] font-bold tabular-nums ${task.progress === task.steps.length ? 'text-secondary' : 'text-content-secondary'}`}>
+                    {stepDone ? stepDone.filter(Boolean).length : task.progress} of {task.steps.length}
+                  </span>
+                </div>
+                <ul className="divide-y divide-subtle">
+                  {task.steps.map((s, i) => {
+                    const done = stepDone?.[i] ?? i < task.progress;
+                    let stamp: string | null = null;
+                    if (done && taskSessions) {
+                      const sess = taskSessions.find((item) => item.completedStepIndices?.includes(i));
+                      if (sess?.manual) stamp = 'Manual';
+                      else if (sess) stamp = sessionClockRange(sess.startTime, sess.endTime, sess.wallClockStart, sess.wallClockEnd);
+                    }
+                    return (
+                      <li key={i} className={`flex items-center gap-3 px-4 h-12 transition-colors ${done ? 'bg-elevated/20' : 'bg-surface'}`}>
+                        <div className="shrink-0">
+                          {done ? (
+                            <div className="w-5 h-5 rounded-full bg-secondary text-on-primary flex items-center justify-center">
+                              <Check size={14} strokeWidth={3} />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border-[2px] border-content-muted" />
+                          )}
+                        </div>
+                        <span className={`flex-1 min-w-0 text-[14px] font-semibold truncate ${done ? 'line-through text-content-muted' : 'text-content-primary'}`}>
+                          {s}
+                        </span>
+                        {stamp && (
+                          <span className="text-[11px] font-medium tabular-nums text-content-muted shrink-0 bg-elevated px-2 py-0.5 rounded-md">
+                            {stamp}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
           </div>
 
-          {!complete && task.resumeNote && (
-            <div className="rounded-[12px] border border-primary/20 bg-primary-soft px-3.5 py-3">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                <StickyNote size={13} /> Continue from here
-              </p>
-              <p className="mt-1.5 whitespace-pre-wrap text-[12.5px] leading-relaxed text-content-primary">{task.resumeNote}</p>
-            </div>
-          )}
-
-          {hasSteps && (
-            <div className="bg-surface border border-subtle rounded-[12px] overflow-hidden">
-              <div className="flex items-center justify-between px-3.5 h-10">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Steps</span>
-                <span className={`text-[11px] font-medium tabular-nums ${task.progress === task.steps.length ? 'text-secondary' : 'text-content-secondary'}`}>
-                  {stepDone ? stepDone.filter(Boolean).length : task.progress}/{task.steps.length}
-                </span>
-              </div>
-              <ul>
-                {task.steps.map((s, i) => {
-                  const done = stepDone?.[i] ?? i < task.progress;
-                  let stamp: string | null = null;
-                  if (done && taskSessions) {
-                    const sess = taskSessions.find((item) => item.completedStepIndices?.includes(i));
-                    if (sess?.manual) stamp = 'Manual';
-                    else if (sess) stamp = sessionClockRange(sess.startTime, sess.endTime, sess.wallClockStart, sess.wallClockEnd);
-                  }
-                  return (
-                    <li key={i} className="flex items-center gap-3 px-3.5 h-11 border-t border-subtle">
-                      <span className="w-5 h-5 grid place-items-center shrink-0">
-                        {done ? (
-                          <Check size={15} strokeWidth={2.25} className="text-secondary" />
-                        ) : (
-                          <span className="w-[7px] h-[7px] rounded-full bg-[color:var(--text-muted)] opacity-50" />
-                        )}
-                      </span>
-                      <span className={`flex-1 min-w-0 text-[13px] truncate ${done ? 'line-through text-content-muted' : 'text-content-primary'}`}>
-                        {s}
-                      </span>
-                      {stamp && (
-                        <span className="text-[11px] tabular-nums text-content-muted shrink-0">
-                          {stamp}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Actions</p>
+          {/* Fixed Footer Actions */}
+          <div className="flex flex-col gap-2 mt-2 shrink-0">
             {isSessionTask ? (
               <button
                 onClick={() => { setExpanded(false); onStopSession?.(); }}
-                className="w-full py-3 px-4 rounded-[12px] bg-error text-white font-semibold text-[13px] flex items-center justify-center gap-2"
+                className="w-full h-12 rounded-2xl bg-error text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform"
               >
-                <Square className="w-4 h-4 fill-current" />
+                <Square size={16} strokeWidth={2.5} className="fill-current" />
                 Stop session
               </button>
             ) : !complete ? (
               <button
                 onClick={() => { setExpanded(false); hapticSessionStart(); onStartSession?.(task.id); }}
-                className="w-full py-3 px-4 rounded-[12px] btn-primary text-[13px] flex items-center justify-center gap-2"
+                className="w-full h-12 rounded-2xl bg-primary text-on-primary font-bold text-[14px] flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition-transform"
               >
-                <Play className="w-4 h-4 fill-current" />
+                <Play size={16} strokeWidth={2.5} className="fill-current" />
                 Start focus session
               </button>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex gap-2">
               <button
                 onClick={() => {
                   setExpanded(false);
@@ -470,16 +484,16 @@ export default function TaskCard({
                   else if (isSessionTask) onStopSession?.();
                   else onAdvance(task.id);
                 }}
-                className="py-2.5 rounded-[12px] bg-surface text-content-primary border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
+                className="flex-1 h-12 rounded-2xl bg-surface border border-subtle text-content-primary text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm active:bg-elevated transition-colors"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-secondary" />
+                <CheckCircle2 size={16} className="text-secondary" />
                 {task.goalNodeId ? 'Jump' : isSessionTask ? 'Finish sitting' : 'Advance'}
               </button>
               <button
                 onClick={() => { setExpanded(false); onDuplicate(task.id); }}
-                className="py-2.5 rounded-[12px] bg-surface text-content-primary border border-subtle text-[12px] font-medium flex items-center justify-center gap-1.5"
+                className="flex-1 h-12 rounded-2xl bg-surface border border-subtle text-content-primary text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm active:bg-elevated transition-colors"
               >
-                <Copy className="w-3.5 h-3.5 text-primary" />
+                <Copy size={16} className="text-primary" />
                 Duplicate
               </button>
             </div>
@@ -487,12 +501,19 @@ export default function TaskCard({
             {!isSessionTask && (
               <button
                 onClick={() => { setExpanded(false); onDelete(task.id); }}
-                className="w-full py-2.5 rounded-[12px] bg-error-soft text-error border border-error/20 text-[12px] font-medium flex items-center justify-center gap-1.5"
+                className="w-full h-12 rounded-2xl bg-error-soft text-error border border-error/20 text-[13px] font-bold flex items-center justify-center gap-2 active:bg-error/20 transition-colors mt-2"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                {softRemove ? 'Remove' : 'Delete'}
+                <Trash2 size={16} />
+                {softRemove ? 'Remove' : 'Delete task'}
               </button>
             )}
+            
+            <button
+              onClick={() => setExpanded(false)}
+              className="w-full h-12 rounded-2xl bg-transparent text-content-secondary hover:text-content-primary text-[13px] font-bold mt-1 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </Overlay>

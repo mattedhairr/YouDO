@@ -101,42 +101,35 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
 
   return (
     <Overlay open={open} onClose={onClose} align="bottom">
-      <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[85vh] overflow-y-auto no-scrollbar">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-xl bg-primary-soft text-primary border border-primary">
-              <Zap size={18} />
-            </span>
-            <h2 className="text-base font-bold text-content-primary">
-              {isMulti ? `Schedule ${targetNodes.length} Tasks` : 'Schedule Task'}
-            </h2>
+      <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-3">
+        {/* Grab Handle */}
+        <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
+
+        {/* Header */}
+        <div className="flex items-center gap-2.5 px-1 shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-primary-soft text-primary grid place-items-center shrink-0">
+            <Zap size={16} />
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface transition-colors">
-            <X size={16} />
-          </button>
+          <div>
+            <h3 className="text-[14px] font-bold text-content-primary leading-tight">
+              {isMulti ? `Schedule ${targetNodes.length} Tasks` : 'Schedule Task'}
+            </h3>
+            <p className="text-[11px] font-medium text-content-muted leading-tight mt-0.5">
+              Choose steps for this date
+            </p>
+          </div>
         </div>
 
         {/* Date picker Section */}
-        <div className="mb-4 mt-2 p-3.5 rounded-2xl bg-surface border border-subtle">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Calendar size={15} className="text-primary shrink-0" />
-              <span className="text-[12px] font-semibold text-content-primary">Target Date</span>
-            </div>
-            <span className="text-[12px] font-bold text-primary bg-primary-soft px-2.5 py-0.5 rounded-lg border border-primary tabular-nums">
-              {formatDDMMYYYY(date)}
-            </span>
-          </div>
-
-          {/* Quick Schedule Templates */}
-          <div className="flex items-center gap-2 mb-2.5">
+        <div className="bg-surface border border-subtle rounded-2xl p-4 shadow-sm shrink-0 flex flex-col gap-3">
+          <div className="flex items-center gap-1.5 p-1 bg-elevated border border-subtle rounded-xl">
             <button
               type="button"
               onClick={() => setDate(todayISO())}
-              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+              className={`flex-1 h-8 rounded-lg text-[12px] font-bold transition-colors ${
                 date === todayISO()
-                  ? 'bg-primary text-on-primary border-primary'
-                  : 'bg-elevated text-content-secondary border-subtle hover:border-primary'
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'text-content-secondary hover:text-content-primary'
               }`}
             >
               Today
@@ -144,26 +137,27 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
             <button
               type="button"
               onClick={() => setDate(tomorrowISO())}
-              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all border ${
+              className={`flex-1 h-8 rounded-lg text-[12px] font-bold transition-colors ${
                 date === tomorrowISO()
-                  ? 'bg-primary text-on-primary border-primary'
-                  : 'bg-elevated text-content-secondary border-subtle hover:border-primary'
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'text-content-secondary hover:text-content-primary'
               }`}
             >
               Tomorrow
             </button>
           </div>
-
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full bg-elevated border border-subtle rounded-xl px-3 py-2 text-[13px] font-medium text-content-primary outline-none focus:border-primary transition-colors"
-          />
+          {date !== todayISO() && date !== tomorrowISO() && (
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full h-10 px-3 bg-elevated border border-subtle rounded-xl text-[13px] font-medium text-content-primary outline-none focus:border-primary transition-colors"
+            />
+          )}
         </div>
 
-        {/* Micro-steps selection list for each task */}
-        <div className="space-y-4">
+        {/* Task Steps Lists */}
+        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3 min-h-[140px]">
           {targetNodes.map((n) => {
             const steps = n.steps ?? [];
             const stepDone = n.stepDone ?? [];
@@ -171,32 +165,27 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
 
             if (steps.length === 0) {
               return (
-                <div key={n.id} className="p-3.5 rounded-2xl bg-surface border border-subtle">
-                  <div className="flex items-center justify-between">
+                <div key={n.id} className="bg-surface border border-subtle rounded-2xl p-3.5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-[13px] font-bold text-content-primary truncate">{n.title}</span>
-                    <span className="text-[10px] font-medium text-content-secondary shrink-0">Single card (no steps)</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-content-muted shrink-0">No steps</span>
                   </div>
                 </div>
               );
             }
 
             return (
-              <div key={n.id} className="p-3.5 rounded-2xl bg-surface border border-subtle space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 pr-2">
-                    <h4 className="text-[13px] font-bold text-content-primary truncate">{n.title}</h4>
-                    <span className="text-[10.5px] font-semibold text-content-secondary">
-                      Steps assigned ({selSet.size}/{steps.length})
-                    </span>
-                  </div>
+              <div key={n.id} className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                <div className="flex items-center justify-between px-3.5 h-10 bg-elevated/40 border-b border-subtle">
+                  <h4 className="text-[12px] font-bold text-content-primary truncate">{n.title}</h4>
                   <div className="flex items-center gap-2 shrink-0">
                     <button onClick={() => selectAll(n)} className="text-[11px] font-bold text-primary hover:underline">All</button>
-                    <span className="text-content-muted">·</span>
+                    <span className="text-[10px] text-content-muted">·</span>
                     <button onClick={() => deselectAll(n)} className="text-[11px] font-bold text-content-secondary hover:text-content-primary">None</button>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="divide-y divide-subtle">
                   {steps.map((s, i) => {
                     const alreadyDone = stepDone[i];
                     const isSel = selSet.has(i);
@@ -206,25 +195,31 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
                         type="button"
                         onClick={() => !alreadyDone && toggleStep(n.id, i)}
                         disabled={alreadyDone}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                        className={`w-full flex items-center gap-3 px-3.5 h-11 text-left transition-colors ${
                           alreadyDone
-                            ? 'bg-elevated border-subtle opacity-50 cursor-not-allowed'
+                            ? 'bg-elevated/50 cursor-not-allowed opacity-60'
                             : isSel
-                              ? 'bg-primary-soft border-primary'
-                              : 'bg-elevated border-subtle hover:border-content-muted'
+                              ? 'bg-primary-soft/30 hover:bg-primary-soft/50'
+                              : 'hover:bg-elevated'
                         }`}
                       >
-                        {alreadyDone ? (
-                          <CheckSquare size={16} className="shrink-0 text-secondary" />
-                        ) : isSel ? (
-                          <CheckSquare size={16} className="shrink-0 text-primary" />
-                        ) : (
-                          <Square size={16} className="shrink-0 text-content-secondary" />
-                        )}
-                        <span className={`flex-1 text-[11.5px] font-semibold ${alreadyDone ? 'text-content-muted line-through' : 'text-content-primary'}`}>
-                          Step {i + 1}: {s}
+                        <div className="shrink-0">
+                          {alreadyDone ? (
+                            <div className="w-5 h-5 rounded-full bg-secondary text-on-primary flex items-center justify-center">
+                              <Check size={14} strokeWidth={3} />
+                            </div>
+                          ) : isSel ? (
+                            <div className="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center">
+                              <Check size={14} strokeWidth={3} />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border-[2px] border-content-muted" />
+                          )}
+                        </div>
+                        <span className={`flex-1 text-[13px] font-semibold truncate ${alreadyDone ? 'text-content-muted line-through' : 'text-content-primary'}`}>
+                          {s}
                         </span>
-                        {alreadyDone && <span className="text-[9px] uppercase tracking-wide text-secondary font-bold">Done</span>}
+                        {alreadyDone && <span className="text-[10px] font-bold uppercase tracking-wider text-secondary shrink-0 ml-2">Done</span>}
                       </button>
                     );
                   })}
@@ -234,23 +229,33 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
           })}
         </div>
 
-        <button
-          onClick={confirm}
-          disabled={!canSchedule}
-          className="mt-5 w-full py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          <Zap size={15} className="fill-white" />
-          {isMulti
-            ? `Schedule ${targetNodes.length} Tasks`
-            : totalStepsExist === 0
-            ? 'Schedule Task'
-            : `Schedule ${totalAssignedSteps} Step${totalAssignedSteps !== 1 ? 's' : ''}`}
-        </button>
-        {!canSchedule && (
-          <p className="mt-2 text-center text-[11px] text-content-secondary" role="status">
-            Choose at least one step for each task before scheduling.
-          </p>
-        )}
+        {/* Footer Actions */}
+        <div className="flex flex-col gap-2 mt-2 shrink-0">
+          {!canSchedule && (
+            <p className="text-center text-[11px] font-semibold text-error px-2 leading-tight" role="status">
+              Choose at least one step for each task.
+            </p>
+          )}
+          <button
+            onClick={confirm}
+            disabled={!canSchedule}
+            className="w-full h-12 rounded-2xl text-[13px] font-bold bg-primary text-on-primary disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 shadow-sm"
+          >
+            <Zap size={15} className="fill-current" />
+            {isMulti
+              ? `Schedule ${targetNodes.length} Tasks`
+              : totalStepsExist === 0
+              ? 'Schedule Task'
+              : `Schedule ${totalAssignedSteps} Step${totalAssignedSteps !== 1 ? 's' : ''}`}
+          </button>
+          
+          <button
+            onClick={onClose}
+            className="w-full h-12 rounded-2xl bg-surface border border-subtle text-[13px] font-bold text-content-secondary hover:text-content-primary hover:bg-elevated transition-all shadow-sm"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </Overlay>
   );

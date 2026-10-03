@@ -97,102 +97,109 @@ export default function AddGoalSheet({
 
   return (
     <Overlay open={open} onClose={onClose} align="bottom">
-      <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-content-primary">
-            {getHeaderTitle()}
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary dark:hover:text-content-primary hover:bg-elevated">
-            <X size={18} />
-          </button>
+      <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex flex-col items-center shrink-0 -mt-1 mb-2">
+          <div className="w-10 h-1 bg-border-subtle rounded-full opacity-70 mb-3" />
+          <h2 className="text-[16px] font-bold text-content-primary">{getHeaderTitle()}</h2>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">
-              {isRootGoal ? 'Goal Title' : 'Title'}
-            </label>
+        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
+          {/* Main Info Card */}
+          <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm">
             <input
               ref={titleRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               placeholder={isRootGoal ? 'Name the outcome you want' : 'Name this part of your plan'}
-              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder:text-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors"
+              className="w-full h-12 px-3.5 bg-transparent text-[14px] font-semibold text-content-primary placeholder:text-content-muted outline-none border-b border-subtle"
             />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional details…"
               rows={2}
-              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder:text-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors resize-none"
+              className="w-full bg-transparent px-3.5 py-2.5 text-[13px] font-medium text-content-primary placeholder:text-content-muted outline-none resize-none"
             />
           </div>
 
-          <div className="grid grid-cols-1 cq-grid-2 gap-3">
-            <div className="min-w-0">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Start date</label>
+          {/* Dates Card */}
+          <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm flex divide-x divide-subtle">
+            <div className="flex-1 p-2">
+              <label className="px-1.5 text-[10px] font-bold uppercase tracking-wider text-content-muted block mb-1.5">Start date</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
+                className="w-full h-10 px-2.5 bg-elevated border border-subtle rounded-xl text-[13px] font-medium text-content-primary outline-none focus:border-primary transition-colors"
               />
             </div>
-            <div className="min-w-0">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">End date</label>
+            <div className="flex-1 p-2">
+              <label className="px-1.5 text-[10px] font-bold uppercase tracking-wider text-content-muted block mb-1.5">End date</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
+                className="w-full h-10 px-2.5 bg-elevated border border-subtle rounded-xl text-[13px] font-medium text-content-primary outline-none focus:border-primary transition-colors"
               />
             </div>
           </div>
 
-          {isWorkItem && (showChecklist ? (
-            <div className="rounded-xl border border-subtle bg-surface p-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Optional checklist</span>
-                {(editing?.steps?.length ?? 0) === 0 && (
-                  <button type="button" onClick={() => { setShowChecklist(false); setSteps(['']); }} className="text-[11px] font-semibold text-content-muted">
-                    Remove
-                  </button>
-                )}
-              </div>
-              <StepListEditor label="Steps" steps={steps} onChange={setSteps} />
+          {/* Checklist */}
+          {isWorkItem && (
+            <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm">
+              {showChecklist ? (
+                <div className="p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Optional checklist</span>
+                    {(editing?.steps?.length ?? 0) === 0 && (
+                      <button type="button" onClick={() => { setShowChecklist(false); setSteps(['']); }} className="text-[10px] font-bold uppercase text-content-secondary hover:text-content-primary">
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <StepListEditor label="Steps" steps={steps} onChange={setSteps} />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowChecklist(true)}
+                  className="w-full flex items-center justify-between px-4 h-12 text-left hover:bg-elevated transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <ListPlus size={16} className="text-primary" />
+                    <span className="text-[13px] font-semibold text-content-primary">Add checklist</span>
+                  </div>
+                </button>
+              )}
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowChecklist(true)}
-              className="w-full min-h-11 rounded-xl border border-dashed border-subtle bg-surface px-3.5 text-left text-[13px] font-semibold text-content-secondary inline-flex items-center gap-2 hover:border-primary/40 hover:text-primary"
-            >
-              <ListPlus size={16} /> Add an optional checklist
-            </button>
-          ))}
+          )}
+        </div>
 
-          <div className="flex gap-2">
-            {isEditing && editing && (
-              <button
-                onClick={() => { onDeleteNode(editing.id); onClose(); }}
-                className="px-4 py-3 rounded-2xl text-sm font-medium text-error bg-error-soft hover:bg-error/20 border border-error/20 transition-colors inline-flex items-center gap-1.5"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
+        {/* Footer Actions */}
+        <div className="flex flex-col gap-2 mt-2 shrink-0">
+          <button
+            onClick={submit}
+            disabled={!title.trim()}
+            className="w-full h-12 rounded-2xl text-[13px] font-bold bg-primary text-on-primary disabled:opacity-40 transition-opacity flex items-center justify-center shadow-sm"
+          >
+            {isEditing ? 'Save changes' : parentId ? 'Add item' : 'Create goal'}
+          </button>
+          {isEditing && editing && (
             <button
-              onClick={submit}
-              disabled={!title.trim()}
-              className="flex-1 py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => { onDeleteNode(editing.id); onClose(); }}
+              className="w-full h-12 rounded-2xl text-[13px] font-bold text-error hover:bg-error-soft/50 transition-colors flex items-center justify-center gap-2"
             >
-              {isEditing ? 'Save changes' : parentId ? 'Add item' : 'Create goal'}
+              <Trash2 size={15} /> Delete node
             </button>
-          </div>
+          )}
+          <button
+            onClick={onClose}
+            className="w-full h-12 rounded-2xl bg-surface border border-subtle text-[13px] font-bold text-content-secondary hover:text-content-primary hover:bg-elevated transition-all shadow-sm"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </Overlay>

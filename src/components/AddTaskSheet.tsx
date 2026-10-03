@@ -65,50 +65,46 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
 
   return (
     <Overlay open={open} onClose={onClose} align="bottom">
-      <div className="panel panel-sheet sheet-up p-5 pb-8 max-h-[88vh] overflow-y-auto no-scrollbar">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-content-primary">New Task</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-content-secondary hover:text-content-primary hover:bg-surface">
-            <X size={18} />
-          </button>
+      <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex flex-col items-center shrink-0 -mt-1 mb-2">
+          <div className="w-10 h-1 bg-border-subtle rounded-full opacity-70 mb-3" />
+          <h2 className="text-[16px] font-bold text-content-primary">New Task</h2>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Title</label>
+        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
+          {/* Main Info Card */}
+          <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm">
             <input
               ref={titleRef}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               placeholder="What needs doing?"
-              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors"
+              className="w-full h-12 px-3.5 bg-transparent text-[14px] font-semibold text-content-primary placeholder:text-content-muted outline-none border-b border-subtle"
             />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional details…"
               rows={2}
-              className="mt-1 w-full bg-surface border border-subtle rounded-xl px-3.5 py-2.5 text-sm text-content-primary placeholder-content-muted outline-none focus:border-primary focus:bg-elevated transition-colors resize-none"
+              className="w-full bg-transparent px-3.5 py-2.5 text-[13px] font-medium text-content-primary placeholder:text-content-muted outline-none resize-none"
             />
           </div>
 
-          <div>
-            <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Priority</label>
-            <div className="mt-1.5 grid grid-cols-3 gap-2">
+          {/* Priority Card */}
+          <div className="bg-surface border border-subtle rounded-2xl p-3 shadow-sm flex flex-col gap-2">
+            <label className="px-1 text-[10px] font-bold uppercase tracking-wider text-content-muted">Priority</label>
+            <div className="bg-elevated p-1 rounded-xl border border-subtle grid grid-cols-3 gap-1">
               {priorities.map((p) => (
                 <button
                   key={p.value}
                   type="button"
                   onClick={() => setPriority(p.value)}
-                  className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                  className={`py-1.5 rounded-lg text-[12px] font-bold transition-all ${
                     priority === p.value
-                      ? p.active
-                      : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
+                      ? `${p.active} shadow-sm`
+                      : 'text-content-secondary hover:text-content-primary'
                   }`}
                 >
                   {p.label}
@@ -117,57 +113,69 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="min-w-0">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Target date</label>
-              <div className="mt-1.5 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTargetDate(todayISO())}
-                  className={`py-2 rounded-xl text-xs font-medium border transition-all ${
-                    targetDate === todayISO()
-                      ? 'bg-primary text-on-primary border-primary'
-                      : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTargetDate(tomorrowISO())}
-                  className={`py-2 rounded-xl text-xs font-medium border transition-all ${
-                    targetDate === tomorrowISO()
-                      ? 'bg-primary text-on-primary border-primary'
-                      : 'bg-surface text-content-secondary border-subtle hover:bg-elevated'
-                  }`}
-                >
-                  Tomorrow
-                </button>
-              </div>
-              <input
-                type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                className="mt-2 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
-              />
+          {/* Dates Card */}
+          <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-3.5 pt-3 pb-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Target Date</label>
             </div>
-            <div className="min-w-0">
-              <label className="text-[11px] font-medium uppercase tracking-wide text-content-secondary">Hard deadline</label>
+            <div className="p-2 pt-0 grid grid-cols-2 gap-2 border-b border-subtle">
+              <button
+                type="button"
+                onClick={() => setTargetDate(todayISO())}
+                className={`py-2 rounded-xl text-[12px] font-bold transition-all ${
+                  targetDate === todayISO()
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'bg-elevated text-content-secondary hover:text-content-primary border border-subtle'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setTargetDate(tomorrowISO())}
+                className={`py-2 rounded-xl text-[12px] font-bold transition-all ${
+                  targetDate === tomorrowISO()
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'bg-elevated text-content-secondary hover:text-content-primary border border-subtle'
+                }`}
+              >
+                Tomorrow
+              </button>
+            </div>
+            {targetDate !== todayISO() && targetDate !== tomorrowISO() && (
+              <div className="p-2 border-b border-subtle bg-elevated/30">
+                 <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="w-full h-10 px-3 bg-surface border border-subtle rounded-xl text-[13px] font-medium text-content-primary outline-none focus:border-primary transition-colors"
+                />
+              </div>
+            )}
+            
+            <div className="px-3.5 py-3">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted block mb-2">Hard deadline</label>
               <input
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="mt-1 w-full min-w-0 max-w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary focus:bg-elevated transition-colors"
+                className="w-full h-10 px-3 bg-elevated border border-subtle rounded-xl text-[13px] font-medium text-content-primary outline-none focus:border-primary transition-colors"
               />
             </div>
           </div>
 
-          <StepListEditor label="Sub-steps" steps={steps} onChange={setSteps} />
+          {/* Steps */}
+          <div className="bg-surface border border-subtle rounded-2xl p-3 shadow-sm">
+            <StepListEditor label="Sub-steps" steps={steps} onChange={setSteps} />
+          </div>
+        </div>
 
+        {/* Footer Actions */}
+        <div className="flex flex-col gap-2 mt-2 shrink-0">
           <button
             onClick={submit}
             disabled={!title.trim()}
-            className="w-full py-3 rounded-xl text-sm font-semibold text-on-primary bg-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full h-12 rounded-2xl text-[13px] font-bold bg-primary text-on-primary disabled:opacity-40 transition-opacity flex items-center justify-center shadow-sm"
           >
             Add Task
           </button>

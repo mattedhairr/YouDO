@@ -1651,25 +1651,26 @@ function AppInner() {
 
       {/* Description Viewer Modal */}
       {descModalData && (
-        <Overlay open onClose={closeDescriptionModal} align="center">
-          <div className="panel sheet-up p-5 space-y-4 max-h-[85vh] flex flex-col">
-            <div className="flex items-start justify-between pb-3 border-b border-subtle gap-2">
+        <Overlay open onClose={closeDescriptionModal} align="bottom">
+          <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-3">
+            <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
+            <div className="flex items-start justify-between pb-3 gap-2 shrink-0">
               <div className="flex items-start gap-2.5 min-w-0">
                 <div className="p-2 rounded-xl bg-primary-soft text-primary border border-primary shrink-0 mt-0.5">
                   <FileText size={18} />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">Full Description</span>
-                  <h3 className="text-base font-semibold text-content-primary leading-snug break-words">{descModalData.title}</h3>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Full Description</span>
+                  <h3 className="text-[16px] font-bold text-content-primary leading-snug break-words">{descModalData.title}</h3>
                 </div>
               </div>
-              <button onClick={closeDescriptionModal} className="p-2 rounded-xl text-content-secondary hover:text-content-primary hover:bg-surface transition shrink-0">
-                <X size={18} />
-              </button>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar text-sm leading-relaxed text-content-primary whitespace-pre-wrap font-medium bg-surface p-4 rounded-[12px] border border-subtle">
+            <div className="flex-1 overflow-y-auto no-scrollbar text-[14px] leading-relaxed text-content-primary whitespace-pre-wrap font-medium bg-surface p-4 rounded-2xl border border-subtle shadow-sm">
               {descModalData.description}
             </div>
+            <button onClick={closeDescriptionModal} className="w-full h-12 mt-2 rounded-2xl bg-surface border border-subtle text-[13px] font-bold text-content-secondary hover:text-content-primary hover:bg-elevated transition-all shadow-sm shrink-0">
+              Close
+            </button>
           </div>
         </Overlay>
       )}
@@ -1716,20 +1717,25 @@ function AppInner() {
 
       {/* ── Device clock integrity ── */}
       {clockBlocked && (
-        <Overlay open align="center">
-          <div className="panel sheet-up p-5 space-y-4">
-            <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-              <AlertTriangle className="w-5 h-5" />
-              <span>Device time looks wrong</span>
+        <Overlay open align="bottom">
+          <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] flex flex-col gap-4">
+            <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
+            
+            <div className="bg-surface border border-subtle rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-primary font-bold text-[14px] mb-2">
+                <AlertTriangle size={18} strokeWidth={2.5} />
+                <span>Device time looks wrong</span>
+              </div>
+              <p className="text-[13px] font-medium text-content-secondary leading-relaxed">
+                Date &amp; time on this device does not match the server. Focus time on this phone may be off until you fix it. Cloud sync still works.
+                Set Date &amp; Time to <span className="font-bold text-content-primary">automatic</span>, then confirm below — or continue anyway.
+              </p>
+              {clockVerifyError && (
+                <p className="mt-3 p-3 bg-error-soft/50 rounded-xl text-[12px] font-semibold text-error leading-relaxed">{clockVerifyError}</p>
+              )}
             </div>
-            <p className="text-xs text-content-secondary leading-relaxed">
-              Date &amp; time on this device does not match the server. Focus time on this phone may be off until you fix it. Cloud sync still works.
-              Set Date &amp; Time to <span className="font-semibold text-content-primary">automatic</span>, then confirm below — or continue anyway.
-            </p>
-            {clockVerifyError && (
-              <p className="text-xs text-red-500 leading-relaxed">{clockVerifyError}</p>
-            )}
-            <div className="flex flex-col gap-2 pt-1">
+
+            <div className="flex flex-col gap-2 mt-2">
               <button
                 disabled={clockVerifyBusy}
                 onClick={async () => {
@@ -1744,13 +1750,13 @@ function AppInner() {
                   clearClockIncident();
                   setClockBlocked(false);
                 }}
-                className="w-full py-2.5 px-3 rounded-xl border border-subtle text-content-primary font-semibold text-xs disabled:opacity-60"
+                className="w-full h-12 rounded-2xl bg-primary text-on-primary font-bold text-[13px] disabled:opacity-60 shadow-sm"
               >
                 {clockVerifyBusy ? 'Checking…' : 'I fixed date & time'}
               </button>
               <button
                 onClick={() => { clearClockIncident(); setClockVerifyError(null); setClockBlocked(false); }}
-                className="w-full py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs"
+                className="w-full h-12 rounded-2xl bg-surface border border-subtle text-content-secondary hover:text-content-primary font-bold text-[13px] shadow-sm"
               >
                 Continue anyway
               </button>
@@ -1761,24 +1767,29 @@ function AppInner() {
 
       {/* ── Session Crash Recovery Dialog ── */}
       {recoverySessionPrompt && activeSession && activeTask && !activeSession.isPaused && (
-        <Overlay open align="center">
-          <div className="panel sheet-up p-5 space-y-4">
-            <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-              <Clock className="w-5 h-5" />
-              <span>Session still running</span>
+        <Overlay open align="bottom">
+          <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] flex flex-col gap-4">
+            <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
+            
+            <div className="bg-surface border border-subtle rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-primary font-bold text-[14px] mb-2">
+                <Clock size={18} strokeWidth={2.5} />
+                <span>Session still running</span>
+              </div>
+              <p className="text-[13px] font-medium text-content-secondary leading-relaxed">
+                <span className="font-bold text-content-primary">{activeTask.title}</span> was still in a focus session.
+                If you kept working with the phone aside, resume to keep the
+                elapsed sitting as focus. If you fell asleep or forgot to stop,
+                discard the entire sitting.
+              </p>
             </div>
-            <p className="text-xs text-content-secondary leading-relaxed">
-              <span className="font-semibold text-content-primary">{activeTask.title}</span> was still in a focus session.
-              If you kept working with the phone aside, resume to keep the
-              elapsed sitting as focus. If you fell asleep or forgot to stop,
-              discard the entire sitting.
-            </p>
-            <div className="flex flex-col gap-2 pt-1">
+
+            <div className="flex flex-col gap-2 mt-2">
               <button
                 onClick={() => {
                   if (continueInterruptedSession()) setRecoverySessionPrompt(false);
                 }}
-                className="w-full py-2.5 px-3 rounded-xl bg-primary text-on-primary font-semibold text-xs"
+                className="w-full h-12 rounded-2xl bg-primary text-on-primary font-bold text-[13px] shadow-sm"
               >
                 Resume — I kept working
               </button>
@@ -1786,9 +1797,9 @@ function AppInner() {
                 onClick={() => {
                   if (discardSession()) setRecoverySessionPrompt(false);
                 }}
-                className="w-full py-2.5 px-3 rounded-xl text-content-secondary font-medium text-xs"
+                className="w-full h-12 rounded-2xl bg-surface border border-subtle text-content-secondary hover:text-content-primary font-bold text-[13px] shadow-sm"
               >
-                Discard — I fell asleep or forgot to stop
+                Discard — I fell asleep
               </button>
             </div>
           </div>

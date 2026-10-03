@@ -288,8 +288,15 @@ textarea,
   box-shadow: var(--shadow-elevated);
 }
 .panel-sheet {
-  border-radius: 14px 14px 0 0;
+  border-radius: 20px 20px 0 0;
   border-bottom: none;
+}
+
+.ios-sheet {
+  border-radius: 28px 28px 0 0;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  box-shadow: 0 -12px 40px -8px rgba(0, 0, 0, 0.3);
 }
 
 .overflow-y-auto,
