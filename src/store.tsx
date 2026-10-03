@@ -1484,45 +1484,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const dateStr = new Date().toISOString().slice(0, 10);
     const fileName = `youdo-backup-${dateStr}.json`;
 
-    // 1. Attempt Capacitor native Share via native Cache File URI (Android file save prompt)
-    try {
-      await Filesystem.writeFile({
-        path: fileName,
-        data: jsonStr,
-        directory: Directory.Cache,
-        encoding: Encoding.UTF8,
-      });
-      const fileUri = await Filesystem.getUri({
-        path: fileName,
-        directory: Directory.Cache,
-      });
-      await Share.share({
-        title: 'YouDO Backup',
-        text: 'YouDO Study Blueprint Backup File',
-        url: fileUri.uri,
-        dialogTitle: 'Save YouDO Backup File',
-      });
-      return '✓ Saved via native Android Share dialog';
-    } catch {
-      /* Fallthrough to Web Share or anchor download */
-    }
-
-    // 2. Web Share API fallback
-    try {
-      const file = new File([jsonStr], fileName, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'YouDO Backup',
-          text: 'YouDO Study Blueprint Backup',
+    if (Capacitor.isNativePlatform()) {
+      // 1. Capacitor native Share via native Cache File URI (Android file save prompt)
+      try {
+        await Filesystem.writeFile({
+          path: fileName,
+          data: jsonStr,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
         });
-        return '✓ Saved via Share prompt';
+        const fileUri = await Filesystem.getUri({
+          path: fileName,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: 'YouDO Backup',
+          text: 'YouDO Study Blueprint Backup File',
+          url: fileUri.uri,
+          dialogTitle: 'Save YouDO Backup File',
+        });
+        return '✓ Saved via native Android Share dialog';
+      } catch {
+        return 'Could not save backup file.';
       }
-    } catch {
-      /* Fallthrough to anchor download */
     }
 
-    // 3. Desktop/Browser anchor download fallback
+    // 2. Web browser: Direct anchor download (bypasses Web Share API which causes confusion)
     try {
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1533,11 +1520,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      return '✓ Backup exported to Downloads';
     } catch {
-      /* ignore */
+      return 'Could not download backup file.';
     }
-
-    return '✓ Backup exported to Downloads';
   }, []);
 
   const commitAndApplyWorkspace = useCallback((next: WorkspaceSlice, cloudFingerprint: string | null): boolean => {
