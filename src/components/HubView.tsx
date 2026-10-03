@@ -13,7 +13,7 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
   return (
     <div className="flex flex-col h-full">
       {/* Master Toggle */}
-      <div className="px-4 py-2 sticky top-0 z-10 bg-[var(--bg-default)]">
+      <div className="py-2 sticky top-0 z-10 bg-[var(--bg-default)]">
         <div className="flex bg-surface border border-subtle rounded-full p-1 max-w-[240px] mx-auto">
           <button
             onClick={() => setActiveTab('social')}
@@ -39,7 +39,7 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
         {activeTab === 'social' ? (
           <BoardView onOpenBoardSettings={onOpenBoardSettings} />
         ) : (
-          <div className="px-4 py-2">
+          <div className="py-2">
             {/* Private Sub-tabs and Actions */}
             <div className="flex items-center justify-between border-b border-subtle pb-3 mb-4">
               <div className="flex gap-5 px-1">
