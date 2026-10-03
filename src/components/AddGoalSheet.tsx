@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ListPlus, Trash2, X } from 'lucide-react';
+import { ListPlus, Trash2 } from 'lucide-react';
 import type { GoalNode } from '../types';
 import { uid } from '../store';
 import Overlay from './Overlay';

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
 import type { Priority, Task } from '../types';
 import { todayISO, tomorrowISO } from '../store';
 import Overlay from './Overlay';

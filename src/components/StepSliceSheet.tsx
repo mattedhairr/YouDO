@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Calendar, CheckSquare, Square, X, Zap } from 'lucide-react';
+import { Check, Zap } from 'lucide-react';
 import type { GoalNode } from '../types';
-import { formatDDMMYYYY, todayISO, tomorrowISO } from '../store';
+import { todayISO, tomorrowISO } from '../store';
 import Overlay from './Overlay';
 
 export interface NodePlan {

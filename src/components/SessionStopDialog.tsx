@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Check, Clock, StickyNote, Trash2, Circle } from 'lucide-react';
+import { Check, Clock, StickyNote, Trash2, Circle } from 'lucide-react';
 import Overlay from './Overlay';
 import type { SessionStopOutcome, Task } from '../types';
 import { hapticTick, hapticWarn } from '../lib/haptics';

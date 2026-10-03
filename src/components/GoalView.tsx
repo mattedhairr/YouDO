@@ -18,7 +18,6 @@ import {
   Star,
   Target,
   Wand2,
-  X,
 } from 'lucide-react';
 import type { GoalNode } from '../types';
 import {

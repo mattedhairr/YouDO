@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
-import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, X, Zap, Clock, Cloud } from 'lucide-react';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Zap, Clock, Cloud } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';

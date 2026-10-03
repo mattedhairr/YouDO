@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Folder, FolderCheck, FolderInput, Search, Target, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Folder, FolderCheck, FolderInput, Search, Target, Copy, X } from 'lucide-react';
 import type { GoalNode } from '../types';
 import { canMoveGoalNodes, findGoal, findPathToNode, hasGoalExecutionState, isGoalEndpoint } from '../lib/goalTree';
 import Overlay from './Overlay';
