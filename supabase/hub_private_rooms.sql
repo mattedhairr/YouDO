@@ -31,6 +31,8 @@ create table if not exists public.squads (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text default '',
+  bar_hours numeric not null default 1,
+  allow_join_requests boolean not null default true,
   created_by uuid not null references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()
 );
@@ -40,6 +42,7 @@ create table if not exists public.squad_members (
   squad_id uuid not null references public.squads (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
   role text not null default 'member' check (role in ('admin', 'member')),
+  status text not null default 'accepted' check (status in ('pending', 'invited', 'accepted')),
   joined_at timestamptz not null default now(),
   primary key (squad_id, user_id)
 );

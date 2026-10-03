@@ -14,14 +14,15 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
 
   if (!open) return null;
 
-  const goals = { Daily: 5, Weekly: 25, Monthly: 100 };
+  const barHours = 4; // Room's standard bar hours pace
+  const goals = { Daily: barHours, Weekly: barHours * 7, Monthly: barHours * 30 };
   const target = goals[goalType];
 
   const members = [
-    { id: '1', name: 'You',   avatar: 'Y', current: { Daily: 4,  Weekly: 20, Monthly: 72 } },
-    { id: '2', name: 'Alex',  avatar: 'A', current: { Daily: 5,  Weekly: 25, Monthly: 100 } },
-    { id: '3', name: 'Sam',   avatar: 'S', current: { Daily: 2,  Weekly: 12, Monthly: 45 } },
-    { id: '4', name: 'Jamie', avatar: 'J', current: { Daily: 5,  Weekly: 25, Monthly: 98 } },
+    { id: '1', name: 'You',   avatar: 'Y', current: { Daily: 4,  Weekly: 24, Monthly: 88 } },
+    { id: '2', name: 'Alex',  avatar: 'A', current: { Daily: 4.5, Weekly: 28, Monthly: 120 } },
+    { id: '3', name: 'Sam',   avatar: 'S', current: { Daily: 2,  Weekly: 14, Monthly: 50 } },
+    { id: '4', name: 'Jamie', avatar: 'J', current: { Daily: 4,  Weekly: 30, Monthly: 122 } },
   ];
 
   return (
@@ -33,8 +34,18 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
           <button onClick={onClose} className="p-2 -ml-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors">
             <ChevronLeft size={24} />
           </button>
-          <h2 className="text-[16px] font-bold text-content-primary flex-1 text-center">GATE 2027 Achievers</h2>
-          <button className="p-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors">
+          <div className="flex-1 text-center">
+            <h2 className="text-[15px] font-bold text-content-primary leading-tight">GATE 2027 Achievers</h2>
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <span className="text-[10px] font-bold text-primary bg-primary-soft px-2 py-0.5 rounded-full border border-primary/20">
+                ⚡ {barHours}h/day Pace
+              </span>
+              <span className="text-[10px] font-semibold text-content-muted bg-surface px-2 py-0.5 rounded-full border border-subtle">
+                🔒 Private
+              </span>
+            </div>
+          </div>
+          <button className="p-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors" title="Room Settings">
             <Settings size={20} />
           </button>
         </div>
