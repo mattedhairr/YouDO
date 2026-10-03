@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Bell, UserPlus, UsersRound } from 'lucide-react';
 import BoardView from './BoardView';
 
 export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: () => void }) {
@@ -34,46 +35,57 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
         {activeTab === 'social' ? (
           <BoardView onOpenBoardSettings={onOpenBoardSettings} />
         ) : (
-          <div className="px-4 py-4">
-            {/* Private Sub-tabs */}
-            <div className="flex gap-4 border-b border-subtle pb-2 mb-4">
-              <button
-                onClick={() => setPrivateSubTab('dms')}
-                className={`text-sm font-semibold transition-colors ${
-                  privateSubTab === 'dms' ? 'text-primary' : 'text-content-muted'
-                }`}
-              >
-                DMs
-              </button>
-              <button
-                onClick={() => setPrivateSubTab('rooms')}
-                className={`text-sm font-semibold transition-colors ${
-                  privateSubTab === 'rooms' ? 'text-primary' : 'text-content-muted'
-                }`}
-              >
-                Rooms
-              </button>
+          <div className="px-4 py-2">
+            {/* Private Sub-tabs and Actions */}
+            <div className="flex items-center justify-between border-b border-subtle pb-3 mb-4">
+              <div className="flex gap-5 px-1">
+                <button
+                  onClick={() => setPrivateSubTab('dms')}
+                  className={`text-[15px] font-semibold transition-colors relative ${
+                    privateSubTab === 'dms' ? 'text-primary' : 'text-content-muted'
+                  }`}
+                >
+                  DMs
+                  {privateSubTab === 'dms' && (
+                    <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setPrivateSubTab('rooms')}
+                  className={`text-[15px] font-semibold transition-colors relative ${
+                    privateSubTab === 'rooms' ? 'text-primary' : 'text-content-muted'
+                  }`}
+                >
+                  Rooms
+                  {privateSubTab === 'rooms' && (
+                    <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
+                  )}
+                </button>
+              </div>
+
+              {/* Top Right Actions */}
+              <div className="flex items-center gap-4 pr-1 text-content-secondary">
+                <button className="hover:text-primary transition-colors" title="Notifications">
+                  <Bell size={18} strokeWidth={2.2} />
+                </button>
+                <button className="grid place-items-center size-7 rounded-full bg-primary-soft text-primary hover:bg-primary hover:text-on-primary transition-colors" title={privateSubTab === 'dms' ? 'Add Friend' : 'Create Room'}>
+                  {privateSubTab === 'dms' ? <UserPlus size={15} strokeWidth={2.5} /> : <UsersRound size={15} strokeWidth={2.5} />}
+                </button>
+              </div>
             </div>
 
             {/* Private Content Placeholder */}
             {privateSubTab === 'dms' ? (
-              <div className="text-center py-10">
-                <p className="text-sm font-semibold text-content-primary">Direct Messages</p>
-                <p className="text-xs text-content-muted mt-1">Chat with your friends.</p>
+              <div className="text-center py-12">
+                <p className="text-[14px] font-semibold text-content-primary">Direct Messages</p>
+                <p className="text-[12px] text-content-muted mt-1.5">Your friends and chats will appear here.</p>
               </div>
             ) : (
-              <div className="text-center py-10">
-                <p className="text-sm font-semibold text-content-primary">Study Squads</p>
-                <p className="text-xs text-content-muted mt-1">Join private accountability rooms.</p>
+              <div className="text-center py-12">
+                <p className="text-[14px] font-semibold text-content-primary">Study Squads</p>
+                <p className="text-[12px] text-content-muted mt-1.5">Join or create private accountability rooms.</p>
               </div>
             )}
-            
-            {/* Action button */}
-            <div className="fixed bottom-24 right-4 z-20">
-              <button className="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-lg">
-                <span className="text-xl">+</span>
-              </button>
-            </div>
           </div>
         )}
       </div>

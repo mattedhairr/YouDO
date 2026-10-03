@@ -1,4 +1,4 @@
-import { Calendar, Check, Copy, FolderInput, RotateCcw, Settings, Target, Trash2, TrendingUp, X } from 'lucide-react';
+import { Calendar, Check, Copy, FolderInput, RotateCcw, Settings, Target, Trash2, Users, X } from 'lucide-react';
 import type { View } from '../types';
 
 interface BatchMode {
@@ -51,7 +51,7 @@ export default function CommandBar({
     { id: 'tasks', label: 'Today', icon: Check, badge: remainingToday > 0 ? remainingToday : undefined },
     { id: 'goals', label: 'Goals', icon: Target, badge: goalsCount > 0 ? goalsCount : undefined },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'board', label: 'Hub', icon: TrendingUp },
+    { id: 'board', label: 'Hub', icon: Users },
   ];
 
   return (
