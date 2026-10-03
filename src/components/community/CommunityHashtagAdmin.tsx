@@ -82,15 +82,7 @@ export default function CommunityHashtagAdmin({
   };
 
   return (
-    <section className="admin-hashtag-requests">
-      <div className="admin-hashtag-heading">
-        <div>
-          <h3>Hashtag requests</h3>
-          <small>Review matching exams together. Chat with requesters or approve when ready.</small>
-        </div>
-        <span>{requests.length}</span>
-      </div>
-
+    <>
       <div className="admin-hashtag-groups">
         {groups.map(([key, items]) => {
           const expanded = open === key;
@@ -495,6 +487,6 @@ export default function CommunityHashtagAdmin({
           </div>
         </Overlay>
       )}
-    </section>
+    </>
   );
 }

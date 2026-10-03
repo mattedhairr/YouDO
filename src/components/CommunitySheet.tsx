@@ -337,15 +337,6 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
                 <small className="text-[9px] text-content-muted mt-1">of {activity.boardMembers} members</small>
               </div>
             </div>
-            <details className="group border-t border-subtle/40 text-[11px]">
-              <summary className="flex items-center justify-center gap-1.5 py-3 text-content-muted cursor-pointer hover:text-content-secondary hover:bg-surface/50 transition-colors list-none [&::-webkit-details-marker]:hidden">
-                <span className="font-semibold">How pulse works</span>
-                <ChevronDown size={13} className="transition-transform duration-300 group-open:-rotate-180" />
-              </summary>
-              <div className="px-5 pb-5 text-content-secondary leading-relaxed text-center opacity-0 group-open:animate-in group-open:fade-in group-open:slide-in-from-top-2 duration-300">
-                Opted-in Board members using a supported build. Recent activity means the app was open within five minutes; someone may have since left. Used today resets at 00:00 UTC (05:30 in India). Updated {timeLabel(activity.asOf)}.
-              </div>
-            </details>
           </> : <p className="p-6 text-center text-[12px] text-content-muted">{refreshing ? 'Loading activity...' : 'Activity is unavailable. Refresh to try again.'}</p>}
         </section>
         <nav className="flex items-center gap-6 overflow-x-auto border-b border-subtle mb-6 px-2" style={{ scrollbarWidth: 'none' }} aria-label="Admin sections">

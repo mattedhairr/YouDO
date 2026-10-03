@@ -41,8 +41,8 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
   </div>;
 
   return <section className="admin-hashtag-manager" aria-label="Manage exam hashtags">
-    <header className="admin-hashtag-manager-heading"><div><h3>Approved hashtags</h3><small>New hashtags also fulfill matching requests from members.</small></div>
-      <button type="button" disabled={Boolean(setupError)||busy||working} onClick={()=>startEdit()}><Plus size={13}/> Add</button>
+    <header className="flex justify-end mb-3">
+      <button type="button" disabled={Boolean(setupError)||busy||working} onClick={()=>startEdit()} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary text-[10px] font-bold text-on-primary active:scale-95 transition-transform"><Plus size={13}/> Add</button>
     </header>
     {setupError&&<p role="alert" className="admin-hashtag-manager-setup">Hashtag management needs the admin database upgrade. Apply it, then refresh.</p>}
     {editing==='new'&&editor()}
