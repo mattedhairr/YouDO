@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.7.0] - 2026-10-03 - iOS-style UI/UX overhaul and offline export fix
+
+- **iOS-style Interface** - Menus, task cards, and settings have been completely rebuilt to slide up natively from the bottom with grouped cards, grab handles, and haptic feedback.
+- **Direct JSON Backups** - Exporting an offline JSON backup on the web no longer opens a confusing share menu, but directly downloads the file to your device.
+- **Android APK** - versionName **7.7.0**, versionCode **65**. Installs safely over v7.6.5.
+
+---
+
+
 ## [v7.6.5] — 2026-10-02 — Community experience overhaul, live chat sync, and Blueprint multi-planning
 
 - **Streamlined community navigation** — Room switcher redesigned into a clean segmented control showing General and your active exam group side-by-side with smooth sliding transitions, plus a dedicated Explore drawer for other hashtags.
