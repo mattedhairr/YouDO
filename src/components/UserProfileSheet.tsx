@@ -33,8 +33,8 @@ export default function UserProfileSheet({ open, onClose }: Props) {
               A
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-[18px] font-bold text-content-primary truncate">Arvind</h1>
-              <p className="text-[13px] font-medium text-primary mt-0.5 truncate">@arvind_2027</p>
+              <h1 className="text-[18px] font-bold text-content-primary truncate">Alex</h1>
+              <p className="text-[13px] font-medium text-primary mt-0.5 truncate">@alex_study</p>
               <p className="text-[12px] text-content-secondary mt-1.5 leading-snug line-clamp-2">
                 Preparing for GATE 2027. Let's sync focus and crush our goals together!
               </p>
