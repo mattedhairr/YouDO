@@ -120,12 +120,12 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                           
                           {/* Vertical Pipe */}
                           <div className="w-7 flex-1 bg-elevated border-x-2 border-b-2 border-subtle rounded-b-full relative overflow-hidden flex items-end -mt-[2px] z-0">
-                            {/* Water rising vertically (least opacity at bottom, most at top) */}
+                            {/* Water rising vertically (visible at bottom, solid at top) */}
                             <div 
-                              className="w-full bg-gradient-to-t from-primary/5 via-primary/50 to-primary transition-all duration-1000 ease-out relative"
+                              className="w-full bg-gradient-to-t from-primary/40 via-primary/75 to-primary transition-all duration-1000 ease-out relative"
                               style={{ height: `${pipePct}%` }}
                             >
-                               {/* Subtle tip highlight */}
+                              {/* Subtle tip highlight */}
                               {pipePct > 0 && pipePct < 100 && (
                                 <div className="absolute top-0 left-0 right-0 h-1 bg-white/30" />
                               )}
