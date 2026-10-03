@@ -55,6 +55,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [expiryClock, setExpiryClock] = useState(() => Date.now());
   const [activity, setActivity] = useState<CommunityActivitySummary | null>(null);
+  const [hashtagSubTab, setHashtagSubTab] = useState<'requests' | 'approved'>('requests');
   const [reportMessages, setReportMessages] = useState<CommunityMessage[]>([]);
   const [refreshError, setRefreshError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -347,15 +348,16 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             </details>
           </> : <p className="p-6 text-center text-[12px] text-content-muted">{refreshing ? 'Loading activity...' : 'Activity is unavailable. Refresh to try again.'}</p>}
         </section>
-        <nav className="flex items-center gap-2 overflow-x-auto border-b border-subtle pb-4 mb-5" style={{ scrollbarWidth: 'none' }} aria-label="Admin sections">
+        <nav className="flex items-center gap-6 overflow-x-auto border-b border-subtle mb-6 px-2" style={{ scrollbarWidth: 'none' }} aria-label="Admin sections">
           {(['review', 'hashtags', 'controls', 'quotes', 'history'] as const).map((tab) => {
             const label = tab === 'review' ? 'Review' : tab === 'hashtags' ? 'Hashtags' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Safety log';
             const count = tab === 'review' ? reports.length + appeals.length : tab === 'hashtags' ? hashtagRequests.length : 0;
             const active = adminTab === tab;
             return (
-              <button key={tab} type="button" aria-pressed={active} onClick={() => { setAdminTab(tab); setStatus(''); }} className={`relative shrink-0 flex items-center gap-2 h-9 px-4 rounded-full text-[11.5px] font-bold transition-all duration-200 ease-out active:scale-95 ${active ? 'bg-primary text-on-primary shadow-md shadow-primary/20' : 'bg-surface text-content-secondary hover:bg-surface-hover hover:text-content-primary border border-subtle/50'}`}>
+              <button key={tab} type="button" aria-pressed={active} onClick={() => { setAdminTab(tab); setStatus(''); }} className={`relative shrink-0 flex items-center gap-1.5 pb-3.5 pt-1 text-[13px] font-bold transition-colors ${active ? 'text-primary' : 'text-content-muted hover:text-content-primary'}`}>
                 <span>{label}</span>
-                {count > 0 && <span className={`grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full text-[9.5px] font-extrabold ${active ? 'bg-on-primary text-primary' : 'bg-primary-soft text-primary'}`}>{count}</span>}
+                {count > 0 && <span className={`grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full text-[9.5px] font-extrabold ${active ? 'bg-primary text-on-primary' : 'bg-primary-soft text-primary'}`}>{count}</span>}
+                {active && <span className="absolute bottom-0 left-0 right-0 h-1 rounded-t-full bg-primary" />}
               </button>
             );
           })}
@@ -392,9 +394,39 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </section>
         </div>
         <div hidden={adminTab !== 'hashtags' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
-          <div className="mt-5"></div>
-          <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
+          <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full mb-6">
+            <button
+              onClick={() => setHashtagSubTab('requests')}
+              type="button"
+              className={`flex-1 py-2 px-3 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-2 transition-all ${
+                hashtagSubTab === 'requests'
+                  ? 'bg-elevated text-content-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)] border border-subtle/50'
+                  : 'text-content-secondary hover:text-content-primary hover:bg-surface-hover'
+              }`}
+            >
+              <span>Requests</span>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${hashtagSubTab === 'requests' ? 'bg-primary text-on-primary' : 'bg-base text-content-muted border border-subtle'}`}>
+                {hashtagRequests.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setHashtagSubTab('approved')}
+              type="button"
+              className={`flex-1 py-2 px-3 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-2 transition-all ${
+                hashtagSubTab === 'approved'
+                  ? 'bg-elevated text-content-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)] border border-subtle/50'
+                  : 'text-content-secondary hover:text-content-primary hover:bg-surface-hover'
+              }`}
+            >
+              <span>Approved</span>
+            </button>
+          </div>
+          <div hidden={hashtagSubTab !== 'requests'} className="animate-in fade-in">
+            <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
+          </div>
+          <div hidden={hashtagSubTab !== 'approved'} className="animate-in fade-in">
+            <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
+          </div>
         </div>
         <div hidden={adminTab !== 'quotes' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <CommunityQuoteAdmin quotes={quotes} busy={busy} setupError={quoteLoadError} onRefresh={refresh}/>
