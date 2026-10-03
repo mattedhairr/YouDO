@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Bell, UserPlus, UsersRound } from 'lucide-react';
 import BoardView from './BoardView';
 import UserProfileSheet from './UserProfileSheet';
+import SquadRoomSheet from './SquadRoomSheet';
 
 export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: () => void }) {
   const [activeTab, setActiveTab] = useState<'social' | 'private'>('social');
   const [privateSubTab, setPrivateSubTab] = useState<'dms' | 'rooms'>('dms');
   const [showTestProfile, setShowTestProfile] = useState(false);
+  const [showTestRoom, setShowTestRoom] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
@@ -89,15 +91,22 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
                 </button>
               </div>
             ) : (
-              <div className="text-center py-12">
+              <div className="text-center py-12 flex flex-col items-center">
                 <p className="text-[14px] font-semibold text-content-primary">Study Squads</p>
-                <p className="text-[12px] text-content-muted mt-1.5">Join or create private accountability rooms.</p>
+                <p className="text-[12px] text-content-muted mt-1.5 mb-6">Join or create private accountability rooms.</p>
+                <button 
+                  onClick={() => setShowTestRoom(true)}
+                  className="px-5 py-2.5 bg-secondary-soft text-secondary border border-secondary/20 rounded-[12px] text-[13px] font-semibold hover:bg-secondary/20 transition-colors"
+                >
+                  Test Squad Room
+                </button>
               </div>
             )}
           </div>
         )}
       </div>
       <UserProfileSheet open={showTestProfile} onClose={() => setShowTestProfile(false)} />
+      <SquadRoomSheet open={showTestRoom} onClose={() => setShowTestRoom(false)} />
     </div>
   );
 }
