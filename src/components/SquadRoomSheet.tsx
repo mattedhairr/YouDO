@@ -90,58 +90,42 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                 const totalTarget = members.length * target;
                 const teamPct = Math.min((totalCurrent / totalTarget) * 100, 100);
                 return (
-                  <div className="bg-elevated border border-subtle rounded-[18px] overflow-hidden">
+                  <div className="bg-elevated border border-subtle rounded-[16px] overflow-hidden">
                     {/* Collective Bar */}
-                    <div className="p-4 border-b border-subtle">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-[13px] font-bold text-content-primary">Companion Progress</p>
-                        <p className="text-[12px] font-bold text-primary">{totalCurrent}h / {totalTarget}h</p>
+                    <div className="px-3.5 py-3 border-b border-subtle">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[12px] font-bold text-content-primary">Companion Progress</p>
+                        <p className="text-[11px] font-bold text-primary">{totalCurrent}h / {totalTarget}h · {Math.round(teamPct)}%</p>
                       </div>
-                      <div className="h-3 bg-[var(--bg-default)] rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
-                          style={{ width: `${teamPct}%` }}
-                        />
+                      <div className="h-2 bg-[var(--bg-default)] rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all duration-700 ease-out" style={{ width: `${teamPct}%` }} />
                       </div>
-                      <p className="text-[11px] text-content-muted mt-2">{Math.round(teamPct)}% of companion {goalType.toLowerCase()} target complete</p>
                     </div>
 
-                    {/* Individual Members (no gap, same card) */}
+                    {/* Individual Members */}
                     <div className="divide-y divide-subtle">
                       {members.map((member) => {
                         const current = member.current[goalType];
                         const pct = Math.min((current / target) * 100, 100);
                         const done = current >= target;
                         const overdo = current > target ? current - target : 0;
-
                         return (
-                          <div key={member.id} className="p-4">
-                            <div className="flex items-center gap-3 mb-2.5">
-                              <div className="w-8 h-8 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
+                          <div key={member.id} className="px-3.5 py-2.5">
+                            <div className="flex items-center gap-2.5 mb-1.5">
+                              <div className="w-6 h-6 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
                                 {member.avatar}
                               </div>
-                              <div className="flex-1 flex items-center justify-between">
-                                <p className="text-[13px] font-semibold text-content-primary">{member.name}</p>
-                                <p className={`text-[12px] font-bold ${done ? 'text-primary' : 'text-content-secondary'}`}>
-                                  {Math.min(current, target)}h / {target}h
+                              <p className="text-[12px] font-semibold text-content-primary flex-1">{member.name}</p>
+                              <div className="flex items-center gap-2">
+                                {done && <p className="text-[10px] text-primary font-semibold">✓</p>}
+                                {overdo > 0 && <p className="text-[10px] text-primary/60 font-medium">+{overdo}h over</p>}
+                                <p className={`text-[11px] font-bold ${done ? 'text-primary' : 'text-content-secondary'}`}>
+                                  {Math.min(current, target)}h/{target}h
                                 </p>
                               </div>
                             </div>
-                            <div className="h-2 bg-[var(--bg-default)] rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-primary rounded-full transition-all duration-700 ease-out"
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <div className="mt-2 flex items-center justify-between">
-                              {done ? (
-                                <p className="text-[11px] text-primary font-semibold">✓ Target hit!</p>
-                              ) : (
-                                <p className="text-[11px] text-content-muted">{target - current}h remaining</p>
-                              )}
-                              {overdo > 0 && (
-                                <p className="text-[11px] text-primary/70 font-medium">+{overdo}h overdo contribution</p>
-                              )}
+                            <div className="h-1.5 bg-[var(--bg-default)] rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full transition-all duration-700 ease-out" style={{ width: `${pct}%` }} />
                             </div>
                           </div>
                         );
