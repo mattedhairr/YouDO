@@ -412,10 +412,10 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
               <span>Approved</span>
             </button>
           </div>
-          <div hidden={hashtagSubTab !== 'requests'} className="animate-in fade-in">
+          <div className={`animate-in fade-in ${hashtagSubTab !== 'requests' ? 'hidden' : ''}`}>
             <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
           </div>
-          <div hidden={hashtagSubTab !== 'approved'} className="animate-in fade-in">
+          <div className={`animate-in fade-in ${hashtagSubTab !== 'approved' ? 'hidden' : ''}`}>
             <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
           </div>
         </div>
