@@ -42,7 +42,7 @@ import GoalDestinationSheet from './components/GoalDestinationSheet';
 const GoalView = lazy(() => import('./components/GoalView'));
 const BlueprintStudio = lazy(() => import('./components/BlueprintStudio'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
-const BoardView = lazy(() => import('./components/BoardView'));
+const HubView = lazy(() => import('./components/HubView'));
 
 const pickQuote = (quotes: AppQuote[]): AppQuote | null => quotes.length
   ? quotes[Math.floor(Math.random() * quotes.length)]
@@ -1524,7 +1524,7 @@ function AppInner() {
                 onJumpToGoal={jumpToGoalTask}
               />
             ) : view === 'board' ? (
-              <BoardView onOpenBoardSettings={openBoardSettings} />
+              <HubView onOpenBoardSettings={openBoardSettings} />
             ) : (
               <GoalView
                 pathIds={goalPathIds}

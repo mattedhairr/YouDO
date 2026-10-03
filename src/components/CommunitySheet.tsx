@@ -412,12 +412,16 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
               <span>Approved</span>
             </button>
           </div>
-          <div className={`animate-in fade-in ${hashtagSubTab !== 'requests' ? 'hidden' : ''}`}>
-            <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
-          </div>
-          <div className={`animate-in fade-in ${hashtagSubTab !== 'approved' ? 'hidden' : ''}`}>
-            <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
-          </div>
+          {hashtagSubTab === 'requests' && (
+            <div className="animate-in fade-in">
+              <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
+            </div>
+          )}
+          {hashtagSubTab === 'approved' && (
+            <div className="animate-in fade-in">
+              <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
+            </div>
+          )}
         </div>
         <div hidden={adminTab !== 'quotes' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <CommunityQuoteAdmin quotes={quotes} busy={busy} setupError={quoteLoadError} onRefresh={refresh}/>

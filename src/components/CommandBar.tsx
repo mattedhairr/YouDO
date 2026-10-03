@@ -51,7 +51,7 @@ export default function CommandBar({
     { id: 'tasks', label: 'Today', icon: Check, badge: remainingToday > 0 ? remainingToday : undefined },
     { id: 'goals', label: 'Goals', icon: Target, badge: goalsCount > 0 ? goalsCount : undefined },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'board', label: 'Board', icon: TrendingUp },
+    { id: 'board', label: 'Hub', icon: TrendingUp },
   ];
 
   return (
