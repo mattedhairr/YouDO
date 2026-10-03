@@ -22,6 +22,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 - **APK Update Fixed** - The in-app update checker no longer shows "APK signing information is missing" on Android 9 and above. Sideloaded updates now install correctly.
 - **Download Progress Bar** - The update downloader now shows a smooth animated progress bar and percentage instead of just a loading label.
 - **Cleaner Release Notes** - The "What's new" section in App Updates now shows each change as its own bullet point instead of a flat line of text.
+- **Hashtag Support & Discussion** - Added a dedicated two-way chat modal for hashtag requests. Admins can converse directly with requesters before approval, and users can view and answer admin questions.
 - **Hashtag Requests Moved** - Admin hashtag requests now live inside the Hashtags tab (where they logically belong) instead of the Review tab, and each tab shows the correct badge count.
 - **Hashtag UI Redesigned** - The "Choose your exam" and "Request a hashtag" bottom sheets now match the modern iOS-style design used throughout the app.
 - **Admin Label Fixed** - The request summary in the Hashtags admin panel correctly shows the number of requests and how many have received an admin reply.

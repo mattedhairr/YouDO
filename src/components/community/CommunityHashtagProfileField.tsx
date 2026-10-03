@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, ChevronRight, MessageSquare, Plus, Send, X } from 'lucide-react';
 import {
   chooseCommunityHashtag,
   fetchCommunityHashtags,
   requestCommunityHashtag,
   type CommunityHashtagContext,
+  type CommunityHashtagRequest,
 } from '../../lib/communityHashtags';
 import Overlay from '../Overlay';
 
@@ -23,6 +24,9 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [chatRequest, setChatRequest] = useState<CommunityHashtagRequest | null>(null);
+  const [userReply, setUserReply] = useState('');
+  const [replySuccess, setReplySuccess] = useState('');
 
   const refresh = useCallback(async () => {
     const next = await fetchCommunityHashtags();
@@ -70,6 +74,25 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not send your request.');
     } finally { setBusy(false); }
+  };
+
+  const sendReply = async (targetRequest: CommunityHashtagRequest) => {
+    if (busy || userReply.trim().length < 2) return;
+    setBusy(true); setError('');
+    try {
+      await requestCommunityHashtag(targetRequest.examName, userReply.trim());
+      await refresh();
+      setReplySuccess('Reply sent to the admin!');
+      setTimeout(() => {
+        setChatRequest(null);
+        setReplySuccess('');
+        setUserReply('');
+      }, 1200);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not send reply.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return <>
@@ -155,14 +178,61 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
           {context.requests.length > 0 && (
             <div className="mb-4 space-y-2">
               {context.requests.map((item) => (
-                <div className={`p-3 rounded-xl border ${item.status === 'waiting' ? 'border-warning/30 bg-warning/10' : item.status === 'declined' ? 'border-error/30 bg-error-soft' : 'border-subtle bg-surface'}`} key={item.id}>
+                <div
+                  className={`p-3 rounded-xl border ${
+                    item.status === 'waiting'
+                      ? 'border-warning/30 bg-warning/10'
+                      : item.status === 'declined'
+                      ? 'border-error/30 bg-error-soft'
+                      : 'border-subtle bg-surface'
+                  }`}
+                  key={item.id}
+                >
                   <div className="flex items-center justify-between mb-1">
-                    <strong className={`text-[10.5px] font-bold uppercase tracking-wider ${item.status === 'waiting' ? 'text-warning' : item.status === 'declined' ? 'text-error' : 'text-primary'}`}>
-                      {item.status === 'waiting' ? 'Admin replied' : item.status === 'declined' ? 'Not approved' : 'Request sent'}
+                    <strong
+                      className={`text-[10.5px] font-bold uppercase tracking-wider ${
+                        item.status === 'waiting'
+                          ? 'text-warning'
+                          : item.status === 'declined'
+                          ? 'text-error'
+                          : 'text-primary'
+                      }`}
+                    >
+                      {item.status === 'waiting'
+                        ? 'Admin replied'
+                        : item.status === 'declined'
+                        ? 'Not approved'
+                        : 'Request sent'}
                     </strong>
-                    <span className="text-[11px] font-semibold text-content-primary">#{item.examName}</span>
+                    <span className="text-[11px] font-semibold text-content-primary">
+                      #{item.examName}
+                    </span>
                   </div>
-                  {item.adminResponse && <p className="text-[11px] leading-relaxed text-content-secondary mt-1">{item.adminResponse}</p>}
+
+                  {item.adminResponse && (
+                    <div className="mt-1.5 pt-1.5 border-t border-subtle/40">
+                      <p className="text-[11px] leading-relaxed text-content-secondary">
+                        <span className="font-semibold text-content-primary">Admin: </span>
+                        {item.adminResponse}
+                      </p>
+                    </div>
+                  )}
+
+                  {item.adminResponse && item.status === 'waiting' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChatRequest(item);
+                        setUserReply('');
+                        setReplySuccess('');
+                      }}
+                      className="mt-2.5 w-full flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface border border-secondary/30 text-secondary text-[11px] font-semibold hover:bg-secondary-soft/20 transition active:scale-[0.98]"
+                    >
+                      <MessageSquare size={13} />
+                      <span>Open Support Chat &amp; Reply</span>
+                      <ChevronRight size={13} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -194,5 +264,80 @@ export default function CommunityHashtagProfileField({ boardEnabled, onBeforeCho
         {error && <p role="alert" className="mt-3 text-center text-[11px] font-medium text-error">{error}</p>}
       </section>
     </Overlay>
+
+    {/* User Support Chat Reply Modal */}
+    {chatRequest && (
+      <Overlay open={Boolean(chatRequest)} onClose={() => setChatRequest(null)} align="bottom">
+        <div className="w-full max-w-[480px] max-h-[85vh] flex flex-col rounded-t-[28px] bg-elevated border-t border-subtle p-5 shadow-2xl text-content-primary">
+          <div className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-border-subtle" />
+
+          <header className="flex items-center justify-between pb-3 border-b border-subtle">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Hashtag Support</p>
+              <h3 className="text-[17px] font-bold text-content-primary">#{chatRequest.examName}</h3>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setChatRequest(null)} 
+              aria-label="Close"
+              className="grid size-8 place-items-center rounded-full bg-surface text-content-secondary hover:text-content-primary"
+            >
+              <X size={16}/>
+            </button>
+          </header>
+
+          <div className="my-3 flex-1 overflow-y-auto space-y-3 pr-1 max-h-[42vh]">
+            <div className="flex flex-col items-start gap-1">
+              <span className="text-[10px] text-content-muted pl-1">Your request</span>
+              <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-surface border border-subtle p-3 text-xs leading-relaxed text-content-primary">
+                <p className="font-bold text-primary">#{chatRequest.examName}</p>
+                {chatRequest.details && <p className="mt-1 text-content-secondary">{chatRequest.details}</p>}
+              </div>
+            </div>
+
+            {chatRequest.adminResponse && (
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] text-secondary pr-1 font-bold">Admin message</span>
+                <div className="max-w-[88%] rounded-2xl rounded-tr-sm bg-secondary-soft border border-secondary/25 p-3 text-xs leading-relaxed text-content-primary text-left">
+                  <p>{chatRequest.adminResponse}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-subtle pt-3 space-y-2.5">
+            <label className="block">
+              <span className="block text-[10.5px] font-semibold text-content-primary mb-1">
+                Reply to admin
+              </span>
+              <textarea
+                value={userReply}
+                onChange={(e) => setUserReply(e.target.value)}
+                maxLength={240}
+                rows={3}
+                placeholder="Explain what exam this is, which syllabus/branch, or answer the admin's question..."
+                className="w-full resize-none rounded-xl border border-subtle bg-base p-2.5 text-xs text-content-primary placeholder:text-content-muted outline-none focus:border-primary"
+              />
+            </label>
+
+            {replySuccess && (
+              <p role="status" className="text-center text-[11px] font-semibold text-success animate-fade-in">
+                {replySuccess}
+              </p>
+            )}
+
+            <button
+              type="button"
+              disabled={busy || userReply.trim().length < 2}
+              onClick={() => void sendReply(chatRequest)}
+              className="w-full h-11 flex items-center justify-center gap-1.5 rounded-[12px] bg-primary text-on-primary text-[12.5px] font-bold disabled:opacity-50 transition active:scale-95"
+            >
+              <Send size={14} />
+              <span>{busy ? 'Sending...' : 'Send reply to admin'}</span>
+            </button>
+          </div>
+        </div>
+      </Overlay>
+    )}
   </>;
 }

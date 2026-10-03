@@ -180,6 +180,18 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
                       <strong>{item.status === 'waiting' ? 'Admin replied' : item.status === 'declined' ? 'Not approved' : 'Request sent'}</strong>
                       <span>#{item.examName}</span>
                       {item.adminResponse && <p>{item.adminResponse}</p>}
+                      {item.adminResponse && item.status === 'waiting' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExam(item.examName);
+                            setDetails('');
+                          }}
+                          className="mt-1 text-[10px] font-bold text-secondary underline text-left"
+                        >
+                          Reply to admin note below ↓
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
