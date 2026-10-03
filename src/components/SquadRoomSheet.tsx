@@ -82,10 +82,10 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                 </div>
               </div>
 
-              {/* T-SHAPE WATER PIPES (Premium Glow Design) */}
+              {/* T-SHAPE WATER PIPES (Bronze Gradient Design) */}
               <div className="bg-[var(--bg-default)] border border-subtle rounded-[24px] p-6 mb-8 shadow-sm">
-                <div className="flex h-[200px] items-end justify-center gap-1">
-                  {members.map((member) => {
+                <div className="flex h-[200px] items-end justify-center gap-0">
+                  {members.map((member, index) => {
                     const rawPct = (member.current / member.target) * 100;
                     const pct = Math.min(rawPct, 100);
                     
@@ -93,33 +93,47 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                     const pipePct = Math.min((pct / 90) * 100, 100);
                     const capPct = pct > 90 ? ((pct - 90) / 10) * 100 : 0;
 
+                    const isFirst = index === 0;
+                    const isLast = index === members.length - 1;
+
+                    // Exact CSS values requested
+                    const verticalGradient = 'linear-gradient(to top, #fff5b8 0%, #f5cc5b 30%, #ab771f 70%, #3d2806 100%)';
+                    const capGradient = 'linear-gradient(to bottom, #2d1c03 0%, #4a300a 60%, #694511 100%)';
+                    const capShadow = '0 6px 14px rgba(245, 204, 91, 0.35)';
+
                     return (
                       <div key={member.id} className="flex-1 flex flex-col items-center h-full justify-end group">
                         
                         {/* The T-Shape Structure */}
                         <div className="w-full flex flex-col items-center h-[140px]">
                           
-                          {/* Top Cap (Horizontal Spread) */}
-                          <div className="w-full h-5 bg-elevated border-2 border-subtle rounded-t-[8px] border-b-0 relative overflow-hidden flex justify-center items-center">
-                            {/* Water spreading horizontally from the center */}
+                          {/* Top Cap (Horizontal Spread, touching edge-to-edge) */}
+                          <div className={`w-full h-5 bg-elevated border-y-2 border-subtle relative flex justify-center items-center z-10
+                            ${isFirst ? 'border-l-2 rounded-tl-[8px]' : ''}
+                            ${isLast ? 'border-r-2 rounded-tr-[8px]' : ''}
+                          `}>
+                            {/* Water spreading horizontally from the center with glow */}
                             <div 
-                              className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_12px_var(--primary)]"
-                              style={{ width: `${capPct}%` }}
+                              className="h-full transition-all duration-1000 ease-out"
+                              style={{ 
+                                width: `${capPct}%`,
+                                backgroundImage: capPct > 0 ? capGradient : 'none',
+                                boxShadow: capPct > 0 ? capShadow : 'none',
+                                borderRadius: (isFirst && capPct === 100) ? '6px 0 0 0' : (isLast && capPct === 100) ? '0 6px 0 0' : '0'
+                              }}
                             />
                           </div>
                           
                           {/* Vertical Pipe */}
-                          <div className="w-7 flex-1 bg-elevated border-2 border-subtle border-t-0 rounded-b-full relative overflow-hidden flex items-end">
+                          <div className="w-7 flex-1 bg-elevated border-x-2 border-b-2 border-subtle rounded-b-full relative overflow-hidden flex items-end -mt-[2px] z-0">
                             {/* Water rising vertically */}
                             <div 
-                              className="w-full bg-gradient-to-t from-primary/10 via-primary/80 to-primary transition-all duration-1000 ease-out relative"
-                              style={{ height: `${pipePct}%` }}
-                            >
-                              {/* Glowing tip indicator in the pipe */}
-                              {pipePct > 0 && pipePct < 100 && (
-                                <div className="absolute top-0 left-0 right-0 h-1 bg-white/40 shadow-[0_-4px_12px_var(--primary)]" />
-                              )}
-                            </div>
+                              className="w-full transition-all duration-1000 ease-out"
+                              style={{ 
+                                height: `${pipePct}%`,
+                                backgroundImage: pipePct > 0 ? verticalGradient : 'none'
+                              }}
+                            />
                           </div>
                         </div>
 
@@ -129,7 +143,7 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                             {member.avatar}
                           </div>
                           <p className="text-[12px] font-bold text-content-primary truncate">{member.name}</p>
-                          <p className="text-[11px] text-primary font-semibold mt-0.5">{member.current}h</p>
+                          <p className="text-[11px] text-content-muted font-medium mt-0.5">{member.current}h</p>
                         </div>
                       </div>
                     );
