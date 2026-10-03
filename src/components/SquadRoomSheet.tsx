@@ -105,7 +105,7 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                     {/* Collective Bar */}
                     <div className="px-3.5 py-3 border-b border-subtle">
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-[12px] font-bold text-content-primary">Companion Progress</p>
+                        <p className="text-[12px] font-bold text-content-primary">Collective Progress</p>
                         <p className="text-[11px] font-bold text-primary">{totalCurrent}h / {totalTarget}h · {Math.round(teamPct)}%</p>
                       </div>
                       <div className="h-2 bg-[var(--bg-default)] rounded-full overflow-hidden">

@@ -173,7 +173,7 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
                   {/* Companion Progress Bar */}
                   <div className="space-y-1.5 mt-3 pt-3 border-t border-subtle">
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-content-secondary font-medium">Companion Target</span>
+                      <span className="text-content-secondary font-medium">Collective Target</span>
                       <span className="font-bold text-primary">88h / 112h · 78%</span>
                     </div>
                     <div className="h-2 bg-[var(--bg-default)] rounded-full overflow-hidden">
@@ -214,7 +214,7 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
 
                   <div className="space-y-1.5 mt-3 pt-3 border-t border-subtle">
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="text-content-secondary font-medium">Companion Target</span>
+                      <span className="text-content-secondary font-medium">Collective Target</span>
                       <span className="font-bold text-primary">42h / 84h · 50%</span>
                     </div>
                     <div className="h-2 bg-[var(--bg-default)] rounded-full overflow-hidden">
