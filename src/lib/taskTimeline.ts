@@ -1,7 +1,7 @@
 import type { Task, TaskSession } from '../types';
 import { todayISO } from './dates';
 import { isTaskComplete } from './goalTree';
-import { isCountableSession, isManualSession, sessionOverlapsLocalDate } from './sessionStats';
+import { isCountableSession, isManualSession, splitSessionByLocalDate } from './sessionStats';
 
 export type TaskOccurrenceKind = 'scheduled' | 'failed' | 'backlog-completed';
 export type TaskCompletionMode = 'process' | 'manual' | 'mixed' | null;
@@ -55,8 +55,12 @@ export function taskOccurrenceOnDate(
   return { date, kind: 'scheduled', resolved: complete, completedOnDate: complete };
 }
 
-function sessionsOnDate(rows: TaskSession[], date: string): TaskSession[] {
-  return rows.filter((session) => Boolean(sessionOverlapsLocalDate(session, date)));
+function sessionsUpToDate(rows: TaskSession[], date: string, taskId?: string): TaskSession[] {
+  return rows.filter((session) => {
+    if (taskId && session.taskId && session.taskId !== taskId) return false;
+    const slices = splitSessionByLocalDate(session);
+    return slices.some((slice) => slice.date <= date);
+  });
 }
 
 /**
@@ -71,7 +75,7 @@ export function taskCompletionModeOnDate(
   const occurrence = taskOccurrenceOnDate(task, date);
   if (!occurrence?.completedOnDate) return null;
 
-  const relevant = sessionsOnDate(rows, date);
+  const relevant = sessionsUpToDate(rows, date, task.id);
   const manualRows = relevant.filter(isManualSession);
   const processRows = relevant.filter((row) => !isManualSession(row) && isCountableSession(row));
   const hasProcessCompletion = processRows.some(

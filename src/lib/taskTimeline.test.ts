@@ -178,4 +178,51 @@ describe('task Plan timeline', () => {
     expect(taskCompletionModeOnDate(item, '2026-08-20', [process, manual])).toBeNull();
     expect(taskCompletionModeOnDate(item, '2026-08-24', [process, manual])).toBe('mixed');
   });
+
+  it('correctly attributes multi-day process sessions as process completion instead of mixed', () => {
+    const item = task({
+      targetDate: '2026-10-03',
+      originalTargetDate: '2026-10-02',
+      pastFailedNativeDates: ['2026-10-02'],
+      steps: ['Watch', 'Notes'],
+      progress: 2,
+    });
+    const processDay1 = session('process-day1', '2026-10-02', [0]);
+    const processDay2 = session('process-day2', '2026-10-03', [1], { completed: true });
+
+    // On failed date, completion mode is null
+    expect(taskCompletionModeOnDate(item, '2026-10-02', [processDay1, processDay2])).toBeNull();
+    // On backlog clear date, all steps were done via process sessions across both days -> process!
+    expect(taskCompletionModeOnDate(item, '2026-10-03', [processDay1, processDay2])).toBe('process');
+  });
+
+  it('correctly attributes multi-day mixed completion when partial work is done manually', () => {
+    const item = task({
+      targetDate: '2026-10-03',
+      originalTargetDate: '2026-10-02',
+      pastFailedNativeDates: ['2026-10-02'],
+      steps: ['Watch', 'Notes'],
+      progress: 2,
+    });
+    const processDay1 = session('process-day1', '2026-10-02', [0]);
+    const manualDay2 = session('manual-day2', '2026-10-03', [1], {
+      endTime: new Date('2026-10-03T10:00:00').getTime(),
+      netFocusMs: 0,
+      manual: true,
+    });
+
+    expect(taskCompletionModeOnDate(item, '2026-10-03', [processDay1, manualDay2])).toBe('mixed');
+  });
+
+  it('attributes multi-session process completion on scheduled date as process', () => {
+    const item = task({
+      targetDate: '2026-10-03',
+      steps: ['Watch', 'Notes'],
+      progress: 2,
+    });
+    const processSession1 = session('process-1', '2026-10-03', [0]);
+    const processSession2 = session('process-2', '2026-10-03', [1], { completed: true });
+
+    expect(taskCompletionModeOnDate(item, '2026-10-03', [processSession1, processSession2])).toBe('process');
+  });
 });
