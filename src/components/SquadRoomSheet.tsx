@@ -96,29 +96,23 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                     const isFirst = index === 0;
                     const isLast = index === members.length - 1;
 
-                    // Exact CSS values requested
-                    const verticalGradient = 'linear-gradient(to top, #fff5b8 0%, #f5cc5b 30%, #ab771f 70%, #3d2806 100%)';
-                    const capGradient = 'linear-gradient(to bottom, #2d1c03 0%, #4a300a 60%, #694511 100%)';
-                    const capShadow = '0 6px 14px rgba(245, 204, 91, 0.35)';
-
+                    // We revert to the app's primary color with opacity fading
                     return (
                       <div key={member.id} className="flex-1 flex flex-col items-center h-full justify-end group">
                         
                         {/* The T-Shape Structure */}
                         <div className="w-full flex flex-col items-center h-[140px]">
                           
-                          {/* Top Cap (Horizontal Spread, touching edge-to-edge) */}
+                          {/* Top Cap (Horizontal Spread) */}
                           <div className={`w-full h-5 bg-elevated border-y-2 border-subtle relative flex justify-center items-center z-10
                             ${isFirst ? 'border-l-2 rounded-tl-[8px]' : ''}
                             ${isLast ? 'border-r-2 rounded-tr-[8px]' : ''}
                           `}>
                             {/* Water spreading horizontally from the center with glow */}
                             <div 
-                              className="h-full transition-all duration-1000 ease-out"
+                              className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_4px_12px_var(--primary)]"
                               style={{ 
                                 width: `${capPct}%`,
-                                backgroundImage: capPct > 0 ? capGradient : 'none',
-                                boxShadow: capPct > 0 ? capShadow : 'none',
                                 borderRadius: (isFirst && capPct === 100) ? '6px 0 0 0' : (isLast && capPct === 100) ? '0 6px 0 0' : '0'
                               }}
                             />
@@ -126,14 +120,16 @@ export default function SquadRoomSheet({ open, onClose }: Props) {
                           
                           {/* Vertical Pipe */}
                           <div className="w-7 flex-1 bg-elevated border-x-2 border-b-2 border-subtle rounded-b-full relative overflow-hidden flex items-end -mt-[2px] z-0">
-                            {/* Water rising vertically */}
+                            {/* Water rising vertically (least opacity at bottom, most at top) */}
                             <div 
-                              className="w-full transition-all duration-1000 ease-out"
-                              style={{ 
-                                height: `${pipePct}%`,
-                                backgroundImage: pipePct > 0 ? verticalGradient : 'none'
-                              }}
-                            />
+                              className="w-full bg-gradient-to-t from-primary/5 via-primary/50 to-primary transition-all duration-1000 ease-out relative"
+                              style={{ height: `${pipePct}%` }}
+                            >
+                               {/* Subtle tip highlight */}
+                              {pipePct > 0 && pipePct < 100 && (
+                                <div className="absolute top-0 left-0 right-0 h-1 bg-white/30" />
+                              )}
+                            </div>
                           </div>
                         </div>
 
