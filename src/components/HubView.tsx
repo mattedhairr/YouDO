@@ -4,42 +4,26 @@ import BoardView from './BoardView';
 import UserProfileSheet from './UserProfileSheet';
 import SquadRoomSheet from './SquadRoomSheet';
 
-export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: () => void }) {
-  const [activeTab, setActiveTab] = useState<'social' | 'private'>('social');
+export default function HubView({
+  onOpenBoardSettings,
+  activeTab = 'social',
+}: {
+  onOpenBoardSettings: () => void;
+  activeTab?: 'social' | 'private';
+}) {
   const [privateSubTab, setPrivateSubTab] = useState<'dms' | 'rooms'>('dms');
   const [showTestProfile, setShowTestProfile] = useState(false);
   const [showTestRoom, setShowTestRoom] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Master Toggle */}
-      <div className="py-2 sticky top-0 z-10 bg-[var(--bg-default)]">
-        <div className="flex bg-surface border border-subtle rounded-full p-1 max-w-[240px] mx-auto">
-          <button
-            onClick={() => setActiveTab('social')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-              activeTab === 'social' ? 'bg-primary text-on-primary' : 'text-content-muted'
-            }`}
-          >
-            Social
-          </button>
-          <button
-            onClick={() => setActiveTab('private')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-              activeTab === 'private' ? 'bg-primary text-on-primary' : 'text-content-muted'
-            }`}
-          >
-            Private
-          </button>
-        </div>
-      </div>
-
-      {/* Content */}
+      {/* Content with buttery smooth entrance animation */}
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'social' ? (
-          <BoardView onOpenBoardSettings={onOpenBoardSettings} />
-        ) : (
-          <div className="py-2">
+        <div key={activeTab} className="hub-screen-transition">
+          {activeTab === 'social' ? (
+            <BoardView onOpenBoardSettings={onOpenBoardSettings} />
+          ) : (
+            <div className="py-2">
             {/* Private Sub-tabs and Actions */}
             <div className="flex items-center justify-between border-b border-subtle pb-3 mb-4">
               <div className="flex gap-5 px-1">
@@ -235,6 +219,7 @@ export default function HubView({ onOpenBoardSettings }: { onOpenBoardSettings: 
             )}
           </div>
         )}
+        </div>
       </div>
       <UserProfileSheet open={showTestProfile} onClose={() => setShowTestProfile(false)} />
       <SquadRoomSheet open={showTestRoom} onClose={() => setShowTestRoom(false)} />

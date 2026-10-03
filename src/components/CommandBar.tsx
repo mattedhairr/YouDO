@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Calendar, Check, Copy, FolderInput, RotateCcw, Settings, Target, Trash2, Users, X } from 'lucide-react';
 import type { View } from '../types';
 
@@ -32,6 +33,9 @@ interface Props {
   syncAttention?: boolean;
   batch?: BatchMode;
   paste?: PasteMode;
+  hubSubTab?: 'social' | 'private';
+  onToggleHubSubTab?: () => void;
+  onSetHubSubTab?: (tab: 'social' | 'private') => void;
 }
 
 export default function CommandBar({
@@ -44,8 +48,12 @@ export default function CommandBar({
   syncAttention = false,
   batch,
   paste,
+  hubSubTab = 'social',
+  onToggleHubSubTab,
+  onSetHubSubTab,
 }: Props) {
   const remainingToday = Math.max(0, todayCount - todayDone);
+  const hubTouchStartY = useRef<number | null>(null);
 
   const tabs: { id: View; label: string; icon: typeof Check; badge?: number }[] = [
     { id: 'tasks', label: 'Today', icon: Check, badge: remainingToday > 0 ? remainingToday : undefined },
@@ -119,20 +127,87 @@ export default function CommandBar({
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const active = view === tab.id;
+                const isHubTab = tab.id === 'board';
                 return (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => onNavigate(tab.id)}
+                    onClick={() => {
+                      if (isHubTab && active) {
+                        onToggleHubSubTab?.();
+                      } else {
+                        onNavigate(tab.id);
+                      }
+                    }}
+                    onWheel={
+                      isHubTab && active
+                        ? (e) => {
+                            if (e.deltaY > 5) onSetHubSubTab?.('private');
+                            else if (e.deltaY < -5) onSetHubSubTab?.('social');
+                          }
+                        : undefined
+                    }
+                    onTouchStart={
+                      isHubTab && active
+                        ? (e) => {
+                            hubTouchStartY.current = e.touches[0].clientY;
+                          }
+                        : undefined
+                    }
+                    onTouchEnd={
+                      isHubTab && active
+                        ? (e) => {
+                            if (hubTouchStartY.current === null) return;
+                            const diff = e.changedTouches[0].clientY - hubTouchStartY.current;
+                            if (diff < -12) onSetHubSubTab?.('private');
+                            else if (diff > 12) onSetHubSubTab?.('social');
+                            hubTouchStartY.current = null;
+                          }
+                        : undefined
+                    }
                     aria-current={active ? 'page' : undefined}
-                    className={`command-tab relative flex-1 min-w-0 h-11 flex flex-col items-center justify-center gap-0.5 rounded-[11px] text-[10.5px] transition-all active:scale-[0.96] ${
+                    title={isHubTab && active ? 'Scroll or tap to switch Public / Private' : undefined}
+                    className={`command-tab relative flex-1 min-w-0 h-11 flex flex-col items-center justify-center gap-0.5 rounded-[11px] text-[10.5px] transition-all active:scale-[0.96] select-none ${
                       active
                         ? 'is-active text-primary font-semibold'
                         : 'text-content-muted font-medium [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated/60'
                     }`}
                   >
-                    <Icon size={16} strokeWidth={active ? 2.45 : 2} />
-                    <span className="command-tab-label truncate leading-none">{tab.label}</span>
+                    <Icon size={16} strokeWidth={active ? 2.45 : 2} className="transition-transform duration-200" />
+                    
+                    {/* Rolling label for active Hub, static label for others */}
+                    {isHubTab && active ? (
+                      <div className="h-[12px] overflow-hidden relative w-full flex justify-center">
+                        <div
+                          className="flex flex-col items-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                          style={{
+                            transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(-50%)',
+                          }}
+                        >
+                          <span className="h-[12px] text-[10.5px] font-bold text-primary truncate leading-none flex items-center">
+                            Public
+                          </span>
+                          <span className="h-[12px] text-[10.5px] font-bold text-primary truncate leading-none flex items-center">
+                            Private
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="command-tab-label truncate leading-none">{tab.label}</span>
+                    )}
+
+                    {/* Vertical Pill Indicator for active Hub */}
+                    {isHubTab && active && (
+                      <div className="absolute right-1 top-2.5 bottom-2.5 w-1 rounded-full bg-surface border border-subtle flex flex-col justify-between p-[1px] overflow-hidden pointer-events-none">
+                        <div
+                          className="w-full h-1.5 rounded-full bg-primary shadow-[0_0_6px_var(--primary)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                          style={{
+                            transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(120%)',
+                          }}
+                        />
+                      </div>
+                    )}
+
                     {tab.badge !== undefined && (
                       <span className={`command-tab-badge ${active ? 'is-active' : ''}`}>
                         {tab.badge > 99 ? '99+' : tab.badge}

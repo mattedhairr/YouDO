@@ -342,6 +342,11 @@ function AppInner() {
     useNavigationSync(handleModalPopState);
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar', 'board'], []);
 
+  const [hubSubTab, setHubSubTab] = useState<'social' | 'private'>('social');
+  const toggleHubSubTab = useCallback(() => {
+    setHubSubTab((prev) => (prev === 'social' ? 'private' : 'social'));
+  }, []);
+
   const pushModalState = useCallback(() => {
     try {
       window.history.pushState({ modal: true }, '', window.location.href);
@@ -1524,7 +1529,7 @@ function AppInner() {
                 onJumpToGoal={jumpToGoalTask}
               />
             ) : view === 'board' ? (
-              <HubView onOpenBoardSettings={openBoardSettings} />
+              <HubView onOpenBoardSettings={openBoardSettings} activeTab={hubSubTab} />
             ) : (
               <GoalView
                 pathIds={goalPathIds}
@@ -1561,10 +1566,13 @@ function AppInner() {
         )}
 
         {/* Bottom Command Bar */}
-      <CommandBar
-        view={view}
-        onNavigate={handlePrimaryNavigate}
+        <CommandBar
+          view={view}
+          onNavigate={handlePrimaryNavigate}
           onSettings={openSettings}
+          hubSubTab={hubSubTab}
+          onToggleHubSubTab={toggleHubSubTab}
+          onSetHubSubTab={setHubSubTab}
           todayCount={todayCount}
           todayDone={todayDone}
           goalsCount={goals.length}
