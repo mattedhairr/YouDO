@@ -4,6 +4,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { findNode, formatDDMMYYYY, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
+import { ensureProfileFromAuth } from './lib/profiles';
 import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
 import TaskCard from './components/TaskCard';
@@ -26,6 +27,7 @@ import StepSliceSheet from './components/StepSliceSheet';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
 import { useTheme } from './hooks/useTheme';
+import { supabase } from './lib/supabase';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { checkDeviceClock, clearClockIncident } from './lib/deviceClock';
 import UpdateNotice from './components/UpdateNotice';
@@ -340,9 +342,22 @@ function AppInner() {
 
   const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab, navigateToGoalPath } =
     useNavigationSync(handleModalPopState);
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar', 'board'], []);
 
-  const [hubSubTab, setHubSubTab] = useState<'social' | 'private'>('social');
+  const [hubSubTab, setHubSubTab] = useState<'social' | 'private'>('private');
+  
+  useEffect(() => {
+    if (!activityUser) return;
+    void ensureProfileFromAuth(activityUser);
+    if (!activityUser.user_metadata?.username) {
+      handleNavigateTab('board');
+      setHubSubTab('private');
+    } else {
+      setHubSubTab(activityUser.user_metadata?.community_hashtag ? 'social' : 'private');
+    }
+  }, [activityUser?.id, activityUser?.user_metadata?.username, activityUser?.user_metadata?.community_hashtag, handleNavigateTab]);
   const toggleHubSubTab = useCallback(() => {
     setHubSubTab((prev) => (prev === 'social' ? 'private' : 'social'));
   }, []);
@@ -1044,7 +1059,7 @@ function AppInner() {
         <p className="mb-1 font-semibold text-error">{workspaceStorageError ? 'Workspace change could not be saved' : 'Timer change could not be saved'}</p>
         <p>{workspaceStorageError || sessionStorageError}</p>
       </div>}
-      {sessionBootHold && (
+              {sessionBootHold && (
         <div
           className="fixed inset-0 z-[2000] bg-base"
           aria-hidden
@@ -1076,7 +1091,7 @@ function AppInner() {
                   : view === 'calendar'
                     ? 'Calendar'
                     : view === 'board'
-                      ? 'Board'
+                      ? 'Hub'
                       : new Date().toLocaleDateString(undefined, {
                           weekday: 'short',
                           day: 'numeric',
@@ -1529,7 +1544,7 @@ function AppInner() {
                 onJumpToGoal={jumpToGoalTask}
               />
             ) : view === 'board' ? (
-              <HubView onOpenBoardSettings={openBoardSettings} activeTab={hubSubTab} />
+              <HubView onOpenBoardSettings={openBoardSettings} activeTab={hubSubTab} personalPace={streakMeta.barHours} />
             ) : (
               <GoalView
                 pathIds={goalPathIds}
@@ -1566,8 +1581,7 @@ function AppInner() {
         )}
 
         {/* Bottom Command Bar */}
-        <CommandBar
-          view={view}
+        <CommandBar view={view}
           onNavigate={handlePrimaryNavigate}
           onSettings={openSettings}
           hubSubTab={hubSubTab}

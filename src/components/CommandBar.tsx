@@ -177,17 +177,17 @@ export default function CommandBar({
                     
                     {/* Rolling label for active Hub, static label for others */}
                     {isHubTab && active ? (
-                      <div className="h-[12px] overflow-hidden relative w-full flex justify-center">
+                      <div className="h-[14px] overflow-hidden relative w-full">
                         <div
-                          className="flex flex-col items-center transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                          className="flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
                           style={{
                             transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(-50%)',
                           }}
                         >
-                          <span className="h-[12px] text-[10.5px] font-bold text-primary truncate leading-none flex items-center">
+                          <span className="h-[14px] flex items-center justify-center text-[10.5px] font-bold text-primary shrink-0">
                             Public
                           </span>
-                          <span className="h-[12px] text-[10.5px] font-bold text-primary truncate leading-none flex items-center">
+                          <span className="h-[14px] flex items-center justify-center text-[10.5px] font-bold text-primary shrink-0">
                             Private
                           </span>
                         </div>
@@ -198,13 +198,15 @@ export default function CommandBar({
 
                     {/* Vertical Pill Indicator for active Hub */}
                     {isHubTab && active && (
-                      <div className="absolute right-1 top-2.5 bottom-2.5 w-1 rounded-full bg-surface border border-subtle flex flex-col justify-between p-[1px] overflow-hidden pointer-events-none">
+                      <div className="absolute right-1 top-2.5 bottom-2.5 w-[5px] rounded-full bg-surface border border-subtle overflow-hidden pointer-events-none">
                         <div
-                          className="w-full h-1.5 rounded-full bg-primary shadow-[0_0_6px_var(--primary)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                          className="absolute left-0 right-0 h-1/2 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] p-[1px]"
                           style={{
-                            transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(120%)',
+                            transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(100%)',
                           }}
-                        />
+                        >
+                          <div className="w-full h-full rounded-full bg-primary shadow-[0_0_6px_var(--primary)]" />
+                        </div>
                       </div>
                     )}
 

@@ -45,6 +45,12 @@ function asRow(raw: Record<string, unknown>): PaceRow | null {
   };
 }
 
+export async function fetchPaceRowForUser(userId: string): Promise<PaceRow | null> {
+  const { data, error } = await supabase.from('public_pace').select('*').eq('user_id', userId).maybeSingle();
+  if (error || !data) return null;
+  return asRow(data as Record<string, unknown>);
+}
+
 export async function fetchPaceRows(boardTimezone: string): Promise<
   { ok: true; rows: PaceRow[] } | { ok: false; missingTable: boolean }
 > {

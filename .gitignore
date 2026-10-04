@@ -38,6 +38,13 @@ pnpm-debug.log*
 *.sw?
 Thumbs.db
 
+# Antigravity / agent one-off patch scripts (not product code)
+fix_*.cjs
+patch*.cjs
+patch_*.cjs
+fix_*.js
+!src/**/*.js
+
 # Android generated output
 android/.gradle
 android/build

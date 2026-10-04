@@ -1,4 +1,4 @@
--- Supabase Snippet Name: YouDO - Hub & Private Rooms Schema
+-- Supabase Snippet Name: YouDO — Hub & Private Rooms Schema
 -- Creates profiles, friendships, and private squads (rooms)
 
 -- 1. Profiles Table (Core Identity)
@@ -8,9 +8,12 @@ create table if not exists public.profiles (
   display_name text not null,
   bio text default '',
   stats_private boolean not null default false,
+  avatar_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists avatar_url text;
 
 -- Force usernames to be lowercase and alphanumeric (plus underscores)
 alter table public.profiles add constraint valid_username check (username ~ '^[a-z0-9_]+$');
@@ -53,7 +56,8 @@ create table if not exists public.direct_messages (
   sender_id uuid not null references auth.users (id) on delete cascade,
   receiver_id uuid not null references auth.users (id) on delete cascade,
   content text not null,
-  read_at timestamptz,
+    reply_to_id uuid references public.direct_messages (id) on delete set null,
+    read_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -63,7 +67,8 @@ create table if not exists public.squad_messages (
   squad_id uuid not null references public.squads (id) on delete cascade,
   sender_id uuid not null references auth.users (id) on delete cascade,
   content text not null,
-  created_at timestamptz not null default now()
+    reply_to_id uuid references public.squad_messages (id) on delete set null,
+    created_at timestamptz not null default now()
 );
 
 -- Turn on Row Level Security (RLS)
@@ -105,6 +110,9 @@ create policy "DMs viewable only by participants" on public.direct_messages for 
 create policy "Users send DMs as themselves" on public.direct_messages for insert with check (
   auth.uid() = sender_id
 );
+create policy "Receivers can mark DMs read" on public.direct_messages for update using (
+  auth.uid() = receiver_id
+) with check (auth.uid() = receiver_id);
 
 -- Squad Messages: ZERO ADMIN BYPASS. Strictly accepted members can view and post.
 create policy "Squad messages viewable only by accepted members" on public.squad_messages for select using (
@@ -114,3 +122,27 @@ create policy "Squad members can post messages" on public.squad_messages for ins
   auth.uid() = sender_id and
   exists (select 1 from public.squad_members where squad_id = squad_messages.squad_id and user_id = auth.uid() and status = 'accepted')
 );
+
+-- Deletes (reject friend, remove friend, delete own messages, kick members)
+create policy "Participants can delete friendships" on public.friendships for delete using (
+  auth.uid() = requester_id or auth.uid() = receiver_id
+);
+create policy "Senders can delete own DMs" on public.direct_messages for delete using (
+  auth.uid() = sender_id
+);
+create policy "Senders can delete own squad messages" on public.squad_messages for delete using (
+  auth.uid() = sender_id
+);
+create policy "Members can leave or admins can remove" on public.squad_members for delete using (
+  auth.uid() = user_id
+  or exists (
+    select 1 from public.squad_members sm
+    where sm.squad_id = squad_members.squad_id
+      and sm.user_id = auth.uid()
+      and sm.role = 'admin'
+      and sm.status = 'accepted'
+  )
+);
+
+-- 24-hour disappearing messages: run supabase/private_messages_cleanup.sql after this file.
+-- That extends the same prune_community_history() used by community chat (do not add a second prune function here).

@@ -1,7 +1,7 @@
 import './community.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowDown, Check, ChevronDown, Flag, Heart, Lock, Megaphone, Pencil, RefreshCw, Reply, Send, ShieldAlert, ShieldCheck, Trash2, X } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, Flag, Heart, Lock, Megaphone, Pencil, RefreshCw, Reply, Send, ShieldAlert, ShieldCheck, Trash2, X, Copy, AlertTriangle } from 'lucide-react';
 import { markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
 import { markChatRoomRead } from '../../lib/communityChat';
 import type { CommunityHashtagContext } from '../../lib/communityHashtags';
@@ -213,6 +213,12 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     finally{if(version===refreshVersion.current){fetching.current=false;if(mounted.current)setLoading(false);}}
   };
   const openActions=(message:ChatMessage)=>{setSelected(message);setReason('');setActionError('');};
+    useEffect(() => {
+      if (!selected) return;
+      const handleOutsideClick = () => setSelected(null);
+      window.addEventListener('pointerdown', handleOutsideClick);
+      return () => window.removeEventListener('pointerdown', handleOutsideClick);
+    }, [selected]);
   const beginReply=(message:ChatMessage)=>{
     if(message.delivery!=='sent'||!canWriteRoom)return;
     setReply(message);setEditing(null);setSelected(null);requestAnimationFrame(()=>composer.current?.focus());
@@ -364,7 +370,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         const authorName=mine?'You':names.get(message.authorId)??'Board member';
         const staff=context.staffIds.includes(message.authorId);
         return <li key={message.id} data-message={message.id} className={`c-message ${mine?'is-mine':''} ${message.delivery==='failed'?'is-failed':''}`}>
-          <article className="c-message-bubble" tabIndex={0} aria-label={`${authorName}: ${message.body}`}
+          <article className="c-message-bubble" style={{ position: "relative" }} tabIndex={0} aria-label={`${authorName}: ${message.body}`}
             onPointerDown={event=>beginPress(event,message)} onPointerMove={movePress}
             onPointerUp={event=>finishPress(event,message)} onPointerCancel={()=>{cancelPress();press.current=null;}}
             onContextMenu={event=>{if((event.target as HTMLElement).closest('button,input,textarea,a'))return;event.preventDefault();openActions(message);}}
@@ -374,10 +380,37 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             <p>{message.body}</p>
             <div className="c-message-meta"><span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>{mine && <span>{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={12}/>}</span>}</div>
             {message.delivery==='failed' && <div className="c-retry"><span>{message.error}</span><button disabled={!canWriteRoom} onClick={()=>void transmit(message)}><RefreshCw size={14}/> Retry</button></div>}
-          </article>
+          
+              {/* Floating Action Menu */}
+              {selected?.id === message.id && (
+                <div onClick={(e) => e.stopPropagation()} className="absolute z-[100] bottom-full mb-2 left-0 bg-elevated border border-subtle shadow-xl rounded-xl p-1 flex gap-1 animate-in slide-in-from-bottom-2 fade-in" style={{ backgroundColor: 'var(--bg-elevated)', padding: '4px' }}>
+                  
+                    {message.delivery === 'sent' && canWriteRoom && (
+                      <button onClick={(e) => { e.stopPropagation(); hapticTick(); beginReply(message); }} className="p-2 hover:bg-surface rounded-lg text-content-primary flex flex-col items-center gap-1">
+                        <Reply size={16} />
+                        <span className="text-[9px] font-bold">Reply</span>
+                      </button>
+                    )}
+                    {message.delivery === 'sent' && (mine || context.isAdmin) && (
+                      <button onClick={(e) => { e.stopPropagation(); action(mine ? 'delete' : 'remove'); }} className="p-2 hover:bg-error-soft rounded-lg text-error flex flex-col items-center gap-1">
+                        <Trash2 size={16} />
+                        <span className="text-[9px] font-bold">Delete</span>
+                      </button>
+                    )}
+                    {!mine && !context.isAdmin && (
+                      <button onClick={(e) => { e.stopPropagation(); action('report'); }} className="p-2 hover:bg-error-soft rounded-lg text-error flex flex-col items-center gap-1">
+                        <AlertTriangle size={16} />
+                        <span className="text-[9px] font-bold">Report</span>
+                      </button>
+                    )}
+
+                </div>
+              )}
+            </article>
         </li>;
       })}</ol>
-      {messages.filter(m=>m.delivery==='sent').length>=CHAT_HISTORY_LIMIT && <p className="c-note">Latest 120 messages · 24-hour room</p>}
+      
+        {messages.filter(m=>m.delivery==='sent').length>=CHAT_HISTORY_LIMIT && <p className="c-note">Latest 120 messages · 24-hour room</p>}
     </div>
     {newBelow && <button className="c-new" onClick={()=>{follow.current=true;if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;setNewBelow(false);}}>New messages <ArrowDown size={15}/></button>}
     <footer className="c-composer">
@@ -412,122 +445,5 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       </div>
       <p className="c-composer-note">Hold for options · double-tap to reply<span>{draft.length}/240</span></p>
     </footer>
-    {selected && (
-      <Overlay open onClose={() => { if (!actionBusy) setSelected(null); }} align="bottom">
-        <div className="w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] bg-elevated border-t border-subtle rounded-t-[28px] shadow-2xl flex flex-col gap-3">
-          {/* Grab Handle */}
-          <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70" />
-
-          {/* Header & Preview Quote Card */}
-          <div className="bg-surface border border-subtle rounded-2xl p-3 flex flex-col gap-1.5 shadow-sm">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-content-muted">
-              <span>{names.get(selected.authorId) ?? (selected.authorId === userId ? 'You' : 'Board member')}</span>
-              <span>{new Date(selected.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-            <p className="text-xs text-content-primary line-clamp-3 leading-relaxed whitespace-pre-wrap select-text">
-              {selected.body}
-            </p>
-          </div>
-
-          {actionError && (
-            <p className="text-xs text-error font-medium px-1" role="alert">
-              {actionError}
-            </p>
-          )}
-
-          {/* Actions Stack */}
-          <div className="bg-surface border border-subtle rounded-2xl overflow-hidden divide-y divide-subtle shadow-sm">
-            {selected.delivery === 'sent' && canWriteRoom && (
-              <button
-                type="button"
-                className="w-full h-12 px-4 flex items-center justify-between text-xs font-semibold text-content-primary hover:bg-elevated active:bg-elevated/70 transition-colors"
-                onClick={() => { hapticTick(); beginReply(selected); }}
-              >
-                <span>Reply</span>
-                <Reply size={16} className="text-secondary" />
-              </button>
-            )}
-
-            {selectedCanModify && canWriteRoom && (
-              <button
-                type="button"
-                className="w-full h-12 px-4 flex items-center justify-between text-xs font-semibold text-content-primary hover:bg-elevated active:bg-elevated/70 transition-colors"
-                onClick={() => {
-                  hapticTick();
-                  setEditing(selected);
-                  setDraft(selected.body);
-                  setReply(null);
-                  setSelected(null);
-                  requestAnimationFrame(() => composer.current?.focus());
-                }}
-              >
-                <span>Edit message</span>
-                <Pencil size={16} className="text-primary" />
-              </button>
-            )}
-
-            {(selected.delivery === 'failed' || selectedCanModify) && (
-              <button
-                type="button"
-                disabled={actionBusy}
-                className="w-full h-12 px-4 flex items-center justify-between text-xs font-semibold text-error hover:bg-error-soft/30 active:bg-error-soft/50 transition-colors disabled:opacity-50"
-                onClick={() => { hapticWarn(); void action('delete'); }}
-              >
-                <span>{selected.delivery === 'failed' ? 'Remove unsent message' : 'Delete for everyone'}</span>
-                <Trash2 size={16} className="text-error" />
-              </button>
-            )}
-
-            {selected.authorId !== userId && (
-              <button
-                type="button"
-                disabled={actionBusy}
-                className="w-full h-12 px-4 flex items-center justify-between text-xs font-semibold text-warning hover:bg-elevated active:bg-elevated/70 transition-colors disabled:opacity-50"
-                onClick={() => { hapticWarn(); void action('report'); }}
-              >
-                <span>Report privately</span>
-                <Flag size={16} className="text-warning" />
-              </button>
-            )}
-          </div>
-
-          {/* Admin Moderation Box */}
-          {context.isAdmin && selected.delivery === 'sent' && selected.authorId !== userId && (
-            <div className="bg-surface border border-error/30 rounded-2xl p-3 flex flex-col gap-2 shadow-sm">
-              <label htmlFor="remove-reason" className="text-[10px] font-bold uppercase tracking-wider text-error">
-                Moderation removal
-              </label>
-              <input
-                id="remove-reason"
-                value={reason}
-                maxLength={280}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Briefly explain the removal..."
-                className="w-full h-9 px-3 rounded-xl bg-base border border-subtle text-xs text-content-primary focus:border-error outline-none"
-              />
-              <button
-                type="button"
-                disabled={actionBusy || reason.trim().length < 3}
-                onClick={() => { hapticWarn(); void action('remove'); }}
-                className="w-full h-9 rounded-xl bg-error text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40"
-              >
-                <ShieldAlert size={15} />
-                <span>Remove as admin</span>
-              </button>
-            </div>
-          )}
-
-          {/* Separate Cancel Button */}
-          <button
-            type="button"
-            disabled={actionBusy}
-            onClick={() => setSelected(null)}
-            className="w-full h-12 rounded-2xl bg-surface border border-subtle text-xs font-bold text-content-secondary hover:text-content-primary hover:bg-elevated active:scale-[0.99] transition-all shadow-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      </Overlay>
-    )}
-  </section>;
+    </section>;
 }

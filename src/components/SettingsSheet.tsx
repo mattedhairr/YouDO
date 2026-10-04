@@ -51,6 +51,7 @@ import CommunityHashtagProfileField from './community/CommunityHashtagProfileFie
 import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
+import { fetchProfile, upsertProfile } from '../lib/profiles';
 
 interface Props {
   open: boolean;
@@ -141,6 +142,10 @@ export default function SettingsSheet({
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [confirmWipeCloud, setConfirmWipeCloud] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editStatsPrivate, setEditStatsPrivate] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
   const [securityOpen, setSecurityOpen] = useState(false);
@@ -415,10 +420,13 @@ export default function SettingsSheet({
                     </div>
                     <div className="min-w-0 flex-1 pt-0.5">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary">Your account</p>
-                      <h3 className="text-[17px] font-semibold text-content-primary leading-tight mt-0.5 truncate">
-                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}
-                      </h3>
-                      <p className="text-[12px] text-content-secondary truncate mt-0.5">{user.email}</p>
+                      <h3 className="text-[17px] font-semibold text-content-primary leading-tight mt-0.5 truncate flex items-center gap-2">
+                          <span className="truncate">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}</span>
+                          {user.user_metadata?.username && (
+                            <span className="text-[11px] font-bold text-primary bg-primary-soft/50 px-1.5 py-0.5 rounded-md tracking-wide shrink-0">@{user.user_metadata.username}</span>
+                          )}
+                        </h3>
+                        <p className="text-[12px] text-content-secondary truncate mt-0.5">{user.email}</p>
                     </div>
                   </div>
 
@@ -542,11 +550,23 @@ export default function SettingsSheet({
                   <div className="settings-account-actions mt-2 grid grid-cols-3 gap-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        setEditName(user.user_metadata?.full_name || '');
-                        setEditAvatar(user.user_metadata?.avatar_url || '🎓');
-                        setEditProfileOpen((p) => !p);
-                        setRestoreOpen(false);
+                      onClick={async () => {
+                        if (!editProfileOpen) {
+                          setEditName(user.user_metadata?.full_name || '');
+                          setEditAvatar(user.user_metadata?.avatar_url || '🎓');
+                          setEditProfileOpen(true);
+                          setRestoreOpen(false);
+                          setProfileLoading(true);
+                          const profile = await fetchProfile(user.id);
+                          if (profile) {
+                            setEditUsername(profile.username || '');
+                            setEditBio(profile.bio || '');
+                            setEditStatsPrivate(profile.stats_private || false);
+                          }
+                          setProfileLoading(false);
+                        } else {
+                          setEditProfileOpen(false);
+                        }
                       }}
                       className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-content-primary hover:bg-surface/80 flex items-center justify-center gap-1.5"
                     >
@@ -620,52 +640,121 @@ export default function SettingsSheet({
 
                 {editProfileOpen && (
                   <div className="relative px-5 pb-4 space-y-3">
-                    <div>
-                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
-                        Full name
-                      </label>
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Your name"
-                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
-                        Mark
-                      </label>
-                      <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
-                        {['🎓', '⚡', '🏆', '🚀', '🦉', '🧠', '🎯', '📚'].map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => setEditAvatar(emoji)}
-                            className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition border shrink-0 ${
-                              editAvatar === emoji
-                                ? 'bg-primary-soft border-primary scale-105'
-                                : 'bg-surface border-subtle text-content-muted hover:bg-elevated'
-                            }`}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const ok = await updateProfile({ fullName: editName, avatarUrl: editAvatar });
-                        if (ok) {
-                          setEditProfileOpen(false);
-                          setMsg({ text: '✓ Profile updated.' });
-                        } else setMsg({ text: 'Profile could not be updated. Check this account and try again.', error: true });
-                      }}
-                      className="w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
-                    >
-                      Save profile
-                    </button>
+                    {profileLoading ? (
+                      <div className="py-4 text-center text-sm text-content-muted">Loading profile...</div>
+                    ) : (
+                      <>
+                        <div className="flex gap-3">
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
+                              Username
+                            </label>
+                            <input
+                              type="text"
+                              value={editUsername}
+                              onChange={(e) => setEditUsername(e.target.value.toLowerCase())}
+                              placeholder="@username"
+                              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
+                              Display Name
+                            </label>
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              placeholder="Your name"
+                              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
+                            Bio
+                          </label>
+                          <textarea
+                            value={editBio}
+                            onChange={(e) => setEditBio(e.target.value)}
+                            placeholder="Short bio about your goals..."
+                            maxLength={150}
+                            rows={2}
+                            className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary resize-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
+                            Avatar
+                          </label>
+                          <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
+                            {['🎓', '⚡', '🏆', '🚀', '🦉', '🧠', '🎯', '📚', '🔥', '👑', '🌟', '💻', '🎨', '🎧', '🏋️', '🌱', '☀️', '🌙', '🌊', '☕'].map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => setEditAvatar(emoji)}
+                                className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition border shrink-0 ${
+                                  editAvatar === emoji
+                                    ? 'bg-primary-soft border-primary scale-105'
+                                    : 'bg-surface border-subtle text-content-muted hover:bg-elevated'
+                                }`}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-subtle mt-2">
+                          <div>
+                            <p className="text-[12px] font-semibold text-content-primary">Private Stats</p>
+                            <p className="text-[10px] text-content-muted mt-0.5">Hide your focus hours from others</p>
+                          </div>
+                          <Toggle checked={editStatsPrivate} onChange={setEditStatsPrivate} />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!editUsername) {
+                              setMsg({ text: 'Username is required.', error: true });
+                              return;
+                            }
+                            if (!/^[a-z0-9_]+$/.test(editUsername)) {
+                              setMsg({ text: 'Username can only contain lowercase letters, numbers, and underscores.', error: true });
+                              return;
+                            }
+                            setProfileLoading(true);
+                            
+                            // Save to Auth (for quick display)
+                            const ok = await updateProfile({ fullName: editName, avatarUrl: editAvatar });
+                            
+                            // Save to Profiles table
+                            const profileSave = await upsertProfile({
+                              id: user.id,
+                              username: editUsername,
+                              display_name: editName,
+                              bio: editBio,
+                              stats_private: editStatsPrivate,
+                              avatar_url: editAvatar
+                            });
+
+                            if (ok && profileSave.ok) {
+                              setEditProfileOpen(false);
+                              setMsg({ text: '✓ Profile updated.' });
+                            } else {
+                              setMsg({ text: profileSave.error || 'Profile could not be updated.', error: true });
+                            }
+                            setProfileLoading(false);
+                          }}
+                          className="w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold mt-2"
+                        >
+                          Save profile
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
 
