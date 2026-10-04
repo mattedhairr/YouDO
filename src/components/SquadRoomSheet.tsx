@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, Settings, Send, Reply, Copy, Trash2, X } from 'lucide-react';
+import { ChevronLeft, Settings, Send, Reply, Trash2, X } from 'lucide-react';
 import Overlay from './Overlay';
 import SquadSettingsSheet from './SquadSettingsSheet';
 import { getSquadDetails, type Squad } from '../lib/squads';
@@ -7,6 +7,43 @@ import { useAuth } from '../contexts/AuthContext';
 import { hapticTick, hapticSuccess } from '../lib/haptics';
 import { fetchSquadMessages, sendSquadMessage, deleteSquadMessage } from '../lib/messages';
 import { supabase } from '../lib/supabase';
+import { fetchPaceRowsForUserIds } from '../lib/paceCloud';
+import {
+  type PaceRow,
+  type PaceWindow,
+  paceWindowBarDays,
+  windowMs,
+} from '../lib/paceBoard';
+import { todayISO } from '../lib/dates';
+import SquadProgressBoard from './squad/SquadProgressBoard';
+import './chat/youDoChat.css';
+
+const PACE_WINDOWS: { id: PaceWindow; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: 'week', label: 'Week' },
+  { id: 'month', label: 'Month' },
+];
+
+function squadWindowLabel(paceWindow: PaceWindow): string {
+  if (paceWindow === 'week') return 'Focus since Monday · 7-day bar';
+  if (paceWindow === 'month') return `Focus since the 1st · ${paceWindowBarDays('month')}-day bar`;
+  return 'Today';
+}
+
+function memberPaceRow(userId: string, squadBarHours: number, row?: PaceRow): PaceRow {
+  if (row) return row;
+  return {
+    userId,
+    displayName: '',
+    examLabel: '',
+    todayMs: 0,
+    weekMs: 0,
+    monthMs: 0,
+    streak: 0,
+    barHours: squadBarHours,
+    updatedAt: '',
+  };
+}
 
 interface Props {
   open: boolean;
@@ -25,8 +62,9 @@ interface Message {
 
 export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
   const { user } = useAuth();
-  const [goalType, setGoalType] = useState<'Daily' | 'Weekly' | 'Monthly'>('Weekly');
+  const [paceWindow, setPaceWindow] = useState<PaceWindow>('today');
   const [activeTab, setActiveTab] = useState<'board' | 'chat'>('board');
+  const [paceByUserId, setPaceByUserId] = useState<Record<string, PaceRow>>({});
   const [message, setMessage] = useState('');
   
   const [squad, setSquad] = useState<Squad | null>(null);
@@ -55,6 +93,11 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
     if (res) {
       setSquad(res.squad);
       setMembers(res.members);
+      const ids = res.members.map((m: { user_id: string }) => m.user_id);
+      const paceRows = await fetchPaceRowsForUserIds(ids);
+      const map: Record<string, PaceRow> = {};
+      for (const row of paceRows) map[row.userId] = row;
+      setPaceByUserId(map);
     }
     setLoading(false);
   };
@@ -62,6 +105,14 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
   useEffect(() => {
     if (open && squadId) fetchSquad();
   }, [open, squadId]);
+
+  useEffect(() => {
+    if (!open || !squadId || activeTab !== 'board') return;
+    const id = window.setInterval(() => {
+      void fetchSquad();
+    }, 45_000);
+    return () => window.clearInterval(id);
+  }, [open, squadId, activeTab]);
 
   // Mock chat history
   const [messages, setMessages] = useState<Message[]>([
@@ -98,10 +149,15 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
 
   if (!open || !squadId) return null;
 
-  const barHours = squad?.bar_hours || 4; 
-  const goals = { Daily: barHours, Weekly: barHours * 7, Monthly: barHours * 30 };
-  const target = goals[goalType];
-  const acceptedMembers = members.filter(m => m.status === 'accepted');
+  const barHours = squad?.bar_hours || 4;
+  const anchorISO = todayISO();
+  const acceptedMembers = members
+    .filter((m) => m.status === 'accepted')
+    .sort((a, b) => {
+      const rowA = memberPaceRow(a.user_id, barHours, paceByUserId[a.user_id]);
+      const rowB = memberPaceRow(b.user_id, barHours, paceByUserId[b.user_id]);
+      return windowMs(rowB, paceWindow, anchorISO) - windowMs(rowA, paceWindow, anchorISO);
+    });
 
   // Input Handler for Mentions
   const handleMessageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,55 +296,44 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
 
             {/* Content */}
             {activeTab === 'board' ? (
-              <div className="flex-1 overflow-y-auto p-5">
-                 {/* Progress Board unchanged... */}
-                 <div className="space-y-4">
-                  {acceptedMembers.map((m) => {
-                    const progress = barHours * 5; // Mock progress
-                    const percent = Math.min(100, Math.round((progress / target) * 100));
-                    const isWinning = percent >= 100;
-                    return (
-                      <div key={m.user_id} className="bg-elevated border border-subtle rounded-[16px] p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-primary-soft text-primary text-sm font-bold flex items-center justify-center border border-primary/20">
-                              {m.profiles?.avatar_url || '🎓'}
-                            </div>
-                            <span className="text-[13px] font-bold text-content-primary">{m.profiles?.display_name}</span>
-                          </div>
-                          <span className={`text-[12px] font-bold ${isWinning ? 'text-success' : 'text-primary'}`}>
-                            {progress.toFixed(1)}h <span className="text-content-muted font-medium">/ {target}h</span>
-                          </span>
-                        </div>
-                        <div className="h-2.5 bg-[var(--bg-default)] rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full transition-all duration-700 ${isWinning ? 'bg-success' : 'bg-primary'}`} style={{ width: `${percent}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+              <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-4">
+                <div className="flex gap-1 rounded-[12px] border border-subtle bg-elevated p-1">
+                  {PACE_WINDOWS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setPaceWindow(tab.id)}
+                      className={`flex-1 h-9 rounded-[10px] text-[12px] font-semibold transition-colors ${
+                        paceWindow === tab.id ? 'bg-primary-soft text-primary' : 'text-content-muted'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
+                <p className="text-[10.5px] text-content-muted px-0.5">{squadWindowLabel(paceWindow)}, local time</p>
+
+                <SquadProgressBoard
+                  members={acceptedMembers}
+                  paceByUserId={paceByUserId}
+                  squadBarHours={barHours}
+                  paceWindow={paceWindow}
+                  anchorISO={anchorISO}
+                  currentUserId={user?.id}
+                  emptyPaceRow={(userId) => memberPaceRow(userId, barHours, paceByUserId[userId])}
+                />
               </div>
             ) : (
-              <div className="flex-1 flex flex-col bg-[var(--bg-default)] relative">
-                {/* Chat Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-8">
+              <div className="yd-chat flex-1 min-h-0 relative">
+                <div className="yd-chat-scroll">
+                  <ol className="yd-chat-list">
                   {messages.map(msg => {
                     if (msg.system) {
                       return (
-                        <div key={msg.id} className="flex gap-3">
-                          <div className="w-8 h-8 rounded-full bg-surface border border-subtle flex items-center justify-center text-xs font-bold text-content-secondary shrink-0">
-                            SYS
-                          </div>
-                          <div>
-                            <div className="flex items-baseline gap-2 mb-1">
-                              <span className="text-[12px] font-bold text-content-primary">System</span>
-                              <span className="text-[10px] text-content-muted">{msg.time}</span>
-                            </div>
-                            <div className="bg-elevated border border-subtle rounded-2xl rounded-tl-none p-3 text-[13px] text-content-secondary">
-                              {msg.text}
-                            </div>
-                          </div>
-                        </div>
+                        <li key={msg.id} className="yd-chat-system">
+                          <span className="yd-chat-system-label">System · {msg.time}</span>
+                          <span>{msg.text}</span>
+                        </li>
                       );
                     }
 
@@ -296,22 +341,20 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
                     const repliedTo = msg.replyToId ? messages.find(m => m.id === msg.replyToId) : null;
                     const authorName = getAuthorName(msg.sender);
 
-                    // Bold @mentions
                     const renderText = (txt: string) => {
-                      return txt.split(' ').map((word, i) => 
+                      return txt.split(' ').map((word, i) =>
                         word.startsWith('@') ? <strong key={i} className="text-primary font-bold">{word} </strong> : word + ' '
                       );
                     };
 
                     return (
-                      <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} relative`}>
-                        {msg.replyToId && (
-                          <div className={`text-[11px] text-content-muted mb-1 px-2 ${isMe ? 'text-right' : 'text-left'}`}>
-                            Replying to {getAuthorName(repliedTo?.sender)}
-                            <div className="line-clamp-1 opacity-70 italic">"{repliedTo?.text || 'Message unavailable'}"</div>
-                          </div>
-                        )}
-                        <div 
+                      <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : ''}`}>
+                        <div className="yd-chat-bubble-wrap">
+                        <div className="yd-chat-cluster">
+                        <div className="yd-chat-clip">
+                        <article
+                          className="yd-chat-bubble"
+                          tabIndex={0}
                           onClick={() => handleTap(msg)}
                           onTouchStart={() => handleTouchStart(msg)}
                           onTouchEnd={handleTouchEnd}
@@ -319,36 +362,48 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
                           onMouseDown={() => handleTouchStart(msg)}
                           onMouseUp={handleTouchEnd}
                           onMouseLeave={handleTouchEnd}
-                          className={`max-w-[85%] rounded-2xl p-3 text-[13.5px] leading-relaxed cursor-pointer transition-transform active:scale-[0.98] ${
-                            isMe 
-                              ? 'bg-primary text-on-primary rounded-tr-sm' 
-                              : 'bg-elevated border border-subtle text-content-primary rounded-tl-sm'
-                          }`}
                         >
-                          {!isMe && <div className="text-[11px] font-bold mb-1 opacity-80">{authorName}</div>}
-                          {renderText(msg.text)}
-                        </div>
-                        <span className="text-[10px] text-content-muted mt-1.5 px-1">{msg.time}</span>
-
-                        {/* Long Press Menu Overlay */}
+                          {!isMe && (
+                            <div className="yd-chat-author">
+                              <span>{authorName}</span>
+                            </div>
+                          )}
+                          {msg.replyToId && repliedTo && (
+                            <blockquote className="yd-chat-quote">
+                              <strong>{getAuthorName(repliedTo.sender)}</strong>
+                              <span>{repliedTo.text || 'Message unavailable'}</span>
+                            </blockquote>
+                          )}
+                          <p className="yd-chat-body">{renderText(msg.text)}</p>
+                        </article>
                         {activeMenu === msg.id && (
-                          <div onClick={(e) => e.stopPropagation()} className={`absolute z-10 bottom-full mb-2 bg-elevated border border-subtle shadow-xl rounded-xl p-1 flex gap-1 animate-in slide-in-from-bottom-2 fade-in ${isMe ? 'right-0' : 'left-0'}`}>
-                            <button onClick={() => { setReplyingTo(msg); setActiveMenu(null); inputRef.current?.focus(); }} className="p-2 hover:bg-surface rounded-lg text-content-primary flex flex-col items-center gap-1">
-                              <Reply size={16} />
-                              <span className="text-[9px] font-bold">Reply</span>
+                          <div
+                            role="menu"
+                            onClick={(e) => e.stopPropagation()}
+                            className={`yd-chat-actions ${isMe ? 'is-mine' : ''}`}
+                          >
+                            <button type="button" className="yd-chat-action" onClick={() => { setReplyingTo(msg); setActiveMenu(null); inputRef.current?.focus(); }}>
+                              <Reply size={18} />
+                              Reply
                             </button>
-                            
                             {isMe && (
-                              <button onClick={() => deleteMessage(msg.id)} className="p-2 hover:bg-error-soft rounded-lg text-error flex flex-col items-center gap-1">
-                                <Trash2 size={16} />
-                                <span className="text-[9px] font-bold">Delete</span>
+                              <button type="button" className="yd-chat-action is-danger" onClick={() => deleteMessage(msg.id)}>
+                                <Trash2 size={18} />
+                                Delete
                               </button>
                             )}
                           </div>
                         )}
-                      </div>
+                        </div>
+                        <div className="yd-chat-meta">
+                          <time>{msg.time}</time>
+                        </div>
+                        </div>
+                        </div>
+                      </li>
                     );
                   })}
+                  </ol>
                 </div>
 
                 {/* Mentions Autocomplete Popup */}
@@ -375,43 +430,42 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
                   </div>
                 )}
 
-                {/* Chat Input */}
-                <div className="p-4 bg-surface border-t border-subtle">
+                <footer className="yd-chat-composer">
                   {replyingTo && (
-                    <div className="mb-3 px-3 py-2 bg-elevated border border-subtle rounded-xl flex items-start justify-between">
-                      <div>
-                        <span className="text-[11px] font-bold text-primary block mb-0.5">
-                          Replying to {getAuthorName(replyingTo.sender)}
-                        </span>
-                        <span className="text-[12px] text-content-secondary line-clamp-1">{replyingTo.text}</span>
-                      </div>
-                      <button onClick={() => setReplyingTo(null)} className="text-content-muted hover:text-content-primary mt-0.5">
-                        <X size={14} />
+                    <div className="yd-chat-reply">
+                      <Reply size={16} className="shrink-0 text-secondary" />
+                      <span className="yd-chat-reply-text">
+                        <strong>Replying to {getAuthorName(replyingTo.sender)}</strong>
+                        {replyingTo.text}
+                      </span>
+                      <button type="button" className="yd-chat-reply-dismiss" aria-label="Cancel reply" onClick={() => setReplyingTo(null)}>
+                        <X size={18} />
                       </button>
                     </div>
                   )}
-
-                  <div className="flex items-center gap-2 bg-elevated border border-subtle rounded-full pl-4 pr-1.5 py-1.5 relative">
+                  <div className="yd-chat-compose-row">
                     <input
                       ref={inputRef}
                       type="text"
-                      placeholder="Message squad..."
+                      placeholder="Message squad…"
                       value={message}
                       onChange={handleMessageChange}
-                      className="flex-1 bg-transparent text-[13.5px] text-content-primary outline-none placeholder:text-content-muted"
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
                     />
                     <button
                       type="button"
+                      className="yd-chat-send"
                       disabled={!message.trim()}
                       onClick={handleSend}
-                      className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center disabled:opacity-50 transition-opacity shrink-0"
+                      aria-label="Send message"
                     >
-                      <Send size={14} />
+                      <Send size={19} />
                     </button>
                   </div>
-                  <p className="text-[10px] text-content-muted mt-2 px-1">Room chat disappears after 24 hours · hold for options</p>
-                </div>
+                  <p className="yd-chat-hint">
+                    <span>Hold for options · double-tap to reply</span>
+                  </p>
+                </footer>
               </div>
             )}
 

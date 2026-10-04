@@ -1,4 +1,10 @@
 import { supabase } from './supabase';
+import { fetchPendingRequests, type Profile } from './profiles';
+
+/** Match squad room pace to personal daily bar hours from settings. */
+export function paceHoursMatch(squadBarHours: number, personalBarHours: number): boolean {
+  return Math.abs(Number(squadBarHours) - Number(personalBarHours)) < 0.01;
+}
 
 export interface Squad {
   id: string;
@@ -36,21 +42,19 @@ export async function createSquad(
 
   if (error) {
     console.error('Failed to create squad:', error);
-    return { ok: false, error: 'Failed to create room.' };
+    return { ok: false, error: error.message || 'Failed to create room.' };
   }
 
-  // Automatically add the owner as a member
-  const { error: memberError } = await supabase
-    .from('squad_members')
-    .insert({
-      squad_id: data.id,
-      user_id: ownerId,
-      role: 'admin'
-    });
+  const { error: memberError } = await supabase.from('squad_members').insert({
+    squad_id: data.id,
+    user_id: ownerId,
+    role: 'admin',
+    status: 'accepted',
+  });
 
   if (memberError) {
     console.error('Failed to add owner to squad:', memberError);
-    // Continue anyway, but this shouldn't happen.
+    return { ok: false, error: memberError.message || 'Room created but membership failed.' };
   }
 
   return { ok: true, squad: data as Squad };
@@ -63,14 +67,32 @@ export async function getSquadDetails(squadId: string) {
     .eq('id', squadId)
     .single();
 
-  if (squadErr) return null;
+  if (squadErr || !squad) {
+    if (squadErr) console.error('getSquadDetails squad:', squadErr);
+    return null;
+  }
 
   const { data: members, error: memErr } = await supabase
     .from('squad_members')
-    .select('*, profiles(*)')
+    .select('*')
     .eq('squad_id', squadId);
 
-  return { squad: squad as Squad, members: members || [] };
+  if (memErr || !members) {
+    if (memErr) console.error('getSquadDetails members:', memErr);
+    return { squad: squad as Squad, members: [] };
+  }
+
+  const userIds = members.map((m) => m.user_id);
+  const { data: profiles } = await supabase.from('profiles').select('*').in('id', userIds);
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  return {
+    squad: squad as Squad,
+    members: members.map((m) => ({
+      ...m,
+      profiles: profileById.get(m.user_id) ?? null,
+    })),
+  };
 }
 
 export async function kickMember(squadId: string, userId: string) {
@@ -108,6 +130,26 @@ export async function fetchPendingSquadInvites(userId: string) {
   return data || [];
 }
 
+export async function acceptSquadJoinRequest(squadId: string, memberUserId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('squad_members')
+    .update({ status: 'accepted' })
+    .eq('squad_id', squadId)
+    .eq('user_id', memberUserId)
+    .in('status', ['pending', 'invited']);
+  return !error;
+}
+
+export async function declineSquadJoinRequest(squadId: string, memberUserId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('squad_members')
+    .delete()
+    .eq('squad_id', squadId)
+    .eq('user_id', memberUserId)
+    .in('status', ['pending', 'invited']);
+  return !error;
+}
+
 export async function acceptSquadInvite(squadId: string, userId: string) {
   const { error } = await supabase
     .from('squad_members')
@@ -115,6 +157,136 @@ export async function acceptSquadInvite(squadId: string, userId: string) {
     .eq('squad_id', squadId)
     .eq('user_id', userId);
   return !error;
+}
+
+export async function fetchMySquads(userId: string): Promise<Squad[]> {
+  const { data, error } = await supabase
+    .from('squad_members')
+    .select('squads(*)')
+    .eq('user_id', userId)
+    .eq('status', 'accepted');
+
+  if (error || !data) {
+    if (error) console.error('fetchMySquads error:', error);
+    return [];
+  }
+  return data
+    .map((row) => {
+      const squad = row.squads;
+      if (!squad) return null;
+      if (Array.isArray(squad)) return squad[0] ?? null;
+      return squad as Squad;
+    })
+    .filter((s): s is Squad => s != null);
+}
+
+export interface IncomingSquadJoinRequest {
+  squad_id: string;
+  user_id: string;
+  joined_at: string;
+  squad: Squad;
+  requester: Profile | null;
+}
+
+export async function fetchOutgoingSquadJoinRequests(): Promise<Squad[]> {
+  const { data, error } = await supabase.rpc('my_pending_squad_joins');
+  if (error) {
+    console.error('fetchOutgoingSquadJoinRequests error:', error);
+    return [];
+  }
+  return (data ?? []) as Squad[];
+}
+
+export async function cancelOutgoingSquadJoinRequest(squadId: string, userId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('squad_members')
+    .delete()
+    .eq('squad_id', squadId)
+    .eq('user_id', userId)
+    .eq('status', 'pending');
+  return !error;
+}
+
+export async function fetchIncomingSquadJoinRequests(adminUserId: string): Promise<IncomingSquadJoinRequest[]> {
+  const { data: adminRows, error: adminErr } = await supabase
+    .from('squad_members')
+    .select('squad_id')
+    .eq('user_id', adminUserId)
+    .eq('role', 'admin')
+    .eq('status', 'accepted');
+
+  if (adminErr || !adminRows?.length) {
+    if (adminErr) console.error('fetchIncomingSquadJoinRequests admin:', adminErr);
+    return [];
+  }
+
+  const squadIds = [...new Set(adminRows.map((r) => r.squad_id))];
+  const { data: pending, error: pendingErr } = await supabase
+    .from('squad_members')
+    .select('squad_id, user_id, joined_at')
+    .in('squad_id', squadIds)
+    .eq('status', 'pending');
+
+  if (pendingErr || !pending?.length) {
+    if (pendingErr) console.error('fetchIncomingSquadJoinRequests pending:', pendingErr);
+    return [];
+  }
+
+  const { data: squads } = await supabase.from('squads').select('*').in('id', squadIds);
+  const squadById = new Map((squads ?? []).map((s) => [s.id, s as Squad]));
+  const requesterIds = [...new Set(pending.map((p) => p.user_id))];
+  const { data: profiles } = await supabase.from('profiles').select('*').in('id', requesterIds);
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p as Profile]));
+
+  return pending
+    .map((row) => {
+      const squad = squadById.get(row.squad_id);
+      if (!squad) return null;
+      return {
+        squad_id: row.squad_id,
+        user_id: row.user_id,
+        joined_at: row.joined_at,
+        squad,
+        requester: profileById.get(row.user_id) ?? null,
+      };
+    })
+    .filter((r): r is IncomingSquadJoinRequest => r !== null);
+}
+
+/** Badge: only incoming items that need your action (not sent). */
+export async function countActionableNotifications(userId: string): Promise<number> {
+  const [friends, invites, joins] = await Promise.all([
+    fetchPendingRequests(userId),
+    fetchPendingSquadInvites(userId),
+    fetchIncomingSquadJoinRequests(userId),
+  ]);
+  return friends.length + invites.length + joins.length;
+}
+
+export async function fetchDiscoverableSquads(): Promise<Squad[]> {
+  const { data, error } = await supabase.rpc('discover_squads');
+  if (error) {
+    console.error('fetchDiscoverableSquads error:', error);
+    return [];
+  }
+  return (data ?? []) as Squad[];
+}
+
+export async function requestJoinSquad(
+  squadId: string,
+  userId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.from('squad_members').insert({
+    squad_id: squadId,
+    user_id: userId,
+    role: 'member',
+    status: 'pending',
+  });
+  if (error) {
+    if (error.code === '23505') return { ok: false, error: 'You already requested or joined this squad.' };
+    return { ok: false, error: error.message || 'Could not send join request.' };
+  }
+  return { ok: true };
 }
 
 export async function rejectSquadInvite(squadId: string, userId: string) {

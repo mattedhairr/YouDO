@@ -19,6 +19,7 @@ import { assertWorkspaceUnchanged, captureWorkspace, commitWorkspaceReplacement,
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
 import { supabase } from '../lib/supabase';
+import { normalizeUsername } from '../lib/profiles';
 import {
   readOfflineMode,
   readLocalWorkspaceSummary,
@@ -109,11 +110,15 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
       } else {
+        const handle = normalizeUsername(username);
+        if (!handle) {
+          throw new Error('Username must be 3–20 characters: lowercase letters, numbers, and underscores only.');
+        }
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
-            data: { full_name: fullName.trim() || undefined, username: username.toLowerCase().trim() || undefined },
+            data: { full_name: fullName.trim() || undefined, username: handle },
             emailRedirectTo: resolveAuthRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL),
           },
         });
@@ -175,7 +180,7 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
             {mode === 'signup' && (
               <>
                 <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Name</span><div className="relative mt-1.5"><User size={15} className="absolute left-3 top-3.5 text-content-muted" /><input value={fullName} onChange={(event) => setFullName(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder="Your name" /></div></label>
-                <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Username</span><div className="relative mt-1.5"><span className="absolute left-3.5 top-3.5 text-content-muted text-[13px] font-bold">@</span><input value={username} onChange={(event) => setUsername(event.target.value)} required pattern="[a-zA-Z0-9_]+" minLength={3} maxLength={20} className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] font-bold outline-none focus:border-primary" placeholder="unique_handle" /></div></label>
+                <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Username</span><div className="relative mt-1.5"><span className="absolute left-3.5 top-3.5 text-content-muted text-[13px] font-bold">@</span><input value={username} onChange={(event) => setUsername(event.target.value)} required pattern="[a-zA-Z0-9_]+" minLength={3} maxLength={20} autoComplete="username" className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] font-bold outline-none focus:border-primary" placeholder="unique_handle" /></div><span className="mt-1.5 block text-[10px] leading-relaxed text-content-muted">Required. Powers Private Hub — friends find you by @handle.</span></label>
               </>
             )}
             <label className="block"><span className="text-[10px] uppercase tracking-wider text-content-muted font-semibold">Email</span><div className="relative mt-1.5"><Mail size={15} className="absolute left-3 top-3.5 text-content-muted" /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="w-full h-11 rounded-[11px] border border-subtle bg-base pl-9 pr-3 text-[13px] outline-none focus:border-primary" placeholder="you@example.com" /></div>{mode === 'signup' && <span className="mt-1.5 block text-[10px] leading-relaxed text-content-muted">Use an inbox you can open for confirmation and account recovery.</span>}</label>

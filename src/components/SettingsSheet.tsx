@@ -712,7 +712,11 @@ export default function SettingsSheet({
                             <p className="text-[12px] font-semibold text-content-primary">Private Stats</p>
                             <p className="text-[10px] text-content-muted mt-0.5">Hide your focus hours from others</p>
                           </div>
-                          <Toggle checked={editStatsPrivate} onChange={setEditStatsPrivate} />
+                          <Toggle
+                            checked={editStatsPrivate}
+                            label="Keep focus stats private on profile"
+                            onChange={() => setEditStatsPrivate((v) => !v)}
+                          />
                         </div>
 
                         <button

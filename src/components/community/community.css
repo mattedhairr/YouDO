@@ -194,7 +194,8 @@
 .c-hashtag-inline-error,.c-hashtag-readonly { display:flex;align-items:center;gap:5px;margin:-2px 0 7px;color:var(--text-muted);font-size:9px;line-height:1.35; }
 .c-hashtag-inline-error { color:var(--error); }
 .c-composer-row { display:flex;align-items:flex-end;gap:9px; }
-.c-composer textarea {
+.c-composer textarea,
+.c-composer input[type='text'] {
   flex:1;
   min-width:0;
   resize:none;
@@ -210,7 +211,12 @@
   outline:none;
   transition:border-color 150ms ease, box-shadow 150ms ease;
 }
-.c-composer textarea:focus {
+.c-composer input[type='text'] {
+  max-height:none;
+  overflow-y:hidden;
+}
+.c-composer textarea:focus,
+.c-composer input[type='text']:focus {
   border-color:var(--primary);
   box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 15%,transparent);
 }

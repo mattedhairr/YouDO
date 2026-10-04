@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react';
-import { X, Search, UserPlus, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { X, Search, UserPlus, LogOut, Check, UserMinus } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
-import { kickMember, inviteUserToSquad, type Squad } from '../lib/squads';
+import {
+  kickMember,
+  inviteUserToSquad,
+  acceptSquadJoinRequest,
+  declineSquadJoinRequest,
+  type Squad,
+} from '../lib/squads';
 import { searchProfileByUsername, type Profile } from '../lib/profiles';
+import { ProfileAvatarVisual } from '../lib/profileAvatar';
 
 interface Props {
   open: boolean;
@@ -16,128 +23,219 @@ interface Props {
 export default function SquadSettingsSheet({ open, onClose, squad, members, onMembersChanged }: Props) {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [searchResult, setSearchResult] = useState<Profile | null>(null);
+  const [searchError, setSearchError] = useState('');
   const [searching, setSearching] = useState(false);
-  
-  const isOwner = squad.created_by === user?.id;
+  const [inviteBusy, setInviteBusy] = useState(false);
+
+  const isAdmin = members.some(
+    (m) => m.user_id === user?.id && m.role === 'admin' && m.status === 'accepted',
+  );
 
   if (!open) return null;
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!search.trim()) return;
+    const q = search.replace(/^@/, '').trim();
+    if (!q) return;
     setSearching(true);
-    const results = await searchProfileByUsername(search.trim());
-    setSearchResults(results);
+    setSearchError('');
+    setSearchResult(null);
+    const profile = await searchProfileByUsername(q);
+    if (!profile) {
+      setSearchError('No user with that @username.');
+    } else {
+      setSearchResult(profile);
+    }
     setSearching(false);
   };
 
   const handleInvite = async (userId: string) => {
-    await inviteUserToSquad(squad.id, userId);
-    setSearch('');
-    setSearchResults([]);
-    onMembersChanged();
-    alert('Invite sent!');
-  };
-
-  const handleKick = async (userId: string) => {
-    if (confirm('Are you sure you want to kick this member?')) {
-      await kickMember(squad.id, userId);
+    setInviteBusy(true);
+    const ok = await inviteUserToSquad(squad.id, userId);
+    setInviteBusy(false);
+    if (ok) {
+      setSearch('');
+      setSearchResult(null);
       onMembersChanged();
+    } else {
+      setSearchError('Could not send invite. They may already be in this squad.');
     }
   };
 
-  const acceptedMembers = members.filter(m => m.status === 'accepted');
-  const invitedMembers = members.filter(m => m.status === 'invited');
+  const handleKick = async (userId: string) => {
+    if (!window.confirm('Remove this member from the squad?')) return;
+    await kickMember(squad.id, userId);
+    onMembersChanged();
+  };
+
+  const acceptedMembers = members.filter((m) => m.status === 'accepted');
+  const invitedMembers = members.filter((m) => m.status === 'invited');
+  const pendingMembers = members.filter((m) => m.status === 'pending');
 
   return (
     <Overlay open={open} onClose={onClose}>
       <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto rounded-[24px] flex flex-col max-h-[85vh] sm:my-auto mb-4">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 pb-2 border-b border-subtle">
           <div className="w-10" />
-          <h2 className="text-[14px] font-bold text-content-primary">Manage Squad</h2>
-          <button onClick={onClose} className="p-2 -mr-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-elevated transition-colors">
+          <div className="text-center">
+            <h2 className="text-[14px] font-bold text-content-primary">Squad settings</h2>
+            <p className="text-[10px] text-content-muted mt-0.5 truncate max-w-[200px]">{squad.name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 -mr-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-elevated transition-colors"
+          >
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
-          {/* Invite Section */}
-          {isOwner && (
-            <div className="mb-6">
-              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-3">
-                Invite Members
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          <div className="rounded-[14px] border border-subtle bg-elevated/50 px-3.5 py-3 flex items-center justify-between gap-2">
+            <span className="text-[11px] text-content-secondary">Room pace</span>
+            <span className="text-[12px] font-bold text-primary">🎯 {squad.bar_hours}h/day bar</span>
+          </div>
+
+          {isAdmin && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-2">
+                Invite by @username
               </h3>
-              <form onSubmit={handleSearch} className="relative">
+              <form onSubmit={(e) => void handleSearch(e)} className="relative">
+                <Search size={16} className="absolute left-3.5 top-3.5 text-content-muted pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search by username..."
+                  placeholder="@friend_handle"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full h-11 bg-elevated border border-subtle rounded-xl pl-10 pr-4 text-sm outline-none focus:border-primary transition-colors"
+                  className="w-full h-11 bg-base border border-subtle rounded-xl pl-10 pr-4 text-[13px] outline-none focus:border-primary transition-colors"
+                  autoComplete="off"
                 />
-                <Search size={16} className="absolute left-3.5 top-3.5 text-content-muted" />
               </form>
+              <p className="text-[10px] text-content-muted mt-2 leading-relaxed">
+                They&apos;ll get a squad invite in Notifications — must accept to join.
+              </p>
 
-              {searching && <p className="text-center text-[12px] text-content-muted mt-3">Searching...</p>}
-              
-              {!searching && searchResults.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {searchResults.map(p => {
-                    const isAlreadyMember = members.some(m => m.user_id === p.id);
-                    return (
-                      <div key={p.id} className="flex items-center justify-between p-3 bg-elevated border border-subtle rounded-xl">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center">
-                            {p.avatar_url || '🎓'}
-                          </div>
-                          <div>
-                            <p className="text-[13px] font-bold text-content-primary">{p.display_name}</p>
-                            <p className="text-[11px] text-primary">@{p.username}</p>
-                          </div>
-                        </div>
-                        <button
-                          disabled={isAlreadyMember}
-                          onClick={() => handleInvite(p.id)}
-                          className="h-8 px-3 rounded-lg bg-primary text-on-primary text-[12px] font-bold disabled:opacity-50"
-                        >
-                          {isAlreadyMember ? 'Joined' : 'Invite'}
-                        </button>
-                      </div>
-                    );
-                  })}
+              {searching && <p className="text-[12px] text-content-muted mt-3 text-center">Searching…</p>}
+              {searchError && <p className="text-[11px] text-error mt-2">{searchError}</p>}
+
+              {searchResult && (
+                <div className="mt-3 flex items-center justify-between gap-3 p-3 bg-elevated border border-subtle rounded-xl">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center shrink-0">
+                      <ProfileAvatarVisual
+                        avatarUrl={searchResult.avatar_url}
+                        displayName={searchResult.display_name}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-content-primary truncate">{searchResult.display_name}</p>
+                      <p className="text-[11px] text-primary truncate">@{searchResult.username}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={
+                      inviteBusy || members.some((m) => m.user_id === searchResult.id && m.status !== 'pending')
+                    }
+                    onClick={() => void handleInvite(searchResult.id)}
+                    className="h-9 px-3 rounded-lg bg-primary text-on-primary text-[12px] font-bold disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                  >
+                    <UserPlus size={14} />
+                    Invite
+                  </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Members List */}
+          {isAdmin && pendingMembers.length > 0 && (
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-2">
+                Join requests ({pendingMembers.length})
+              </h3>
+              <div className="space-y-2">
+                {pendingMembers.map((m) => (
+                  <div
+                    key={m.user_id}
+                    className="flex items-center justify-between gap-2 p-3 bg-primary-soft/20 border border-primary/20 rounded-xl"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center text-sm font-bold">
+                        {m.profiles?.avatar_url || '🎓'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold truncate">{m.profiles?.display_name || 'Aspirant'}</p>
+                        <p className="text-[11px] text-content-secondary truncate">@{m.profiles?.username || '…'}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void acceptSquadJoinRequest(squad.id, m.user_id).then(() => onMembersChanged());
+                        }}
+                        className="h-8 w-8 rounded-lg bg-primary text-on-primary flex items-center justify-center"
+                        aria-label="Accept"
+                      >
+                        <Check size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void declineSquadJoinRequest(squad.id, m.user_id).then(() => onMembersChanged());
+                        }}
+                        className="h-8 w-8 rounded-lg border border-subtle text-content-muted flex items-center justify-center"
+                        aria-label="Decline"
+                      >
+                        <UserMinus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
-            <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-2">
               Members ({acceptedMembers.length}/4)
             </h3>
             <div className="space-y-2">
-              {acceptedMembers.map(m => (
-                <div key={m.user_id} className="flex items-center justify-between p-3 bg-elevated border border-subtle rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center text-sm">
-                      {m.profiles?.avatar_url || '🎓'}
+              {acceptedMembers.map((m) => (
+                <div
+                  key={m.user_id}
+                  className="flex items-center justify-between p-3 bg-elevated border border-subtle rounded-xl"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center shrink-0">
+                      <ProfileAvatarVisual
+                        avatarUrl={m.profiles?.avatar_url}
+                        displayName={m.profiles?.display_name || 'Member'}
+                        className="text-sm"
+                      />
                     </div>
-                    <div>
-                      <p className="text-[13px] font-bold text-content-primary">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-content-primary truncate">
                         {m.profiles?.display_name}
-                        {m.role === 'admin' && <span className="ml-2 text-[10px] text-primary bg-primary-soft px-1.5 py-0.5 rounded-md">Admin</span>}
+                        {m.role === 'admin' && (
+                          <span className="ml-2 text-[10px] text-primary bg-primary-soft px-1.5 py-0.5 rounded-md">
+                            Admin
+                          </span>
+                        )}
                       </p>
-                      <p className="text-[11px] text-content-secondary">@{m.profiles?.username}</p>
+                      <p className="text-[11px] text-content-secondary truncate">@{m.profiles?.username}</p>
                     </div>
                   </div>
-                  
-                  {isOwner && m.user_id !== user?.id && (
+
+                  {isAdmin && m.user_id !== user?.id && (
                     <button
-                      onClick={() => handleKick(m.user_id)}
-                      className="text-error hover:bg-error-soft p-1.5 rounded-md transition-colors"
-                      title="Kick member"
+                      type="button"
+                      onClick={() => void handleKick(m.user_id)}
+                      className="text-error hover:bg-error-soft p-2 rounded-lg transition-colors shrink-0"
+                      title="Remove member"
                     >
                       <LogOut size={16} />
                     </button>
@@ -146,28 +244,28 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
               ))}
             </div>
           </div>
-          
-          {/* Invited List */}
+
           {invitedMembers.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-3">
-                Pending Invites
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-2">
+                Pending invites
               </h3>
-              <div className="space-y-2 opacity-75">
-                {invitedMembers.map(m => (
-                  <div key={m.user_id} className="flex items-center justify-between p-3 bg-surface border border-dashed border-subtle rounded-xl">
-                    <div className="flex items-center gap-3">
+              <div className="space-y-2">
+                {invitedMembers.map((m) => (
+                  <div
+                    key={m.user_id}
+                    className="flex items-center justify-between p-3 bg-surface border border-dashed border-subtle rounded-xl opacity-90"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-full bg-base text-content-muted font-bold flex items-center justify-center text-sm">
                         {m.profiles?.avatar_url || '🎓'}
                       </div>
-                      <div>
-                        <p className="text-[13px] font-bold text-content-primary">
-                          {m.profiles?.display_name}
-                        </p>
-                        <p className="text-[11px] text-content-secondary">@{m.profiles?.username}</p>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold truncate">{m.profiles?.display_name}</p>
+                        <p className="text-[11px] text-content-secondary truncate">@{m.profiles?.username}</p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-content-muted">Invited</span>
+                    <span className="text-[10px] font-semibold text-content-muted shrink-0">Invited</span>
                   </div>
                 ))}
               </div>

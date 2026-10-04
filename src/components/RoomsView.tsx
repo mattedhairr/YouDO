@@ -1,109 +1,270 @@
-import { useState, useEffect } from 'react';
-import { Lock, UsersRound } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { Lock, UsersRound, DoorOpen, Loader2, Clock, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Toggle from './Toggle';
-import type { Squad } from '../lib/squads';
+import {
+  fetchDiscoverableSquads,
+  fetchMySquads,
+  fetchOutgoingSquadJoinRequests,
+  cancelOutgoingSquadJoinRequest,
+  paceHoursMatch,
+  requestJoinSquad,
+  type Squad,
+} from '../lib/squads';
 
 interface Props {
   personalPace: number;
   onOpenRoom: (squadId: string) => void;
+  onNotificationsChanged?: () => void;
 }
 
-export default function RoomsView({ personalPace, onOpenRoom }: Props) {
+export default function RoomsView({ personalPace, onOpenRoom, onNotificationsChanged }: Props) {
   const { user } = useAuth();
-  const [compatibleOnly, setCompatibleOnly] = useState(true);
-  const [rooms, setRooms] = useState<Squad[]>([]);
+  const [compatibleOnly, setCompatibleOnly] = useState(false);
+  const [myRooms, setMyRooms] = useState<Squad[]>([]);
+  const [discoverRooms, setDiscoverRooms] = useState<Squad[]>([]);
+  const [pendingJoinRooms, setPendingJoinRooms] = useState<Squad[]>([]);
   const [loading, setLoading] = useState(true);
+  const [joinBusyId, setJoinBusyId] = useState<string | null>(null);
+  const [joinMessage, setJoinMessage] = useState<{ id: string; text: string; error?: boolean } | null>(null);
+
+  const reload = useCallback(async () => {
+    if (!user) {
+      setMyRooms([]);
+      setDiscoverRooms([]);
+      setPendingJoinRooms([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const [mine, discover, pending] = await Promise.all([
+      fetchMySquads(user.id),
+      fetchDiscoverableSquads(),
+      fetchOutgoingSquadJoinRequests(),
+    ]);
+    setMyRooms(mine);
+    setDiscoverRooms(discover);
+    setPendingJoinRooms(pending);
+    setLoading(false);
+  }, [user]);
 
   useEffect(() => {
-    async function fetchRooms() {
-      setLoading(true);
-      // Fetch all public rooms (allow_join_requests = true)
-      const { data, error } = await supabase
-        .from('squads')
-        .select('*')
-        .eq('allow_join_requests', true)
-        .order('created_at', { ascending: false });
+    void reload();
+  }, [reload]);
 
-      if (data) {
-        setRooms(data);
-      }
-      setLoading(false);
+  const filteredDiscover = compatibleOnly
+    ? discoverRooms.filter((r) => paceHoursMatch(r.bar_hours, personalPace))
+    : discoverRooms;
+
+  const handleRequestJoin = async (room: Squad) => {
+    if (!user) return;
+    if (!paceHoursMatch(room.bar_hours, personalPace)) {
+      setJoinMessage({
+        id: room.id,
+        text: `Your daily bar is ${personalPace}h — this room requires ${room.bar_hours}h/day.`,
+        error: true,
+      });
+      return;
     }
-    fetchRooms();
-  }, []);
+    setJoinBusyId(room.id);
+    setJoinMessage(null);
+    const res = await requestJoinSquad(room.id, user.id);
+    setJoinBusyId(null);
+    if (res.ok) {
+      setJoinMessage({ id: room.id, text: 'Request sent — waiting for the squad admin.' });
+      onNotificationsChanged?.();
+      void reload();
+    } else {
+      setJoinMessage({ id: room.id, text: res.error || 'Request failed.', error: true });
+    }
+  };
 
-  const filteredRooms = compatibleOnly 
-    ? rooms.filter(r => r.bar_hours === personalPace)
-    : rooms;
+  const handleCancelRequest = async (room: Squad) => {
+    if (!user) return;
+    setJoinBusyId(room.id);
+    const ok = await cancelOutgoingSquadJoinRequest(room.id, user.id);
+    setJoinBusyId(null);
+    if (ok) {
+      onNotificationsChanged?.();
+      void reload();
+    }
+  };
+
+  const pendingIds = new Set(pendingJoinRooms.map((r) => r.id));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between px-1">
-        <h3 className="text-[12px] font-bold text-content-primary uppercase tracking-wider">Discover Squads</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-content-muted font-medium">Compatible Pace Only</span>
-          <Toggle checked={compatibleOnly} onChange={setCompatibleOnly} />
-        </div>
-      </div>
-
-      {loading ? (
-        <p className="text-center text-[12px] text-content-muted py-6">Finding squads...</p>
-      ) : filteredRooms.length === 0 ? (
-        <div className="py-8 flex flex-col items-center justify-center text-center text-content-muted border border-dashed border-subtle rounded-2xl bg-elevated/30">
-          <UsersRound size={24} className="mb-3 opacity-50" />
-          <p className="text-[13px] font-medium text-content-primary">No squads found</p>
-          <p className="text-[11px] mt-1 max-w-[200px] mx-auto">
-            {compatibleOnly 
-              ? `No public squads with a ${personalPace}h/day pace.`
-              : 'There are no public squads yet.'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredRooms.map(room => (
-            <div
-              key={room.id}
-              onClick={() => onOpenRoom(room.id)}
-              className={`bg-elevated border rounded-[18px] p-4 cursor-pointer transition-all group ${
-                room.bar_hours === personalPace 
-                  ? 'border-subtle hover:border-primary/40 active:scale-[0.99]' 
-                  : 'border-error/20 opacity-70 hover:opacity-100 bg-error-soft/10'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2 mb-2.5">
-                <div className="flex items-center gap-3">
-                  <div className="text-2xl">{room.description || '🔥'}</div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <Lock size={13} className="text-content-muted" />
-                      <h3 className="text-[14px] font-bold text-content-primary group-hover:text-primary transition-colors">
-                        {room.name}
-                      </h3>
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-[11px] font-bold text-content-muted uppercase tracking-wider mb-2.5 px-1">Your squads</h3>
+        {loading ? (
+          <p className="text-center text-[12px] text-content-muted py-4">Loading…</p>
+        ) : myRooms.length === 0 ? (
+          <div className="py-6 px-4 text-center border border-dashed border-subtle rounded-2xl bg-elevated/30">
+            <p className="text-[12px] text-content-secondary">Create a room or join one from Discover below.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {myRooms.map((room) => (
+              <button
+                key={room.id}
+                type="button"
+                onClick={() => onOpenRoom(room.id)}
+                className="w-full text-left bg-elevated border border-primary/25 rounded-[16px] p-4 hover:border-primary/45 transition-colors active:scale-[0.99]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-2xl shrink-0">{room.description || '🔥'}</span>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold text-content-primary truncate">{room.name}</p>
+                      <p className="text-[10px] text-primary font-semibold mt-0.5">Your room · tap to open</p>
                     </div>
                   </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/20 shrink-0">
+                    🎯 {room.bar_hours}h/day
+                  </span>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
-                  room.bar_hours === personalPace
-                    ? 'bg-primary-soft text-primary border-primary/20'
-                    : 'bg-error-soft text-error border-error/20'
-                }`}>
-                  🎯 {room.bar_hours}h/day
-                </span>
-              </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-              {room.bar_hours !== personalPace && (
-                <div className="mt-3 pt-3 border-t border-error/10">
-                  <p className="text-[11px] text-error font-semibold text-center">
-                    Incompatible pace. You cannot join this squad.
-                  </p>
+      {pendingJoinRooms.length > 0 && (
+        <div>
+          <h3 className="text-[11px] font-bold text-content-muted uppercase tracking-wider mb-2.5 px-1">
+            Request sent
+          </h3>
+          <p className="text-[10px] text-content-muted px-1 mb-2 leading-relaxed">
+            Waiting for the squad admin to accept. You&apos;ll see the room under Your squads when approved.
+          </p>
+          <div className="space-y-2">
+            {pendingJoinRooms.map((room) => (
+              <div
+                key={room.id}
+                className="bg-elevated border border-secondary/30 rounded-[16px] p-4"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-2xl shrink-0">{room.description || '🔥'}</span>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold text-content-primary truncate">{room.name}</p>
+                      <p className="text-[10px] font-semibold text-secondary mt-0.5 flex items-center gap-1">
+                        <Clock size={11} /> Request sent
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/20 shrink-0">
+                    🎯 {room.bar_hours}h/day
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
+                <button
+                  type="button"
+                  disabled={joinBusyId === room.id}
+                  onClick={() => void handleCancelRequest(room)}
+                  className="mt-3 w-full h-9 rounded-xl text-[11px] font-semibold border border-subtle text-content-secondary flex items-center justify-center gap-1.5"
+                >
+                  {joinBusyId === room.id ? <Loader2 className="animate-spin" size={14} /> : <X size={14} />}
+                  Withdraw request
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
+      <div>
+        <div className="flex items-center justify-between gap-3 mb-2.5 px-1">
+          <h3 className="text-[11px] font-bold text-content-muted uppercase tracking-wider">Discover</h3>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] text-content-muted font-medium max-w-[7rem] leading-tight text-right">
+              Match my {personalPace}h bar
+            </span>
+            <Toggle
+              checked={compatibleOnly}
+              label="Only squads matching my daily bar hours"
+              onChange={() => setCompatibleOnly((v) => !v)}
+            />
+          </div>
+        </div>
+        <p className="text-[10px] text-content-muted px-1 mb-3 leading-relaxed">
+          Public rooms you can ask to join. Check Notifications for sent and incoming requests.
+        </p>
+
+        {loading ? (
+          <p className="text-center text-[12px] text-content-muted py-6">Finding squads…</p>
+        ) : filteredDiscover.length === 0 ? (
+          <div className="py-8 flex flex-col items-center justify-center text-center text-content-muted border border-dashed border-subtle rounded-2xl bg-elevated/30 px-4">
+            <UsersRound size={24} className="mb-3 opacity-50" />
+            <p className="text-[13px] font-medium text-content-primary">No squads to discover</p>
+            <p className="text-[11px] mt-1 max-w-[240px] mx-auto leading-relaxed">
+              {pendingIds.size > 0
+                ? 'You have pending requests above — admins must accept before you can enter.'
+                : compatibleOnly
+                  ? `No public squads at ${personalPace}h/day. Turn off the filter to browse other paces.`
+                  : 'No public squads right now.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredDiscover.map((room) => {
+              const compatible = paceHoursMatch(room.bar_hours, personalPace);
+              return (
+                <div
+                  key={room.id}
+                  className={`bg-elevated border rounded-[18px] p-4 transition-all ${
+                    compatible ? 'border-subtle' : 'border-subtle/80 opacity-90'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="text-2xl shrink-0">{room.description || '🔥'}</div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <Lock size={12} className="text-content-muted shrink-0" />
+                          <h3 className="text-[14px] font-bold text-content-primary truncate">{room.name}</h3>
+                        </div>
+                        <p className="text-[10px] text-content-muted mt-0.5">Public · request to join</p>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
+                        compatible
+                          ? 'bg-primary-soft text-primary border-primary/20'
+                          : 'bg-elevated text-content-muted border-subtle'
+                      }`}
+                    >
+                      🎯 {room.bar_hours}h/day
+                    </span>
+                  </div>
+
+                  {joinMessage?.id === room.id && (
+                    <p
+                      className={`text-[11px] mb-2.5 px-1 ${joinMessage.error ? 'text-error' : 'text-secondary'}`}
+                      role="status"
+                    >
+                      {joinMessage.text}
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={!compatible || joinBusyId === room.id}
+                    onClick={() => void handleRequestJoin(room)}
+                    className="w-full h-10 rounded-xl text-[12px] font-bold flex items-center justify-center gap-2 bg-primary text-on-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {joinBusyId === room.id ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <DoorOpen size={16} strokeWidth={2.2} />
+                    )}
+                    {compatible ? 'Request to join' : `Requires ${room.bar_hours}h/day bar`}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

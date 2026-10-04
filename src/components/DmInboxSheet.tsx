@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, Send, MoreVertical, Reply, Copy, Trash2, X } from 'lucide-react';
+import { ChevronLeft, Send, MoreVertical, Reply, Trash2, X } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
 import { hapticTick, hapticSuccess } from '../lib/haptics';
 import { fetchDirectMessages, sendDirectMessage, deleteDirectMessage, markDirectConversationRead } from '../lib/messages';
 import { supabase } from '../lib/supabase';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
+import './chat/youDoChat.css';
 
 interface Props {
   open: boolean;
@@ -158,104 +159,123 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
           </button>
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--bg-default)]">
-          {messages.map(msg => {
-            const isMe = msg.sender === user?.id;
-            const repliedTo = msg.replyToId ? messages.find(m => m.id === msg.replyToId) : null;
+        <div className="yd-chat flex-1 min-h-0">
+          <div className="yd-chat-scroll">
+            <ol className="yd-chat-list">
+              {messages.map(msg => {
+                const isMe = msg.sender === user?.id;
+                const repliedTo = msg.replyToId ? messages.find(m => m.id === msg.replyToId) : null;
+                const replyAuthor =
+                  repliedTo?.sender === user?.id ? 'yourself' : friendName;
 
-            return (
-              <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} relative`}>
-                {msg.replyToId && (
-                  <div className={`text-[11px] text-content-muted mb-1 px-2 ${isMe ? 'text-right' : 'text-left'}`}>
-                    Replying to {repliedTo?.sender === user?.id ? 'yourself' : friendName}
-                    <div className="line-clamp-1 opacity-70 italic">"{repliedTo?.text || 'Message unavailable'}"</div>
-                  </div>
-                )}
-                <div 
-                  onClick={() => handleTap(msg)}
-                          onTouchStart={() => handleTouchStart(msg.id)}
-                  onTouchEnd={handleTouchEnd}
-                  onTouchMove={handleTouchEnd}
-                  onMouseDown={() => handleTouchStart(msg.id)}
-                  onMouseUp={handleTouchEnd}
-                  onMouseLeave={handleTouchEnd}
-                  className={`max-w-[80%] rounded-2xl p-3 text-[13.5px] leading-relaxed cursor-pointer transition-transform active:scale-[0.98] ${
-                    isMe 
-                      ? 'bg-primary text-on-primary rounded-tr-sm' 
-                      : 'bg-elevated border border-subtle text-content-primary rounded-tl-sm'
-                  }`}
-                >
-                  {msg.text}
-                </div>
-                <span className="text-[10px] text-content-muted mt-1.5 px-1">{msg.time}</span>
-
-                {/* Long Press Menu Overlay */}
-                {activeMenu === msg.id && (
-                  <div onClick={(e) => e.stopPropagation()} className="absolute z-[100] bottom-full mb-2 bg-elevated border border-subtle shadow-xl rounded-xl p-1 flex gap-1 animate-in slide-in-from-bottom-2 fade-in">
-                    <button 
-                      onClick={() => { setReplyingTo(msg); setActiveMenu(null); inputRef.current?.focus(); }}
-                      className="p-2 hover:bg-surface rounded-lg text-content-primary flex flex-col items-center gap-1"
+                return (
+                  <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : ''}`}>
+                    <div className="yd-chat-bubble-wrap">
+                    <div className="yd-chat-cluster">
+                    <div className="yd-chat-clip">
+                    <article
+                      className="yd-chat-bubble"
+                      tabIndex={0}
+                      onClick={() => handleTap(msg)}
+                      onTouchStart={() => handleTouchStart(msg.id)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchMove={handleTouchEnd}
+                      onMouseDown={() => handleTouchStart(msg.id)}
+                      onMouseUp={handleTouchEnd}
+                      onMouseLeave={handleTouchEnd}
                     >
-                      <Reply size={16} />
-                      <span className="text-[9px] font-bold">Reply</span>
-                    </button>
-                    
-                    {isMe && (
-                      <button 
-                        onClick={() => deleteMessage(msg.id)}
-                        className="p-2 hover:bg-error-soft rounded-lg text-error flex flex-col items-center gap-1"
+                      {!isMe && (
+                        <div className="yd-chat-author">
+                          <span>{friendName}</span>
+                        </div>
+                      )}
+                      {msg.replyToId && repliedTo && (
+                        <blockquote className="yd-chat-quote">
+                          <strong>{replyAuthor}</strong>
+                          <span>{repliedTo.text || 'Message unavailable'}</span>
+                        </blockquote>
+                      )}
+                      <p className="yd-chat-body">{msg.text}</p>
+                    </article>
+                    {activeMenu === msg.id && (
+                      <div
+                        role="menu"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`yd-chat-actions ${isMe ? 'is-mine' : ''}`}
                       >
-                        <Trash2 size={16} />
-                        <span className="text-[9px] font-bold">Delete</span>
-                      </button>
+                        <button
+                          type="button"
+                          className="yd-chat-action"
+                          onClick={() => { setReplyingTo(msg); setActiveMenu(null); inputRef.current?.focus(); }}
+                        >
+                          <Reply size={18} />
+                          Reply
+                        </button>
+                        {isMe && (
+                          <button
+                            type="button"
+                            className="yd-chat-action is-danger"
+                            onClick={() => deleteMessage(msg.id)}
+                          >
+                            <Trash2 size={18} />
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                    </div>
+                    <div className="yd-chat-meta">
+                      <time>{msg.time}</time>
+                    </div>
+                    </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
 
-        {/* Input Area */}
-        <div className="p-4 bg-surface border-t border-subtle">
-          {replyingTo && (
-            <div className="mb-3 px-3 py-2 bg-elevated border border-subtle rounded-xl flex items-start justify-between">
-              <div>
-                <span className="text-[11px] font-bold text-primary block mb-0.5">
-                  Replying to {replyingTo.sender === user?.id ? 'yourself' : friendName}
+          <footer className="yd-chat-composer">
+            {replyingTo && (
+              <div className="yd-chat-reply">
+                <Reply size={16} className="shrink-0 text-secondary" />
+                <span className="yd-chat-reply-text">
+                  <strong>
+                    Replying to {replyingTo.sender === user?.id ? 'yourself' : friendName}
+                  </strong>
+                  {replyingTo.text}
                 </span>
-                <span className="text-[12px] text-content-secondary line-clamp-1">{replyingTo.text}</span>
+                <button type="button" className="yd-chat-reply-dismiss" aria-label="Cancel reply" onClick={() => setReplyingTo(null)}>
+                  <X size={18} />
+                </button>
               </div>
-              <button onClick={() => setReplyingTo(null)} className="text-content-muted hover:text-content-primary mt-0.5">
-                <X size={14} />
+            )}
+            <div className="yd-chat-compose-row">
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Message…"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSend();
+                }}
+              />
+              <button
+                type="button"
+                className="yd-chat-send"
+                disabled={!message.trim()}
+                onClick={handleSend}
+                aria-label="Send message"
+              >
+                <Send size={19} />
               </button>
             </div>
-          )}
-
-          <div className="flex items-center gap-2 bg-elevated border border-subtle rounded-full pl-4 pr-1.5 py-1.5">
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Message..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="flex-1 bg-transparent text-[13.5px] text-content-primary outline-none placeholder:text-content-muted"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSend();
-              }}
-            />
-            <button
-              type="button"
-              disabled={!message.trim()}
-              onClick={handleSend}
-              className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center disabled:opacity-50 transition-opacity shrink-0"
-            >
-              <Send size={14} />
-            </button>
-          </div>
-          {sendError && <p className="text-[11px] text-error mt-2 px-1">{sendError}</p>}
-          <p className="text-[10px] text-content-muted mt-2 px-1">Hold for options · double-tap to reply</p>
+            {sendError && <p role="alert" className="yd-chat-alert">{sendError}</p>}
+            <p className="yd-chat-hint">
+              <span>Hold for options · double-tap to reply</span>
+            </p>
+          </footer>
         </div>
         
       </div>

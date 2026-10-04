@@ -45,6 +45,18 @@ function asRow(raw: Record<string, unknown>): PaceRow | null {
   };
 }
 
+export async function fetchPaceRowsForUserIds(userIds: string[]): Promise<PaceRow[]> {
+  if (userIds.length === 0) return [];
+  const { data, error } = await supabase.from('public_pace').select('*').in('user_id', userIds);
+  if (error || !data) {
+    if (error) console.error('fetchPaceRowsForUserIds:', error);
+    return [];
+  }
+  return data
+    .map((row) => asRow(row as Record<string, unknown>))
+    .filter((row): row is PaceRow => !!row);
+}
+
 export async function fetchPaceRowForUser(userId: string): Promise<PaceRow | null> {
   const { data, error } = await supabase.from('public_pace').select('*').eq('user_id', userId).maybeSingle();
   if (error || !data) return null;

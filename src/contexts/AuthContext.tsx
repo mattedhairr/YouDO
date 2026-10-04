@@ -128,8 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetVisitSnapshotFreeze(session?.user?.id);
       }
       if (event === 'SIGNED_IN') setAccountNotice(null);
-      setUser(current => keepCachedWorkspaceOffline(event, session?.user ?? null,
-        readCachedWorkspaceUser(), navigator.onLine) ? current : session?.user ?? null);
+      const shouldKeepCachedUser = keepCachedWorkspaceOffline(event, session?.user ?? null,
+        readCachedWorkspaceUser(), navigator.onLine);
+      if (event === 'USER_UPDATED' && session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(current => (shouldKeepCachedUser ? current : session?.user ?? null));
+      }
       setLoading(false);
     });
 

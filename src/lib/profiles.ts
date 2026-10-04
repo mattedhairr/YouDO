@@ -1,5 +1,35 @@
 import { supabase } from './supabase';
 
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+
+/** Normalize and validate a public @handle (lowercase). */
+export function normalizeUsername(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const clean = raw.replace(/^@/, '').toLowerCase().trim();
+  if (!USERNAME_RE.test(clean)) return null;
+  return clean;
+}
+
+export function usernameFromAuthMetadata(meta: Record<string, unknown> | undefined): string | null {
+  return normalizeUsername(meta?.username);
+}
+
+/** Profile row is the source of truth for Private Hub; auth metadata is a fast cache. */
+export function hasPrivateHubUsername(
+  profile: Pick<Profile, 'username'> | null | undefined,
+  meta?: Record<string, unknown>,
+): boolean {
+  if (normalizeUsername(profile?.username)) return true;
+  return usernameFromAuthMetadata(meta) !== null;
+}
+
+export function resolvePrivateHubUsername(
+  profile: Pick<Profile, 'username'> | null | undefined,
+  meta?: Record<string, unknown>,
+): string | null {
+  return normalizeUsername(profile?.username) ?? usernameFromAuthMetadata(meta);
+}
+
 export interface Profile {
   id: string;
   username: string;
@@ -27,48 +57,75 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   return data as Profile;
 }
 
-/** Create or sync `profiles` row from auth metadata after signup/sign-in. */
+async function syncAuthUsernameMetadata(username: string, avatarUrl?: string): Promise<void> {
+  await supabase.auth.updateUser({
+    data: {
+      username,
+      ...(avatarUrl !== undefined ? { avatar_url: avatarUrl } : {}),
+    },
+  });
+}
+
+/** Create or sync `profiles` after signup/sign-in; repair metadata ↔ profile mismatches. */
 export async function ensureProfileFromAuth(user: {
   id: string;
   user_metadata?: Record<string, unknown>;
-}): Promise<{ ok: boolean; needsClaim: boolean; error?: string }> {
+}): Promise<{ ok: boolean; needsClaim: boolean; username: string | null; error?: string }> {
   const meta = user.user_metadata ?? {};
-  const rawUsername = typeof meta.username === 'string' ? meta.username.toLowerCase().trim() : '';
-  if (!rawUsername || !/^[a-z0-9_]+$/.test(rawUsername)) {
-    return { ok: false, needsClaim: true };
-  }
+  const metaUsername = usernameFromAuthMetadata(meta);
   const existing = await fetchProfile(user.id);
-  if (existing?.username) {
-    return { ok: true, needsClaim: false };
+  const profileUsername = normalizeUsername(existing?.username);
+
+  if (profileUsername) {
+    if (metaUsername !== profileUsername) {
+      await syncAuthUsernameMetadata(profileUsername, existing?.avatar_url);
+    }
+    return { ok: true, needsClaim: false, username: profileUsername };
   }
+
+  if (!metaUsername) {
+    return { ok: false, needsClaim: true, username: null };
+  }
+
   const displayName =
     typeof meta.full_name === 'string' && meta.full_name.trim()
       ? meta.full_name.trim()
-      : rawUsername;
+      : metaUsername;
   const avatarUrl = typeof meta.avatar_url === 'string' ? meta.avatar_url : undefined;
   const result = await upsertProfile({
     id: user.id,
-    username: rawUsername,
+    username: metaUsername,
     display_name: displayName,
-    bio: '',
-    stats_private: false,
+    bio: existing?.bio ?? '',
+    stats_private: existing?.stats_private ?? false,
     ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
   });
-  return { ok: result.ok, needsClaim: false, error: result.error };
+  return {
+    ok: result.ok,
+    needsClaim: !result.ok,
+    username: result.ok ? metaUsername : null,
+    error: result.error,
+  };
 }
 
 export async function upsertProfile(profile: Partial<Profile> & { id: string }): Promise<{ ok: boolean; error?: string }> {
-  const updateData = { ...profile, updated_at: new Date().toISOString() };
+  const updateData: Partial<Profile> & { id: string; updated_at: string } = {
+    ...profile,
+    updated_at: new Date().toISOString(),
+  };
+  if (profile.username !== undefined) {
+    const normalized = normalizeUsername(profile.username);
+    if (!normalized) {
+      return { ok: false, error: 'Username must be 3–20 characters: lowercase letters, numbers, and underscores only.' };
+    }
+    updateData.username = normalized;
+  }
 
   const { error } = await supabase.from('profiles').upsert(updateData);
 
-  if (!error && profile.username) {
-    await supabase.auth.updateUser({
-      data: {
-        username: profile.username,
-        ...(profile.avatar_url !== undefined ? { avatar_url: profile.avatar_url } : {}),
-      },
-    });
+  const savedUsername = normalizeUsername(profile.username);
+  if (!error && savedUsername) {
+    await syncAuthUsernameMetadata(savedUsername, profile.avatar_url);
   } else if (!error && profile.avatar_url !== undefined) {
     await supabase.auth.updateUser({ data: { avatar_url: profile.avatar_url } });
   }
@@ -103,14 +160,22 @@ export async function searchProfileByUsername(username: string): Promise<Profile
   return data as Profile;
 }
 
-export async function sendFriendRequest(requesterId: string, receiverId: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendFriendRequest(
+  requesterId: string,
+  receiverId: string,
+  message: string,
+): Promise<{ ok: boolean; error?: string }> {
   if (requesterId === receiverId) return { ok: false, error: 'Cannot send request to yourself.' };
+  const trimmed = message.trim();
+  if (!trimmed) return { ok: false, error: 'Add a short note explaining why you want to connect.' };
+  if (trimmed.length > 280) return { ok: false, error: 'Message must be 280 characters or fewer.' };
   const { error } = await supabase
     .from('friendships')
     .insert({
       requester_id: requesterId,
       receiver_id: receiverId,
-      status: 'pending'
+      status: 'pending',
+      request_message: trimmed,
     });
   
   if (error) {
@@ -125,13 +190,65 @@ export interface FriendRequest {
   id: string;
   requester_id: string;
   requester: Profile;
+  request_message: string;
   created_at: string;
+}
+
+export interface OutgoingFriendRequest {
+  id: string;
+  receiver_id: string;
+  receiver: Profile;
+  request_message: string;
+  created_at: string;
+}
+
+export async function fetchOutgoingFriendRequests(userId: string): Promise<OutgoingFriendRequest[]> {
+  const { data, error } = await supabase
+    .from('friendships')
+    .select('id, receiver_id, request_message, created_at')
+    .eq('requester_id', userId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error || !data?.length) {
+    if (error) console.error('fetchOutgoingFriendRequests error:', error);
+    return [];
+  }
+
+  const receiverIds = [...new Set(data.map((row) => row.receiver_id))];
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('id', receiverIds);
+
+  if (profileError) return [];
+
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p as Profile]));
+
+  return data
+    .map((row) => {
+      const receiver = profileById.get(row.receiver_id);
+      if (!receiver) return null;
+      return {
+        id: row.id,
+        receiver_id: row.receiver_id,
+        receiver,
+        request_message: typeof row.request_message === 'string' ? row.request_message : '',
+        created_at: row.created_at,
+      };
+    })
+    .filter((row): row is OutgoingFriendRequest => row !== null);
+}
+
+export async function cancelOutgoingFriendRequest(requestId: string): Promise<boolean> {
+  const { error } = await supabase.from('friendships').delete().eq('id', requestId).eq('status', 'pending');
+  return !error;
 }
 
 export async function fetchPendingRequests(userId: string): Promise<FriendRequest[]> {
   const { data, error } = await supabase
     .from('friendships')
-    .select('id, requester_id, created_at')
+    .select('id, requester_id, request_message, created_at')
     .eq('receiver_id', userId)
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
@@ -162,6 +279,7 @@ export async function fetchPendingRequests(userId: string): Promise<FriendReques
         id: row.id,
         requester_id: row.requester_id,
         requester,
+        request_message: typeof row.request_message === 'string' ? row.request_message : '',
         created_at: row.created_at,
       };
     })
@@ -198,7 +316,7 @@ export async function fetchAcceptedFriends(userId: string) {
   const friendIds = data.map(row => row.requester_id === userId ? row.receiver_id : row.requester_id);
   if (friendIds.length === 0) return [];
   
-  const { data: profiles, error: pError } = await supabase
+  const { data: profiles } = await supabase
     .from('profiles')
     .select('*')
     .in('id', friendIds);
@@ -214,8 +332,8 @@ export async function removeFriend(userId1: string, userId2: string) {
       .or(`and(requester_id.eq.${userId1},receiver_id.eq.${userId2}),and(requester_id.eq.${userId2},receiver_id.eq.${userId1})`);
       
     return { ok: !error, error: error?.message };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed' };
   }
 }
 
@@ -230,8 +348,8 @@ export async function addFriend(requesterId: string, receiverId: string) {
         status: 'accepted'
       });
     return { ok: !error, error: error?.message };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed' };
   }
 }
 

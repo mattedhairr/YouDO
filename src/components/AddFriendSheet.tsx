@@ -17,6 +17,7 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
   const [result, setResult] = useState<Profile | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [requestSent, setRequestSent] = useState(false);
+  const [requestNote, setRequestNote] = useState('');
 
   if (!open) return null;
 
@@ -26,7 +27,8 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
     setResult(null);
     setErrorMsg('');
     setRequestSent(false);
-    
+    setRequestNote('');
+
     const profile = await searchProfileByUsername(query.trim());
     if (profile) {
       setResult(profile);
@@ -38,7 +40,7 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
 
   const handleSendRequest = async () => {
     if (!user || !result) return;
-    const res = await sendFriendRequest(user.id, result.id);
+    const res = await sendFriendRequest(user.id, result.id, requestNote);
     if (res.ok) {
       setRequestSent(true);
     } else {
@@ -100,7 +102,35 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
 
               {errorMsg && <p className="text-[11px] text-red-500 text-center">{errorMsg}</p>}
 
-              
+              {!requestSent && (
+                <>
+                  <label className="text-[11px] font-medium text-content-secondary">
+                    Why are you sending this request?
+                  </label>
+                  <textarea
+                    value={requestNote}
+                    onChange={(e) => setRequestNote(e.target.value)}
+                    maxLength={280}
+                    rows={3}
+                    placeholder="Required — a short note so they know who you are."
+                    className="w-full resize-none rounded-xl border border-subtle bg-surface px-3 py-2.5 text-[13px] text-content-primary outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button"
+                    disabled={!requestNote.trim()}
+                    onClick={() => void handleSendRequest()}
+                    className="w-full h-11 rounded-xl bg-primary text-on-primary text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
+                  >
+                    <UserPlus size={16} />
+                    Send request
+                  </button>
+                </>
+              )}
+              {requestSent && (
+                <p className="text-center text-[12px] text-primary font-medium flex items-center justify-center gap-1.5">
+                  <Check size={16} /> Request sent
+                </p>
+              )}
             </div>
           )}
         </div>

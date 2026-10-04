@@ -27,7 +27,6 @@ import StepSliceSheet from './components/StepSliceSheet';
 import { AmbientScreen } from './components/AmbientScreen';
 import { SessionStopDialog } from './components/SessionStopDialog';
 import { useTheme } from './hooks/useTheme';
-import { supabase } from './lib/supabase';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { checkDeviceClock, clearClockIncident } from './lib/deviceClock';
 import UpdateNotice from './components/UpdateNotice';
@@ -342,22 +341,34 @@ function AppInner() {
 
   const { view, goalPathIds, slideDirection, setGoalPathIds, handleNavigateTab, navigateToGoalPath } =
     useNavigationSync(handleModalPopState);
-    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-  
+
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar', 'board'], []);
 
-  const [hubSubTab, setHubSubTab] = useState<'social' | 'private'>('private');
-  
+  const [hubSubTab, setHubSubTab] = useState<'social' | 'private'>('social');
+  const [privateHubUsername, setPrivateHubUsername] = useState<string | null | undefined>(undefined);
+
+  const defaultHubSubTab = useCallback((): 'social' | 'private' => {
+    if (privateHubUsername === undefined) return 'social';
+    if (!privateHubUsername) return 'social';
+    return activityPrefs.optedIn ? 'social' : 'private';
+  }, [privateHubUsername, activityPrefs.optedIn]);
+
   useEffect(() => {
-    if (!activityUser) return;
-    void ensureProfileFromAuth(activityUser);
-    if (!activityUser.user_metadata?.username) {
-      handleNavigateTab('board');
-      setHubSubTab('private');
-    } else {
-      setHubSubTab(activityUser.user_metadata?.community_hashtag ? 'social' : 'private');
+    if (!activityUser) {
+      setPrivateHubUsername(undefined);
+      return;
     }
-  }, [activityUser?.id, activityUser?.user_metadata?.username, activityUser?.user_metadata?.community_hashtag, handleNavigateTab]);
+    let cancelled = false;
+    void (async () => {
+      const result = await ensureProfileFromAuth(activityUser);
+      if (cancelled) return;
+      setPrivateHubUsername(result.username);
+      setHubSubTab(result.username ? (activityPrefs.optedIn ? 'social' : 'private') : 'social');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activityUser?.id, activityUser?.user_metadata?.username, activityPrefs.optedIn]);
   const toggleHubSubTab = useCallback(() => {
     setHubSubTab((prev) => (prev === 'social' ? 'private' : 'social'));
   }, []);
@@ -789,8 +800,11 @@ function AppInner() {
       setTodaySubTab('today');
       setActiveCategoryFilter('all');
     }
+    if (targetView === 'board' && view !== 'board') {
+      setHubSubTab(defaultHubSubTab());
+    }
     handleNavigateTab(targetView);
-  }, [handleNavigateTab]);
+  }, [handleNavigateTab, view, defaultHubSubTab]);
 
   const backlogByDate = useMemo(() => {
     const groups: Record<string, Task[]> = {};
@@ -1544,7 +1558,12 @@ function AppInner() {
                 onJumpToGoal={jumpToGoalTask}
               />
             ) : view === 'board' ? (
-              <HubView onOpenBoardSettings={openBoardSettings} activeTab={hubSubTab} personalPace={streakMeta.barHours} />
+              <HubView
+                onOpenBoardSettings={openBoardSettings}
+                activeTab={hubSubTab}
+                personalPace={streakMeta.barHours}
+                onSwitchToPrivate={() => setHubSubTab('private')}
+              />
             ) : (
               <GoalView
                 pathIds={goalPathIds}

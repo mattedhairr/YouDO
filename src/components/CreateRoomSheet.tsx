@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, UsersRound, Settings } from 'lucide-react';
+import { X, UsersRound } from 'lucide-react';
 import Overlay from './Overlay';
 import { createSquad } from '../lib/squads';
 import { useAuth } from '../contexts/AuthContext';
@@ -146,7 +146,11 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
                   Make this room visible in the Discover list so compatible people can ask to join.
                 </p>
               </div>
-              <Toggle checked={allowJoinRequests} onChange={setAllowJoinRequests} />
+              <Toggle
+                checked={allowJoinRequests}
+                label="List room in Discover"
+                onChange={() => setAllowJoinRequests((v) => !v)}
+              />
             </div>
           </div>
 

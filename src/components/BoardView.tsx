@@ -102,6 +102,7 @@ function BoardRowCard({
   appreciated = false,
   canAppreciate = false,
   onAppreciate,
+  onOpenProfile,
 }: {
   row: PaceRow;
   paceWindow: PaceWindow;
@@ -115,6 +116,7 @@ function BoardRowCard({
   appreciated?: boolean;
   canAppreciate?: boolean;
   onAppreciate?: () => void;
+  onOpenProfile?: (userId: string, row: PaceRow, paceWindow: PaceWindow) => void;
 }) {
   const podium = !locked && rank != null && rank <= 3;
   const progress = barProgress(row, paceWindow, anchorISO);
@@ -155,7 +157,28 @@ function BoardRowCard({
             {String(rank).padStart(2, '0')}
           </span>
         )}
-        <div className="board-person-content">
+        <div
+          className={`board-person-content ${onOpenProfile ? 'cursor-pointer' : ''}`}
+          role={onOpenProfile ? 'button' : undefined}
+          tabIndex={onOpenProfile ? 0 : undefined}
+          onClick={
+            onOpenProfile
+              ? () => {
+                  onOpenProfile(row.userId, row, paceWindow);
+                }
+              : undefined
+          }
+          onKeyDown={
+            onOpenProfile
+              ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpenProfile(row.userId, row, paceWindow);
+                  }
+                }
+              : undefined
+          }
+        >
           <div className="board-person-heading">
             <p className="truncate text-[14px] font-semibold text-content-primary">{row.displayName}</p>
             {mine && (
@@ -213,7 +236,13 @@ function EmptyRankSlot({ rank }: { rank: number }) {
   );
 }
 
-export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings: () => void }) {
+export default function BoardView({
+  onOpenBoardSettings,
+  onOpenProfile,
+}: {
+  onOpenBoardSettings: () => void;
+  onOpenProfile?: (userId: string, row: PaceRow, paceWindow: PaceWindow) => void;
+}) {
   const { user } = useAuth();
   const { publishPublicPace, syncToCloud, pacePrefs } = useStore();
   const [paceWindow, setPaceWindow] = useState<PaceWindow>('today');
@@ -518,6 +547,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
                     appreciated={appreciations.mine.has(row.userId)}
                     canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
                     onAppreciate={() => void toggleAppreciation(row.userId)}
+                    onOpenProfile={onOpenProfile}
                   />
                 );
               })}
@@ -558,6 +588,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
                       appreciated={appreciations.mine.has(row.userId)}
                       canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
                       onAppreciate={() => void toggleAppreciation(row.userId)}
+                      onOpenProfile={onOpenProfile}
                     />
                   );
                 })}
@@ -587,6 +618,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
                           appreciated={appreciations.mine.has(row.userId)}
                           canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
                           onAppreciate={() => void toggleAppreciation(row.userId)}
+                          onOpenProfile={onOpenProfile}
                         />
                       );
                     })}
@@ -631,6 +663,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
                     featured
                     anchorISO={anchorISO}
                     appreciationCount={appreciations.counts[myRow.userId] ?? 0}
+                    onOpenProfile={onOpenProfile}
                   />
                 </ol>
 
@@ -673,6 +706,7 @@ export default function BoardView({ onOpenBoardSettings }: { onOpenBoardSettings
                               appreciated={appreciations.mine.has(row.userId)}
                               canAppreciate={!savingAppreciation && community.canJoin && community.settings.appreciationsEnabled && user?.id !== row.userId}
                               onAppreciate={() => void toggleAppreciation(row.userId)}
+                              onOpenProfile={onOpenProfile}
                             />
                           );
                         })}

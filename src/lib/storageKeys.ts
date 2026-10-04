@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   workspaceReplacement: 'youdo-workspace-replacement-v1',
   offlineMode: 'youdo-offline-mode-v1',
   lastCommunityRoom: 'youdo-community-last-room-v1',
+  privateHubIntroSeen: 'youdo-private-hub-intro-v1',
 } as const;
 
 export const REQUEST_ACCOUNT_ACCESS_EVENT = 'youdo:request-account-access';

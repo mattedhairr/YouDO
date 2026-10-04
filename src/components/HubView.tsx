@@ -3,18 +3,20 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
   fetchAcceptedFriends,
+  ensureProfileFromAuth,
   fetchProfile,
+  resolvePrivateHubUsername,
   upsertProfile,
-  removeFriend,
   type Profile,
-  sendFriendRequest,
-  fetchPendingRequests,
 } from '../lib/profiles';
-import { Bell, UserPlus, UsersRound, Lock, Loader2, ArrowRight, Users } from 'lucide-react';
+import { countActionableNotifications } from '../lib/squads';
+import { Bell, UserPlus, UsersRound, Lock, Loader2, ArrowRight, Users, Sparkles, MessageCircle, X } from 'lucide-react';
+import { STORAGE_KEYS } from '../lib/storageKeys';
 import BoardView from './BoardView';
+import type { PaceRow, PaceWindow } from '../lib/paceBoard';
 import UserProfileSheet from './UserProfileSheet';
 import AddFriendSheet from './AddFriendSheet';
-import NotificationsSheet from './NotificationsSheet';
+import NotificationsView from './NotificationsView';
 import CreateRoomSheet from './CreateRoomSheet';
 import SquadRoomSheet from './SquadRoomSheet';
 import DmInboxSheet from './DmInboxSheet';
@@ -31,18 +33,26 @@ function formatDmListTime(iso: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+function privateHubIntroKey(userId: string) {
+  return `${STORAGE_KEYS.privateHubIntroSeen}:${userId}`;
+}
+
 export default function HubView({
   onOpenBoardSettings,
   activeTab = 'social',
   personalPace = 4,
+  onSwitchToPrivate,
 }: {
   onOpenBoardSettings: () => void;
   activeTab?: 'social' | 'private';
   personalPace?: number;
+  onSwitchToPrivate?: () => void;
 }) {
   const { user } = useAuth();
   const [privateSubTab, setPrivateSubTab] = useState<'dms' | 'rooms'>('dms');
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [profileBoardPreview, setProfileBoardPreview] = useState<PaceRow | null>(null);
+  const [profileBoardWindow, setProfileBoardWindow] = useState<PaceWindow>('week');
   const [openRoomId, setOpenRoomId] = useState<string | null>(null);
   const [showDmInbox, setShowDmInbox] = useState<{ id: string; name: string; avatar: string } | null>(null);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
@@ -56,6 +66,13 @@ export default function HubView({
   const [savingUsername, setSavingUsername] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [dmPreviews, setDmPreviews] = useState<Record<string, DmInboxPreview>>({});
+  const [showPrivateHubIntro, setShowPrivateHubIntro] = useState(false);
+
+  const resolvedUsername = useMemo(
+    () => (user ? resolvePrivateHubUsername(myProfile, user.user_metadata) : null),
+    [user, myProfile, user?.user_metadata],
+  );
+  const needsUsernameClaim = Boolean(user && !loadingProfile && !resolvedUsername);
 
   const refreshFriends = useCallback(async () => {
     if (!user) return;
@@ -65,8 +82,7 @@ export default function HubView({
 
   const refreshPendingCount = useCallback(async () => {
     if (!user) return;
-    const reqs = await fetchPendingRequests(user.id);
-    setPendingCount(reqs.length);
+    setPendingCount(await countActionableNotifications(user.id));
   }, [user]);
 
   const refreshDmPreviews = useCallback(async () => {
@@ -96,16 +112,24 @@ export default function HubView({
     }
 
     setLoadingProfile(true);
-    void refreshFriends();
-    void refreshPendingCount();
-    void refreshDmPreviews();
-    fetchProfile(user.id).then((p) => {
+    void (async () => {
+      await ensureProfileFromAuth(user);
+      const p = await fetchProfile(user.id);
       setMyProfile(p);
-      setLoadingProfile(false);
-      if (!p?.username && user.user_metadata?.username) {
-        setDraftUsername(String(user.user_metadata.username));
+      const handle = resolvePrivateHubUsername(p, user.user_metadata);
+      if (handle) {
+        void refreshFriends();
+        void refreshPendingCount();
+        void refreshDmPreviews();
+      } else {
+        setFriends([]);
+        setPendingCount(0);
+        setDmPreviews({});
+        const draft = resolvePrivateHubUsername(null, user.user_metadata);
+        if (draft) setDraftUsername(draft);
       }
-    });
+      setLoadingProfile(false);
+    })();
 
     const friendshipsChannel = supabase
       .channel(`friendships_${user.id}`)
@@ -130,20 +154,114 @@ export default function HubView({
       })
       .subscribe();
 
+    const squadMembersChannel = supabase
+      .channel(`squad_members_notify_${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'squad_members' }, () => {
+        void refreshPendingCount();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(friendshipsChannel);
       supabase.removeChannel(dmChannel);
+      supabase.removeChannel(squadMembersChannel);
     };
   }, [user, refreshFriends, refreshPendingCount, refreshDmPreviews]);
+
+  useEffect(() => {
+    if (!user || loadingProfile || resolvedUsername) {
+      setShowPrivateHubIntro(false);
+      return;
+    }
+    try {
+      setShowPrivateHubIntro(localStorage.getItem(privateHubIntroKey(user.id)) !== '1');
+    } catch {
+      setShowPrivateHubIntro(true);
+    }
+  }, [user, loadingProfile, resolvedUsername]);
+
+  const dismissPrivateHubIntro = useCallback(() => {
+    if (user) {
+      try {
+        localStorage.setItem(privateHubIntroKey(user.id), '1');
+      } catch {
+        /* ignore */
+      }
+    }
+    setShowPrivateHubIntro(false);
+  }, [user]);
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto">
         <div key={activeTab} className="hub-screen-transition">
           {activeTab === 'social' ? (
-            <BoardView onOpenBoardSettings={onOpenBoardSettings} />
+            <>
+              {showPrivateHubIntro && needsUsernameClaim && (
+                <div className="mx-1 mb-3 rounded-[18px] border border-primary/25 bg-gradient-to-br from-primary-soft/80 to-elevated p-4 shadow-elevated relative overflow-hidden">
+                  <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-primary/10 blur-2xl" />
+                  <button
+                    type="button"
+                    onClick={dismissPrivateHubIntro}
+                    className="absolute right-2 top-2 p-1.5 rounded-full text-content-muted hover:text-content-primary hover:bg-elevated/80"
+                    aria-label="Dismiss"
+                  >
+                    <X size={16} />
+                  </button>
+                  <div className="flex gap-3 pr-6">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-primary text-on-primary">
+                      <Sparkles size={18} strokeWidth={2.2} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">New · Private Hub</p>
+                      <p className="mt-1 text-[13px] font-semibold text-content-primary leading-snug">
+                        DM friends, run squad rooms, and keep public board separate.
+                      </p>
+                      <p className="mt-1.5 text-[11.5px] text-content-secondary leading-relaxed">
+                        Pick a one-time @username to unlock Private. Public board works as before until then.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            dismissPrivateHubIntro();
+                            onSwitchToPrivate?.();
+                          }}
+                          className="h-9 px-3.5 rounded-[10px] bg-primary text-on-primary text-[12px] font-bold"
+                        >
+                          Set up Private Hub
+                        </button>
+                        <button
+                          type="button"
+                          onClick={dismissPrivateHubIntro}
+                          className="h-9 px-3.5 rounded-[10px] border border-subtle bg-surface/80 text-[12px] font-semibold text-content-secondary"
+                        >
+                          Later
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <BoardView
+                onOpenBoardSettings={onOpenBoardSettings}
+                onOpenProfile={(id, row, paceWindow) => {
+                  setProfileUserId(id);
+                  setProfileBoardPreview(row);
+                  setProfileBoardWindow(paceWindow);
+                }}
+              />
+            </>
           ) : (
             <div className="py-2">
+              {loadingProfile && (
+                <div className="py-16 flex flex-col items-center justify-center gap-3 text-content-muted">
+                  <Loader2 className="animate-spin text-primary" size={28} />
+                  <p className="text-[12px] font-medium">Loading Private Hub…</p>
+                </div>
+              )}
+
+              {!loadingProfile && !needsUsernameClaim && !notificationsOpen && (
               <div className="flex items-center justify-between border-b border-subtle pb-3 mb-4">
                 <div className="flex gap-5 px-1">
                   <button
@@ -204,17 +322,34 @@ export default function HubView({
                   </button>
                 </div>
               </div>
+              )}
 
-              {activeTab === 'private' && !loadingProfile && (!myProfile || !myProfile.username) ? (
-                <div className="flex-1 flex flex-col justify-center px-4 py-8 max-w-sm mx-auto w-full fade-in">
-                  <div className="text-center mb-8">
-                    <div className="w-16 h-16 rounded-full bg-primary-soft text-primary flex items-center justify-center mx-auto mb-4">
-                      <Lock size={32} />
+              {!loadingProfile && needsUsernameClaim ? (
+                <div className="flex-1 flex flex-col justify-center px-4 py-6 max-w-md mx-auto w-full fade-in">
+                  <div className="relative overflow-hidden rounded-[24px] border border-primary/20 bg-gradient-to-b from-primary-soft/40 to-elevated p-6 shadow-elevated mb-6">
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/15 to-transparent" />
+                    <div className="relative text-center">
+                      <div className="w-[72px] h-[72px] rounded-[20px] bg-primary text-on-primary flex items-center justify-center mx-auto mb-4 shadow-elevated rotate-3">
+                        <Lock size={34} strokeWidth={2.2} />
+                      </div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Welcome to Private Hub</p>
+                      <h2 className="text-[22px] font-bold text-content-primary mt-2 mb-2">Choose your @handle</h2>
+                      <p className="text-content-secondary text-[13px] leading-relaxed max-w-[280px] mx-auto">
+                        One username unlocks DMs, friend requests, and squad rooms. Your public board ranking stays on the Public side.
+                      </p>
                     </div>
-                    <h2 className="text-2xl font-bold text-content-primary mb-2">Claim your handle</h2>
-                    <p className="text-content-secondary text-[14px]">
-                      To join private rooms and DM friends, pick a unique @username.
-                    </p>
+                    <ul className="relative mt-5 space-y-2.5 text-left">
+                      {[
+                        { icon: MessageCircle, text: 'Message friends with 24h ephemeral DMs' },
+                        { icon: UsersRound, text: 'Create or join focused squad rooms' },
+                        { icon: Users, text: 'Get found by @username — never your email' },
+                      ].map(({ icon: Icon, text }) => (
+                        <li key={text} className="flex items-start gap-2.5 text-[12px] text-content-secondary">
+                          <Icon size={15} className="shrink-0 mt-0.5 text-primary" strokeWidth={2.3} />
+                          <span>{text}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
 
                   <form
@@ -235,6 +370,7 @@ export default function HubView({
                       if (ok) {
                         const p = await fetchProfile(user.id);
                         setMyProfile(p);
+                        dismissPrivateHubIntro();
                         setSavingUsername(false);
                       } else {
                         setUsernameError(error || 'Username might be taken!');
@@ -273,10 +409,22 @@ export default function HubView({
                       )}
                     </button>
                   </form>
+                  <p className="text-center text-[11px] text-content-muted mt-4">
+                    Scroll the Hub nav to Public anytime — no username required there.
+                  </p>
                 </div>
-              ) : (
+              ) : !loadingProfile ? (
                 <>
-                  {privateSubTab === 'dms' ? (
+                  {notificationsOpen ? (
+                    <NotificationsView
+                      onClose={() => setNotificationsOpen(false)}
+                      onOpenProfile={(id) => {
+                        setNotificationsOpen(false);
+                        setProfileUserId(id);
+                      }}
+                      onChanged={() => void refreshPendingCount()}
+                    />
+                  ) : privateSubTab === 'dms' ? (
                     <div className="space-y-2.5">
                       <p className="text-[10.5px] text-content-muted px-1 mb-1">
                         Messages disappear after 24 hours, like community chat.
@@ -366,10 +514,14 @@ export default function HubView({
                       )}
                     </div>
                   ) : (
-                    <RoomsView personalPace={personalPace} onOpenRoom={(id) => setOpenRoomId(id)} />
+                    <RoomsView
+                      personalPace={personalPace}
+                      onOpenRoom={(id) => setOpenRoomId(id)}
+                      onNotificationsChanged={() => void refreshPendingCount()}
+                    />
                   )}
                 </>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -377,7 +529,12 @@ export default function HubView({
 
       <UserProfileSheet
         userId={profileUserId}
-        onClose={() => setProfileUserId(null)}
+        boardPreview={profileBoardPreview}
+        boardPaceWindow={profileBoardWindow}
+        onClose={() => {
+          setProfileUserId(null);
+          setProfileBoardPreview(null);
+        }}
         onMessage={() => {
           const friend = friends.find((f) => f.id === profileUserId);
           if (friend) {
@@ -398,15 +555,6 @@ export default function HubView({
         open={addFriendOpen}
         onClose={() => setAddFriendOpen(false)}
         onOpenProfile={(id) => setProfileUserId(id)}
-      />
-      <NotificationsSheet
-        open={notificationsOpen}
-        onClose={() => setNotificationsOpen(false)}
-        onOpenProfile={(id) => setProfileUserId(id)}
-        onFriendAccepted={() => {
-          void refreshFriends();
-          void refreshPendingCount();
-        }}
       />
       <CreateRoomSheet
         open={createRoomOpen}

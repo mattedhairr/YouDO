@@ -1,15 +1,16 @@
 import './community.css';
+import '../chat/youDoChat.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowDown, Check, ChevronDown, Flag, Heart, Lock, Megaphone, Pencil, RefreshCw, Reply, Send, ShieldAlert, ShieldCheck, Trash2, X, Copy, AlertTriangle } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, Pencil, RefreshCw, Reply, Send, ShieldCheck, Trash2, X, AlertTriangle } from 'lucide-react';
 import { markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
 import { markChatRoomRead } from '../../lib/communityChat';
 import type { CommunityHashtagContext } from '../../lib/communityHashtags';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
-import Overlay from '../Overlay';
 import CommunityHashtagBar from './CommunityHashtagBar';
 import { STORAGE_KEYS } from '../../lib/storageKeys';
-import { hapticTick, hapticWarn } from '../../lib/haptics';
+import { hapticTick } from '../../lib/haptics';
+import { useStore } from '../../store';
 
 interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void }
 const clock = new Intl.DateTimeFormat(undefined,{ hour:'numeric',minute:'2-digit' });
@@ -17,6 +18,7 @@ const MESSAGE_ACTION_WINDOW_MS = 15 * 60 * 1000;
 const LONG_PRESS_MS = 460;
 const DOUBLE_TAP_MS = 320;
 export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings }: Props) {
+  const { pacePrefs } = useStore();
   const [selectedHashtag, setSelectedHashtagState] = useState<string | undefined>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.lastCommunityRoom);
@@ -52,7 +54,11 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [updateOpen,setUpdateOpen] = useState(false);
   const [roomContext,setRoomContext] = useState<CommunityHashtagContext>({hashtags:[],requests:[]});
   const roomScope=`room:${selectedHashtag??'general'}`;
-  const canWriteRoom=roomContext.roomsEnabled===true && (!selectedHashtag || (selectedHashtag===roomContext.mine?.id && !roomContext.postingUnlockAt));
+  const canWriteRoom =
+    roomContext.roomsEnabled === true &&
+    (selectedHashtag
+      ? selectedHashtag === roomContext.mine?.id && !roomContext.postingUnlockAt
+      : pacePrefs.optedIn);
   const currentScope=useRef(roomScope);currentScope.current=roomScope;
   const scroll = useRef<HTMLDivElement>(null);
   const scrollPosition = useRef(initial.scrollTop);
@@ -323,7 +329,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
 
   const currentHashtagObj = roomContext.hashtags.find(h => h.id === selectedHashtag);
 
-  return <section className="c-chat no-swipe" aria-label="Chat">
+  return <section className="yd-chat c-chat no-swipe" aria-label="Chat">
     {/* Top Sticky Modern Navigation Bar */}
     <header className="c-chat-top-bar">
       <CommunityHashtagBar
@@ -335,7 +341,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
 
     <div
       key={selectedHashtag ?? 'general'}
-      className="c-chat-scroll fade-in"
+      className="yd-chat-scroll fade-in"
       ref={scroll}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -363,61 +369,105 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       {hasOlder && <button className="c-text-button c-load" disabled={loading} onClick={()=>void loadOlder()}>{loading?'Loading…':'Earlier messages'}</button>}
       {loading && messages.length===0 ? <div className="c-skeleton" role="status" aria-label="Loading chat"><i/><i/><i/></div>
         : messages.length===0 && !error ? <div className="c-empty"><Heart size={28}/><h3>A quiet room. A shared ambition.</h3><p>{selectedHashtag ? `Welcome to #${currentHashtagObj?.label ?? 'your room'}. Share questions and tips!` : 'Share a useful thought or encourage a fellow aspirant.'}</p></div>:null}
-      <ol className="c-messages">{messages.map(message=>{
+      <ol className="yd-chat-list">{messages.map(message=>{
         const mine=message.authorId===userId;
         const parent=message.replyToId?map.get(message.replyToId):undefined;
-        if(message.kind==='kudos')return <li key={message.id} data-message={message.id} className="c-kudos"><Heart size={13}/>{message.body}</li>;
+        if(message.kind==='kudos')return <li key={message.id} data-message={message.id} className="yd-chat-kudos"><Heart size={13}/>{message.body}</li>;
         const authorName=mine?'You':names.get(message.authorId)??'Board member';
         const staff=context.staffIds.includes(message.authorId);
-        return <li key={message.id} data-message={message.id} className={`c-message ${mine?'is-mine':''} ${message.delivery==='failed'?'is-failed':''}`}>
-          <article className="c-message-bubble" style={{ position: "relative" }} tabIndex={0} aria-label={`${authorName}: ${message.body}`}
+        return <li key={message.id} data-message={message.id} className={`yd-chat-row ${mine?'is-mine':''} ${message.delivery==='failed'?'is-failed':''}`}>
+          <div className="yd-chat-bubble-wrap">
+          <div className="yd-chat-cluster">
+          <div className="yd-chat-clip">
+          <article className="yd-chat-bubble" tabIndex={0} aria-label={`${authorName}: ${message.body}`}
             onPointerDown={event=>beginPress(event,message)} onPointerMove={movePress}
             onPointerUp={event=>finishPress(event,message)} onPointerCancel={()=>{cancelPress();press.current=null;}}
             onContextMenu={event=>{if((event.target as HTMLElement).closest('button,input,textarea,a'))return;event.preventDefault();openActions(message);}}
             onDoubleClick={event=>{if(!(event.target as HTMLElement).closest('button,input,textarea,a'))beginReply(message);}} onKeyDown={event=>keyboardActions(event,message)}>
-            <div className="c-author-line"><button className="c-author" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>{staff && <span className="c-admin-tag">Admin</span>}</div>
-            {message.replyToId && <blockquote><strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong><span>{parent?.body??'No longer available'}</span></blockquote>}
-            <p>{message.body}</p>
-            <div className="c-message-meta"><span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>{mine && <span>{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={12}/>}</span>}</div>
-            {message.delivery==='failed' && <div className="c-retry"><span>{message.error}</span><button disabled={!canWriteRoom} onClick={()=>void transmit(message)}><RefreshCw size={14}/> Retry</button></div>}
-          
-              {/* Floating Action Menu */}
+            {!mine && (
+              <div className="yd-chat-author">
+                <button type="button" className="text-left" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
+                {staff && <span className="yd-chat-admin">Admin</span>}
+              </div>
+            )}
+            {message.replyToId && (
+              <blockquote className="yd-chat-quote">
+                <strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong>
+                <span>{parent?.body??'No longer available'}</span>
+              </blockquote>
+            )}
+            <p className="yd-chat-body">{message.body}</p>
+            {message.delivery==='failed' && (
+              <div className="yd-chat-retry">
+                <span>{message.error}</span>
+                <button type="button" disabled={!canWriteRoom} onClick={()=>void transmit(message)}><RefreshCw size={14}/> Retry</button>
+              </div>
+            )}
+          </article>
               {selected?.id === message.id && (
-                <div onClick={(e) => e.stopPropagation()} className="absolute z-[100] bottom-full mb-2 left-0 bg-elevated border border-subtle shadow-xl rounded-xl p-1 flex gap-1 animate-in slide-in-from-bottom-2 fade-in" style={{ backgroundColor: 'var(--bg-elevated)', padding: '4px' }}>
-                  
+                <div role="menu" onClick={(e) => e.stopPropagation()} className={`yd-chat-actions ${mine ? 'is-mine' : ''}`}>
                     {message.delivery === 'sent' && canWriteRoom && (
-                      <button onClick={(e) => { e.stopPropagation(); hapticTick(); beginReply(message); }} className="p-2 hover:bg-surface rounded-lg text-content-primary flex flex-col items-center gap-1">
-                        <Reply size={16} />
-                        <span className="text-[9px] font-bold">Reply</span>
+                      <button type="button" className="yd-chat-action" onClick={(e) => { e.stopPropagation(); hapticTick(); beginReply(message); }}>
+                        <Reply size={18} />
+                        Reply
+                      </button>
+                    )}
+                    {selected?.id === message.id && selectedCanModify && (
+                      <button
+                        type="button"
+                        className="yd-chat-action"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          hapticTick();
+                          setEditing(message);
+                          setDraft(message.body);
+                          setSelected(null);
+                          requestAnimationFrame(() => composer.current?.focus());
+                        }}
+                      >
+                        <Pencil size={18} />
+                        Edit
                       </button>
                     )}
                     {message.delivery === 'sent' && (mine || context.isAdmin) && (
-                      <button onClick={(e) => { e.stopPropagation(); action(mine ? 'delete' : 'remove'); }} className="p-2 hover:bg-error-soft rounded-lg text-error flex flex-col items-center gap-1">
-                        <Trash2 size={16} />
-                        <span className="text-[9px] font-bold">Delete</span>
+                      <button type="button" className="yd-chat-action is-danger" onClick={(e) => { e.stopPropagation(); action(mine ? 'delete' : 'remove'); }}>
+                        <Trash2 size={18} />
+                        Delete
                       </button>
                     )}
                     {!mine && !context.isAdmin && (
-                      <button onClick={(e) => { e.stopPropagation(); action('report'); }} className="p-2 hover:bg-error-soft rounded-lg text-error flex flex-col items-center gap-1">
-                        <AlertTriangle size={16} />
-                        <span className="text-[9px] font-bold">Report</span>
+                      <button type="button" className="yd-chat-action is-danger" onClick={(e) => { e.stopPropagation(); action('report'); }}>
+                        <AlertTriangle size={18} />
+                        Report
                       </button>
                     )}
-
                 </div>
               )}
-            </article>
+          </div>
+          <div className="yd-chat-meta">
+            <span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>
+            {mine && <span className="yd-chat-meta-status">{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={11}/>}</span>}
+          </div>
+          </div>
+          </div>
         </li>;
       })}</ol>
       
         {messages.filter(m=>m.delivery==='sent').length>=CHAT_HISTORY_LIMIT && <p className="c-note">Latest 120 messages · 24-hour room</p>}
     </div>
     {newBelow && <button className="c-new" onClick={()=>{follow.current=true;if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;setNewBelow(false);}}>New messages <ArrowDown size={15}/></button>}
-    <footer className="c-composer">
-      {error && <p role="status" className="c-feedback">{error} <button onClick={()=>void refresh()} aria-label="Refresh chat"><RefreshCw size={15}/></button></p>}
-      {(reply || editing) && <div className="c-replying"><Reply size={16}/><span><strong>{editing?'Editing your message':'Replying'}</strong>{(editing??reply)?.body}</span><button aria-label="Cancel reply or edit" onClick={()=>{setReply(null);if(editing)setDraft('');setEditing(null);}}><X size={18}/></button></div>}
-      {!canWriteRoom&&<div className="c-hashtag-readonly" role="status"><Lock size={13}/><div><p>{!roomContext.roomsEnabled?'Room access could not be confirmed.':selectedHashtag===roomContext.mine?.id&&roomContext.postingUnlockAt?`Your earlier hashtag messages expire by ${new Date(roomContext.postingUnlockAt).toLocaleString()}. Posting unlocks after they expire; General stays open.`:'Read-only room · choose this hashtag in your profile to post.'}</p><button type="button" onClick={onOpenBoardSettings}>Profile settings</button></div></div>}
-      <div className="c-composer-row">
+    <footer className="yd-chat-composer">
+      {error && <p role="status" className="yd-chat-alert">{error} <button type="button" onClick={()=>void refresh()} aria-label="Refresh chat"><RefreshCw size={15}/></button></p>}
+      {actionError && <p role="alert" className="yd-chat-alert">{actionError}</p>}
+      {(reply || editing) && (
+        <div className="yd-chat-reply">
+          <Reply size={16} className="shrink-0 text-secondary" />
+          <span className="yd-chat-reply-text"><strong>{editing?'Editing your message':'Replying'}</strong>{(editing??reply)?.body}</span>
+          <button type="button" className="yd-chat-reply-dismiss" aria-label="Cancel reply or edit" onClick={()=>{setReply(null);if(editing)setDraft('');setEditing(null);}}><X size={18}/></button>
+        </div>
+      )}
+      {!canWriteRoom&&<div className="c-hashtag-readonly" role="status"><Lock size={13}/><div><p>{!roomContext.roomsEnabled?'Room access could not be confirmed.':!selectedHashtag&&!pacePrefs.optedIn?'General is read-only until you join the Public Board in settings.':selectedHashtag===roomContext.mine?.id&&roomContext.postingUnlockAt?`Your earlier hashtag messages expire by ${new Date(roomContext.postingUnlockAt).toLocaleString()}. Posting unlocks after they expire.`:'Read-only room · choose this hashtag in your profile to post.'}</p><button type="button" onClick={onOpenBoardSettings}>Profile settings</button></div></div>}
+      <div className="yd-chat-compose-row">
         <textarea
           ref={composer}
           aria-label={editing ? 'Edit message' : 'Message'}
@@ -425,7 +475,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           maxLength={240}
           value={draft}
           disabled={!context.canPost || !canWriteRoom}
-          placeholder={!canWriteRoom ? 'Read-only room…' : context.canPost ? (selectedHashtag ? `Message #${currentHashtagObj?.label ?? 'room'}…` : 'Share with General room…') : 'Posting is paused for now'}
+          placeholder={!canWriteRoom ? 'Read-only room…' : context.canPost ? (selectedHashtag ? `Message #${currentHashtagObj?.label ?? 'room'}…` : pacePrefs.optedIn ? 'Share with General room…' : 'Join Public Board to post in General…') : 'Posting is paused for now'}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -435,7 +485,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           }}
         />
         <button
-          className="c-primary c-send"
+          type="button"
+          className="yd-chat-send"
           aria-label={editing ? 'Save edit' : 'Send message'}
           disabled={!draft.trim() || !context.canPost || !canWriteRoom || actionBusy}
           onClick={send}
@@ -443,7 +494,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           {editing ? <Check size={19} /> : <Send size={19} />}
         </button>
       </div>
-      <p className="c-composer-note">Hold for options · double-tap to reply<span>{draft.length}/240</span></p>
+      <p className="yd-chat-hint"><span>Hold for options · double-tap to reply</span><span>{draft.length}/240</span></p>
     </footer>
     </section>;
 }

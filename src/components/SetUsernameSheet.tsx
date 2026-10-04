@@ -10,7 +10,6 @@ export default function SetUsernameSheet({
   onUsernameSet: () => void;
 }) {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -25,9 +24,8 @@ export default function SetUsernameSheet({
       } else {
         onUsernameSet();
       }
-      setLoading(false);
     };
-    checkProfile();
+    void checkProfile();
   }, [user, onUsernameSet]);
 
   const handleSubmit = async (e: React.FormEvent) => {
