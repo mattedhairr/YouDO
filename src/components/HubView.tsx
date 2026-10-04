@@ -131,19 +131,21 @@ export default function HubView({
       setLoadingProfile(false);
     })();
 
+    const onPendingChange = () => {
+      void refreshPendingCount();
+    };
+
     const friendshipsChannel = supabase
       .channel(`friendships_${user.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'friendships',
           filter: `receiver_id=eq.${user.id}`,
         },
-        () => {
-          void refreshPendingCount();
-        },
+        onPendingChange,
       )
       .subscribe();
 
@@ -156,9 +158,7 @@ export default function HubView({
 
     const squadMembersChannel = supabase
       .channel(`squad_members_notify_${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'squad_members' }, () => {
-        void refreshPendingCount();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'squad_members' }, onPendingChange)
       .subscribe();
 
     return () => {
@@ -167,6 +167,25 @@ export default function HubView({
       supabase.removeChannel(squadMembersChannel);
     };
   }, [user, refreshFriends, refreshPendingCount, refreshDmPreviews]);
+
+  useEffect(() => {
+    if (!user || !resolvedUsername || activeTab !== 'private') return;
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') void refreshPendingCount();
+    };
+
+    refreshIfVisible();
+    const interval = window.setInterval(refreshIfVisible, 20_000);
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [user, resolvedUsername, activeTab, refreshPendingCount]);
 
   useEffect(() => {
     if (!user || loadingProfile || resolvedUsername) {
@@ -293,7 +312,10 @@ export default function HubView({
                 <div className="flex items-center gap-4 pr-1 text-content-secondary">
                   <button
                     type="button"
-                    onClick={() => setNotificationsOpen(true)}
+                    onClick={() => {
+                      void refreshPendingCount();
+                      setNotificationsOpen(true);
+                    }}
                     className="relative hover:text-primary transition-colors"
                     title="Notifications"
                   >

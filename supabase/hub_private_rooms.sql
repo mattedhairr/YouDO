@@ -120,6 +120,7 @@ create policy "Users can create squads" on public.squads for insert with check (
 create policy "Users view members of their squads" on public.squad_members for select using (
   auth.uid() = user_id
   or public.is_accepted_squad_member(squad_members.squad_id, auth.uid())
+  or public.is_squad_admin(squad_members.squad_id, auth.uid())
 );
 create policy "Users can join squads" on public.squad_members for insert with check (auth.uid() = user_id);
 

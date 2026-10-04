@@ -28,6 +28,7 @@ drop policy if exists "Users view members of their squads" on public.squad_membe
 create policy "Users view members of their squads" on public.squad_members for select using (
   auth.uid() = user_id
   or public.is_accepted_squad_member(squad_members.squad_id, auth.uid())
+  or public.is_squad_admin(squad_members.squad_id, auth.uid())
 );
 
 drop policy if exists "Squad messages viewable only by accepted members" on public.squad_messages;
@@ -137,3 +138,18 @@ drop policy if exists "Squad admins update members" on public.squad_members;
 create policy "Squad admins update members" on public.squad_members for update using (
   public.is_squad_admin(squad_members.squad_id, auth.uid())
 );
+
+-- Realtime (run once per project; ignore "already member of publication" if re-run)
+do $$
+begin
+  alter publication supabase_realtime add table public.squad_members;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.friendships;
+exception
+  when duplicate_object then null;
+end $$;
