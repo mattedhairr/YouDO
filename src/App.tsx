@@ -31,7 +31,8 @@ import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { checkDeviceClock, clearClockIncident } from './lib/deviceClock';
 import UpdateNotice from './components/UpdateNotice';
 import { useCommunityActivity } from './hooks/useCommunityActivity';
-import { useHubAttention } from './hooks/useHubAttention';
+import { useHubAttentionContext } from './contexts/hubAttentionContext';
+import { HubAttentionRoot } from './components/HubAttentionRoot';
 import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
 import { FALLBACK_APP_QUOTES, fetchAppQuotes, loadCachedAppQuotes, type AppQuote } from './lib/appQuotes';
@@ -112,7 +113,13 @@ function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
 }
 
 export default function App() {
-  return <AppInner />;
+  const { user: activityUser } = useAuth();
+  const { pacePrefs: activityPrefs } = useStore();
+  return (
+    <HubAttentionRoot userId={activityUser?.id} publicBoardOptedIn={activityPrefs.optedIn}>
+      <AppInner />
+    </HubAttentionRoot>
+  );
 }
 
 function AppInner() {
@@ -180,7 +187,7 @@ function AppInner() {
     refreshPrivate: refreshHubPrivate,
     refreshDmInbox: refreshHubDmInbox,
     refreshSquadChat: refreshHubSquadChat,
-  } = useHubAttention(activityUser?.id, activityPrefs.optedIn);
+  } = useHubAttentionContext();
   const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity();
   const [clockVerifyBusy, setClockVerifyBusy] = useState(false);
   const [clockVerifyError, setClockVerifyError] = useState<string | null>(null);
