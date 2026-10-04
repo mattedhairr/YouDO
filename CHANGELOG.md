@@ -17,6 +17,14 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.7.4] - 2026-10-04 - Hub load freeze and chat actions (test build)
+
+- **Responsiveness** — Today, Hub, notifications, and pending requests no longer stall or sit on Loading from a hub-attention update loop.
+- **Chat actions** — Long-press Reply/Delete on a top message opens below the bubble so the header does not cover it.
+- **Android APK** — versionName **7.7.4**, versionCode **71**. Installs over v7.7.3 **70**. Unpublished test candidate.
+
+---
+
 ## [v7.7.3] - 2026-10-04 - Hub attention and board identity (test build)
 
 - **Hub notifications** — Bottom nav and Private tabs show dots for active DMs, rooms, and (when opted in) public community unread; friends list opens from a count pill.
