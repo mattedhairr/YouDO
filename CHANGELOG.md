@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.7.2] - 2026-10-04 - Private Hub preview (test build)
+
+- **Private Hub** — Friends, direct messages, private rooms, and squad chat improvements for early testing on your account.
+- **Unified chat** — Community, squad, and DM conversations share the same message layout, reply gestures, and composer style.
+- **Squad progress** — Squad rooms include a progress view aligned with your collective bar goals.
+- **Android APK** — versionName **7.7.2**, versionCode **67**. Installs over **v7.7.1** without clearing app data. Unpublished test candidate; not a public GitHub Release.
+
+---
+
 ## [v7.7.1] - 2026-10-03 - Hotfix: update checker, hashtag panel, and UI polish
 
 - **APK Update Fixed** - The in-app update checker no longer shows "APK signing information is missing" on Android 9 and above. Sideloaded updates now install correctly.
