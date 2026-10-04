@@ -344,7 +344,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         }
       }}
     >
-      <details className="c-guidance"><summary><ShieldCheck size={16}/> A little encouragement goes a long way</summary><p>Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.</p></details>
+      {messages.length === 0 && <details className="c-guidance"><summary><ShieldCheck size={16}/> A little encouragement goes a long way</summary><p>Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.</p></details>}
       {context.settings.announcement && <section className={`c-update-event ${context.unread?.updates?'is-new':''} ${updateOpen?'is-open':''}`}>
         <button type="button" aria-expanded={updateOpen} onClick={toggleUpdate}>
           <span className="c-update-icon"><Megaphone size={15}/></span>
@@ -369,10 +369,12 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             onPointerUp={event=>finishPress(event,message)} onPointerCancel={()=>{cancelPress();press.current=null;}}
             onContextMenu={event=>{if((event.target as HTMLElement).closest('button,input,textarea,a'))return;event.preventDefault();openActions(message);}}
             onDoubleClick={event=>{if(!(event.target as HTMLElement).closest('button,input,textarea,a'))beginReply(message);}} onKeyDown={event=>keyboardActions(event,message)}>
-            <div className="c-author-line">
-              <button className="c-author" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
-              {staff && <span className="c-admin-tag">Admin</span>}
-            </div>
+            {!mine && (
+              <div className="c-author-line">
+                <button className="c-author" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
+                {staff && <span className="c-admin-tag">Admin</span>}
+              </div>
+            )}
             {message.replyToId && <blockquote><strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong><span>{parent?.body??'No longer available'}</span></blockquote>}
             <p>{message.body}</p>
             {message.delivery==='failed' && <div className="c-retry"><span>{message.error}</span><button disabled={!canWriteRoom} onClick={()=>void transmit(message)}><RefreshCw size={14}/> Retry</button></div>}

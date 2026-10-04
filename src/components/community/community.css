@@ -153,7 +153,7 @@
 .c-message article {
   min-width:88px;
   max-width:85%;
-  padding:8px 12px 6px;
+  padding:6px 10px 5px;
   background:var(--bg-surface);
   border:1px solid var(--border-subtle);
   border-radius:18px 18px 18px 6px;
