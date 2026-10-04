@@ -18,6 +18,7 @@ import {
 import { todayISO } from '../lib/dates';
 import SquadProgressBoard from './squad/SquadProgressBoard';
 import './chat/youDoChat.css';
+import { useYdChatActionsPlacement } from './chat/useYdChatActionsPlacement';
 
 const PACE_WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -75,7 +76,8 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
 
   // Advanced Chat State
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-    const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const menuPreferBelow = useYdChatActionsPlacement(activeMenu);
   useEffect(() => {
     if (!activeMenu) return;
     const handleOutsideClick = (event: PointerEvent) => {
@@ -361,7 +363,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
                       <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : ''}`}>
                         <div className="yd-chat-bubble-wrap">
                         <div className="yd-chat-cluster">
-                        <div className="yd-chat-clip">
+                        <div className="yd-chat-clip" data-yd-chat-anchor={msg.id}>
                         <article
                           className="yd-chat-bubble"
                           tabIndex={0}
@@ -391,7 +393,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
                             role="menu"
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => e.stopPropagation()}
-                            className={`yd-chat-actions ${isMe ? 'is-mine' : ''}`}
+                            className={`yd-chat-actions ${isMe ? 'is-mine' : ''} ${menuPreferBelow ? 'is-below' : ''}`}
                           >
                             <button type="button" className="yd-chat-action" onClick={() => { setReplyingTo(msg); setActiveMenu(null); inputRef.current?.focus(); }}>
                               <Reply size={18} />

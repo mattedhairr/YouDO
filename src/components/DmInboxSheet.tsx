@@ -7,6 +7,7 @@ import { fetchDirectMessages, sendDirectMessage, deleteDirectMessage, markDirect
 import { supabase } from '../lib/supabase';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
 import './chat/youDoChat.css';
+import { useYdChatActionsPlacement } from './chat/useYdChatActionsPlacement';
 
 interface Props {
   open: boolean;
@@ -28,7 +29,8 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-    const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const menuPreferBelow = useYdChatActionsPlacement(activeMenu);
   useEffect(() => {
     if (!activeMenu) return;
     const handleOutsideClick = (event: PointerEvent) => {
@@ -142,7 +144,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
     <Overlay open={open} onClose={onClose} align="full">
       <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto flex flex-col h-full" onClick={() => setActiveMenu(null)}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-subtle bg-elevated">
+        <div className="flex items-center justify-between p-4 border-b border-subtle bg-elevated shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-1 -ml-1 text-content-secondary hover:text-content-primary rounded-full hover:bg-surface transition-colors">
               <ChevronLeft size={24} />
@@ -176,7 +178,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
                   <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : ''}`}>
                     <div className="yd-chat-bubble-wrap">
                     <div className="yd-chat-cluster">
-                    <div className="yd-chat-clip">
+                    <div className="yd-chat-clip" data-yd-chat-anchor={msg.id}>
                     <article
                       className="yd-chat-bubble"
                       tabIndex={0}
@@ -206,7 +208,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
                         role="menu"
                         onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
-                        className={`yd-chat-actions ${isMe ? 'is-mine' : ''}`}
+                        className={`yd-chat-actions ${isMe ? 'is-mine' : ''} ${menuPreferBelow ? 'is-below' : ''}`}
                       >
                         <button
                           type="button"

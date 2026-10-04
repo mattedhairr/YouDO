@@ -1,5 +1,6 @@
 import './community.css';
 import '../chat/youDoChat.css';
+import { useYdChatActionsPlacement } from '../chat/useYdChatActionsPlacement';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, Pencil, RefreshCw, Reply, Send, ShieldCheck, Trash2, X, AlertTriangle } from 'lucide-react';
@@ -46,6 +47,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [draft,setDraft] = useState('');
   const [reply,setReply] = useState<ChatMessage|null>(null);
   const [selected,setSelected] = useState<ChatMessage|null>(null);
+  const menuPreferBelow = useYdChatActionsPlacement(selected?.id ?? null);
   const [editing,setEditing] = useState<ChatMessage|null>(null);
   const [reason,setReason] = useState('');
   const [actionBusy,setActionBusy] = useState(false);
@@ -383,7 +385,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         return <li key={message.id} data-message={message.id} className={`yd-chat-row ${mine?'is-mine':''} ${message.delivery==='failed'?'is-failed':''}`}>
           <div className="yd-chat-bubble-wrap">
           <div className="yd-chat-cluster">
-          <div className="yd-chat-clip">
+          <div className="yd-chat-clip" data-yd-chat-anchor={message.id}>
           <article className="yd-chat-bubble" tabIndex={0} aria-label={`${authorName}: ${message.body}`}
             onPointerDown={event=>beginPress(event,message)} onPointerMove={movePress}
             onPointerUp={event=>finishPress(event,message)} onPointerCancel={()=>{cancelPress();press.current=null;}}
@@ -414,7 +416,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
                   role="menu"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
-                  className={`yd-chat-actions ${mine ? 'is-mine' : ''}`}
+                  className={`yd-chat-actions ${mine ? 'is-mine' : ''} ${menuPreferBelow ? 'is-below' : ''}`}
                 >
                     {message.delivery === 'sent' && canWriteRoom && (
                       <button type="button" className="yd-chat-action" onClick={(e) => { e.stopPropagation(); hapticTick(); beginReply(message); }}>

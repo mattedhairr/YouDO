@@ -301,6 +301,11 @@
   left: 0;
 }
 
+.yd-chat-actions.is-below {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+
 .yd-chat-action {
   display: flex;
   flex-direction: column;
