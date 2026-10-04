@@ -17,6 +17,14 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.7.2] - 2026-10-04 - Chat UI overhaul and timeline logic polish
+
+- **Chat Interface Redesign** - Consolidated message spacing, shifted timestamps outside chat bubbles, and emphasized names for a cleaner, native-feeling room experience.
+- **Hashtag Manager Polish** - Re-aligned and redesigned the Add Hashtag button in the Admin Hub to match standard list actions, and resolved vertical padding bugs.
+- **Timeline Integrity** - Adjusted task tagging to properly reflect complex combinations of backlog and multi-step process completions.
+- **Android APK** - versionName **7.7.2**, versionCode **67**. Installs cleanly over v7.7.1.
+
+
 ## [v7.7.1] - 2026-10-03 - Hotfix: update checker, hashtag panel, and UI polish
 
 - **APK Update Fixed** - The in-app update checker no longer shows "APK signing information is missing" on Android 9 and above. Sideloaded updates now install correctly.
