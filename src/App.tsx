@@ -657,15 +657,18 @@ function AppInner() {
   }, [activeSession?.isPaused, nativeSessionReady]);
 
   useEffect(() => {
+    const chrome = darkMode ? '#11100E' : '#E6E0D4';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', chrome);
     const initStatusBar = async () => {
       try {
-        await StatusBar.setStyle({ style: darkMode ? Style.Dark : Style.Light });
         await StatusBar.setOverlaysWebView({ overlay: false });
+        await StatusBar.setBackgroundColor({ color: chrome });
+        await StatusBar.setStyle({ style: darkMode ? Style.Dark : Style.Light });
       } catch {
-        /* fallback */
+        /* web / unsupported */
       }
     };
-    initStatusBar();
+    void initStatusBar();
   }, [darkMode]);
 
   const [todaySubTab, setTodaySubTab] = useState<'today' | 'backlog'>('today');

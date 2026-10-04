@@ -25,9 +25,9 @@ export default function PrivateFriendsSheet({
   );
 
   return (
-    <Overlay open={open} onClose={onClose} align="bottom">
-      <div className="flex flex-col h-full max-h-[min(92dvh,640px)] bg-surface rounded-t-[20px] border border-subtle">
-        <header className="flex items-center gap-2 px-3 py-3 border-b border-subtle shrink-0">
+    <Overlay open={open} onClose={onClose} align="full">
+      <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto flex flex-col h-full">
+        <header className="flex items-center gap-2 px-3 py-3 pt-[max(0.75rem,var(--safe-area-top))] border-b border-subtle shrink-0 bg-elevated">
           <button
             type="button"
             onClick={onClose}

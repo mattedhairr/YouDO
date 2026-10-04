@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, X, UserPlus, Check } from 'lucide-react';
 import Overlay from './Overlay';
-import { searchProfileByUsername, sendFriendRequest, type Profile } from '../lib/profiles';
+import { searchProfilesByUsernamePrefix, sendFriendRequest, type Profile } from '../lib/profiles';
 import { useAuth } from '../contexts/AuthContext';
+import { ProfileAvatarVisual } from '../lib/profileAvatar';
 
 interface Props {
   open: boolean;
@@ -14,33 +15,44 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
-  const [result, setResult] = useState<Profile | null>(null);
+  const [matches, setMatches] = useState<Profile[]>([]);
+  const [selected, setSelected] = useState<Profile | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [requestSent, setRequestSent] = useState(false);
   const [requestNote, setRequestNote] = useState('');
 
+  useEffect(() => {
+    if (!open) return;
+    const prefix = query.replace(/^@/, '').trim();
+    if (prefix.length < 2) {
+      setMatches([]);
+      setSearching(false);
+      setErrorMsg('');
+      return;
+    }
+
+    let cancelled = false;
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      void searchProfilesByUsernamePrefix(prefix, { excludeId: user?.id, limit: 8 }).then((rows) => {
+        if (cancelled) return;
+        setMatches(rows);
+        setSearching(false);
+        setErrorMsg(rows.length === 0 ? 'No matching @username.' : '');
+      });
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, query, user?.id]);
+
   if (!open) return null;
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
-    setSearching(true);
-    setResult(null);
-    setErrorMsg('');
-    setRequestSent(false);
-    setRequestNote('');
-
-    const profile = await searchProfileByUsername(query.trim());
-    if (profile) {
-      setResult(profile);
-    } else {
-      setErrorMsg('User not found.');
-    }
-    setSearching(false);
-  };
-
   const handleSendRequest = async () => {
-    if (!user || !result) return;
-    const res = await sendFriendRequest(user.id, result.id, requestNote);
+    if (!user || !selected) return;
+    const res = await sendFriendRequest(user.id, selected.id, requestNote);
     if (res.ok) {
       setRequestSent(true);
     } else {
@@ -51,7 +63,6 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
   return (
     <Overlay open={open} onClose={onClose}>
       <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto rounded-[24px] flex flex-col max-h-[85vh] sm:my-auto mb-4">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 pb-2 border-b border-subtle">
           <div className="w-10" />
           <h2 className="text-[14px] font-bold text-content-primary">Add Friend</h2>
@@ -60,43 +71,89 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
           </button>
         </div>
 
-        <div className="p-5 flex flex-col gap-4">
+        <div className="p-5 flex flex-col gap-4 overflow-y-auto">
           <p className="text-[12px] text-content-secondary text-center">
             Search for a companion by their unique @username
           </p>
 
-          <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="relative flex items-center">
-            <Search size={16} className="absolute left-3 text-content-muted" />
+          <div className="relative flex items-center">
+            <Search size={16} className="absolute left-3 text-content-muted pointer-events-none" />
             <input
-              type="text"
+              type="search"
               placeholder="e.g. @alex_study"
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              autoComplete="off"
+              enterKeyHint="search"
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSelected(null);
+                setRequestSent(false);
+                setRequestNote('');
+                setErrorMsg('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.preventDefault();
+              }}
               className="w-full bg-elevated border border-subtle rounded-xl pl-9 pr-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
             />
-          </form>
+          </div>
 
-          {searching && <p className="text-center text-[12px] text-content-muted mt-4">Searching...</p>}
-          
-          {errorMsg && !result && (
-            <p className="text-center text-[12px] text-red-500 mt-4">{errorMsg}</p>
+          {searching && <p className="text-center text-[12px] text-content-muted">Searching…</p>}
+
+          {errorMsg && !selected && (
+            <p className="text-center text-[12px] text-red-500">{errorMsg}</p>
           )}
 
-          {result && (
-            <div className="mt-4 bg-elevated border border-subtle rounded-2xl p-4 flex flex-col gap-4">
-              <div 
+          {!selected && matches.length > 0 && (
+            <ul className="divide-y divide-subtle rounded-2xl border border-subtle overflow-hidden">
+              {matches.map((profile) => (
+                <li key={profile.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelected(profile);
+                      setErrorMsg('');
+                      setRequestSent(false);
+                      setRequestNote('');
+                    }}
+                    className="w-full flex items-center gap-3 p-3 text-left hover:bg-elevated"
+                  >
+                    <div className="w-11 h-11 shrink-0 rounded-full bg-primary-soft text-primary overflow-hidden flex items-center justify-center border border-primary/20">
+                      <ProfileAvatarVisual
+                        avatarUrl={profile.avatar_url}
+                        displayName={profile.display_name}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-bold text-content-primary truncate">{profile.display_name}</p>
+                      <p className="text-[11px] font-medium text-primary truncate">@{profile.username}</p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {selected && (
+            <div className="bg-elevated border border-subtle rounded-2xl p-4 flex flex-col gap-4">
+              <div
                 className="flex items-center gap-3 cursor-pointer"
                 onClick={() => {
                   onClose();
-                  onOpenProfile(result.id);
+                  onOpenProfile(selected.id);
                 }}
               >
-                <div className="w-12 h-12 shrink-0 rounded-full bg-primary-soft text-primary text-xl font-bold flex items-center justify-center border border-primary/20">
-                  {result.avatar_url || '🎓'}
+                <div className="w-12 h-12 shrink-0 rounded-full bg-primary-soft text-primary overflow-hidden flex items-center justify-center border border-primary/20">
+                  <ProfileAvatarVisual
+                    avatarUrl={selected.avatar_url}
+                    displayName={selected.display_name}
+                    className="text-xl"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-[14px] font-bold text-content-primary truncate">{result.display_name}</h3>
-                  <p className="text-[11px] font-medium text-primary truncate">@{result.username}</p>
+                  <h3 className="text-[14px] font-bold text-content-primary truncate">{selected.display_name}</h3>
+                  <p className="text-[11px] font-medium text-primary truncate">@{selected.username}</p>
                 </div>
               </div>
 

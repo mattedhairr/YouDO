@@ -32,7 +32,7 @@ function squadWindowLabel(paceWindow: PaceWindow): string {
   return 'Today';
 }
 
-function memberPaceRow(userId: string, squadBarHours: number, row?: PaceRow): PaceRow {
+function memberPaceRow(userId: string, fallbackBarHours: number, row?: PaceRow): PaceRow {
   if (row) return row;
   return {
     userId,
@@ -42,7 +42,7 @@ function memberPaceRow(userId: string, squadBarHours: number, row?: PaceRow): Pa
     weekMs: 0,
     monthMs: 0,
     streak: 0,
-    barHours: squadBarHours,
+    barHours: fallbackBarHours,
     updatedAt: '',
   };
 }
@@ -51,6 +51,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   squadId: string | null;
+  personalPace: number;
 }
 
 interface Message {
@@ -62,7 +63,7 @@ interface Message {
   system?: boolean;
 }
 
-export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
+export default function SquadRoomSheet({ open, onClose, squadId, personalPace }: Props) {
   const { user } = useAuth();
   const [paceWindow, setPaceWindow] = useState<PaceWindow>('today');
   const [activeTab, setActiveTab] = useState<'board' | 'chat'>('board');
@@ -123,7 +124,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
 
   // Mock chat history
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'sys', text: "Welcome! Only members with this target can join.", time: "9:00 AM", system: true }
+    { id: '1', sender: 'sys', text: 'Welcome to the room. Progress uses each member’s synced daily bar.', time: '9:00 AM', system: true }
   ]);
   
   useEffect(() => {
@@ -132,7 +133,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
     const loadMessages = async (markRead: boolean) => {
       const data = await fetchSquadMessages(squadId);
       setMessages([
-        { id: '1', sender: 'sys', text: "Welcome! Only members with this target can join.", time: "9:00 AM", system: true },
+        { id: '1', sender: 'sys', text: 'Welcome to the room. Progress uses each member’s synced daily bar.', time: '9:00 AM', system: true },
         ...data.map(d => ({
           id: d.id,
           sender: d.sender_id,
@@ -166,8 +167,10 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
   const acceptedMembers = members
     .filter((m) => m.status === 'accepted')
     .sort((a, b) => {
-      const rowA = memberPaceRow(a.user_id, barHours, paceByUserId[a.user_id]);
-      const rowB = memberPaceRow(b.user_id, barHours, paceByUserId[b.user_id]);
+      const fallbackA = a.user_id === user?.id ? personalPace : 0;
+      const fallbackB = b.user_id === user?.id ? personalPace : 0;
+      const rowA = memberPaceRow(a.user_id, fallbackA, paceByUserId[a.user_id]);
+      const rowB = memberPaceRow(b.user_id, fallbackB, paceByUserId[b.user_id]);
       return windowMs(rowB, paceWindow, anchorISO) - windowMs(rowA, paceWindow, anchorISO);
     });
 
@@ -332,7 +335,14 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
                   paceWindow={paceWindow}
                   anchorISO={anchorISO}
                   currentUserId={user?.id}
-                  emptyPaceRow={(userId) => memberPaceRow(userId, barHours, paceByUserId[userId])}
+                  viewerBarHours={personalPace}
+                  emptyPaceRow={(userId) =>
+                    memberPaceRow(
+                      userId,
+                      userId === user?.id ? personalPace : 0,
+                      paceByUserId[userId],
+                    )
+                  }
                 />
               </div>
             ) : (

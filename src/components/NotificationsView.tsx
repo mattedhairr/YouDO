@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Check, DoorOpen, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -92,19 +92,6 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
   const sentCount = friendOut.length + squadJoinOut.length;
   const pendingTotal = receivedCount + sentCount;
 
-  const previewAvatars = useMemo(() => {
-    const urls: { id: string; name: string; avatar?: string }[] = [];
-    for (const r of friendIn.slice(0, 2)) {
-      urls.push({ id: r.requester.id, name: r.requester.display_name, avatar: r.requester.avatar_url });
-    }
-    for (const j of squadJoinIn.slice(0, 2 - urls.length)) {
-      if (j.requester) {
-        urls.push({ id: j.requester.id, name: j.requester.display_name, avatar: j.requester.avatar_url });
-      }
-    }
-    return urls;
-  }, [friendIn, squadJoinIn]);
-
   const header = (title: string, back?: () => void) => (
     <div className="grid grid-cols-[2.75rem_1fr_2.75rem] items-center px-2 py-1.5 border-b border-subtle mb-1">
       <button
@@ -135,21 +122,8 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
             onClick={() => setScreen('pending')}
             className="w-full flex items-center gap-3 p-4 rounded-[18px] bg-elevated border border-subtle hover:border-primary/30 active:scale-[0.99] transition-all text-left"
           >
-            <div className="flex -space-x-2 shrink-0">
-              {previewAvatars.length > 0 ? (
-                previewAvatars.map((a) => (
-                  <div
-                    key={a.id}
-                    className="w-11 h-11 rounded-full border-2 border-elevated bg-primary-soft overflow-hidden flex items-center justify-center"
-                  >
-                    <ProfileAvatarVisual avatarUrl={a.avatar} displayName={a.name} className="text-sm" />
-                  </div>
-                ))
-              ) : (
-                <div className="w-11 h-11 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-primary">
-                  <UserPlus size={20} />
-                </div>
-              )}
+            <div className="w-11 h-11 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-primary shrink-0">
+              <UserPlus size={20} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[15px] font-bold text-content-primary">Pending requests</p>

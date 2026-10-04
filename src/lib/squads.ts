@@ -6,6 +6,49 @@ export function paceHoursMatch(squadBarHours: number, personalBarHours: number):
   return Math.abs(Number(squadBarHours) - Number(personalBarHours)) < 0.01;
 }
 
+export function squadPaceGateMessage(squadBarHours: number, personalBarHours: number): string {
+  return `This room is ${squadBarHours}h/day. Your daily streak bar is ${personalBarHours}h. Match your bar in Settings to enter.`;
+}
+
+/**
+ * Collective bar only when two or more members share the same daily hours.
+ * Prefer the room’s bar if that group has 2+ people; otherwise the largest shared group.
+ */
+export function partitionSquadPaceMembers<T extends { barHours: number }>(
+  members: T[],
+  squadBarHours: number,
+): { collective: T[]; separate: T[] } {
+  if (members.length < 2) return { collective: [], separate: [...members] };
+
+  const buckets = new Map<number, T[]>();
+  for (const member of members) {
+    const hours = Number(member.barHours);
+    if (!Number.isFinite(hours) || hours <= 0) continue;
+    const key = Math.round(hours * 100);
+    const list = buckets.get(key) ?? [];
+    list.push(member);
+    buckets.set(key, list);
+  }
+
+  const roomKey = Math.round(Number(squadBarHours) * 100);
+  const roomGroup = buckets.get(roomKey) ?? [];
+  let chosen = roomGroup.length >= 2 ? roomGroup : [];
+  if (chosen.length < 2) {
+    for (const group of buckets.values()) {
+      if (group.length > chosen.length) chosen = group;
+    }
+    if (chosen.length < 2) chosen = [];
+  }
+
+  if (chosen.length < 2) return { collective: [], separate: [...members] };
+
+  const inCollective = new Set(chosen);
+  return {
+    collective: chosen,
+    separate: members.filter((m) => !inCollective.has(m)),
+  };
+}
+
 export interface Squad {
   id: string;
   name: string;

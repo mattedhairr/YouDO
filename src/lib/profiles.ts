@@ -10,6 +10,14 @@ export function normalizeUsername(raw: unknown): string | null {
   return clean;
 }
 
+/** Prefix used while typing a handle (may be shorter than a valid username). */
+export function usernameSearchPrefix(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const clean = raw.replace(/^@/, '').toLowerCase().trim();
+  if (!/^[a-z0-9_]{1,20}$/.test(clean)) return null;
+  return clean;
+}
+
 export function usernameFromAuthMetadata(meta: Record<string, unknown> | undefined): string | null {
   return normalizeUsername(meta?.username);
 }
@@ -245,6 +253,27 @@ export async function searchProfileByUsername(username: string): Promise<Profile
   
   if (error) return null;
   return data as Profile;
+}
+
+export async function searchProfilesByUsernamePrefix(
+  query: string,
+  options?: { excludeId?: string; limit?: number },
+): Promise<Profile[]> {
+  const prefix = usernameSearchPrefix(query);
+  if (!prefix) return [];
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .ilike('username', `${prefix}%`)
+    .order('username', { ascending: true })
+    .limit(options?.limit ?? 8);
+
+  if (error || !data) return [];
+  return (data as Profile[]).filter((row) => {
+    if (!normalizeUsername(row.username)) return false;
+    if (options?.excludeId && row.id === options.excludeId) return false;
+    return true;
+  });
 }
 
 export async function sendFriendRequest(

@@ -58,14 +58,6 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
 
   const handleRequestJoin = async (room: Squad) => {
     if (!user) return;
-    if (!paceHoursMatch(room.bar_hours, personalPace)) {
-      setJoinMessage({
-        id: room.id,
-        text: `Your daily bar is ${personalPace}h — this room requires ${room.bar_hours}h/day.`,
-        error: true,
-      });
-      return;
-    }
     setJoinBusyId(room.id);
     setJoinMessage(null);
     const res = await requestJoinSquad(room.id, user.id);
@@ -177,7 +169,7 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
           <h3 className="text-[11px] font-bold text-content-muted uppercase tracking-wider">Discover</h3>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[10px] text-content-muted font-medium max-w-[7rem] leading-tight text-right">
-              Match my {personalPace}h bar
+              Show my {personalPace}h bar
             </span>
             <Toggle
               checked={compatibleOnly}
@@ -187,7 +179,7 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
           </div>
         </div>
         <p className="text-[10px] text-content-muted px-1 mb-3 leading-relaxed">
-          Public rooms you can ask to join. Check Notifications for sent and incoming requests.
+          Public rooms anyone can ask to join. Use the toggle to find squads at your daily bar.
         </p>
 
         {loading ? (
@@ -248,7 +240,7 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
 
                   <button
                     type="button"
-                    disabled={!compatible || joinBusyId === room.id}
+                    disabled={joinBusyId === room.id}
                     onClick={() => void handleRequestJoin(room)}
                     className="w-full h-10 rounded-xl text-[12px] font-bold flex items-center justify-center gap-2 bg-primary text-on-primary disabled:opacity-40 disabled:cursor-not-allowed"
                   >
@@ -257,7 +249,7 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
                     ) : (
                       <DoorOpen size={16} strokeWidth={2.2} />
                     )}
-                    {compatible ? 'Request to join' : `Requires ${room.bar_hours}h/day bar`}
+                    Request to join
                   </button>
                 </div>
               );

@@ -34,33 +34,33 @@ html.dark {
 }
 
 html.light-dusky {
-  --bg-base: #f3efe6;
-  --bg-surface: #fcfaf6;
-  --bg-elevated: #ffffff;
-  --primary: #8c6840;
-  --primary-soft: #f1e4d2;
-  --primary-glow: #6f5132;
-  --on-primary: #fffaf3;
-  --secondary: #3f6b4a;
-  --secondary-soft: #e4f0e6;
-  --accent: #8c6840;
-  --accent-hover: #6f5132;
-  --accent-soft: #f1e4d2;
-  --success: #3f6b4a;
-  --success-soft: #e4f0e6;
-  --warning: #8c6840;
-  --error: #b54a42;
-  --error-soft: #f7e6e4;
-  --on-accent: #fffaf3;
-  --text-primary: #1c1915;
-  --text-secondary: #5e574c;
-  --text-muted: #8a8276;
-  --border: #e4ddd2;
-  --border-subtle: #ece6db;
-  --shadow-card: 0 1px 2px rgba(28, 25, 21, 0.04);
-  --shadow-elevated: 0 18px 36px -18px rgba(28, 25, 21, 0.16);
-  --backdrop: rgba(28, 25, 21, 0.48);
-  --ring: rgba(140, 104, 64, 0.22);
+  --bg-base: #e6e0d4;
+  --bg-surface: #efe9dc;
+  --bg-elevated: #f4efe4;
+  --primary: #7d5c38;
+  --primary-soft: #e8d7c0;
+  --primary-glow: #63492c;
+  --on-primary: #f7f1e6;
+  --secondary: #385f42;
+  --secondary-soft: #dce8de;
+  --accent: #7d5c38;
+  --accent-hover: #63492c;
+  --accent-soft: #e8d7c0;
+  --success: #385f42;
+  --success-soft: #dce8de;
+  --warning: #7d5c38;
+  --error: #a43f38;
+  --error-soft: #edd8d5;
+  --on-accent: #f7f1e6;
+  --text-primary: #2a251f;
+  --text-secondary: #5a5348;
+  --text-muted: #7a7267;
+  --border: #cfc5b4;
+  --border-subtle: #ddd4c5;
+  --shadow-card: 0 1px 2px rgba(42, 37, 31, 0.07);
+  --shadow-elevated: 0 16px 32px -16px rgba(42, 37, 31, 0.2);
+  --backdrop: rgba(42, 37, 31, 0.42);
+  --ring: rgba(125, 92, 56, 0.24);
   color-scheme: light;
 }
 
@@ -839,6 +839,14 @@ input[type='datetime-local'] {
   box-shadow:
     0 18px 42px -22px rgba(0, 0, 0, 0.78),
     0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent) inset;
+}
+
+html.light-dusky .command-dock,
+html.light-dusky .command-dock-premium {
+  background: var(--bg-elevated);
+  box-shadow:
+    0 10px 24px -14px rgba(42, 37, 31, 0.28),
+    inset 0 1px 0 rgba(255, 252, 245, 0.55);
 }
 
 .command-tab {

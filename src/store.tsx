@@ -1606,7 +1606,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setStreakBarHours = useCallback(
     (hours: number) => {
-      setStreakMeta((prev) => applyStreakBarHours(prev, hours, todayISO()));
+      setStreakMeta((prev) => {
+        const next = applyStreakBarHours(prev, hours, todayISO());
+        streakMetaRef.current = next;
+        return next;
+      });
+      const userId = userIdRef.current;
+      if (!userId || !pacePrefsRef.current.optedIn) return;
+      window.clearTimeout(paceCloudTimerRef.current);
+      paceCloudTimerRef.current = window.setTimeout(() => {
+        void syncPublicPaceRow({
+          userId,
+          prefs: pacePrefsRef.current,
+          streakMeta: streakMetaRef.current,
+          authMetadata: userMetaRef.current,
+        });
+      }, 450);
     },
     [setStreakMeta],
   );

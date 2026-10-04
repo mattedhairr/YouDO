@@ -627,6 +627,7 @@ export default function HubView({
       <SquadRoomSheet
         open={!!openRoomId}
         squadId={openRoomId}
+        personalPace={personalPace}
         onClose={() => {
           setOpenRoomId(null);
           refreshSquadChat?.();

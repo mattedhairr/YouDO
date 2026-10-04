@@ -4,6 +4,7 @@ import {
   normalizeUsername,
   resolvePrivateHubUsername,
   usernameFromAuthMetadata,
+  usernameSearchPrefix,
 } from './profiles';
 
 describe('normalizeUsername', () => {
@@ -18,6 +19,18 @@ describe('normalizeUsername', () => {
     expect(normalizeUsername('bad-handle')).toBeNull();
     expect(normalizeUsername('has space')).toBeNull();
     expect(normalizeUsername(42)).toBeNull();
+  });
+});
+
+describe('usernameSearchPrefix', () => {
+  it('allows in-progress handles shorter than a full username', () => {
+    expect(usernameSearchPrefix('@Te')).toBe('te');
+    expect(usernameSearchPrefix('alex_study')).toBe('alex_study');
+  });
+
+  it('rejects empty or invalid typing', () => {
+    expect(usernameSearchPrefix('')).toBeNull();
+    expect(usernameSearchPrefix('bad-')).toBeNull();
   });
 });
 

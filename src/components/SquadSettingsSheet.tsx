@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Search, UserPlus, LogOut, Check, UserMinus } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +10,7 @@ import {
   type Squad,
   type SquadMember,
 } from '../lib/squads';
-import { searchProfileByUsername, type Profile } from '../lib/profiles';
+import { searchProfilesByUsernamePrefix, type Profile } from '../lib/profiles';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
 
 interface Props {
@@ -24,40 +24,50 @@ interface Props {
 export default function SquadSettingsSheet({ open, onClose, squad, members, onMembersChanged }: Props) {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
-  const [searchResult, setSearchResult] = useState<Profile | null>(null);
+  const [matches, setMatches] = useState<Profile[]>([]);
   const [searchError, setSearchError] = useState('');
   const [searching, setSearching] = useState(false);
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [invitedId, setInvitedId] = useState<string | null>(null);
 
   const isAdmin = members.some(
     (m) => m.user_id === user?.id && m.role === 'admin' && m.status === 'accepted',
   );
 
-  if (!open) return null;
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = search.replace(/^@/, '').trim();
-    if (!q) return;
-    setSearching(true);
-    setSearchError('');
-    setSearchResult(null);
-    const profile = await searchProfileByUsername(q);
-    if (!profile) {
-      setSearchError('No user with that @username.');
-    } else {
-      setSearchResult(profile);
+  useEffect(() => {
+    if (!open) return;
+    const prefix = search.replace(/^@/, '').trim();
+    if (prefix.length < 2) {
+      setMatches([]);
+      setSearching(false);
+      setSearchError('');
+      return;
     }
-    setSearching(false);
-  };
+
+    let cancelled = false;
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      void searchProfilesByUsernamePrefix(prefix, { excludeId: user?.id, limit: 8 }).then((rows) => {
+        if (cancelled) return;
+        setMatches(rows);
+        setSearching(false);
+        setSearchError(rows.length === 0 ? 'No user with that @username.' : '');
+      });
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, search, user?.id]);
 
   const handleInvite = async (userId: string) => {
     setInviteBusy(true);
+    setSearchError('');
     const ok = await inviteUserToSquad(squad.id, userId);
     setInviteBusy(false);
     if (ok) {
-      setSearch('');
-      setSearchResult(null);
+      setInvitedId(userId);
       onMembersChanged();
     } else {
       setSearchError('Could not send invite. They may already be in this squad.');
@@ -73,6 +83,8 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
   const acceptedMembers = members.filter((m) => m.status === 'accepted');
   const invitedMembers = members.filter((m) => m.status === 'invited');
   const pendingMembers = members.filter((m) => m.status === 'pending');
+
+  if (!open) return null;
 
   return (
     <Overlay open={open} onClose={onClose}>
@@ -103,51 +115,72 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
               <h3 className="text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-2">
                 Invite by @username
               </h3>
-              <form onSubmit={(e) => void handleSearch(e)} className="relative">
+              <div className="relative">
                 <Search size={16} className="absolute left-3.5 top-3.5 text-content-muted pointer-events-none" />
                 <input
-                  type="text"
+                  type="search"
                   placeholder="@friend_handle"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full h-11 bg-base border border-subtle rounded-xl pl-10 pr-4 text-[13px] outline-none focus:border-primary transition-colors"
                   autoComplete="off"
+                  enterKeyHint="search"
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setInvitedId(null);
+                    setSearchError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.preventDefault();
+                  }}
+                  className="w-full h-11 bg-base border border-subtle rounded-xl pl-10 pr-4 text-[13px] outline-none focus:border-primary transition-colors"
                 />
-              </form>
+              </div>
               <p className="text-[10px] text-content-muted mt-2 leading-relaxed">
-                They&apos;ll get a squad invite in Notifications — must accept to join.
+                Matches appear as you type. Tap Invite to send — they must accept in Notifications.
               </p>
 
               {searching && <p className="text-[12px] text-content-muted mt-3 text-center">Searching…</p>}
               {searchError && <p className="text-[11px] text-error mt-2">{searchError}</p>}
 
-              {searchResult && (
-                <div className="mt-3 flex items-center justify-between gap-3 p-3 bg-elevated border border-subtle rounded-xl">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center shrink-0">
-                      <ProfileAvatarVisual
-                        avatarUrl={searchResult.avatar_url}
-                        displayName={searchResult.display_name}
-                        className="text-sm"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-bold text-content-primary truncate">{searchResult.display_name}</p>
-                      <p className="text-[11px] text-primary truncate">@{searchResult.username}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={
-                      inviteBusy || members.some((m) => m.user_id === searchResult.id && m.status !== 'pending')
-                    }
-                    onClick={() => void handleInvite(searchResult.id)}
-                    className="h-9 px-3 rounded-lg bg-primary text-on-primary text-[12px] font-bold disabled:opacity-50 flex items-center gap-1.5 shrink-0"
-                  >
-                    <UserPlus size={14} />
-                    Invite
-                  </button>
-                </div>
+              {matches.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {matches.map((profile) => {
+                    const alreadyIn = members.some((m) => m.user_id === profile.id && m.status !== 'pending');
+                    const justInvited = invitedId === profile.id || members.some((m) => m.user_id === profile.id && m.status === 'invited');
+                    return (
+                      <li
+                        key={profile.id}
+                        className="flex items-center justify-between gap-3 p-3 bg-elevated border border-subtle rounded-xl"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center shrink-0">
+                            <ProfileAvatarVisual
+                              avatarUrl={profile.avatar_url}
+                              displayName={profile.display_name}
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-bold text-content-primary truncate">{profile.display_name}</p>
+                            <p className="text-[11px] text-primary truncate">@{profile.username}</p>
+                          </div>
+                        </div>
+                        {justInvited ? (
+                          <span className="text-[11px] font-semibold text-content-muted shrink-0">Invited</span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={inviteBusy || alreadyIn}
+                            onClick={() => void handleInvite(profile.id)}
+                            className="h-9 px-3 rounded-lg bg-primary text-on-primary text-[12px] font-bold disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                          >
+                            <UserPlus size={14} />
+                            Invite
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
           )}

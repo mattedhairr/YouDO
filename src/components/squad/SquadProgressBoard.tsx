@@ -9,6 +9,7 @@ import {
 } from '../../lib/paceBoard';
 import { formatDuration } from '../../lib/format';
 import { ProfileAvatarVisual } from '../../lib/profileAvatar';
+import { partitionSquadPaceMembers } from '../../lib/squads';
 
 export type SquadBarProgress = {
   focused: number;
@@ -149,7 +150,7 @@ function VerticalCollectiveBar({
         }
       >
         <div
-          className={`flex h-full min-h-0 flex-col items-center overflow-hidden py-1 ${accent}`}
+          className={`flex h-full min-h-0 flex-col items-center bg-transparent py-1 ${accent}`}
           style={{ gridColumn: 1, gridRow: `1 / ${count + 1}`, width: labelWidthPx }}
         >
           <CollectiveBarArrow
@@ -242,6 +243,7 @@ interface Props {
   paceWindow: PaceWindow;
   anchorISO: string;
   currentUserId?: string;
+  viewerBarHours?: number;
   emptyPaceRow: (userId: string) => PaceRow;
 }
 
@@ -252,6 +254,7 @@ export default function SquadProgressBoard({
   paceWindow,
   anchorISO,
   currentUserId,
+  viewerBarHours,
   emptyPaceRow,
 }: Props) {
   const windowShort = paceWindow === 'today' ? 'today' : paceWindow === 'week' ? 'this week' : 'this month';
@@ -259,7 +262,12 @@ export default function SquadProgressBoard({
   const memberStats = useMemo(() => {
     return members.map((m) => {
       const row = paceByUserId[m.user_id] ?? emptyPaceRow(m.user_id);
-      const progress = computeSquadBarProgress(row, squadBarHours, paceWindow, anchorISO);
+      const isSelf = m.user_id === currentUserId;
+      const personalBar = isSelf && viewerBarHours && viewerBarHours > 0
+        ? viewerBarHours
+        : Number(row.barHours);
+      const progressHours = personalBar > 0 ? personalBar : squadBarHours;
+      const progress = computeSquadBarProgress(row, progressHours, paceWindow, anchorISO);
       const name = m.profiles?.display_name || 'Member';
       return {
         userId: m.user_id,
@@ -267,16 +275,22 @@ export default function SquadProgressBoard({
         avatarUrl: m.profiles?.avatar_url,
         row,
         progress,
+        barHours: personalBar,
         updatedAt: row.updatedAt,
-        isSelf: m.user_id === currentUserId,
+        isSelf,
       };
     });
-  }, [members, paceByUserId, squadBarHours, paceWindow, anchorISO, currentUserId, emptyPaceRow]);
+  }, [members, paceByUserId, squadBarHours, paceWindow, anchorISO, currentUserId, viewerBarHours, emptyPaceRow]);
+
+  const { collective: collectiveMembers, separate: separateMembers } = useMemo(
+    () => partitionSquadPaceMembers(memberStats, squadBarHours),
+    [memberStats, squadBarHours],
+  );
 
   const collective = useMemo(() => {
-    if (!memberStats.length) return null;
-    const totalFocused = memberStats.reduce((s, m) => s + m.progress.focused, 0);
-    const totalTarget = memberStats.reduce((s, m) => s + m.progress.targetMs, 0);
+    if (!collectiveMembers.length) return null;
+    const totalFocused = collectiveMembers.reduce((s, m) => s + m.progress.focused, 0);
+    const totalTarget = collectiveMembers.reduce((s, m) => s + m.progress.targetMs, 0);
     const percentRaw = totalTarget > 0 ? Math.round((totalFocused / totalTarget) * 100) : 0;
     return {
       totalFocused,
@@ -285,7 +299,7 @@ export default function SquadProgressBoard({
       percentRaw,
       overMs: Math.max(0, totalFocused - totalTarget),
     };
-  }, [memberStats]);
+  }, [collectiveMembers]);
 
   const activity = useMemo(() => {
     const items = memberStats
@@ -318,31 +332,70 @@ export default function SquadProgressBoard({
     );
   }
 
-  const reachedCount = memberStats.filter((m) => m.progress.percentRaw >= 100).length;
-  const allComplete = memberStats.length > 0 && reachedCount === memberStats.length;
-  const collectivePercent = collectiveBarPercent(memberStats);
+  const reachedCount = collectiveMembers.filter((m) => m.progress.percentRaw >= 100).length;
+  const allComplete = collectiveMembers.length > 0 && reachedCount === collectiveMembers.length;
+  const collectivePercent = collectiveBarPercent(collectiveMembers);
+  const collectiveBarHours = collectiveMembers[0]?.barHours || squadBarHours;
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="rounded-[18px] border border-primary/30 bg-gradient-to-b from-primary-soft/25 to-elevated p-4 shadow-elevated">
+      {collectiveMembers.length > 0 && (
+      <section className="rounded-[18px] border border-subtle bg-elevated p-4">
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted capitalize">{paceWindow}</p>
             <p className={`mt-1 text-[15px] font-bold ${allComplete ? 'text-secondary' : 'text-content-primary'}`}>
-              {allComplete ? 'Collective complete' : `${reachedCount} of ${memberStats.length} bars reached`}
+              {allComplete ? 'Collective complete' : `${reachedCount} of ${collectiveMembers.length} bars reached`}
             </p>
           </div>
           <p className="max-w-[46%] text-right text-[11px] leading-snug text-content-secondary">
-            {formatDuration(collective?.totalFocused ?? 0)} together · {squadBarHours}h bar each
+            {formatDuration(collective?.totalFocused ?? 0)} together · {collectiveBarHours}h bar each
           </p>
         </div>
         <VerticalCollectiveBar
-          members={memberStats}
+          members={collectiveMembers}
           windowShort={windowShort}
           allComplete={allComplete}
           collectivePercent={collectivePercent}
         />
       </section>
+      )}
+
+      {separateMembers.length > 0 && (
+        <section className="rounded-[18px] border border-subtle/80 bg-elevated/40 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted mb-3">
+            {collectiveMembers.length > 0 ? 'Different daily bar' : 'On their own bars'}
+          </p>
+          <ul className="divide-y divide-subtle/80">
+            {separateMembers.map((m, index) => {
+              const over = m.progress.overMs > 0;
+              return (
+                <li
+                  key={m.userId}
+                  className={`flex min-h-14 items-center gap-2.5 py-1.5 opacity-45 ${index > 0 ? '' : 'pt-0'}`}
+                >
+                  <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-subtle bg-surface">
+                    <ProfileAvatarVisual avatarUrl={m.avatarUrl} displayName={m.name} className="text-xs" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-content-primary">
+                      {m.name}
+                      {m.isSelf && <span className="ml-1.5 text-[9px] font-bold uppercase text-primary">You</span>}
+                    </p>
+                    <p className={`text-[11px] font-medium ${over ? 'text-secondary' : 'text-content-muted'}`}>
+                      {m.progress.percentRaw}% complete
+                      {m.progress.focused > 0 ? ` · ${formatDuration(m.progress.focused)}` : ''}
+                    </p>
+                    <p className="text-[10px] text-content-muted">
+                      {m.barHours > 0 ? `${m.barHours}h bar` : 'No synced bar'} · {barLabel(m.progress, windowShort)}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* Dynamic activity board */}
       <section>
