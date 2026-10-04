@@ -2,7 +2,7 @@
     "name":  "youdo",
     "description":  "Execution \u0026 Goal Tracker",
     "private":  true,
-    "version":  "7.7.1",
+    "version": "7.7.2",
     "type":  "module",
     "scripts":  {
                     "dev":  "vite",
