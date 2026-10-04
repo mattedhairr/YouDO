@@ -133,20 +133,38 @@ export function useHubAttention(userId: string | undefined, publicBoardOptedIn =
 
   const showHubNavDot = publicHubUnread > 0 || privateHubAttention;
 
-  return {
-    privatePending,
-    dmUnread,
-    roomsOutgoingPending,
-    squadChatUnread,
-    communityUnread: publicHubUnread,
-    privateHubAttention,
-    dmsTabAttention,
-    roomsTabAttention,
-    showHubNavDot,
-    refreshPrivate,
-    refreshDmInbox,
-    refreshSquadChat,
-    refreshCommunity,
-    refreshAll,
-  };
+  return useMemo(
+    () => ({
+      privatePending,
+      dmUnread,
+      roomsOutgoingPending,
+      squadChatUnread,
+      communityUnread: publicHubUnread,
+      privateHubAttention,
+      dmsTabAttention,
+      roomsTabAttention,
+      showHubNavDot,
+      refreshPrivate,
+      refreshDmInbox,
+      refreshSquadChat,
+      refreshCommunity,
+      refreshAll,
+    }),
+    [
+      privatePending,
+      dmUnread,
+      roomsOutgoingPending,
+      squadChatUnread,
+      publicHubUnread,
+      privateHubAttention,
+      dmsTabAttention,
+      roomsTabAttention,
+      showHubNavDot,
+      refreshPrivate,
+      refreshDmInbox,
+      refreshSquadChat,
+      refreshCommunity,
+      refreshAll,
+    ],
+  );
 }
