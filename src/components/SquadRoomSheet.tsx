@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Settings, Send, Reply, Trash2, X } from 'lucide-react';
 import Overlay from './Overlay';
 import SquadSettingsSheet from './SquadSettingsSheet';
@@ -91,7 +91,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
   const lastTapRef = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchSquad = async () => {
+  const fetchSquad = useCallback(async () => {
     if (!squadId) return;
     setLoading(true);
     const res = await getSquadDetails(squadId);
@@ -105,11 +105,11 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
       setPaceByUserId(map);
     }
     setLoading(false);
-  };
+  }, [squadId]);
 
   useEffect(() => {
-    if (open && squadId) fetchSquad();
-  }, [open, squadId]);
+    if (open && squadId) void fetchSquad();
+  }, [open, squadId, fetchSquad]);
 
   useEffect(() => {
     if (!open || !squadId || activeTab !== 'board') return;
@@ -117,7 +117,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
       void fetchSquad();
     }, 45_000);
     return () => window.clearInterval(id);
-  }, [open, squadId, activeTab]);
+  }, [open, squadId, activeTab, fetchSquad]);
 
   // Mock chat history
   const [messages, setMessages] = useState<Message[]>([

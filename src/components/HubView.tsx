@@ -83,7 +83,7 @@ export default function HubView({
 
   const resolvedUsername = useMemo(
     () => (user ? resolvePrivateHubUsername(myProfile, user.user_metadata) : null),
-    [user, myProfile, user?.user_metadata],
+    [user, myProfile],
   );
   const needsUsernameClaim = Boolean(user && !loadingProfile && !resolvedUsername);
 
