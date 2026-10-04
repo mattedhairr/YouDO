@@ -97,27 +97,21 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
   }, [friendIn, squadJoinIn]);
 
   const header = (title: string, back?: () => void) => (
-    <div className="flex items-center gap-2 px-1 py-2 border-b border-subtle mb-1">
-      {back ? (
-        <button
-          type="button"
-          onClick={back}
-          className="p-2 -ml-2 rounded-full hover:bg-elevated text-content-primary"
-          aria-label="Back"
-        >
-          <ChevronLeft size={22} />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-2 -ml-2 rounded-full hover:bg-elevated text-content-primary"
-          aria-label="Close notifications"
-        >
-          <ChevronLeft size={22} />
-        </button>
-      )}
-      <h1 className="flex-1 text-[17px] font-bold text-content-primary text-center pr-8">{title}</h1>
+    <div className="grid grid-cols-[2.75rem_1fr_2.75rem] items-center px-2 py-1.5 border-b border-subtle mb-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          if (back) back();
+          else onClose();
+          e.currentTarget.blur();
+        }}
+        className="flex items-center justify-center size-11 rounded-full text-content-primary transition-colors [-webkit-tap-highlight-color:transparent] active:bg-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        aria-label={back ? 'Back' : 'Close notifications'}
+      >
+        <ChevronLeft size={22} />
+      </button>
+      <h1 className="text-[17px] font-bold text-content-primary text-center truncate px-1">{title}</h1>
+      <div aria-hidden className="size-11" />
     </div>
   );
 
