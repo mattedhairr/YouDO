@@ -221,12 +221,13 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
                   {squadJoinIn.map((req) => (
                     <div key={`${req.squad_id}-${req.user_id}`} className="flex gap-3 py-3 border-b border-subtle/80 last:border-0">
                       <button type="button" onClick={() => req.requester && onOpenProfile(req.requester.id)} className="shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center text-lg">
                           {req.requester ? (
                             <ProfileAvatarVisual
                               avatarUrl={req.requester.avatar_url}
                               displayName={req.requester.display_name}
-                              className="text-base"
+                              className="leading-none"
+                              imgClassName="w-full h-full object-cover"
                             />
                           ) : (
                             '🎓'
@@ -267,11 +268,12 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
                   {friendIn.map((req) => (
                     <div key={req.id} className="flex gap-3 py-3 border-b border-subtle/80 last:border-0">
                       <button type="button" onClick={() => onOpenProfile(req.requester.id)} className="shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-primary-soft border border-primary/20 overflow-hidden">
+                        <div className="w-12 h-12 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center text-lg">
                           <ProfileAvatarVisual
                             avatarUrl={req.requester.avatar_url}
                             displayName={req.requester.display_name}
-                            className="text-base"
+                            className="leading-none"
+                            imgClassName="w-full h-full object-cover"
                           />
                         </div>
                       </button>
@@ -381,11 +383,12 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
                 {friendOut.map((req) => (
                   <div key={req.id} className="flex gap-3 py-3 border-b border-subtle/80 last:border-0 items-center">
                     <button type="button" onClick={() => onOpenProfile(req.receiver.id)} className="shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-primary-soft border border-primary/20 overflow-hidden">
+                      <div className="w-12 h-12 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center text-lg">
                         <ProfileAvatarVisual
                           avatarUrl={req.receiver.avatar_url}
                           displayName={req.receiver.display_name}
-                          className="text-base"
+                          className="leading-none"
+                          imgClassName="w-full h-full object-cover"
                         />
                       </div>
                     </button>
