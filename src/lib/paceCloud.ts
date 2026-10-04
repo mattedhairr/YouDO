@@ -45,8 +45,32 @@ function asRow(raw: Record<string, unknown>): PaceRow | null {
   };
 }
 
-export async function fetchPaceRowsForUserIds(userIds: string[]): Promise<PaceRow[]> {
+export function viewerBoardTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
+async function fetchBoardPaceRowsFromRpc(boardTimezone: string): Promise<PaceRow[]> {
+  const { data, error } = await supabase.rpc('board_pace_rows', { board_timezone: boardTimezone });
+  if (error || !data) {
+    if (error) console.error('board_pace_rows:', error);
+    return [];
+  }
+  return (Array.isArray(data) ? data : [])
+    .map((row) => asRow(row as Record<string, unknown>))
+    .filter((row): row is PaceRow => !!row);
+}
+
+export async function fetchPaceRowsForUserIds(
+  userIds: string[],
+  boardTimezone = viewerBoardTimezone(),
+): Promise<PaceRow[]> {
   if (userIds.length === 0) return [];
+  const want = new Set(userIds);
+  const fromBoard = await fetchBoardPaceRowsFromRpc(boardTimezone);
+  if (fromBoard.length > 0) {
+    return fromBoard.filter((row) => want.has(row.userId));
+  }
+
   const { data, error } = await supabase.from('public_pace').select('*').in('user_id', userIds);
   if (error || !data) {
     if (error) console.error('fetchPaceRowsForUserIds:', error);
@@ -57,7 +81,16 @@ export async function fetchPaceRowsForUserIds(userIds: string[]): Promise<PaceRo
     .filter((row): row is PaceRow => !!row);
 }
 
-export async function fetchPaceRowForUser(userId: string): Promise<PaceRow | null> {
+/** Same derived totals as the Public Board (`board_pace_rows`), not the profile-only `public_pace` row. */
+export async function fetchPaceRowForUser(
+  userId: string,
+  boardTimezone = viewerBoardTimezone(),
+): Promise<PaceRow | null> {
+  const fromBoard = await fetchBoardPaceRowsFromRpc(boardTimezone);
+  if (fromBoard.length > 0) {
+    return fromBoard.find((row) => row.userId === userId) ?? null;
+  }
+
   const { data, error } = await supabase.from('public_pace').select('*').eq('user_id', userId).maybeSingle();
   if (error || !data) return null;
   return asRow(data as Record<string, unknown>);

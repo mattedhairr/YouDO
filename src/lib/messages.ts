@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { STORAGE_KEYS } from './storageKeys';
+import { fetchMySquads } from './squads';
 
 export interface SquadMessage {
   id: string;
@@ -62,6 +64,59 @@ export async function deleteSquadMessage(messageId: string, senderId: string) {
     .eq('id', messageId)
     .eq('sender_id', senderId);
   return !error;
+}
+
+function squadChatReadStorageKey(userId: string) {
+  return `${STORAGE_KEYS.squadChatRead}:${userId}`;
+}
+
+export function loadSquadChatReadMap(userId: string): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(squadChatReadStorageKey(userId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function markSquadChatRead(userId: string, squadId: string, readAtIso?: string) {
+  const map = loadSquadChatReadMap(userId);
+  map[squadId] = readAtIso ?? new Date().toISOString();
+  try {
+    localStorage.setItem(squadChatReadStorageKey(userId), JSON.stringify(map));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+/** True if any joined squad has chat messages from others since last read (24h window). */
+export async function squadRoomsHaveUnreadChat(userId: string): Promise<boolean> {
+  const squads = await fetchMySquads(userId);
+  if (squads.length === 0) return false;
+
+  const readMap = loadSquadChatReadMap(userId);
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const squadIds = squads.map((s) => s.id);
+
+  const { data, error } = await supabase
+    .from('squad_messages')
+    .select('squad_id, created_at, sender_id')
+    .in('squad_id', squadIds)
+    .neq('sender_id', userId)
+    .gte('created_at', cutoff);
+
+  if (error) {
+    console.error('squadRoomsHaveUnreadChat error:', error);
+    return false;
+  }
+
+  for (const row of data ?? []) {
+    const lastRead = readMap[row.squad_id];
+    if (!lastRead || row.created_at > lastRead) return true;
+  }
+  return false;
 }
 
 // -- DIRECT MESSAGES --

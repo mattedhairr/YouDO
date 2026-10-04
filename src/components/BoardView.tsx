@@ -258,9 +258,10 @@ export default function BoardView({
   const [communityOpen, setCommunityOpen] = useState(false);
   const [communityStartInAdmin, setCommunityStartInAdmin] = useState(false);
   const [community, setCommunity] = useState<CommunityContext>(EMPTY_COMMUNITY_CONTEXT());
-  const communityUnreadCount = !community.banned
-    ? ((community.unread?.chat ?? 0) + (community.unread?.updates ?? 0))
-    : 0;
+  const communityUnreadCount =
+    pacePrefs.optedIn && !community.banned
+      ? (community.unread?.chat ?? 0) + (community.unread?.updates ?? 0)
+      : 0;
   const hasCommunityUnread = communityUnreadCount > 0;
   const [appreciations, setAppreciations] = useState<AppreciationState>({ counts: {}, mine: new Set() });
   const appreciationBusy = useRef(false);
@@ -268,7 +269,9 @@ export default function BoardView({
   const [appreciationError, setAppreciationError] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !pacePrefs.optedIn) {
+      return;
+    }
     let cancelled = false;
     let busy = false;
     const refreshUnread = async () => {
@@ -281,11 +284,12 @@ export default function BoardView({
         // Keep the last known indicator during a transient network failure.
       } finally { busy = false; }
     };
+    void refreshUnread();
     const timer = window.setInterval(() => { void refreshUnread(); },30_000);
     window.addEventListener('youdo-community-read',refreshUnread);
     document.addEventListener('visibilitychange',refreshUnread);
     return () => { cancelled=true;clearInterval(timer);window.removeEventListener('youdo-community-read',refreshUnread);document.removeEventListener('visibilitychange',refreshUnread); };
-  },[user]);
+  },[user, pacePrefs.optedIn]);
 
   useEffect(() => {
     const refreshDate = () => setAnchorISO(todayISO());
@@ -349,7 +353,7 @@ export default function BoardView({
     return () => {
       cancelled = true;
     };
-  }, [user, publishPublicPace, syncToCloud, pacePrefs.optedIn, pacePrefs.displayName, anchorISO]);
+  }, [user, publishPublicPace, syncToCloud, pacePrefs.optedIn, anchorISO]);
 
   const closeCommunity = () => {
     setCommunityOpen(false);

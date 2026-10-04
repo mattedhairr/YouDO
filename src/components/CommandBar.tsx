@@ -36,6 +36,11 @@ interface Props {
   hubSubTab?: 'social' | 'private';
   onToggleHubSubTab?: () => void;
   onSetHubSubTab?: (tab: 'social' | 'private') => void;
+  /** Unread / pending on Hub while user is on another primary tab */
+  showHubNavDot?: boolean;
+  hubCommunityUnread?: number;
+  /** Any private-side activity (notifications, DMs, room requests). */
+  hubPrivateAttention?: boolean;
 }
 
 export default function CommandBar({
@@ -51,6 +56,9 @@ export default function CommandBar({
   hubSubTab = 'social',
   onToggleHubSubTab,
   onSetHubSubTab,
+  showHubNavDot = false,
+  hubCommunityUnread = 0,
+  hubPrivateAttention = false,
 }: Props) {
   const remainingToday = Math.max(0, todayCount - todayDone);
   const hubTouchStartY = useRef<number | null>(null);
@@ -128,6 +136,11 @@ export default function CommandBar({
                 const Icon = tab.icon;
                 const active = view === tab.id;
                 const isHubTab = tab.id === 'board';
+                const hubIconDot = isHubTab && !active && showHubNavDot;
+                const hubStripPublicDot =
+                  isHubTab && active && hubSubTab === 'private' && hubCommunityUnread > 0;
+                const hubStripPrivateDot =
+                  isHubTab && active && hubSubTab === 'social' && hubPrivateAttention;
                 return (
                   <button
                     key={tab.id}
@@ -173,7 +186,15 @@ export default function CommandBar({
                         : 'text-content-muted font-medium [@media(hover:hover)]:hover:text-content-primary [@media(hover:hover)]:hover:bg-elevated/60'
                     }`}
                   >
-                    <Icon size={16} strokeWidth={active ? 2.45 : 2} className="transition-transform duration-200" />
+                    <span className="relative inline-flex shrink-0">
+                      <Icon size={16} strokeWidth={active ? 2.45 : 2} className="transition-transform duration-200" />
+                      {hubIconDot && (
+                        <span
+                          className="absolute -right-1 -top-1 size-[6px] rounded-full bg-primary ring-2 ring-[var(--bg-surface)] pointer-events-none"
+                          aria-hidden
+                        />
+                      )}
+                    </span>
                     
                     {/* Rolling label for active Hub, static label for others */}
                     {isHubTab && active ? (
@@ -196,16 +217,32 @@ export default function CommandBar({
                       <span className="command-tab-label truncate leading-none">{tab.label}</span>
                     )}
 
-                    {/* Vertical Pill Indicator for active Hub */}
                     {isHubTab && active && (
-                      <div className="absolute right-1 top-2.5 bottom-2.5 w-[5px] rounded-full bg-surface border border-subtle overflow-hidden pointer-events-none">
-                        <div
-                          className="absolute left-0 right-0 h-1/2 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] p-[1px]"
-                          style={{
-                            transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(100%)',
-                          }}
-                        >
-                          <div className="w-full h-full rounded-full bg-primary shadow-[0_0_6px_var(--primary)]" />
+                      <div
+                        className="absolute right-1 top-2.5 bottom-2.5 w-[5px] pointer-events-none"
+                        aria-hidden
+                      >
+                        {hubStripPublicDot && (
+                          <span
+                            className="absolute right-full top-[25%] mr-[3px] size-[5px] -translate-y-1/2 rounded-full bg-primary ring-[1.5px] ring-[var(--bg-surface)]"
+                            aria-label="Public hub has unread"
+                          />
+                        )}
+                        {hubStripPrivateDot && (
+                          <span
+                            className="absolute right-full top-[75%] mr-[3px] size-[5px] -translate-y-1/2 rounded-full bg-primary ring-[1.5px] ring-[var(--bg-surface)]"
+                            aria-label="Private hub has activity"
+                          />
+                        )}
+                        <div className="absolute inset-0 rounded-full bg-surface border border-subtle overflow-hidden">
+                          <div
+                            className="absolute left-0 right-0 h-1/2 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] p-[1px]"
+                            style={{
+                              transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(100%)',
+                            }}
+                          >
+                            <div className="w-full h-full rounded-full bg-primary shadow-[0_0_6px_var(--primary)]" />
+                          </div>
                         </div>
                       </div>
                     )}

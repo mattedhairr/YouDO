@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.7.3] - 2026-10-04 - Hub attention and board identity (test build)
+
+- **Hub notifications** — Bottom nav and Private tabs show dots for active DMs, rooms, and (when opted in) public community unread; friends list opens from a count pill.
+- **DMs list** — Only running 24h conversations in a single list; profile names and avatars sync from Settings; squad room chat unread tracked locally.
+- **Public Board name** — Leaderboard and profiles use your Profile name only; separate board display name removed from Settings.
+- **Community** — Admins remove any message without the 15-minute self-delete limit; public unread badges hidden when board participation is off.
+- **Android APK** — versionName **7.7.3**, versionCode **70**. Installs over v7.7.2 **69** on `feature/hub-private-rooms`. Unpublished test candidate.
+
+---
+
 ## [v7.7.2] - 2026-10-04 - Private Hub preview (test build)
 
 - **Private Hub** — Friends, direct messages, private rooms, and squad chat improvements for early testing on your account.

@@ -31,6 +31,7 @@ import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { checkDeviceClock, clearClockIncident } from './lib/deviceClock';
 import UpdateNotice from './components/UpdateNotice';
 import { useCommunityActivity } from './hooks/useCommunityActivity';
+import { useHubAttention } from './hooks/useHubAttention';
 import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
 import { FALLBACK_APP_QUOTES, fetchAppQuotes, loadCachedAppQuotes, type AppQuote } from './lib/appQuotes';
@@ -169,6 +170,17 @@ function AppInner() {
   const { user: activityUser } = useAuth();
   const { pacePrefs: activityPrefs } = useStore();
   useCommunityActivity(activityUser?.id, activityPrefs.optedIn);
+  const {
+    privatePending: hubPrivatePending,
+    communityUnread: hubCommunityUnread,
+    showHubNavDot,
+    privateHubAttention,
+    dmsTabAttention: hubDmsTabAttention,
+    roomsTabAttention: hubRoomsTabAttention,
+    refreshPrivate: refreshHubPrivate,
+    refreshDmInbox: refreshHubDmInbox,
+    refreshSquadChat: refreshHubSquadChat,
+  } = useHubAttention(activityUser?.id, activityPrefs.optedIn);
   const { clockBlocked, clockReady, setClockBlocked } = useClockIntegrity();
   const [clockVerifyBusy, setClockVerifyBusy] = useState(false);
   const [clockVerifyError, setClockVerifyError] = useState<string | null>(null);
@@ -1563,6 +1575,12 @@ function AppInner() {
                 activeTab={hubSubTab}
                 personalPace={streakMeta.barHours}
                 onSwitchToPrivate={() => setHubSubTab('private')}
+                pendingCount={hubPrivatePending}
+                refreshPendingCount={refreshHubPrivate}
+                refreshDmInbox={refreshHubDmInbox}
+                refreshSquadChat={refreshHubSquadChat}
+                dmsTabAttention={hubDmsTabAttention}
+                roomsTabAttention={hubRoomsTabAttention}
               />
             ) : (
               <GoalView
@@ -1606,6 +1624,9 @@ function AppInner() {
           hubSubTab={hubSubTab}
           onToggleHubSubTab={toggleHubSubTab}
           onSetHubSubTab={setHubSubTab}
+          showHubNavDot={showHubNavDot}
+          hubCommunityUnread={hubCommunityUnread}
+          hubPrivateAttention={privateHubAttention}
           todayCount={todayCount}
           todayDone={todayDone}
           goalsCount={goals.length}

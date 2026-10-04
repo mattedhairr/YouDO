@@ -265,7 +265,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       if(kind==='delete'){
         if(selected.delivery==='sent')await deleteChatMessage(selected.id);
       }else if(kind==='remove'){
-        if(!await removeCommunityMessage(selected.id,reason.trim()))throw new Error('Could not remove this message.');
+        const modNote = reason.trim() || 'Removed by moderator';
+        if(!await removeCommunityMessage(selected.id, modNote))throw new Error('Could not remove this message.');
       }else if(!await reportCommunityMessage(selected.id))throw new Error('Could not send the report.');
       if(!mounted.current)return;
       if(kind!=='report'){capturePosition();setMessages(current=>current.filter(m=>m.id!==selected.id));}
@@ -439,9 +440,16 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
                       </button>
                     )}
                     {message.delivery === 'sent' && (mine || context.isAdmin) && (
-                      <button type="button" className="yd-chat-action is-danger" onClick={(e) => { e.stopPropagation(); action(mine ? 'delete' : 'remove'); }}>
+                      <button
+                        type="button"
+                        className="yd-chat-action is-danger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          action(context.isAdmin ? 'remove' : 'delete');
+                        }}
+                      >
                         <Trash2 size={18} />
-                        Delete
+                        {context.isAdmin && !mine ? 'Remove' : 'Delete'}
                       </button>
                     )}
                     {!mine && !context.isAdmin && (
@@ -503,7 +511,13 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           {editing ? <Check size={19} /> : <Send size={19} />}
         </button>
       </div>
-      <p className="yd-chat-hint"><span>Hold for options · double-tap to reply</span><span>{draft.length}/240</span></p>
+      <p className="yd-chat-hint">
+        <span>
+          Hold for options · double-tap to reply
+          {!context.isAdmin && ' · you can edit or delete your messages for 15 minutes'}
+        </span>
+        <span>{draft.length}/240</span>
+      </p>
     </footer>
     </section>;
 }

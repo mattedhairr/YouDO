@@ -748,6 +748,7 @@ export default function SettingsSheet({
                             if (ok && profileSave.ok) {
                               setEditProfileOpen(false);
                               setMsg({ text: '✓ Profile updated.' });
+                              if (pacePrefs.optedIn) void publishPublicPace();
                             } else {
                               setMsg({ text: profileSave.error || 'Profile could not be updated.', error: true });
                             }
@@ -1231,7 +1232,7 @@ export default function SettingsSheet({
               <div className="min-w-0 flex-1">
                 <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
                 <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
-                  Off by default. Shares your name, synced focus, recorded-day streak, and bar. Offline sessions join after cloud sync. Turning it off removes your public row and activity signal.
+                  Off by default. Uses your Profile name on the board, plus synced focus, streak, and bar. Turning it off removes your public row.
                 </p>
               </div>
               <Toggle checked={pacePrefs.optedIn} label="Public Board participation" onChange={() => {
@@ -1239,24 +1240,17 @@ export default function SettingsSheet({
                     setMsg({ text: 'Sign in to join the public board.', error: true });
                     return;
                   }
-                  if (!pacePrefs.optedIn && !pacePrefs.displayName.trim()) {
-                    setMsg({ text: 'Add a display name first.', error: true });
+                  const profileName =
+                    (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+                    editName.trim();
+                  if (!pacePrefs.optedIn && !profileName) {
+                    setMsg({ text: 'Set your name in Profile first.', error: true });
                     return;
                   }
                   hapticTick();
                   updatePacePrefs({ optedIn: !pacePrefs.optedIn });
                 }} />
             </div>
-            <label className="block">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Display name</span>
-              <input
-                value={pacePrefs.displayName}
-                maxLength={40}
-                placeholder={user?.user_metadata?.full_name || 'Name shown on the board'}
-                onChange={(e) => updatePacePrefs({ displayName: e.target.value })}
-                className="mt-1 w-full h-10 rounded-[12px] border border-subtle bg-base px-3 text-[13px] text-content-primary"
-              />
-            </label>
             {user && <CommunityHashtagProfileField
               boardEnabled={pacePrefs.optedIn}
               onBeforeChoose={async () => { await publishPublicPace(); }}
@@ -1264,7 +1258,10 @@ export default function SettingsSheet({
             />}
             {(() => {
               const preview = paceWindowTotals(Object.values(sessionHistory).flat(), todayISO());
-              const name = pacePrefs.displayName.trim() || 'Your name';
+              const name =
+                (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+                editName.trim() ||
+                'Your name';
               return (
                 <div className="rounded-[12px] border border-subtle bg-base p-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Device preview · Board updates after sync</p>

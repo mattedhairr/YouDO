@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 
 export const PRIVATE_HUB_SYNC_EVENT = 'youdo-private-hub-sync';
 
-export type PrivateHubSyncReason = 'pending' | 'friends' | 'dms' | 'all';
+export type PrivateHubSyncReason = 'pending' | 'friends' | 'dms' | 'squads' | 'all';
 
 export function dispatchPrivateHubSync(reason: PrivateHubSyncReason = 'all') {
   if (typeof window === 'undefined') return;
@@ -14,6 +14,7 @@ type HubSyncHandlers = {
   onPending?: () => void;
   onFriends?: () => void;
   onDms?: () => void;
+  onSquads?: () => void;
 };
 
 function trackChannel(channel: RealtimeChannel, bucket: RealtimeChannel[]) {
@@ -36,6 +37,10 @@ export function subscribePrivateHubRealtime(userId: string, handlers: HubSyncHan
   const dms = () => {
     handlers.onDms?.();
     dispatchPrivateHubSync('dms');
+  };
+  const squads = () => {
+    handlers.onSquads?.();
+    dispatchPrivateHubSync('squads');
   };
 
   trackChannel(
@@ -105,6 +110,67 @@ export function subscribePrivateHubRealtime(userId: string, handlers: HubSyncHan
   trackChannel(
     supabase
       .channel(`hub_dm_sent_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${userId}` },
+        dms,
+      ),
+    channels,
+  );
+
+  trackChannel(
+    supabase
+      .channel(`hub_squad_messages_${userId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'squad_messages' }, squads),
+    channels,
+  );
+
+  return () => {
+    for (const ch of channels) void supabase.removeChannel(ch);
+  };
+}
+
+/** DM list + friend list refresh while Private Hub is open (no duplicate pending channels). */
+export function subscribePrivateHubInbox(
+  userId: string,
+  handlers: Pick<HubSyncHandlers, 'onFriends' | 'onDms'>,
+): () => void {
+  const channels: RealtimeChannel[] = [];
+
+  const friends = () => {
+    handlers.onFriends?.();
+    dispatchPrivateHubSync('friends');
+  };
+  const dms = () => {
+    handlers.onDms?.();
+    dispatchPrivateHubSync('dms');
+  };
+
+  trackChannel(
+    supabase
+      .channel(`hub_inbox_friendships_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'friendships', filter: `receiver_id=eq.${userId}` },
+        friends,
+      ),
+    channels,
+  );
+
+  trackChannel(
+    supabase
+      .channel(`hub_inbox_dm_recv_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'direct_messages', filter: `receiver_id=eq.${userId}` },
+        dms,
+      ),
+    channels,
+  );
+
+  trackChannel(
+    supabase
+      .channel(`hub_inbox_dm_sent_${userId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${userId}` },

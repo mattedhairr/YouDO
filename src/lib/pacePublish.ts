@@ -1,14 +1,16 @@
 import type { StreakMeta } from './focusTrends';
 import type { PacePrefs } from './paceBoard';
 import { deletePaceRow, reconcileBoardEvidence, upsertPaceRow } from './paceCloud';
+import { resolvePublicBoardDisplayName } from './profiles';
 
 export async function syncPublicPaceRow(input: {
   userId: string;
   prefs: PacePrefs;
   streakMeta: StreakMeta;
+  authMetadata?: Record<string, unknown>;
 }): Promise<{ ok: boolean; missingTable?: boolean; skipped?: boolean; status?: string; rejected?: number }> {
   if (!input.prefs.optedIn) return { ok: true, skipped: true };
-  const displayName = input.prefs.displayName.trim();
+  const displayName = await resolvePublicBoardDisplayName(input.userId, input.authMetadata);
   if (!displayName) return { ok: true, skipped: true };
   const profile = await upsertPaceRow({
     userId: input.userId,

@@ -5,8 +5,9 @@ import SquadSettingsSheet from './SquadSettingsSheet';
 import { getSquadDetails, type Squad, type SquadMember } from '../lib/squads';
 import { useAuth } from '../contexts/AuthContext';
 import { hapticTick, hapticSuccess } from '../lib/haptics';
-import { fetchSquadMessages, sendSquadMessage, deleteSquadMessage } from '../lib/messages';
+import { fetchSquadMessages, markSquadChatRead, sendSquadMessage, deleteSquadMessage } from '../lib/messages';
 import { supabase } from '../lib/supabase';
+import { dispatchPrivateHubSync } from '../lib/privateHubSync';
 import { fetchPaceRowsForUserIds } from '../lib/paceCloud';
 import {
   type PaceRow,
@@ -125,8 +126,8 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
   
   useEffect(() => {
     if (!open || !squadId) return;
-    
-    const loadMessages = async () => {
+
+    const loadMessages = async (markRead: boolean) => {
       const data = await fetchSquadMessages(squadId);
       setMessages([
         { id: '1', sender: 'sys', text: "Welcome! Only members with this target can join.", time: "9:00 AM", system: true },
@@ -138,18 +139,23 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
           replyToId: d.reply_to_id || undefined
         }))
       ]);
+      if (markRead && user) {
+        const latest = data[data.length - 1];
+        markSquadChatRead(user.id, squadId, latest?.created_at ?? new Date().toISOString());
+        dispatchPrivateHubSync('squads');
+      }
     };
-    
-    loadMessages();
-    
+
+    void loadMessages(activeTab === 'chat');
+
     const channel = supabase.channel('squad_' + squadId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'squad_messages', filter: 'squad_id=eq.' + squadId }, () => {
-         loadMessages();
+         void loadMessages(activeTab === 'chat');
       })
       .subscribe();
-      
+
     return () => { supabase.removeChannel(channel); };
-  }, [open, squadId]);
+  }, [open, squadId, activeTab, user]);
 
   if (!open || !squadId) return null;
 

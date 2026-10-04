@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { ArrowUp, Zap } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { Zap } from 'lucide-react';
 import {
   type PaceRow,
   type PaceWindow,
@@ -62,11 +63,44 @@ export function collectiveBarPercent(members: { progress: SquadBarProgress }[]):
 }
 
 /** Vertical label + arrow sized to match the hybrid pill height (3.5rem per member). */
+function CollectiveBarArrow({
+  size,
+  className,
+  style,
+}: {
+  size: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const height = Math.round(size * 2.85);
+  return (
+    <svg
+      width={size}
+      height={height}
+      viewBox="0 0 16 46"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+      aria-hidden
+    >
+      <path
+        d="M8 44V10M4.25 14.5L8 6.5L11.75 14.5"
+        stroke="currentColor"
+        strokeWidth="2.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function collectiveBarLabelMetrics(memberCount: number) {
   const rowPx = 56; // min-h-14
   const barHeightPx = memberCount * rowPx;
   const arrowSize = memberCount <= 2 ? 16 : memberCount <= 4 ? 14 : 12;
-  const chromePx = arrowSize + 12; // arrow, gaps, padding
+  const arrowHeightPx = Math.round(arrowSize * 2.85);
+  const chromePx = arrowHeightPx + 12; // arrow, gaps, padding
   const textRunPx = Math.max(32, barHeightPx - chromePx);
   const labelFontPx = Math.min(13, Math.max(9, Math.floor(textRunPx / 7.75)));
   const labelWidthPx = labelFontPx + 8;
@@ -118,9 +152,8 @@ function VerticalCollectiveBar({
           className={`flex h-full min-h-0 flex-col items-center overflow-hidden py-1 ${accent}`}
           style={{ gridColumn: 1, gridRow: `1 / ${count + 1}`, width: labelWidthPx }}
         >
-          <ArrowUp
+          <CollectiveBarArrow
             size={arrowSize}
-            strokeWidth={3}
             className={`mb-1 shrink-0 ${labelGlowClass}`}
             style={{
               filter:
@@ -128,7 +161,6 @@ function VerticalCollectiveBar({
                   ? 'drop-shadow(0 0 6px color-mix(in srgb, var(--secondary) 55%, transparent))'
                   : 'drop-shadow(0 0 6px color-mix(in srgb, var(--primary-glow) 65%, transparent))',
             }}
-            aria-hidden
           />
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <span

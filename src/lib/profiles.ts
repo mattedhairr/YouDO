@@ -30,6 +30,92 @@ export function resolvePrivateHubUsername(
   return normalizeUsername(profile?.username) ?? usernameFromAuthMetadata(meta);
 }
 
+function authDisplayName(meta: Record<string, unknown>): string | null {
+  const full = typeof meta.full_name === 'string' ? meta.full_name.trim() : '';
+  return full || null;
+}
+
+function authAvatarFromMeta(meta: Record<string, unknown>): string | null {
+  const raw = meta.avatar_url;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed || null;
+}
+
+/** Prefer real name over a @handle duplicated into `display_name`. */
+export function profileDisplayLabel(profile: Pick<Profile, 'display_name' | 'username'>): string {
+  const handle = normalizeUsername(profile.username);
+  const display = profile.display_name?.trim() ?? '';
+  if (display && handle && display.toLowerCase() === handle) {
+    return display;
+  }
+  if (display) return display;
+  return handle ? `@${handle}` : 'Member';
+}
+
+export function displayNameFromAuthMetadata(meta?: Record<string, unknown>): string {
+  const full = typeof meta?.full_name === 'string' ? meta.full_name.trim() : '';
+  return full ? full.slice(0, 40) : '';
+}
+
+/** Name shown on the Public Board — always the Profile name, never a separate board alias. */
+export async function resolvePublicBoardDisplayName(
+  userId: string,
+  authMeta?: Record<string, unknown>,
+): Promise<string> {
+  const profile = await fetchProfile(userId);
+  const fromProfile = profile?.display_name?.trim() ?? '';
+  const handle = normalizeUsername(profile?.username);
+  if (fromProfile && handle && fromProfile.toLowerCase() === handle) {
+    const fromAuth = displayNameFromAuthMetadata(authMeta);
+    if (fromAuth) return fromAuth;
+  }
+  if (fromProfile) return fromProfile.slice(0, 40);
+  const fromAuth = displayNameFromAuthMetadata(authMeta);
+  if (fromAuth) return fromAuth;
+  return '';
+}
+
+export function profileShowsHandleSubtitle(profile: Pick<Profile, 'display_name' | 'username'>): boolean {
+  const handle = normalizeUsername(profile.username);
+  const display = profile.display_name?.trim() ?? '';
+  return Boolean(handle && display && display.toLowerCase() !== handle);
+}
+
+/** Keep `profiles` name/avatar aligned with Settings (auth metadata) when the row still looks like a bare handle. */
+export async function syncProfileRowFromAuth(user: {
+  id: string;
+  user_metadata?: Record<string, unknown>;
+}): Promise<void> {
+  const existing = await fetchProfile(user.id);
+  if (!existing) return;
+
+  const meta = user.user_metadata ?? {};
+  const metaName = authDisplayName(meta);
+  const metaAvatar = authAvatarFromMeta(meta);
+  const handle = normalizeUsername(existing.username);
+  const displayLooksLikeHandle =
+    Boolean(handle && existing.display_name?.trim().toLowerCase() === handle);
+
+  const patch: Partial<Profile> & { id: string } = { id: user.id };
+  let dirty = false;
+
+  if (metaName && displayLooksLikeHandle) {
+    patch.display_name = metaName;
+    dirty = true;
+  }
+
+  const rowAvatar = existing.avatar_url?.trim() ?? '';
+  const rowHasPhoto = /^https?:\/\//i.test(rowAvatar);
+  if (metaAvatar && !rowHasPhoto) {
+    patch.avatar_url = metaAvatar;
+    dirty = true;
+  }
+
+  if (!dirty) return;
+  await upsertProfile(patch);
+}
+
 export interface Profile {
   id: string;
   username: string;
@@ -80,6 +166,7 @@ export async function ensureProfileFromAuth(user: {
     if (metaUsername !== profileUsername) {
       await syncAuthUsernameMetadata(profileUsername, existing?.avatar_url);
     }
+    await syncProfileRowFromAuth(user);
     return { ok: true, needsClaim: false, username: profileUsername };
   }
 

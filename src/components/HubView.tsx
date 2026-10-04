@@ -5,16 +5,17 @@ import {
   ensureProfileFromAuth,
   fetchProfile,
   resolvePrivateHubUsername,
+  profileDisplayLabel,
   upsertProfile,
   type Profile,
 } from '../lib/profiles';
-import { countActionableNotifications } from '../lib/squads';
 import { Bell, UserPlus, UsersRound, Lock, Loader2, ArrowRight, Users, Sparkles, MessageCircle, X } from 'lucide-react';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import BoardView from './BoardView';
 import type { PaceRow, PaceWindow } from '../lib/paceBoard';
 import UserProfileSheet from './UserProfileSheet';
 import AddFriendSheet from './AddFriendSheet';
+import PrivateFriendsSheet from './PrivateFriendsSheet';
 import NotificationsView from './NotificationsView';
 import CreateRoomSheet from './CreateRoomSheet';
 import SquadRoomSheet from './SquadRoomSheet';
@@ -22,7 +23,7 @@ import DmInboxSheet from './DmInboxSheet';
 import RoomsView from './RoomsView';
 import { fetchDmInboxPreviews, type DmInboxPreview } from '../lib/messages';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
-import { startPrivateHubForegroundSync, subscribePrivateHubRealtime } from '../lib/privateHubSync';
+import { subscribePrivateHubInbox } from '../lib/privateHubSync';
 
 function formatDmListTime(iso: string): string {
   const d = new Date(iso);
@@ -42,11 +43,23 @@ export default function HubView({
   activeTab = 'social',
   personalPace = 4,
   onSwitchToPrivate,
+  pendingCount = 0,
+  refreshPendingCount,
+  refreshDmInbox,
+  refreshSquadChat,
+  dmsTabAttention = false,
+  roomsTabAttention = false,
 }: {
   onOpenBoardSettings: () => void;
   activeTab?: 'social' | 'private';
   personalPace?: number;
   onSwitchToPrivate?: () => void;
+  pendingCount?: number;
+  refreshPendingCount?: () => void;
+  refreshDmInbox?: () => void;
+  refreshSquadChat?: () => void;
+  dmsTabAttention?: boolean;
+  roomsTabAttention?: boolean;
 }) {
   const { user } = useAuth();
   const [privateSubTab, setPrivateSubTab] = useState<'dms' | 'rooms'>('dms');
@@ -56,6 +69,7 @@ export default function HubView({
   const [openRoomId, setOpenRoomId] = useState<string | null>(null);
   const [showDmInbox, setShowDmInbox] = useState<{ id: string; name: string; avatar: string } | null>(null);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
+  const [friendsListOpen, setFriendsListOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [friends, setFriends] = useState<Profile[]>([]);
@@ -64,7 +78,6 @@ export default function HubView({
   const [draftUsername, setDraftUsername] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [savingUsername, setSavingUsername] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
   const [dmPreviews, setDmPreviews] = useState<Record<string, DmInboxPreview>>({});
   const [showPrivateHubIntro, setShowPrivateHubIntro] = useState(false);
 
@@ -80,25 +93,29 @@ export default function HubView({
     setFriends(list);
   }, [user]);
 
-  const refreshPendingCount = useCallback(async () => {
-    if (!user) return;
-    setPendingCount(await countActionableNotifications(user.id));
-  }, [user]);
-
   const refreshDmPreviews = useCallback(async () => {
     if (!user) return;
     setDmPreviews(await fetchDmInboxPreviews(user.id));
-  }, [user]);
+    refreshDmInbox?.();
+  }, [user, refreshDmInbox]);
 
-  const friendsSortedForDm = useMemo(() => {
-    return [...friends].sort((a, b) => {
-      const ta = dmPreviews[a.id]?.lastAt ?? '';
-      const tb = dmPreviews[b.id]?.lastAt ?? '';
-      if (ta && tb) return tb.localeCompare(ta);
-      if (tb) return 1;
-      if (ta) return -1;
-      return a.display_name.localeCompare(b.display_name);
-    });
+  const localDmUnread = useMemo(() => {
+    let n = 0;
+    for (const p of Object.values(dmPreviews)) n += p.unreadCount;
+    return n > 0;
+  }, [dmPreviews]);
+
+  const showDmsTabDot = privateSubTab !== 'dms' && (dmsTabAttention || localDmUnread);
+  const showRoomsTabDot = privateSubTab !== 'rooms' && roomsTabAttention;
+
+  const activeDmConversations = useMemo(() => {
+    return friends
+      .filter((f) => Boolean(dmPreviews[f.id]?.lastAt))
+      .sort((a, b) => {
+        const ta = dmPreviews[a.id]?.lastAt ?? '';
+        const tb = dmPreviews[b.id]?.lastAt ?? '';
+        return tb.localeCompare(ta);
+      });
   }, [friends, dmPreviews]);
 
   useEffect(() => {
@@ -106,7 +123,6 @@ export default function HubView({
       setLoadingProfile(false);
       setFriends([]);
       setMyProfile(null);
-      setPendingCount(0);
       setDmPreviews({});
       return;
     }
@@ -116,14 +132,14 @@ export default function HubView({
       await ensureProfileFromAuth(user);
       const p = await fetchProfile(user.id);
       setMyProfile(p);
+      void refreshFriends();
       const handle = resolvePrivateHubUsername(p, user.user_metadata);
       if (handle) {
         void refreshFriends();
-        void refreshPendingCount();
+        refreshPendingCount?.();
         void refreshDmPreviews();
       } else {
         setFriends([]);
-        setPendingCount(0);
         setDmPreviews({});
         const draft = resolvePrivateHubUsername(null, user.user_metadata);
         if (draft) setDraftUsername(draft);
@@ -131,23 +147,17 @@ export default function HubView({
       setLoadingProfile(false);
     })();
 
-    const stopRealtime = subscribePrivateHubRealtime(user.id, {
-      onPending: () => void refreshPendingCount(),
+    if (activeTab !== 'private') return;
+
+    const stopInbox = subscribePrivateHubInbox(user.id, {
       onFriends: () => void refreshFriends(),
       onDms: () => void refreshDmPreviews(),
     });
 
-    const stopPoll = startPrivateHubForegroundSync(() => {
-      void refreshPendingCount();
-      void refreshDmPreviews();
-      if (activeTab === 'private') void refreshFriends();
-    });
-
     return () => {
-      stopRealtime();
-      stopPoll();
+      stopInbox();
     };
-  }, [user, resolvedUsername, activeTab, refreshFriends, refreshPendingCount, refreshDmPreviews]);
+  }, [user, activeTab, refreshFriends, refreshDmPreviews, refreshPendingCount]);
 
   useEffect(() => {
     if (!user || loadingProfile || resolvedUsername) {
@@ -252,7 +262,15 @@ export default function HubView({
                       privateSubTab === 'dms' ? 'text-primary' : 'text-content-muted'
                     }`}
                   >
-                    DMs
+                    <span className="relative inline-flex items-center gap-1.5">
+                      DMs
+                      {showDmsTabDot && (
+                        <span
+                          className="size-[6px] rounded-full bg-primary shrink-0"
+                          aria-label="DMs have new activity"
+                        />
+                      )}
+                    </span>
                     {privateSubTab === 'dms' && (
                       <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
                     )}
@@ -264,28 +282,37 @@ export default function HubView({
                       privateSubTab === 'rooms' ? 'text-primary' : 'text-content-muted'
                     }`}
                   >
-                    Rooms
+                    <span className="relative inline-flex items-center gap-1.5">
+                      Rooms
+                      {showRoomsTabDot && (
+                        <span
+                          className="size-[6px] rounded-full bg-primary shrink-0"
+                          aria-label="Rooms have pending activity"
+                        />
+                      )}
+                    </span>
                     {privateSubTab === 'rooms' && (
                       <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
                     )}
                   </button>
                 </div>
 
-                <div className="flex items-center gap-4 pr-1 text-content-secondary">
+                <div className="flex items-center gap-2 sm:gap-3 pr-1 text-content-secondary">
                   <button
                     type="button"
                     onClick={() => {
-                      void refreshPendingCount();
+                      refreshPendingCount?.();
                       setNotificationsOpen(true);
                     }}
-                    className="relative hover:text-primary transition-colors"
+                    className="relative grid place-items-center size-7 rounded-full hover:text-primary transition-colors"
                     title="Notifications"
+                    aria-label="Notifications"
                   >
                     <Bell size={18} strokeWidth={2.2} />
                     {pendingCount > 0 && (
                       <span
-                        className="absolute -top-0.5 -right-0.5 min-w-[8px] h-2 px-0.5 rounded-full bg-error ring-2 ring-[var(--bg-surface)]"
-                        aria-label={`${pendingCount} pending requests`}
+                        className="absolute top-1 right-1 size-2 rounded-full bg-error ring-2 ring-[var(--bg-surface)]"
+                        aria-hidden
                       />
                     )}
                   </button>
@@ -297,6 +324,7 @@ export default function HubView({
                     }}
                     className="grid place-items-center size-7 rounded-full bg-primary-soft text-primary hover:bg-primary hover:text-on-primary transition-colors"
                     title={privateSubTab === 'dms' ? 'Add Friend' : 'Create Room'}
+                    aria-label={privateSubTab === 'dms' ? 'Add friend' : 'Create room'}
                   >
                     {privateSubTab === 'dms' ? (
                       <UserPlus size={15} strokeWidth={2.5} />
@@ -304,6 +332,16 @@ export default function HubView({
                       <UsersRound size={15} strokeWidth={2.5} />
                     )}
                   </button>
+                  {privateSubTab === 'dms' && friends.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setFriendsListOpen(true)}
+                      className="h-7 px-2.5 rounded-full border border-subtle bg-elevated/80 text-[10.5px] font-semibold text-content-secondary tabular-nums hover:border-primary/30 hover:text-primary transition-colors"
+                      aria-label={`${friends.length} friends`}
+                    >
+                      {friends.length} {friends.length === 1 ? 'friend' : 'friends'}
+                    </button>
+                  )}
                 </div>
               </div>
               )}
@@ -406,12 +444,12 @@ export default function HubView({
                         setNotificationsOpen(false);
                         setProfileUserId(id);
                       }}
-                      onChanged={() => void refreshPendingCount()}
+                      onChanged={() => refreshPendingCount?.()}
                     />
                   ) : privateSubTab === 'dms' ? (
-                    <div className="space-y-2.5">
-                      <p className="text-[10.5px] text-content-muted px-1 mb-1">
-                        Messages disappear after 24 hours, like community chat.
+                    <div>
+                      <p className="text-[10.5px] text-content-muted px-0.5 pb-2">
+                        Active chats in the last 24 hours. Tap friends to message someone new.
                       </p>
                       {friends.length === 0 ? (
                         <div className="text-center p-8 bg-elevated border border-subtle rounded-2xl flex flex-col items-center justify-center gap-3">
@@ -423,85 +461,105 @@ export default function HubView({
                             Search by @username to send a friend request, then start a private chat.
                           </p>
                         </div>
+                      ) : activeDmConversations.length === 0 ? (
+                        <div className="text-center py-10 px-6 rounded-[16px] border border-subtle bg-elevated">
+                          <p className="text-[13px] font-semibold text-content-primary">No active chats</p>
+                          <p className="text-[11.5px] text-content-muted mt-1.5 max-w-[240px] mx-auto">
+                            Messages expire after 24 hours. Open your friends list to start a conversation.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setFriendsListOpen(true)}
+                            className="mt-4 h-9 px-4 rounded-full bg-primary-soft text-primary text-[12px] font-semibold"
+                          >
+                            View {friends.length} {friends.length === 1 ? 'friend' : 'friends'}
+                          </button>
+                        </div>
                       ) : (
-                        friendsSortedForDm.map((friend) => {
-                          const preview = dmPreviews[friend.id];
-                          const hasUnread = (preview?.unreadCount ?? 0) > 0;
-                          return (
-                          <div
-                            key={friend.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() =>
+                        <div className="rounded-[16px] border border-subtle bg-elevated overflow-hidden divide-y divide-subtle">
+                          {activeDmConversations.map((friend) => {
+                            const preview = dmPreviews[friend.id]!;
+                            const hasUnread = (preview.unreadCount ?? 0) > 0;
+                            const title = profileDisplayLabel(friend);
+                            const openChat = () =>
                               setShowDmInbox({
                                 id: friend.id,
-                                name: friend.display_name,
+                                name: title,
                                 avatar: friend.avatar_url ?? '',
-                              })
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setShowDmInbox({
-                                  id: friend.id,
-                                  name: friend.display_name,
-                                  avatar: friend.avatar_url ?? '',
-                                });
-                              }
-                            }}
-                            className={`bg-elevated border rounded-[16px] p-3.5 flex items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99] ${
-                              hasUnread ? 'border-primary/35' : 'border-subtle'
-                            }`}
-                          >
-                            <div
-                              className="relative"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setProfileUserId(friend.id);
-                              }}
-                            >
-                              {hasUnread && (
-                                <span className="absolute -top-0.5 -right-0.5 z-10 min-w-[8px] h-2 px-0.5 rounded-full bg-error ring-2 ring-elevated" />
-                              )}
-                              <div className="w-11 h-11 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-primary font-bold text-sm overflow-hidden">
-                                <ProfileAvatarVisual
-                                  avatarUrl={friend.avatar_url}
-                                  displayName={friend.display_name}
-                                  className="text-sm"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2 mb-0.5">
-                                <p className={`text-[13px] truncate ${hasUnread ? 'font-bold text-content-primary' : 'font-bold text-content-primary'}`}>
-                                  {friend.display_name}
-                                </p>
-                                {preview?.lastAt && (
-                                  <span className="text-[10px] text-content-muted shrink-0 tabular-nums">
-                                    {formatDmListTime(preview.lastAt)}
-                                  </span>
-                                )}
-                              </div>
-                              <p
-                                className={`text-[12px] truncate ${
-                                  hasUnread ? 'font-semibold text-content-primary' : 'text-content-secondary'
+                              });
+                            return (
+                              <div
+                                key={friend.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={openChat}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    openChat();
+                                  }
+                                }}
+                                className={`flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-colors active:bg-surface ${
+                                  hasUnread ? 'bg-primary-soft/20' : ''
                                 }`}
                               >
-                                {preview
-                                  ? `${preview.fromMe ? 'You: ' : ''}${preview.lastMessage}`
-                                  : `@${friend.username} · Tap to chat`}
-                              </p>
-                            </div>
-                          </div>
-                          );
-                        })
+                                <button
+                                  type="button"
+                                  className="relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProfileUserId(friend.id);
+                                  }}
+                                  aria-label={`Open ${title}'s profile`}
+                                >
+                                  <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center bg-primary-soft text-primary font-bold ring-1 ring-border-subtle">
+                                    <ProfileAvatarVisual
+                                      avatarUrl={friend.avatar_url}
+                                      displayName={title}
+                                      className="text-sm font-bold"
+                                      imgClassName="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                  {hasUnread && (
+                                    <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-error ring-2 ring-elevated" />
+                                  )}
+                                </button>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <p
+                                        className={`text-[14px] leading-tight truncate ${
+                                          hasUnread ? 'font-bold text-content-primary' : 'font-semibold text-content-primary'
+                                        }`}
+                                      >
+                                        {title}
+                                      </p>
+                                    </div>
+                                    <span className="text-[10px] text-content-muted shrink-0 tabular-nums">
+                                      {formatDmListTime(preview.lastAt)}
+                                    </span>
+                                  </div>
+                                  <p
+                                    className={`text-[12.5px] truncate mt-0.5 ${
+                                      hasUnread ? 'font-semibold text-content-primary' : 'text-content-secondary'
+                                    }`}
+                                  >
+                                    {preview.fromMe ? `You: ${preview.lastMessage}` : preview.lastMessage}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   ) : (
                     <RoomsView
                       personalPace={personalPace}
                       onOpenRoom={(id) => setOpenRoomId(id)}
-                      onNotificationsChanged={() => void refreshPendingCount()}
+                      onNotificationsChanged={() => {
+                        refreshPendingCount?.();
+                      }}
                     />
                   )}
                 </>
@@ -532,13 +590,30 @@ export default function HubView({
         }}
         onFriendshipChange={() => {
           void refreshFriends();
-          void refreshPendingCount();
+          refreshPendingCount?.();
         }}
       />
       <AddFriendSheet
         open={addFriendOpen}
         onClose={() => setAddFriendOpen(false)}
         onOpenProfile={(id) => setProfileUserId(id)}
+      />
+      <PrivateFriendsSheet
+        open={friendsListOpen}
+        friends={friends}
+        onClose={() => setFriendsListOpen(false)}
+        onOpenProfile={(id) => {
+          setFriendsListOpen(false);
+          setProfileUserId(id);
+        }}
+        onMessage={(friend) => {
+          setFriendsListOpen(false);
+          setShowDmInbox({
+            id: friend.id,
+            name: profileDisplayLabel(friend),
+            avatar: friend.avatar_url ?? '',
+          });
+        }}
       />
       <CreateRoomSheet
         open={createRoomOpen}
@@ -549,7 +624,14 @@ export default function HubView({
         }}
         personalPace={personalPace}
       />
-      <SquadRoomSheet open={!!openRoomId} squadId={openRoomId} onClose={() => setOpenRoomId(null)} />
+      <SquadRoomSheet
+        open={!!openRoomId}
+        squadId={openRoomId}
+        onClose={() => {
+          setOpenRoomId(null);
+          refreshSquadChat?.();
+        }}
+      />
       <DmInboxSheet
         open={!!showDmInbox}
         friendId={showDmInbox?.id || null}

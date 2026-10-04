@@ -385,6 +385,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   pacePrefsRef.current = sanitizePacePrefs(pacePrefs);
   const userIdRef = useRef(user?.id ?? null);
   userIdRef.current = user?.id ?? null;
+  const userMetaRef = useRef(user?.user_metadata);
+  userMetaRef.current = user?.user_metadata;
   const workspaceScopeRef = useRef(0);
   useEffect(() => () => { workspaceScopeRef.current++; }, []);
   const paceCloudTimerRef = useRef<number>(0);
@@ -1173,6 +1175,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       userId,
       prefs: pacePrefsRef.current,
       streakMeta: streakMetaRef.current,
+      authMetadata: userMetaRef.current,
     });
   }, []);
 
@@ -1192,6 +1195,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 userId,
                 prefs: pacePrefsRef.current,
                 streakMeta: streakMetaRef.current,
+                authMetadata: userMetaRef.current,
               });
             }, 450);
           }
