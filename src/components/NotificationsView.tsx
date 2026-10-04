@@ -19,6 +19,7 @@ import {
   declineSquadJoinRequest,
   cancelOutgoingSquadJoinRequest,
   type IncomingSquadJoinRequest,
+  type PendingSquadInvite,
   type Squad,
 } from '../lib/squads';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
@@ -51,7 +52,7 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
 
   const [friendIn, setFriendIn] = useState<FriendRequest[]>([]);
   const [friendOut, setFriendOut] = useState<OutgoingFriendRequest[]>([]);
-  const [squadInvites, setSquadInvites] = useState<any[]>([]);
+  const [squadInvites, setSquadInvites] = useState<PendingSquadInvite[]>([]);
   const [squadJoinIn, setSquadJoinIn] = useState<IncomingSquadJoinRequest[]>([]);
   const [squadJoinOut, setSquadJoinOut] = useState<Squad[]>([]);
 
@@ -305,7 +306,7 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
               {squadInvites.length > 0 && (
                 <Section title="Squad invites">
                   {squadInvites.map((invite) => {
-                    const squad = invite.squads as Squad | undefined;
+                    const squad = invite.squads;
                     if (!squad) return null;
                     return (
                       <div key={invite.squad_id} className="flex gap-3 py-3 border-b border-subtle/80 last:border-0">

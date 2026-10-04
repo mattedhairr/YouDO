@@ -16,6 +16,29 @@ export interface Squad {
   created_at: string;
 }
 
+export type SquadMemberStatus = 'accepted' | 'invited' | 'pending';
+export type SquadMemberRole = 'admin' | 'member';
+
+export interface SquadMember {
+  user_id: string;
+  squad_id: string;
+  role: SquadMemberRole;
+  status: SquadMemberStatus;
+  profiles: Profile | null;
+}
+
+export interface PendingSquadInvite {
+  squad_id: string;
+  status: string;
+  squads: Squad | null;
+}
+
+function squadFromJoinedRow(raw: unknown): Squad | null {
+  if (!raw || typeof raw !== 'object') return null;
+  if (Array.isArray(raw)) return (raw[0] as Squad) ?? null;
+  return raw as Squad;
+}
+
 export async function createSquad(
   ownerId: string,
   name: string,
@@ -60,7 +83,7 @@ export async function createSquad(
   return { ok: true, squad: data as Squad };
 }
 
-export async function getSquadDetails(squadId: string) {
+export async function getSquadDetails(squadId: string): Promise<{ squad: Squad; members: SquadMember[] } | null> {
   const { data: squad, error: squadErr } = await supabase
     .from('squads')
     .select('*')
@@ -89,7 +112,10 @@ export async function getSquadDetails(squadId: string) {
   return {
     squad: squad as Squad,
     members: members.map((m) => ({
-      ...m,
+      user_id: m.user_id,
+      squad_id: m.squad_id,
+      role: m.role as SquadMemberRole,
+      status: m.status as SquadMemberStatus,
       profiles: profileById.get(m.user_id) ?? null,
     })),
   };
@@ -116,7 +142,7 @@ export async function inviteUserToSquad(squadId: string, userId: string) {
   return !error;
 }
 
-export async function fetchPendingSquadInvites(userId: string) {
+export async function fetchPendingSquadInvites(userId: string): Promise<PendingSquadInvite[]> {
   const { data, error } = await supabase
     .from('squad_members')
     .select('squad_id, status, squads(*)')
@@ -127,7 +153,11 @@ export async function fetchPendingSquadInvites(userId: string) {
     console.error('fetchPendingSquadInvites error:', error);
     return [];
   }
-  return data || [];
+  return (data ?? []).map((row) => ({
+    squad_id: row.squad_id,
+    status: row.status,
+    squads: squadFromJoinedRow(row.squads),
+  }));
 }
 
 export async function acceptSquadJoinRequest(squadId: string, memberUserId: string): Promise<boolean> {

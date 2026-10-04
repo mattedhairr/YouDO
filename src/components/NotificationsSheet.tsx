@@ -11,6 +11,7 @@ import {
   acceptSquadJoinRequest,
   declineSquadJoinRequest,
   type IncomingSquadJoinRequest,
+  type PendingSquadInvite,
   type Squad,
 } from '../lib/squads';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,7 +34,7 @@ export default function NotificationsSheet({
 }: Props) {
   const { user } = useAuth();
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [squadInvites, setSquadInvites] = useState<any[]>([]);
+  const [squadInvites, setSquadInvites] = useState<PendingSquadInvite[]>([]);
   const [squadJoinIncoming, setSquadJoinIncoming] = useState<IncomingSquadJoinRequest[]>([]);
   const [squadJoinOutgoing, setSquadJoinOutgoing] = useState<Squad[]>([]);
   const [loading, setLoading] = useState(false);

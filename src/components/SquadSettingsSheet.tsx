@@ -8,6 +8,7 @@ import {
   acceptSquadJoinRequest,
   declineSquadJoinRequest,
   type Squad,
+  type SquadMember,
 } from '../lib/squads';
 import { searchProfileByUsername, type Profile } from '../lib/profiles';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
@@ -16,7 +17,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   squad: Squad;
-  members: any[];
+  members: SquadMember[];
   onMembersChanged: () => void;
 }
 

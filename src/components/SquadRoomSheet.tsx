@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, Settings, Send, Reply, Trash2, X } from 'lucide-react';
 import Overlay from './Overlay';
 import SquadSettingsSheet from './SquadSettingsSheet';
-import { getSquadDetails, type Squad } from '../lib/squads';
+import { getSquadDetails, type Squad, type SquadMember } from '../lib/squads';
 import { useAuth } from '../contexts/AuthContext';
 import { hapticTick, hapticSuccess } from '../lib/haptics';
 import { fetchSquadMessages, sendSquadMessage, deleteSquadMessage } from '../lib/messages';
@@ -68,7 +68,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
   const [message, setMessage] = useState('');
   
   const [squad, setSquad] = useState<Squad | null>(null);
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<SquadMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -93,7 +93,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
     if (res) {
       setSquad(res.squad);
       setMembers(res.members);
-      const ids = res.members.map((m: { user_id: string }) => m.user_id);
+      const ids = res.members.map((m) => m.user_id);
       const paceRows = await fetchPaceRowsForUserIds(ids);
       const map: Record<string, PaceRow> = {};
       for (const row of paceRows) map[row.userId] = row;
@@ -417,7 +417,7 @@ export default function SquadRoomSheet({ open, onClose, squadId }: Props) {
                       </div>
                     </button>
                     {acceptedMembers.map(m => (
-                      <button key={m.user_id} onClick={() => insertMention(m.profiles?.username)} className="flex items-center gap-3 p-3 hover:bg-surface text-left">
+                      <button key={m.user_id} onClick={() => m.profiles?.username && insertMention(m.profiles.username)} className="flex items-center gap-3 p-3 hover:bg-surface text-left">
                         <div className="w-8 h-8 rounded-full bg-primary-soft text-primary font-bold flex items-center justify-center">
                           {m.profiles?.avatar_url || '🎓'}
                         </div>
