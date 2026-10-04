@@ -369,12 +369,20 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             onPointerUp={event=>finishPress(event,message)} onPointerCancel={()=>{cancelPress();press.current=null;}}
             onContextMenu={event=>{if((event.target as HTMLElement).closest('button,input,textarea,a'))return;event.preventDefault();openActions(message);}}
             onDoubleClick={event=>{if(!(event.target as HTMLElement).closest('button,input,textarea,a'))beginReply(message);}} onKeyDown={event=>keyboardActions(event,message)}>
-            <div className="c-author-line"><button className="c-author" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>{staff && <span className="c-admin-tag">Admin</span>}</div>
+            <div className="c-author-line">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <button className="c-author" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
+                {staff && <span className="c-admin-tag">Admin</span>}
+              </div>
+            </div>
             {message.replyToId && <blockquote><strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong><span>{parent?.body??'No longer available'}</span></blockquote>}
             <p>{message.body}</p>
-            <div className="c-message-meta"><span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>{mine && <span>{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={12}/>}</span>}</div>
             {message.delivery==='failed' && <div className="c-retry"><span>{message.error}</span><button disabled={!canWriteRoom} onClick={()=>void transmit(message)}><RefreshCw size={14}/> Retry</button></div>}
           </article>
+          <div className={`c-message-meta-outer ${mine?'order-first':''}`}>
+            <span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>
+            {mine && <span>{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={12}/>}</span>}
+          </div>
         </li>;
       })}</ol>
       {messages.filter(m=>m.delivery==='sent').length>=CHAT_HISTORY_LIMIT && <p className="c-note">Latest 120 messages · 24-hour room</p>}
