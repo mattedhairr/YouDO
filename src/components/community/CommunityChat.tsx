@@ -370,10 +370,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             onContextMenu={event=>{if((event.target as HTMLElement).closest('button,input,textarea,a'))return;event.preventDefault();openActions(message);}}
             onDoubleClick={event=>{if(!(event.target as HTMLElement).closest('button,input,textarea,a'))beginReply(message);}} onKeyDown={event=>keyboardActions(event,message)}>
             <div className="c-author-line">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <button className="c-author" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
-                {staff && <span className="c-admin-tag">Admin</span>}
-              </div>
+              <button className="c-author" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
+              {staff && <span className="c-admin-tag">Admin</span>}
             </div>
             {message.replyToId && <blockquote><strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong><span>{parent?.body??'No longer available'}</span></blockquote>}
             <p>{message.body}</p>
