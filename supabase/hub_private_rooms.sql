@@ -204,3 +204,11 @@ create policy "Users update own squad membership" on public.squad_members for up
 create policy "Squad admins update members" on public.squad_members for update using (
   public.is_squad_admin(squad_members.squad_id, auth.uid())
 );
+
+-- Realtime for Private Hub (ignore duplicate_object if re-run)
+do $$ begin alter publication supabase_realtime add table public.squad_members; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.friendships; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.direct_messages; exception when duplicate_object then null; end $$;
+alter table public.squad_members replica identity full;
+alter table public.friendships replica identity full;
+alter table public.direct_messages replica identity full;

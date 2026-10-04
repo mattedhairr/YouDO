@@ -23,6 +23,7 @@ import {
   type Squad,
 } from '../lib/squads';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
+import { PRIVATE_HUB_SYNC_EVENT } from '../lib/privateHubSync';
 
 type Screen = 'home' | 'pending';
 type PendingTab = 'received' | 'sent';
@@ -77,6 +78,14 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    const onSync = () => {
+      void reload();
+    };
+    window.addEventListener(PRIVATE_HUB_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(PRIVATE_HUB_SYNC_EVENT, onSync);
   }, [reload]);
 
   const receivedCount = friendIn.length + squadInvites.length + squadJoinIn.length;

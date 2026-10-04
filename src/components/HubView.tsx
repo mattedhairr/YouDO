@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import {
   fetchAcceptedFriends,
   ensureProfileFromAuth,
@@ -23,6 +22,7 @@ import DmInboxSheet from './DmInboxSheet';
 import RoomsView from './RoomsView';
 import { fetchDmInboxPreviews, type DmInboxPreview } from '../lib/messages';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
+import { startPrivateHubForegroundSync, subscribePrivateHubRealtime } from '../lib/privateHubSync';
 
 function formatDmListTime(iso: string): string {
   const d = new Date(iso);
@@ -131,61 +131,23 @@ export default function HubView({
       setLoadingProfile(false);
     })();
 
-    const onPendingChange = () => {
+    const stopRealtime = subscribePrivateHubRealtime(user.id, {
+      onPending: () => void refreshPendingCount(),
+      onFriends: () => void refreshFriends(),
+      onDms: () => void refreshDmPreviews(),
+    });
+
+    const stopPoll = startPrivateHubForegroundSync(() => {
       void refreshPendingCount();
-    };
-
-    const friendshipsChannel = supabase
-      .channel(`friendships_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'friendships',
-          filter: `receiver_id=eq.${user.id}`,
-        },
-        onPendingChange,
-      )
-      .subscribe();
-
-    const dmChannel = supabase
-      .channel(`dm_inbox_${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, () => {
-        void refreshDmPreviews();
-      })
-      .subscribe();
-
-    const squadMembersChannel = supabase
-      .channel(`squad_members_notify_${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'squad_members' }, onPendingChange)
-      .subscribe();
+      void refreshDmPreviews();
+      if (activeTab === 'private') void refreshFriends();
+    });
 
     return () => {
-      supabase.removeChannel(friendshipsChannel);
-      supabase.removeChannel(dmChannel);
-      supabase.removeChannel(squadMembersChannel);
+      stopRealtime();
+      stopPoll();
     };
-  }, [user, refreshFriends, refreshPendingCount, refreshDmPreviews]);
-
-  useEffect(() => {
-    if (!user || !resolvedUsername || activeTab !== 'private') return;
-
-    const refreshIfVisible = () => {
-      if (document.visibilityState === 'visible') void refreshPendingCount();
-    };
-
-    refreshIfVisible();
-    const interval = window.setInterval(refreshIfVisible, 20_000);
-    window.addEventListener('focus', refreshIfVisible);
-    document.addEventListener('visibilitychange', refreshIfVisible);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshIfVisible);
-      document.removeEventListener('visibilitychange', refreshIfVisible);
-    };
-  }, [user, resolvedUsername, activeTab, refreshPendingCount]);
+  }, [user, resolvedUsername, activeTab, refreshFriends, refreshPendingCount, refreshDmPreviews]);
 
   useEffect(() => {
     if (!user || loadingProfile || resolvedUsername) {
