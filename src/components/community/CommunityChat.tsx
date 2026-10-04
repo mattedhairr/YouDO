@@ -221,7 +221,11 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const openActions=(message:ChatMessage)=>{setSelected(message);setReason('');setActionError('');};
     useEffect(() => {
       if (!selected) return;
-      const handleOutsideClick = () => setSelected(null);
+      const handleOutsideClick = (event: PointerEvent) => {
+        const el = event.target;
+        if (el instanceof Element && el.closest('.yd-chat-actions')) return;
+        setSelected(null);
+      };
       window.addEventListener('pointerdown', handleOutsideClick);
       return () => window.removeEventListener('pointerdown', handleOutsideClick);
     }, [selected]);
@@ -405,7 +409,12 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             )}
           </article>
               {selected?.id === message.id && (
-                <div role="menu" onClick={(e) => e.stopPropagation()} className={`yd-chat-actions ${mine ? 'is-mine' : ''}`}>
+                <div
+                  role="menu"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  className={`yd-chat-actions ${mine ? 'is-mine' : ''}`}
+                >
                     {message.delivery === 'sent' && canWriteRoom && (
                       <button type="button" className="yd-chat-action" onClick={(e) => { e.stopPropagation(); hapticTick(); beginReply(message); }}>
                         <Reply size={18} />

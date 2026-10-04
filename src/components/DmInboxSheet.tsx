@@ -31,7 +31,11 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
   useEffect(() => {
     if (!activeMenu) return;
-    const handleOutsideClick = () => setActiveMenu(null);
+    const handleOutsideClick = (event: PointerEvent) => {
+      const el = event.target;
+      if (el instanceof Element && el.closest('.yd-chat-actions')) return;
+      setActiveMenu(null);
+    };
     window.addEventListener('pointerdown', handleOutsideClick);
     return () => window.removeEventListener('pointerdown', handleOutsideClick);
   }, [activeMenu]);
@@ -200,6 +204,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
                     {activeMenu === msg.id && (
                       <div
                         role="menu"
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
                         className={`yd-chat-actions ${isMe ? 'is-mine' : ''}`}
                       >

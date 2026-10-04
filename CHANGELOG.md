@@ -22,7 +22,7 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 - **Private Hub** — Friends, direct messages, private rooms, and squad chat improvements for early testing on your account.
 - **Unified chat** — Community, squad, and DM conversations share the same message layout, reply gestures, and composer style.
 - **Squad progress** — Squad rooms include a progress view aligned with your collective bar goals.
-- **Android APK** — versionName **7.7.2**, versionCode **67**. Installs over **v7.7.1** without clearing app data. Unpublished test candidate; not a public GitHub Release.
+- **Android APK** — versionName **7.7.2**, versionCode **68** (test builds; install over prior 7.7.2 candidates). Unpublished test candidate; not a public GitHub Release.
 
 ---
 
