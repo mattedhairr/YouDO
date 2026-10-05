@@ -1270,7 +1270,7 @@ function AppInner() {
                               onAdvance={advance}
                               onUndo={undo}
                               onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                              onDuplicate={duplicateTask}
+
                               onDragStart={(id) => setDragId(id)}
                               onDragEnter={(id) => setOverId(id)}
                               onDragEnd={doReorder}
@@ -1361,7 +1361,7 @@ function AppInner() {
                                 onAdvance={advance}
                                 onUndo={undo}
                                 onDelete={activeBacklogTask.goalNodeId ? unlinkTask : removeTask}
-                                onDuplicate={duplicateTask}
+
                                 onDragStart={() => {}}
                                 onDragEnter={() => {}}
                                 onDragEnd={() => {}}
@@ -1408,7 +1408,7 @@ function AppInner() {
                                 onAdvance={advance}
                                 onUndo={undo}
                                 onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                                onDuplicate={duplicateTask}
+
                                 onDragStart={() => {}}
                                 onDragEnter={() => {}}
                                 onDragEnd={() => {}}
@@ -1473,7 +1473,7 @@ function AppInner() {
                                   onAdvance={advance}
                                   onUndo={undo}
                                   onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                                  onDuplicate={duplicateTask}
+
                                   onDragStart={() => {}}
                                   onDragEnter={() => {}}
                                   onDragEnd={() => {}}
