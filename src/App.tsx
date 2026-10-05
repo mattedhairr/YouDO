@@ -1426,18 +1426,6 @@ function AppInner() {
                                 onOpenAmbient={() => setShowAmbient(true)}
                                 taskSessions={getTaskSessions(t.id)}
                                 streakSave
-                                backlogAction={
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handlePushBacklogTask(t);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border border-subtle text-error hover:bg-error-soft shrink-0"
-                                    title="Reschedule task"
-                                  >
-                                    <Zap size={12} className="text-error" /> Reschedule
-                                  </button>
-                                }
                               />
                             ))}
                         </div>
@@ -1491,18 +1479,6 @@ function AppInner() {
                               onOpenAmbient={() => setShowAmbient(true)}
                                   taskSessions={getTaskSessions(t.id)}
                                   streakSave={reviveSaveIds.has(t.id)}
-                                  backlogAction={
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePushBacklogTask(t);
-                                      }}
-                                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border border-subtle text-error hover:bg-error-soft shrink-0"
-                                      title="Reschedule task"
-                                    >
-                                      <Zap size={12} className="text-error" /> Reschedule
-                                    </button>
-                                  }
                                 />
                               </div>
                             );

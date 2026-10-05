@@ -23,7 +23,6 @@ interface Props {
   softRemove?: boolean;
   dark?: boolean;
   onCardClick?: () => void;
-  backlogAction?: React.ReactNode;
   streakSave?: boolean;
   onJumpToGoal?: () => void;
   onOpenDescription?: (title: string, description: string) => void;
@@ -65,7 +64,7 @@ export default function TaskCard({
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove,
   onCardClick, onJumpToGoal, onOpenDescription,
   onStartSession, onPauseSession, onResumeSession, onStopSession, onOpenAmbient, taskSessions,
-  streakSave, backlogAction,
+  streakSave,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -363,12 +362,6 @@ export default function TaskCard({
           </div>
         </div>
         
-        {backlogAction && (
-          <div className="px-3.5 pb-3">
-            {backlogAction}
-          </div>
-        )}
-
         {hasSteps && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-transparent">
             <div
