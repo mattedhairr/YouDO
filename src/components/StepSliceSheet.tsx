@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Zap } from 'lucide-react';
+import { Check, Zap, Calendar } from 'lucide-react';
 import type { GoalNode } from '../types';
 import { todayISO, tomorrowISO } from '../store';
 import Overlay from './Overlay';
@@ -145,14 +145,35 @@ export default function StepSliceSheet({ open, nodes, node, onClose, onConfirm }
             >
               Tomorrow
             </button>
+            <div className="w-px h-4 bg-border mx-0.5 shrink-0" />
+            <label className={`relative flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer transition-colors shrink-0 ${
+              date !== todayISO() && date !== tomorrowISO()
+                ? 'bg-primary text-on-primary shadow-sm'
+                : 'text-content-secondary hover:text-content-primary hover:bg-surface'
+            }`}>
+              <Calendar size={15} />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => {
+                  if (e.target.value) setDate(e.target.value);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+            </label>
           </div>
+          
           {date !== todayISO() && date !== tomorrowISO() && (
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full h-10 px-3 bg-elevated border border-subtle rounded-xl text-[13px] font-medium text-content-primary outline-none focus:border-primary transition-colors"
-            />
+            <div className="text-[12px] font-semibold text-center text-primary bg-primary-soft/40 rounded-lg py-2 border border-primary/20">
+              Selected: {(() => {
+                const parts = date.split('-');
+                if (parts.length === 3) {
+                  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+                    .toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+                }
+                return date;
+              })()}
+            </div>
           )}
         </div>
 
