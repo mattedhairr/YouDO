@@ -35,6 +35,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
   });
   const [selected, setSelected] = useState<string[]>([]);
   const [selecting, setSelecting] = useState(false);
+  const [pressingId, setPressingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [exactMatch, setExactMatch] = useState(false);
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -193,27 +194,62 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressOrigin = useRef<{ x: number; y: number } | null>(null);
   const pressCancelled = useRef(false);
+  const longPressJustCompleted = useRef(false);
+  
   const startPress = (id: string, x: number, y: number) => {
     pressCancelled.current = false;
     pressOrigin.current = { x, y };
+    setPressingId(id);
     pressTimer.current = setTimeout(() => {
-      if (!pressCancelled.current) toggle(id);
+      setPressingId(null);
+      if (!pressCancelled.current) {
+        longPressJustCompleted.current = true;
+        toggle(id);
+        setTimeout(() => { longPressJustCompleted.current = false; }, 300);
+      }
     }, 420);
   };
-  const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  const cancelPress = () => { 
+    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } 
+    setPressingId(null);
+  };
   const movePress = (x: number, y: number) => {
     if (pressOrigin.current && (Math.abs(x - pressOrigin.current.x) > 6 || Math.abs(y - pressOrigin.current.y) > 6)) {
       pressCancelled.current = true; cancelPress();
     }
   };
-  const row = (node: GoalNode) => <div key={node.id} className={'studio-item' + (selected.includes(node.id) ? ' is-selected' : '')}
-    onPointerDown={(e) => { if (!selecting) startPress(node.id, e.clientX, e.clientY); }}
+  const row = (node: GoalNode) => <div key={node.id} className={'studio-item' + (selected.includes(node.id) ? ' is-selected' : '') + (pressingId === node.id ? ' is-pressing' : '')}
+    onPointerDown={(e) => { 
+      if (!selecting) {
+        startPress(node.id, e.clientX, e.clientY); 
+      }
+    }}
+    onClick={(e) => {
+      if (longPressJustCompleted.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (selecting) toggle(node.id);
+    }}
     onPointerMove={(e) => movePress(e.clientX, e.clientY)}
     onPointerUp={cancelPress} onPointerCancel={cancelPress}>
-    {selecting ? <button type="button" className="studio-icon-button studio-select-box" aria-label={`Select ${node.title}`} aria-pressed={selected.includes(node.id)} onClick={() => toggle(node.id)}>{selected.includes(node.id) ? <CheckSquare2 size={19} /> : <Square size={19} />}</button> : <span className="studio-item-icon">{itemIcon(node)}</span>}
-    <button type="button" className="studio-item-label" onClick={() => selecting ? toggle(node.id) : visit([node.id])}><strong>{node.title}{node.pinned && <Pin size={11} />}</strong><span>{node.children.length ? `${node.children.length} items` : node.steps?.length ? `${node.steps.length} checklist steps` : 'No items inside'}{node.completed ? ' · Complete' : node.todayTaskId ? ' · Scheduled' : ''}</span></button>
-    {!selecting && <button type="button" className="studio-icon-button" aria-label={`Edit ${node.title}`} onClick={() => openPanel({ type: 'edit', ids: [node.id] })}><Pencil size={15} /></button>}
-    <button type="button" className="studio-icon-button" aria-label={`Open contents of ${node.title}`} onClick={() => visit([node.id])}><ChevronRight size={17} /></button>
+    {selecting ? <button type="button" className="studio-icon-button studio-select-box" aria-label={`Select ${node.title}`} aria-pressed={selected.includes(node.id)} tabIndex={-1}>{selected.includes(node.id) ? <CheckSquare2 size={19} /> : <Square size={19} />}</button> : <span className="studio-item-icon">{itemIcon(node)}</span>}
+    <button type="button" className="studio-item-label" onClick={(e) => {
+      if (longPressJustCompleted.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (selecting) {
+        // Handled by the row's onClick, so prevent default/bubbling
+        e.preventDefault();
+      } else {
+        visit([node.id]);
+      }
+    }}><strong>{node.title}{node.pinned && <Pin size={11} />}</strong><span>{node.children.length ? `${node.children.length} items` : node.steps?.length ? `${node.steps.length} checklist steps` : 'No items inside'}{node.completed ? ' · Complete' : node.todayTaskId ? ' · Scheduled' : ''}</span></button>
+    {!selecting && <button type="button" className="studio-icon-button" aria-label={`Edit ${node.title}`} onClick={(e) => { e.stopPropagation(); openPanel({ type: 'edit', ids: [node.id] }); }}><Pencil size={15} /></button>}
+    <button type="button" className="studio-icon-button" aria-label={`Open contents of ${node.title}`} onClick={(e) => { if (!selecting) { e.stopPropagation(); visit([node.id]); } }}><ChevronRight size={17} /></button>
   </div>;
   const panelTitle = panel?.type === 'add' ? panel.kind === 'steps' ? 'Add checklist steps' : panel.kind === 'goal' ? 'Add goals' : 'Add items'
     : panel?.type === 'edit' ? panelNodes.length === 1 ? 'Edit item' : `Edit ${panelNodes.length} items`
