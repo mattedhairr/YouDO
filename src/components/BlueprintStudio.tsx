@@ -201,7 +201,6 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
     pressOrigin.current = { x, y };
     setPressingId(id);
     pressTimer.current = setTimeout(() => {
-      setPressingId(null);
       if (!pressCancelled.current) {
         longPressJustCompleted.current = true;
         toggle(id);
@@ -248,7 +247,7 @@ export default function BlueprintStudio({ open, goals, initialPathIds = [], acti
         visit([node.id]);
       }
     }}><strong>{node.title}{node.pinned && <Pin size={11} />}</strong><span>{node.children.length ? `${node.children.length} items` : node.steps?.length ? `${node.steps.length} checklist steps` : 'No items inside'}{node.completed ? ' · Complete' : node.todayTaskId ? ' · Scheduled' : ''}</span></button>
-    {!selecting && <button type="button" className="studio-icon-button" aria-label={`Edit ${node.title}`} onClick={(e) => { e.stopPropagation(); openPanel({ type: 'edit', ids: [node.id] }); }}><Pencil size={15} /></button>}
+    <button type="button" className="studio-icon-button" style={{ visibility: selecting ? 'hidden' : 'visible' }} aria-label={`Edit ${node.title}`} onClick={(e) => { e.stopPropagation(); if (!selecting) openPanel({ type: 'edit', ids: [node.id] }); }}><Pencil size={15} /></button>
     <button type="button" className="studio-icon-button" aria-label={`Open contents of ${node.title}`} onClick={(e) => { if (!selecting) { e.stopPropagation(); visit([node.id]); } }}><ChevronRight size={17} /></button>
   </div>;
   const panelTitle = panel?.type === 'add' ? panel.kind === 'steps' ? 'Add checklist steps' : panel.kind === 'goal' ? 'Add goals' : 'Add items'
