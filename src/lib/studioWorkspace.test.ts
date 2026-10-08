@@ -179,4 +179,22 @@ describe('Studio checklist and Today compatibility', () => {
     const child = findGoal(next.goals, 'empty')!.children[0];
     expect(addBlueprintChildren(next.goals, [child.id], 'node', ['Level 2']).added).toBe(1);
   });
+
+  it('sanitizes invalid dates and invalid ranges in patchStudioItems', () => {
+    const original = [item('a', [], { startDate: '2026-09-01', endDate: '2026-10-01' })];
+    // Invalid date string keeps existing date
+    const invalidDate = patchStudioItems(original, { a: { startDate: 'not-a-date', endDate: '2026-02-31' } });
+    expect(invalidDate[0].startDate).toBe('2026-09-01');
+    expect(invalidDate[0].endDate).toBe('2026-10-01');
+
+    // Invalid range (startDate > endDate) reverts patch dates
+    const invalidRange = patchStudioItems(original, { a: { startDate: '2026-11-01', endDate: '2026-10-01' } });
+    expect(invalidRange[0].startDate).toBe('2026-09-01');
+    expect(invalidRange[0].endDate).toBe('2026-10-01');
+
+    // Valid range applies cleanly
+    const validRange = patchStudioItems(original, { a: { startDate: '2026-10-05', endDate: '2026-10-25' } });
+    expect(validRange[0].startDate).toBe('2026-10-05');
+    expect(validRange[0].endDate).toBe('2026-10-25');
+  });
 });
