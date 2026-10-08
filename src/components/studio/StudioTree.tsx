@@ -55,6 +55,30 @@ function filterNode(node: GoalNode, query: string): FilterResult | null {
   return null;
 }
 
+function formatCompactDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(year, month, day);
+      
+      const currentYear = new Date().getFullYear();
+      const monthStr = d.toLocaleDateString('en-US', { month: 'short' });
+      
+      if (year === currentYear) {
+        return `${monthStr} ${day}`;
+      } else {
+        const shortYear = year.toString().slice(-2);
+        return `${monthStr} ${day}, '${shortYear}`;
+      }
+    }
+  } catch (e) {}
+  return dateStr;
+}
+
 export function StudioTree({ controller, searchQuery }: StudioTreeProps) {
   const { draftGoals } = controller;
 
@@ -188,7 +212,7 @@ function StudioTreeNode({
 
       {/* Node Row Container */}
       <div
-        className={`group relative flex items-start sm:items-center gap-2 py-1.5 px-2.5 rounded-xl cursor-pointer transition-colors ${
+        className={`group relative flex items-center gap-2 py-1.5 px-2.5 rounded-xl cursor-pointer transition-colors ${
           isActiveSession
             ? 'ring-1 ring-secondary/40 bg-secondary-soft/20 text-content-primary'
             : isSelected
@@ -200,7 +224,7 @@ function StudioTreeNode({
           if (hasChildren) toggleExpand(node.id);
         }}
       >
-        <div className="flex items-center gap-2 shrink-0 mt-[1px] sm:mt-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Branch Expand/Collapse Chevron */}
           {hasChildren ? (
             <button
@@ -253,59 +277,56 @@ function StudioTreeNode({
           </div>
         </div>
 
-        {/* Main Content Area (Title + Metadata) */}
-        <div className="flex flex-col sm:flex-row sm:items-center flex-1 min-w-0 gap-0.5 sm:gap-2">
+        {/* Main Content Area (Single Line) */}
+        <div className="flex items-center flex-1 min-w-0 gap-2">
           
-          {/* Top Line (Mobile) / Left side (Desktop): Title + Items/Steps */}
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span
-              className={`text-sm truncate select-none shrink ${
-                isGoal ? 'font-semibold text-content-primary' : 'font-medium text-content-primary'
-              }`}
-            >
-              {node.title}
+          {/* Title */}
+          <span
+            className={`text-sm truncate select-none shrink ${
+              isGoal ? 'font-semibold text-content-primary' : 'font-medium text-content-primary'
+            }`}
+          >
+            {node.title}
+          </span>
+
+          {/* Semantic Badges */}
+          {isBranch && (
+            <span className="text-[11px] sm:text-[12px] text-content-muted font-medium whitespace-nowrap shrink-0">
+              {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
             </span>
+          )}
+          {isTask && (
+            <button
+              type="button"
+              title="Edit checklist steps"
+              className="text-[11px] sm:text-[12px] text-content-muted hover:text-secondary font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                openModal('bulk_step_diff', [node.id]);
+              }}
+            >
+              {doneCount}/{stepCount} steps
+            </button>
+          )}
 
-            {/* Semantic Badges */}
-            {isBranch && (
-              <span className="text-[11px] sm:text-[12px] text-content-muted font-medium whitespace-nowrap shrink-0">
-                {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
-              </span>
-            )}
-            {isTask && (
-              <button
-                type="button"
-                title="Edit checklist steps"
-                className="text-[11px] sm:text-[12px] text-content-muted hover:text-secondary font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openModal('bulk_step_diff', [node.id]);
-                }}
-              >
-                {doneCount}/{stepCount} steps
-              </button>
-            )}
-          </div>
-
-          {/* Bottom Line (Mobile) / Right side (Desktop): Dates & Focus */}
+          {/* Dates & Focus (Aligned to Right) */}
           {(node.startDate || node.endDate || isActiveSession) && (
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
               {/* Date Badge */}
               {(node.startDate || node.endDate) && (
                 <button
                   type="button"
                   title="Click to edit dates"
-                  className="text-[9px] sm:text-[10px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap opacity-80"
+                  className="text-[10px] sm:text-[11px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap opacity-90"
                   onClick={(e) => {
                     e.stopPropagation();
                     openModal('date_picker', [node.id]);
                   }}
                 >
-                  <Calendar size={10} className="shrink-0" />
                   <span>
-                    {node.startDate || ''}
+                    {formatCompactDate(node.startDate)}
                     {node.startDate && node.endDate ? ' → ' : ''}
-                    {node.endDate || ''}
+                    {formatCompactDate(node.endDate)}
                   </span>
                 </button>
               )}
