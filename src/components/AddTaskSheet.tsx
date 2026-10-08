@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Calendar } from 'lucide-react';
 import type { Priority, Task } from '../types';
 import { todayISO, tomorrowISO } from '../store';
 import Overlay from './Overlay';
@@ -64,14 +65,14 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
 
   return (
     <Overlay open={open} onClose={onClose} align="bottom">
-      <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-4">
+      <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] min-h-0 flex flex-col gap-3.5">
         {/* Header */}
-        <div className="flex flex-col items-center shrink-0 -mt-1 mb-2">
-          <div className="w-10 h-1 bg-border-subtle rounded-full opacity-70 mb-3" />
-          <h2 className="text-[16px] font-bold text-content-primary">New Task</h2>
+        <div className="flex flex-col items-center shrink-0 -mt-1 mb-1">
+          <div className="w-10 h-1 bg-border-subtle rounded-full opacity-70 mb-2" />
+          <h2 className="text-[15px] font-bold text-content-primary">New Task</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col [&>*]:shrink-0 gap-3.5">
           {/* Main Info Card */}
           <div className="bg-surface border border-subtle rounded-2xl overflow-hidden shadow-sm">
             <input
@@ -117,7 +118,7 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
             <div className="px-3.5 pt-3 pb-1">
               <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Target Date</label>
             </div>
-            <div className="p-2 pt-0 grid grid-cols-2 gap-2 border-b border-subtle">
+            <div className="p-2 pt-0 grid grid-cols-3 gap-2 border-b border-subtle">
               <button
                 type="button"
                 onClick={() => setTargetDate(todayISO())}
@@ -139,6 +140,18 @@ export default function AddTaskSheet({ open, onClose, onAdd, initialDate }: Prop
                 }`}
               >
                 Tomorrow
+              </button>
+              <button
+                type="button"
+                onClick={() => setTargetDate('')}
+                className={`py-2 flex items-center justify-center rounded-xl text-[12px] font-bold transition-all ${
+                  targetDate !== todayISO() && targetDate !== tomorrowISO()
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'bg-elevated text-content-secondary hover:text-content-primary border border-subtle'
+                }`}
+                aria-label="Custom Date"
+              >
+                <Calendar size={14} />
               </button>
             </div>
             {targetDate !== todayISO() && targetDate !== tomorrowISO() && (

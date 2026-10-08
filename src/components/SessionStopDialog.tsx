@@ -71,7 +71,7 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel, 
 
   return (
     <Overlay open={open} onClose={onCancel} align="bottom">
-      <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] flex flex-col gap-3 max-h-[90vh] overflow-y-auto no-scrollbar">
+      <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] flex flex-col gap-3 overflow-y-auto no-scrollbar [&>*]:shrink-0">
         {/* Grab Handle */}
         <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
 
@@ -194,13 +194,6 @@ export function SessionStopDialog({ open, task, onConfirm, onDiscard, onCancel, 
           >
             <Trash2 className="w-4 h-4" />
             Discard sitting
-          </button>
-          
-          <button
-            onClick={onCancel}
-            className="w-full h-12 rounded-2xl bg-surface border border-subtle text-[13px] font-bold text-content-secondary hover:text-content-primary hover:bg-elevated transition-all shadow-sm"
-          >
-            Cancel
           </button>
         </div>
       </div>
