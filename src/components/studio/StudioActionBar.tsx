@@ -55,40 +55,40 @@ export function StudioActionBar({ controller }: StudioActionBarProps) {
       {/* Add Inside */}
       <button
         type="button"
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-primary hover:bg-primary-soft rounded-xl transition-colors shrink-0"
+        className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-primary hover:bg-primary-soft rounded-xl transition-colors shrink-0"
         onClick={() => openModal('bulk_add_inside', topIds)}
       >
         <Plus size={16} className="shrink-0" />
-        <span className="whitespace-nowrap">Add Inside</span>
+        <span className="hidden md:inline whitespace-nowrap">Add Inside</span>
       </button>
 
       {/* Steps */}
       <button
         type="button"
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
+        className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
         onClick={() => openModal('bulk_step_diff', topIds)}
       >
         <ListChecks size={16} className="shrink-0" />
-        <span className="whitespace-nowrap">Steps</span>
+        <span className="hidden md:inline whitespace-nowrap">Steps</span>
       </button>
 
       {/* Dates */}
       <button
         type="button"
-        className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
+        className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
         onClick={() => openModal('date_picker', topIds)}
       >
         <Calendar size={16} className="shrink-0" />
-        <span className="whitespace-nowrap">Dates</span>
+        <span className="hidden md:inline whitespace-nowrap">Dates</span>
       </button>
 
-      <div className="w-px h-5 bg-border-subtle mx-0.5" />
+      <div className="hidden md:block w-px h-5 bg-border-subtle mx-0.5" />
 
       {/* Delete / Remove */}
       <button
         type="button"
         disabled={hasActiveTaskInSelection}
-        className={`p-2 rounded-xl transition-colors ${
+        className={`p-2 rounded-xl transition-colors shrink-0 ${
           hasActiveTaskInSelection
             ? 'text-content-muted opacity-40 cursor-not-allowed'
             : 'text-error hover:bg-error-soft'
