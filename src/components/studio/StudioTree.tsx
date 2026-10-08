@@ -188,7 +188,7 @@ function StudioTreeNode({
 
       {/* Node Row Container */}
       <div
-        className={`group relative flex items-center gap-2 py-1.5 px-2.5 rounded-xl cursor-pointer transition-colors ${
+        className={`group relative flex items-start sm:items-center gap-2 py-1.5 px-2.5 rounded-xl cursor-pointer transition-colors ${
           isActiveSession
             ? 'ring-1 ring-secondary/40 bg-secondary-soft/20 text-content-primary'
             : isSelected
@@ -200,55 +200,57 @@ function StudioTreeNode({
           if (hasChildren) toggleExpand(node.id);
         }}
       >
-        {/* Branch Expand/Collapse Chevron */}
-        {hasChildren ? (
+        <div className="flex items-center gap-2 shrink-0 mt-[1px] sm:mt-0">
+          {/* Branch Expand/Collapse Chevron */}
+          {hasChildren ? (
+            <button
+              type="button"
+              className="p-1 -ml-1 text-content-muted hover:text-content-primary rounded transition-colors"
+              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleExpand(node.id);
+              }}
+            >
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          ) : (
+            <div className="w-5 h-5 flex-shrink-0" />
+          )}
+
+          {/* Checkbox */}
           <button
             type="button"
-            className="p-1 -ml-1 text-content-muted hover:text-content-primary rounded transition-colors"
-            aria-label={isExpanded ? 'Collapse' : 'Expand'}
+            className="text-content-muted hover:text-primary transition-colors flex-shrink-0"
+            aria-label={isSelected ? 'Deselect item' : 'Select item'}
             onClick={(e) => {
               e.stopPropagation();
-              toggleExpand(node.id);
+              toggleSelect(node.id);
             }}
           >
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
-        ) : (
-          <div className="w-5 h-5 flex-shrink-0" />
-        )}
-
-        {/* Checkbox */}
-        <button
-          type="button"
-          className="text-content-muted hover:text-primary transition-colors flex-shrink-0"
-          aria-label={isSelected ? 'Deselect item' : 'Select item'}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleSelect(node.id);
-          }}
-        >
-          {isSelected ? (
-            <CheckSquare2 size={16} className="text-primary" />
-          ) : (
-            <Square size={16} className="text-content-muted" />
-          )}
-        </button>
-
-        {/* Semantic Icon */}
-        <div className="flex-shrink-0">
-          {isGoal ? (
-            <Target size={16} className="text-primary" />
-          ) : isBranch ? (
-            isExpanded ? (
-              <FolderOpen size={16} className="text-content-secondary" />
+            {isSelected ? (
+              <CheckSquare2 size={16} className="text-primary" />
             ) : (
-              <Folder size={16} className="text-content-secondary" />
-            )
-          ) : isTask ? (
-            <ListChecks size={16} className="text-secondary" />
-          ) : (
-            <CircleDot size={15} className="text-content-muted" />
-          )}
+              <Square size={16} className="text-content-muted" />
+            )}
+          </button>
+
+          {/* Semantic Icon */}
+          <div className="flex-shrink-0">
+            {isGoal ? (
+              <Target size={16} className="text-primary" />
+            ) : isBranch ? (
+              isExpanded ? (
+                <FolderOpen size={16} className="text-content-secondary" />
+              ) : (
+                <Folder size={16} className="text-content-secondary" />
+              )
+            ) : isTask ? (
+              <ListChecks size={16} className="text-secondary" />
+            ) : (
+              <CircleDot size={15} className="text-content-muted" />
+            )}
+          </div>
         </div>
 
         {/* Main Content Area (Title + Metadata) */}
@@ -293,13 +295,13 @@ function StudioTreeNode({
                 <button
                   type="button"
                   title="Click to edit dates"
-                  className="text-[11px] sm:text-[12px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap"
+                  className="text-[10px] sm:text-[11px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap"
                   onClick={(e) => {
                     e.stopPropagation();
                     openModal('date_picker', [node.id]);
                   }}
                 >
-                  <Calendar size={12} className="shrink-0" />
+                  <Calendar size={11} className="shrink-0" />
                   <span>
                     {node.startDate || ''}
                     {node.startDate && node.endDate ? ' → ' : ''}
@@ -310,7 +312,7 @@ function StudioTreeNode({
 
               {/* Active Focus Pill */}
               {isActiveSession && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-secondary-soft/50 text-secondary whitespace-nowrap shrink-0">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-soft/50 text-secondary whitespace-nowrap shrink-0">
                   <span className="w-1 h-1 rounded-full bg-secondary animate-pulse shrink-0" />
                   Focus
                 </span>
