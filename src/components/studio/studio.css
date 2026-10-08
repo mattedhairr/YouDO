@@ -11,7 +11,7 @@
 .studio-header { display: flex; align-items: center; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); flex-shrink: 0; }
 .studio-header-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .studio-header-title > svg { color: var(--primary); }
-.studio-header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.studio-header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
 .studio-header-title span { font-size: 11px; color: var(--text-secondary); }
 .studio-save { padding: 8px 12px; border-radius: 8px; color: var(--primary); background: var(--primary-soft); font-weight: 650 !important; }
 .studio-breadcrumb { display: flex; align-items: center; gap: 7px; padding: 12px 20px; overflow-x: auto; flex-shrink: 0; font-size: 12px; scrollbar-width: thin; color: var(--text-secondary); }

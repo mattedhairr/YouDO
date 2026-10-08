@@ -251,68 +251,72 @@ function StudioTreeNode({
           )}
         </div>
 
-        {/* Title */}
-        <span
-          className={`text-sm truncate select-none ${
-            isGoal ? 'font-semibold text-content-primary' : 'font-medium text-content-primary'
-          }`}
-        >
-          {node.title}
-        </span>
-
-        {/* Semantic Badges */}
-        {isBranch && (
-          <span className="text-[12px] text-content-muted font-medium whitespace-nowrap shrink-0 ml-1">
-            {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
-          </span>
-        )}
-
-        {isTask && (
-          <button
-            type="button"
-            title="Edit checklist steps"
-            className="text-[12px] text-content-muted hover:text-secondary font-medium transition-colors whitespace-nowrap shrink-0 ml-1 flex items-center gap-1"
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal('bulk_step_diff', [node.id]);
-            }}
+        {/* Main Content Area (Title + Metadata) */}
+        <div className="flex flex-col sm:flex-row sm:items-center flex-1 min-w-0 gap-0.5 sm:gap-2">
+          {/* Title */}
+          <span
+            className={`text-sm truncate select-none ${
+              isGoal ? 'font-semibold text-content-primary' : 'font-medium text-content-primary'
+            }`}
           >
-            {doneCount}/{stepCount} steps
-          </button>
-        )}
-
-        {/* Active Focus Pill */}
-        {isActiveSession && (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-secondary-soft/50 text-secondary whitespace-nowrap shrink-0 ml-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse shrink-0" />
-            Active Focus
+            {node.title}
           </span>
-        )}
 
-        {/* Right-aligned container for Dates and Hover Actions */}
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          
-          {/* Date Badge */}
-          {(node.startDate || node.endDate) && (
-            <button
-              type="button"
-              title="Click to edit dates"
-              className="text-[12px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap"
-              onClick={(e) => {
-                e.stopPropagation();
-                openModal('date_picker', [node.id]);
-              }}
-            >
-              <Calendar size={14} className="shrink-0" />
-              <span>
-                {node.startDate || ''}
-                {node.startDate && node.endDate ? ' → ' : ''}
-                {node.endDate || ''}
+          {/* Metadata Row */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Semantic Badges */}
+            {isBranch && (
+              <span className="text-[11px] sm:text-[12px] text-content-muted font-medium whitespace-nowrap shrink-0">
+                {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
               </span>
-            </button>
-          )}
+            )}
 
-          {/* Hover / Focus Quick Action Bar */}
+            {isTask && (
+              <button
+                type="button"
+                title="Edit checklist steps"
+                className="text-[11px] sm:text-[12px] text-content-muted hover:text-secondary font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openModal('bulk_step_diff', [node.id]);
+                }}
+              >
+                {doneCount}/{stepCount} steps
+              </button>
+            )}
+
+            {/* Date Badge */}
+            {(node.startDate || node.endDate) && (
+              <button
+                type="button"
+                title="Click to edit dates"
+                className="text-[11px] sm:text-[12px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openModal('date_picker', [node.id]);
+                }}
+              >
+                <Calendar size={12} className="shrink-0" />
+                <span>
+                  {node.startDate || ''}
+                  {node.startDate && node.endDate ? ' → ' : ''}
+                  {node.endDate || ''}
+                </span>
+              </button>
+            )}
+
+            {/* Active Focus Pill */}
+            {isActiveSession && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-secondary-soft/50 text-secondary whitespace-nowrap shrink-0">
+                <span className="w-1 h-1 rounded-full bg-secondary animate-pulse shrink-0" />
+                Focus
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right-aligned Hover Actions */}
+        <div className="ml-auto shrink-0 pl-2">
           <div className="opacity-0 hidden sm:flex group-hover:opacity-100 group-focus-within:opacity-100 items-center gap-1 transition-opacity">
             {isLeaf && (
               <button

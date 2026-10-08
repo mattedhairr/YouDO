@@ -36,13 +36,13 @@ export function StudioActionBar({ controller }: StudioActionBarProps) {
       aria-label="Bulk actions toolbar"
     >
       {/* Selected Count & Clear */}
-      <div className="flex items-center gap-2 px-2.5 py-0.5 border-r border-border-subtle">
+      <div className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2.5 py-0.5 border-r border-border-subtle shrink-0">
         <span className="text-xs font-semibold text-content-primary whitespace-nowrap">
           {selectedCount} selected
         </span>
         <button
           type="button"
-          className="p-1 hover:bg-elevated rounded-full text-content-muted hover:text-content-primary transition-colors"
+          className="p-1 hover:bg-elevated rounded-full text-content-muted hover:text-content-primary transition-colors shrink-0"
           onClick={clearSelection}
           title="Clear selection"
           aria-label="Clear selection"
