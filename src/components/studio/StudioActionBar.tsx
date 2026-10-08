@@ -31,13 +31,13 @@ export function StudioActionBar({ controller }: StudioActionBarProps) {
 
   return (
     <div
-      className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 sm:gap-2 px-3 py-2 bg-surface/95 backdrop-blur-md border border-border-subtle shadow-elevated rounded-2xl z-30 transition-all duration-200 ease-out max-w-[95vw] overflow-x-auto"
+      className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex flex-wrap justify-center items-center gap-0.5 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 bg-surface/95 backdrop-blur-md border border-border-subtle shadow-elevated rounded-2xl z-30 transition-all duration-200 ease-out w-max max-w-[96vw]"
       role="toolbar"
       aria-label="Bulk actions toolbar"
     >
       {/* Selected Count & Clear */}
-      <div className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2.5 py-0.5 border-r border-border-subtle shrink-0">
-        <span className="text-xs font-semibold text-content-primary whitespace-nowrap">
+      <div className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2.5 py-0.5 border-r border-border-subtle shrink-0">
+        <span className="text-[11px] sm:text-xs font-semibold text-content-primary whitespace-nowrap">
           {selectedCount} selected
         </span>
         <button
@@ -55,7 +55,7 @@ export function StudioActionBar({ controller }: StudioActionBarProps) {
       {/* Add Inside */}
       <button
         type="button"
-        className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-primary hover:bg-primary-soft rounded-xl transition-colors shrink-0"
+        className="flex items-center gap-1.5 px-1.5 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-primary hover:bg-primary-soft rounded-xl transition-colors shrink-0"
         onClick={() => openModal('bulk_add_inside', topIds)}
       >
         <Plus size={16} className="shrink-0" />
@@ -65,7 +65,7 @@ export function StudioActionBar({ controller }: StudioActionBarProps) {
       {/* Steps */}
       <button
         type="button"
-        className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
+        className="flex items-center gap-1.5 px-1.5 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
         onClick={() => openModal('bulk_step_diff', topIds)}
       >
         <ListChecks size={16} className="shrink-0" />
@@ -75,7 +75,7 @@ export function StudioActionBar({ controller }: StudioActionBarProps) {
       {/* Dates */}
       <button
         type="button"
-        className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
+        className="flex items-center gap-1.5 px-1.5 md:px-3 py-1.5 text-xs sm:text-sm font-medium text-content-secondary hover:text-content-primary hover:bg-elevated rounded-xl transition-colors shrink-0"
         onClick={() => openModal('date_picker', topIds)}
       >
         <Calendar size={16} className="shrink-0" />
