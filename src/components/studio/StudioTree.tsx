@@ -241,7 +241,7 @@ function StudioTreeNode({
 
         {/* Semantic Badges */}
         {isBranch && (
-          <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-surface border border-border-subtle text-content-muted font-normal whitespace-nowrap shrink-0">
+          <span className="text-[12px] text-content-muted font-medium whitespace-nowrap shrink-0 ml-1">
             {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
           </span>
         )}
@@ -250,7 +250,7 @@ function StudioTreeNode({
           <button
             type="button"
             title="Edit checklist steps"
-            className="text-[11px] px-2 py-0.5 rounded-md bg-secondary-soft text-secondary font-medium hover:opacity-80 transition-opacity whitespace-nowrap shrink-0"
+            className="text-[12px] text-content-muted hover:text-secondary font-medium transition-colors whitespace-nowrap shrink-0 ml-1 flex items-center gap-1"
             onClick={(e) => {
               e.stopPropagation();
               openModal('bulk_step_diff', [node.id]);
@@ -260,96 +260,88 @@ function StudioTreeNode({
           </button>
         )}
 
-        {isLeaf && (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary-soft hover:bg-primary/20 px-2 py-0.5 rounded-md transition-colors whitespace-nowrap shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal('node_expansion', [node.id]);
-            }}
-          >
-            <Plus size={12} className="shrink-0" />
-            <span>Add Inside</span>
-          </button>
-        )}
-
         {/* Active Focus Pill */}
         {isActiveSession && (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-soft text-secondary border border-secondary/30 whitespace-nowrap shrink-0">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-secondary-soft/50 text-secondary whitespace-nowrap shrink-0 ml-2">
             <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse shrink-0" />
             Active Focus
           </span>
         )}
 
-        {/* Date Badge */}
-        {(node.startDate || node.endDate) && (
-          <button
-            type="button"
-            title="Click to edit dates"
-            className="text-[10px] bg-surface text-content-muted px-2 py-0.5 rounded-md border border-border-subtle ml-auto flex items-center gap-1 hover:bg-elevated hover:text-content-primary transition-colors flex-shrink-0 whitespace-nowrap"
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal('date_picker', [node.id]);
-            }}
-          >
-            <Calendar size={11} className="text-primary shrink-0" />
-            <span>
-              {node.startDate || ''}
-              {node.startDate && node.endDate ? ' → ' : ''}
-              {node.endDate || ''}
-            </span>
-          </button>
-        )}
-
-        {/* Hover / Focus Quick Action Bar */}
-        <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex items-center gap-0.5 transition-opacity ml-auto">
-          <button
-            type="button"
-            className="p-1 rounded-md text-content-muted hover:text-primary hover:bg-elevated transition-colors"
-            title="Expand node"
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal('node_expansion', [node.id]);
-            }}
-          >
-            <Plus size={14} />
-          </button>
-          <button
-            type="button"
-            className="p-1 rounded-md text-content-muted hover:text-secondary hover:bg-elevated transition-colors"
-            title="Edit Steps"
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal('bulk_step_diff', [node.id]);
-            }}
-          >
-            <ListChecks size={14} />
-          </button>
-          <button
-            type="button"
-            className="p-1 rounded-md text-content-muted hover:text-primary hover:bg-elevated transition-colors"
-            title="Edit Dates"
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal('date_picker', [node.id]);
-            }}
-          >
-            <Calendar size={14} />
-          </button>
-          {!isActiveSession && (
+        {/* Right-aligned container for Dates and Hover Actions */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          
+          {/* Date Badge */}
+          {(node.startDate || node.endDate) && (
             <button
               type="button"
-              className="p-1 rounded-md text-content-muted hover:text-error hover:bg-error-soft transition-colors"
-              title="Delete Node"
+              title="Click to edit dates"
+              className="text-[12px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap"
               onClick={(e) => {
                 e.stopPropagation();
-                removeNodes([node.id]);
+                openModal('date_picker', [node.id]);
               }}
             >
-              <Trash2 size={14} />
+              <Calendar size={14} className="shrink-0" />
+              <span>
+                {node.startDate || ''}
+                {node.startDate && node.endDate ? ' → ' : ''}
+                {node.endDate || ''}
+              </span>
             </button>
           )}
+
+          {/* Hover / Focus Quick Action Bar */}
+          <div className="opacity-0 hidden sm:flex group-hover:opacity-100 group-focus-within:opacity-100 items-center gap-1 transition-opacity">
+            {isLeaf && (
+              <button
+                type="button"
+                className="p-1.5 rounded-lg text-content-muted hover:text-primary hover:bg-elevated transition-colors"
+                title="Add Inside"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openModal('node_expansion', [node.id]);
+                }}
+              >
+                <Plus size={16} />
+              </button>
+            )}
+            <button
+              type="button"
+              className="p-1.5 rounded-lg text-content-muted hover:text-secondary hover:bg-elevated transition-colors"
+              title="Edit Steps"
+              onClick={(e) => {
+                e.stopPropagation();
+                openModal('bulk_step_diff', [node.id]);
+              }}
+            >
+              <ListChecks size={16} />
+            </button>
+            <button
+              type="button"
+              className="p-1.5 rounded-lg text-content-muted hover:text-primary hover:bg-elevated transition-colors"
+              title="Edit Dates"
+              onClick={(e) => {
+                e.stopPropagation();
+                openModal('date_picker', [node.id]);
+              }}
+            >
+              <Calendar size={16} />
+            </button>
+            {!isActiveSession && (
+              <button
+                type="button"
+                className="p-1.5 rounded-lg text-content-muted hover:text-error hover:bg-error-soft transition-colors"
+                title="Delete Node"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeNodes([node.id]);
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
