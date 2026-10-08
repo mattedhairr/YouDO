@@ -295,13 +295,13 @@ function StudioTreeNode({
                 <button
                   type="button"
                   title="Click to edit dates"
-                  className="text-[10px] sm:text-[11px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap"
+                  className="text-[9px] sm:text-[10px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap opacity-80"
                   onClick={(e) => {
                     e.stopPropagation();
                     openModal('date_picker', [node.id]);
                   }}
                 >
-                  <Calendar size={11} className="shrink-0" />
+                  <Calendar size={10} className="shrink-0" />
                   <span>
                     {node.startDate || ''}
                     {node.startDate && node.endDate ? ' → ' : ''}
