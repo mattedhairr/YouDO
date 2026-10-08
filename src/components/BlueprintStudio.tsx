@@ -1,7 +1,6 @@
-import { useRef } from 'react';
 import type { GoalNode } from '../types';
 import type { GoalTreeChangeResult } from '../store';
-import { useBlueprintStudioState, BlueprintStudioController } from './studio/blueprintStudioState';
+import { useBlueprintStudioState } from './studio/blueprintStudioState';
 import { StudioTree } from './studio/StudioTree';
 import { StudioActionBar } from './studio/StudioActionBar';
 import { StudioModals } from './studio/StudioModals';

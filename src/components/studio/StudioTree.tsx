@@ -1,7 +1,6 @@
 import { ChevronDown, ChevronRight, Target, Folder, ListChecks, Square, CheckSquare2 } from 'lucide-react';
 import type { GoalNode } from '../../types';
 import type { BlueprintStudioController } from './blueprintStudioState';
-import { isGoalEndpoint } from '../../lib/goalTree';
 
 export function StudioTree({ controller }: { controller: BlueprintStudioController }) {
   const { draftGoals, selectedIds, expandedIds, toggleSelect, toggleExpand } = controller;

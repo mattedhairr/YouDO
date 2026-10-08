@@ -1,6 +1,5 @@
 import { Plus, ListChecks, Calendar, Trash2, X } from 'lucide-react';
 import type { BlueprintStudioController } from './blueprintStudioState';
-import { isGoalEndpoint } from '../../lib/goalTree';
 import { topStudioSelection } from '../../lib/studioWorkspace';
 
 export function StudioActionBar({ controller }: { controller: BlueprintStudioController }) {

@@ -5,7 +5,7 @@ import { StudioBulkStepDiffModal } from './StudioBulkStepDiffModal';
 import { StudioDateModal } from './StudioDateModal';
 
 export function StudioModals({ controller }: { controller: BlueprintStudioController }) {
-  const { activeModal, closeModal, targetNodeIds } = controller;
+  const { activeModal, targetNodeIds } = controller;
 
   if (activeModal === 'none' || targetNodeIds.length === 0) return null;
 
