@@ -108,6 +108,16 @@ export default function Overlay({
     .filter(Boolean)
     .join(' ');
 
+  if (typeof document === 'undefined') {
+    return (
+      <div className={rootClass} role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="overlay-content">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
   return createPortal(
     <div
       ref={layerRef}

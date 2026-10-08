@@ -1,10 +1,15 @@
+import React from 'react';
 import type { BlueprintStudioController } from './blueprintStudioState';
 import { StudioNodeExpansionModal } from './StudioNodeExpansionModal';
 import { StudioBulkAddModal } from './StudioBulkAddModal';
 import { StudioBulkStepDiffModal } from './StudioBulkStepDiffModal';
 import { StudioDateModal } from './StudioDateModal';
 
-export function StudioModals({ controller }: { controller: BlueprintStudioController }) {
+export interface StudioModalsProps {
+  controller: BlueprintStudioController;
+}
+
+export function StudioModals({ controller }: StudioModalsProps) {
   const { activeModal, targetNodeIds } = controller;
 
   if (activeModal === 'none' || targetNodeIds.length === 0) return null;
