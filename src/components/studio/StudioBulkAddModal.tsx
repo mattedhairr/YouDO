@@ -54,7 +54,7 @@ export function StudioBulkAddModal({ controller }: StudioBulkAddModalProps) {
     return [];
   }, [mode, singleTitle, listText, prefix, startNum, sequenceCount]);
 
-  const totalCreated = computedTitles.length * targetNodeIds.length;
+  const totalCreated = computedTitles.length * Math.max(1, targetNodeIds.length);
 
   const handleAdd = () => {
     if (computedTitles.length > 0) {
@@ -79,10 +79,13 @@ export function StudioBulkAddModal({ controller }: StudioBulkAddModalProps) {
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border-subtle bg-surface">
           <div>
             <h3 id="bulk-add-modal-title" className="text-sm sm:text-base font-semibold text-content-primary">
-              Add Child Nodes
+              {targetNodeIds.length === 0 ? 'Create New Goals' : 'Add Child Nodes'}
             </h3>
             <p className="text-xs text-content-muted mt-0.5">
-              Adding inside {targetNodeIds.length} target parent{targetNodeIds.length > 1 ? 's' : ''}
+              {targetNodeIds.length === 0
+                ? 'Adding to root level'
+                : `Adding inside ${targetNodeIds.length} target parent${targetNodeIds.length > 1 ? 's' : ''}`
+              }
               {parentTitles.length > 0 && ` (${parentTitles.slice(0, 2).join(', ')}${parentTitles.length > 2 ? '…' : ''})`}
             </p>
           </div>

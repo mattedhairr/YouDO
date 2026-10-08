@@ -31,7 +31,7 @@ export function StudioActionBar({ controller }: StudioActionBarProps) {
 
   return (
     <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 sm:gap-2 px-3 py-2 bg-surface/95 backdrop-blur-md border border-border-subtle shadow-elevated rounded-2xl z-30 transition-all duration-200 ease-out"
+      className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 sm:gap-2 px-3 py-2 bg-surface/95 backdrop-blur-md border border-border-subtle shadow-elevated rounded-2xl z-30 transition-all duration-200 ease-out max-w-[95vw] overflow-x-auto"
       role="toolbar"
       aria-label="Bulk actions toolbar"
     >

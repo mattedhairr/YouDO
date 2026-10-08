@@ -61,11 +61,19 @@ export function StudioTree({ controller, searchQuery }: StudioTreeProps) {
   if (draftGoals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed border-border-subtle rounded-2xl bg-surface/40 my-4 text-content-muted">
-        <Target size={28} className="text-content-muted mb-2 opacity-60" />
+        <Target size={28} className="text-content-muted mb-3 opacity-60" />
         <p className="text-sm font-medium text-content-primary">No goals found</p>
-        <p className="text-xs text-content-muted mt-1 max-w-xs">
+        <p className="text-xs text-content-muted mt-1 max-w-xs mb-4">
           Create a goal to begin drafting your visual breakdown.
         </p>
+        <button
+          type="button"
+          onClick={() => controller.openModal('bulk_add_inside', [])}
+          className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary-hover transition-colors shadow-sm"
+        >
+          <Plus size={16} />
+          <span>Add Goal</span>
+        </button>
       </div>
     );
   }
@@ -94,7 +102,7 @@ export function StudioTree({ controller, searchQuery }: StudioTreeProps) {
   }
 
   return (
-    <div className="flex flex-col py-2 pb-28 space-y-1">
+    <div className="flex flex-col py-2 pb-28 space-y-1 relative">
       {displayedGoals.map((goal, index) => (
         <StudioTreeNode
           key={goal.id}
@@ -105,6 +113,19 @@ export function StudioTree({ controller, searchQuery }: StudioTreeProps) {
           searchQuery={query}
         />
       ))}
+      
+      {!query && (
+        <div className="pt-2 pl-2">
+          <button
+            type="button"
+            onClick={() => controller.openModal('bulk_add_inside', [])}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-content-muted hover:text-primary hover:bg-primary-soft rounded-lg transition-colors"
+          >
+            <Plus size={14} />
+            <span>Add Goal</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
