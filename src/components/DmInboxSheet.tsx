@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, Send, MoreVertical, Reply, Trash2, X } from 'lucide-react';
+import { ChevronLeft, Send, MoreVertical, Reply, X } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
-import { hapticTick, hapticSuccess } from '../lib/haptics';
+import { hapticSuccess } from '../lib/haptics';
 import { fetchDirectMessages, sendDirectMessage, deleteDirectMessage, markDirectConversationRead } from '../lib/messages';
+import { dismissDmNotification } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
 import './chat/youDoChat.css';
-import { useYdChatActionsPlacement } from './chat/useYdChatActionsPlacement';
+import ChatActionSheet from './chat/ChatActionSheet';
+import { useChatMessageGestures } from './chat/useChatMessageGestures';
 
 interface Props {
   open: boolean;
@@ -29,20 +31,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const menuPreferBelow = useYdChatActionsPlacement(activeMenu);
-  useEffect(() => {
-    if (!activeMenu) return;
-    const handleOutsideClick = (event: PointerEvent) => {
-      const el = event.target;
-      if (el instanceof Element && el.closest('.yd-chat-actions')) return;
-      setActiveMenu(null);
-    };
-    window.addEventListener('pointerdown', handleOutsideClick);
-    return () => window.removeEventListener('pointerdown', handleOutsideClick);
-  }, [activeMenu]);
-  const pressTimer = useRef<NodeJS.Timeout | null>(null);
-  const lastTapRef = useRef<number>(0);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
   const [messages, setMessages] = useState<Message[]>([]);
@@ -67,11 +56,14 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
 
     void loadMessages();
     void markDirectConversationRead(user.id, friendId);
+    void dismissDmNotification(friendId);
 
     const channel = supabase
       .channel('dm_' + [user.id, friendId].sort().join('_'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, () => {
         void loadMessages();
+        void markDirectConversationRead(user.id, friendId);
+        void dismissDmNotification(friendId);
       })
       .subscribe();
 
@@ -105,36 +97,23 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
     }
   };
 
-  const handleDoubleTap = (msg: Message) => {
-    hapticTick();
+  const openActions = useCallback((msg: Message) => {
+    setSelectedMessage(msg);
+  }, []);
+
+  const handleReply = useCallback((msg: Message) => {
     setReplyingTo(msg);
+    setSelectedMessage(null);
     inputRef.current?.focus();
-  };
+  }, []);
 
-  const handleTap = (msg: Message) => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      handleDoubleTap(msg);
-    }
-    lastTapRef.current = now;
-  };
-
-  const handleTouchStart = (msgId: string) => {
-    pressTimer.current = setTimeout(() => {
-      hapticTick();
-      setActiveMenu(msgId);
-    }, 500); // 500ms long press
-  };
-
-  const handleTouchEnd = () => {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-  };
+  const { getMessageProps } = useChatMessageGestures<Message>({
+    onOpenActions: openActions,
+    onDoubleTapReply: handleReply,
+  });
 
   const deleteMessage = async (id: string) => {
-    setActiveMenu(null);
+    setSelectedMessage(null);
     if (!user) return;
     setMessages(prev => prev.filter(m => m.id !== id));
     await deleteDirectMessage(id, user.id);
@@ -142,7 +121,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
 
   return (
     <Overlay open={open} onClose={onClose} align="full">
-      <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto flex flex-col h-full" onClick={() => setActiveMenu(null)}>
+      <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-subtle bg-elevated shrink-0">
           <div className="flex items-center gap-3">
@@ -182,13 +161,8 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
                     <article
                       className="yd-chat-bubble"
                       tabIndex={0}
-                      onClick={() => handleTap(msg)}
-                      onTouchStart={() => handleTouchStart(msg.id)}
-                      onTouchEnd={handleTouchEnd}
-                      onTouchMove={handleTouchEnd}
-                      onMouseDown={() => handleTouchStart(msg.id)}
-                      onMouseUp={handleTouchEnd}
-                      onMouseLeave={handleTouchEnd}
+                      aria-label={`${isMe ? 'You' : friendName}: ${msg.text}`}
+                      {...getMessageProps(msg)}
                     >
                       {!isMe && (
                         <div className="yd-chat-author">
@@ -203,33 +177,6 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
                       )}
                       <p className="yd-chat-body">{msg.text}</p>
                     </article>
-                    {activeMenu === msg.id && (
-                      <div
-                        role="menu"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`yd-chat-actions ${isMe ? 'is-mine' : ''} ${menuPreferBelow ? 'is-below' : ''}`}
-                      >
-                        <button
-                          type="button"
-                          className="yd-chat-action"
-                          onClick={() => { setReplyingTo(msg); setActiveMenu(null); inputRef.current?.focus(); }}
-                        >
-                          <Reply size={18} />
-                          Reply
-                        </button>
-                        {isMe && (
-                          <button
-                            type="button"
-                            className="yd-chat-action is-danger"
-                            onClick={() => deleteMessage(msg.id)}
-                          >
-                            <Trash2 size={18} />
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    )}
                     </div>
                     <div className="yd-chat-meta">
                       <time>{msg.time}</time>
@@ -284,7 +231,20 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
             </p>
           </footer>
         </div>
-        
+
+        <ChatActionSheet
+          open={!!selectedMessage}
+          onClose={() => setSelectedMessage(null)}
+          authorName={selectedMessage ? (selectedMessage.sender === user?.id ? 'You' : friendName) : ''}
+          time={selectedMessage?.time ?? ''}
+          body={selectedMessage?.text ?? ''}
+          canReply={true}
+          onReply={() => { if (selectedMessage) handleReply(selectedMessage); }}
+          canCopy={true}
+          canDelete={selectedMessage?.sender === user?.id}
+          deleteLabel="Delete message"
+          onDelete={() => { if (selectedMessage) void deleteMessage(selectedMessage.id); }}
+        />
       </div>
     </Overlay>
   );

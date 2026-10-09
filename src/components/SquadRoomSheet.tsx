@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, Settings, Send, Reply, Trash2, X } from 'lucide-react';
+import { ChevronLeft, Settings, Send, Reply, X } from 'lucide-react';
 import Overlay from './Overlay';
 import SquadSettingsSheet from './SquadSettingsSheet';
 import { getSquadDetails, type Squad, type SquadMember } from '../lib/squads';
 import { useAuth } from '../contexts/AuthContext';
-import { hapticTick, hapticSuccess } from '../lib/haptics';
+import { hapticSuccess } from '../lib/haptics';
 import { fetchSquadMessages, markSquadChatRead, sendSquadMessage, deleteSquadMessage } from '../lib/messages';
+import { dismissRoomNotification } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { dispatchPrivateHubSync } from '../lib/privateHubSync';
 import { fetchPaceRowsForUserIds } from '../lib/paceCloud';
@@ -17,8 +18,10 @@ import {
 } from '../lib/paceBoard';
 import { todayISO } from '../lib/dates';
 import SquadProgressBoard from './squad/SquadProgressBoard';
+import UserProfileSheet from './UserProfileSheet';
 import './chat/youDoChat.css';
-import { useYdChatActionsPlacement } from './chat/useYdChatActionsPlacement';
+import ChatActionSheet from './chat/ChatActionSheet';
+import { useChatMessageGestures } from './chat/useChatMessageGestures';
 
 const PACE_WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -74,24 +77,12 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
   const [members, setMembers] = useState<SquadMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
 
   // Advanced Chat State
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const menuPreferBelow = useYdChatActionsPlacement(activeMenu);
-  useEffect(() => {
-    if (!activeMenu) return;
-    const handleOutsideClick = (event: PointerEvent) => {
-      const el = event.target;
-      if (el instanceof Element && el.closest('.yd-chat-actions')) return;
-      setActiveMenu(null);
-    };
-    window.addEventListener('pointerdown', handleOutsideClick);
-    return () => window.removeEventListener('pointerdown', handleOutsideClick);
-  }, [activeMenu]);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showMentions, setShowMentions] = useState(false);
-  const pressTimer = useRef<NodeJS.Timeout | null>(null);
-  const lastTapRef = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchSquad = useCallback(async () => {
@@ -145,6 +136,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
       if (markRead && user) {
         const latest = data[data.length - 1];
         markSquadChatRead(user.id, squadId, latest?.created_at ?? new Date().toISOString());
+        void dismissRoomNotification(squadId);
         dispatchPrivateHubSync('squads');
       }
     };
@@ -214,38 +206,25 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
     await sendSquadMessage(squadId, user.id, content, replyId);
   };
 
-  const handleDoubleTap = (msg: Message) => {
+  const openActions = useCallback((msg: Message) => {
     if (msg.system) return;
-    hapticTick();
+    setSelectedMessage(msg);
+  }, []);
+
+  const handleReply = useCallback((msg: Message) => {
+    if (msg.system) return;
     setReplyingTo(msg);
+    setSelectedMessage(null);
     inputRef.current?.focus();
-  };
+  }, []);
 
-  const handleTap = (msg: Message) => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      handleDoubleTap(msg);
-    }
-    lastTapRef.current = now;
-  };
-
-  const handleTouchStart = (msg: Message) => {
-    if (msg.system) return;
-    pressTimer.current = setTimeout(() => {
-      hapticTick();
-      setActiveMenu(msg.id);
-    }, 500);
-  };
-
-  const handleTouchEnd = () => {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-  };
+  const { getMessageProps } = useChatMessageGestures<Message>({
+    onOpenActions: openActions,
+    onDoubleTapReply: handleReply,
+  });
 
   const deleteMessage = async (id: string) => {
-    setActiveMenu(null);
+    setSelectedMessage(null);
     if (!user) return;
     setMessages(prev => prev.filter(m => m.id !== id));
     await deleteSquadMessage(id, user.id);
@@ -260,7 +239,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
 
   return (
     <Overlay open={open} onClose={onClose} align="full">
-      <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto flex flex-col h-full" onClick={() => setActiveMenu(null)}>
+      <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto flex flex-col h-full">
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-content-muted">Loading room...</div>
         ) : !squad ? (
@@ -343,6 +322,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
                       paceByUserId[userId],
                     )
                   }
+                  onOpenProfile={(uid) => setSelectedProfileUserId(uid)}
                 />
               </div>
             ) : (
@@ -365,7 +345,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
 
                     const renderText = (txt: string) => {
                       return txt.split(' ').map((word, i) =>
-                        word.startsWith('@') ? <strong key={i} className="text-primary font-bold">{word} </strong> : word + ' '
+                        word.startsWith('@') ? <strong key={i} className="yd-chat-mention">{word} </strong> : word + ' '
                       );
                     };
 
@@ -377,17 +357,18 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
                         <article
                           className="yd-chat-bubble"
                           tabIndex={0}
-                          onClick={() => handleTap(msg)}
-                          onTouchStart={() => handleTouchStart(msg)}
-                          onTouchEnd={handleTouchEnd}
-                          onTouchMove={handleTouchEnd}
-                          onMouseDown={() => handleTouchStart(msg)}
-                          onMouseUp={handleTouchEnd}
-                          onMouseLeave={handleTouchEnd}
+                          aria-label={`${authorName}: ${msg.text}`}
+                          {...getMessageProps(msg)}
                         >
                           {!isMe && (
                             <div className="yd-chat-author">
-                              <span>{authorName}</span>
+                              <button
+                                type="button"
+                                className="text-left"
+                                onClick={() => msg.sender && setSelectedProfileUserId(msg.sender)}
+                              >
+                                {authorName}
+                              </button>
                             </div>
                           )}
                           {msg.replyToId && repliedTo && (
@@ -398,25 +379,6 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
                           )}
                           <p className="yd-chat-body">{renderText(msg.text)}</p>
                         </article>
-                        {activeMenu === msg.id && (
-                          <div
-                            role="menu"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                            className={`yd-chat-actions ${isMe ? 'is-mine' : ''} ${menuPreferBelow ? 'is-below' : ''}`}
-                          >
-                            <button type="button" className="yd-chat-action" onClick={() => { setReplyingTo(msg); setActiveMenu(null); inputRef.current?.focus(); }}>
-                              <Reply size={18} />
-                              Reply
-                            </button>
-                            {isMe && (
-                              <button type="button" className="yd-chat-action is-danger" onClick={() => deleteMessage(msg.id)}>
-                                <Trash2 size={18} />
-                                Delete
-                              </button>
-                            )}
-                          </div>
-                        )}
                         </div>
                         <div className="yd-chat-meta">
                           <time>{msg.time}</time>
@@ -489,11 +451,34 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
                     <span>Hold for options · double-tap to reply</span>
                   </p>
                 </footer>
+
+                <ChatActionSheet
+                  open={!!selectedMessage}
+                  onClose={() => setSelectedMessage(null)}
+                  authorName={selectedMessage ? getAuthorName(selectedMessage.sender) : ''}
+                  time={selectedMessage?.time ?? ''}
+                  body={selectedMessage?.text ?? ''}
+                  canReply={!selectedMessage?.system}
+                  onReply={() => selectedMessage && handleReply(selectedMessage)}
+                  canCopy={true}
+                  canDelete={selectedMessage?.sender === user?.id}
+                  deleteLabel="Delete message"
+                  onDelete={() => selectedMessage && void deleteMessage(selectedMessage.id)}
+                />
               </div>
             )}
 
             {settingsOpen && (
               <SquadSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} squad={squad} members={members} onMembersChanged={fetchSquad} />
+            )}
+
+            {selectedProfileUserId && (
+              <UserProfileSheet
+                open={Boolean(selectedProfileUserId)}
+                userId={selectedProfileUserId}
+                onClose={() => setSelectedProfileUserId(null)}
+                onFriendshipChange={() => void fetchSquad()}
+              />
             )}
             
             {/* Click outside to close menus */}

@@ -76,15 +76,16 @@
   box-sizing: border-box;
   width: auto;
   max-width: 100%;
-  padding: 9px 12px 8px;
+  padding: 10px 14px 9px;
   border-radius: 18px;
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 14.5px;
+  line-height: 1.46;
+  letter-spacing: -0.01em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: normal;
   touch-action: manipulation;
-  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.16s ease;
+  transition: transform 0.16s cubic-bezier(0.2, 0.9, 0.4, 1), box-shadow 0.16s ease;
   outline: none;
 }
 
@@ -94,10 +95,19 @@
 }
 
 .yd-chat-bubble:active {
-  transform: scale(0.97);
+  transform: scale(0.985);
 }
 
-.yd-chat-author button {
+@media (pointer: coarse) {
+  .yd-chat-bubble {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+.yd-chat-author button,
+.yd-chat-author span {
   font: inherit;
   font-weight: 700;
   color: var(--primary);
@@ -107,18 +117,27 @@
   min-width: 0;
 }
 
+.yd-chat-author button {
+  cursor: pointer;
+}
+
+.yd-chat-author button:hover {
+  text-decoration: underline;
+}
+
 .yd-chat-row:not(.is-mine) .yd-chat-bubble {
-  background: var(--bg-elevated);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-bottom-left-radius: 6px;
-  box-shadow: none;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--text-primary) 3%, transparent);
 }
 
 .yd-chat-row.is-mine .yd-chat-bubble {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 88%, #000) 100%);
   color: var(--on-primary);
-  border-bottom-right-radius: 6px;
-  box-shadow: none;
+  border: 1px solid color-mix(in srgb, var(--primary-glow) 35%, transparent);
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 24%, transparent);
 }
 
 .yd-chat-author {
@@ -126,12 +145,12 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 5px;
-  font-size: 11px;
+  margin-bottom: 4px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--primary);
   letter-spacing: 0.01em;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .yd-chat-admin {
@@ -156,24 +175,25 @@
 }
 
 .yd-chat-quote {
-  margin: 0 0 4px;
-  padding: 0 0 0 7px;
+  margin: 0 0 6px;
+  padding: 5px 9px;
   border: 0;
-  border-left: 2px solid var(--secondary);
-  border-radius: 0;
-  background: none;
+  border-left: 3px solid var(--secondary);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-base) 60%, transparent);
   max-width: 100%;
 }
 
 .yd-chat-row.is-mine .yd-chat-quote {
-  border-left-color: color-mix(in srgb, var(--on-primary) 50%, transparent);
+  border-left-color: color-mix(in srgb, var(--on-primary) 70%, transparent);
+  background: color-mix(in srgb, var(--on-primary) 12%, transparent);
 }
 
 .yd-chat-quote strong {
   display: block;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
   margin: 0;
   color: var(--secondary);
 }
@@ -185,8 +205,8 @@
 .yd-chat-quote span {
   display: block;
   margin-top: 1px;
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: 11.5px;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -235,8 +255,21 @@
 .yd-chat-body {
   display: block;
   margin: 0;
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 14.5px;
+  line-height: 1.46;
+}
+
+.yd-chat-mention {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.yd-chat-row.is-mine .yd-chat-body strong,
+.yd-chat-row.is-mine .yd-chat-mention {
+  color: var(--on-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 700;
 }
 
 .yd-chat-retry {
@@ -338,10 +371,12 @@
 
 .yd-chat-composer {
   flex-shrink: 0;
-  padding: 10px 14px max(12px, env(safe-area-inset-bottom, 0px));
+  padding: 10px 14px max(14px, env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 -4px 20px color-mix(in srgb, var(--text-primary) 3%, transparent);
 }
 
 .yd-chat-reply {
@@ -349,10 +384,11 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: var(--bg-base);
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
+  animation: yd-chat-row-in 0.2s cubic-bezier(0.2, 0.9, 0.4, 1) both;
 }
 
 .yd-chat-reply-text {
@@ -373,14 +409,21 @@
 .yd-chat-reply-dismiss {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
   color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+
+.yd-chat-reply-dismiss:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 .yd-chat-reply-dismiss:active {
   background: var(--bg-surface);
+  transform: scale(0.92);
 }
 
 .yd-chat-compose-row {
@@ -395,11 +438,12 @@
   min-width: 0;
   min-height: 44px;
   max-height: 120px;
-  padding: 11px 14px;
+  padding: 11px 16px;
   border: 1px solid var(--border-subtle);
   border-radius: 22px;
   background: var(--bg-base);
-  font-size: 15px;
+  color: var(--text-primary);
+  font-size: 14.5px;
   line-height: 1.4;
   outline: none;
   resize: none;
@@ -413,7 +457,7 @@
 .yd-chat-compose-row textarea:focus,
 .yd-chat-compose-row input[type='text']:focus {
   border-color: color-mix(in srgb, var(--primary) 55%, var(--border-subtle));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
 .yd-chat-send {
@@ -426,11 +470,11 @@
   background: var(--primary);
   color: var(--on-primary);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 30%, transparent);
-  transition: transform 0.14s ease, opacity 0.14s ease;
+  transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.4, 1), opacity 0.14s ease, box-shadow 0.14s ease;
 }
 
 .yd-chat-send:disabled {
-  opacity: 0.45;
+  opacity: 0.38;
   box-shadow: none;
 }
 

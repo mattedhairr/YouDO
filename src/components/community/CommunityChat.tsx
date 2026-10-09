@@ -1,14 +1,15 @@
 import './community.css';
 import '../chat/youDoChat.css';
-import { useYdChatActionsPlacement } from '../chat/useYdChatActionsPlacement';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, Pencil, RefreshCw, Reply, Send, ShieldCheck, Trash2, X, AlertTriangle } from 'lucide-react';
+import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
 import { markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
 import { markChatRoomRead } from '../../lib/communityChat';
+import { dismissCommunityNotification } from '../../lib/notifications';
 import type { CommunityHashtagContext } from '../../lib/communityHashtags';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
 import CommunityHashtagBar from './CommunityHashtagBar';
+import ChatActionSheet from '../chat/ChatActionSheet';
+import { useChatMessageGestures } from '../chat/useChatMessageGestures';
 import { STORAGE_KEYS } from '../../lib/storageKeys';
 import { hapticTick } from '../../lib/haptics';
 import { useStore } from '../../store';
@@ -16,8 +17,6 @@ import { useStore } from '../../store';
 interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void }
 const clock = new Intl.DateTimeFormat(undefined,{ hour:'numeric',minute:'2-digit' });
 const MESSAGE_ACTION_WINDOW_MS = 15 * 60 * 1000;
-const LONG_PRESS_MS = 460;
-const DOUBLE_TAP_MS = 320;
 export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings }: Props) {
   const { pacePrefs } = useStore();
   const [selectedHashtag, setSelectedHashtagState] = useState<string | undefined>(() => {
@@ -47,7 +46,6 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [draft,setDraft] = useState('');
   const [reply,setReply] = useState<ChatMessage|null>(null);
   const [selected,setSelected] = useState<ChatMessage|null>(null);
-  const menuPreferBelow = useYdChatActionsPlacement(selected?.id ?? null);
   const [editing,setEditing] = useState<ChatMessage|null>(null);
   const [reason,setReason] = useState('');
   const [actionBusy,setActionBusy] = useState(false);
@@ -73,9 +71,6 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const inFlight = useRef(new Set<string>());
   const acknowledged = useRef(new Set<string>());
   const updateReading = useRef(false);
-  const pressTimer = useRef<number>();
-  const press = useRef<{ id:string;x:number;y:number;triggered:boolean }|null>(null);
-  const lastTap = useRef<{ id:string;at:number }|null>(null);
   const messagesRef = useRef(messages); messagesRef.current=messages;
   const olderRef=useRef(hasOlder); olderRef.current=hasOlder;
   const restoreAnchor=useRef<{id:string;offset:number;top:number}|null>(null);
@@ -141,8 +136,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     messagesRef.current=saved.messages;olderRef.current=saved.hasOlder;
     setMessages(saved.messages);setHasOlder(saved.hasOlder);setLoading(saved.messages.length===0);
     scrollPosition.current=saved.scrollTop;follow.current=saved.scrollTop==null;loadedCount.current=Math.max(CHAT_PAGE_SIZE,saved.messages.filter(m=>m.delivery==='sent').length);
-    acknowledged.current.clear();setNewBelow(false);setError('');setDraft('');setReply(null);setEditing(null);setSelected(null);setActionBusy(false);void refresh();
-    const onVisible=()=>{if(document.visibilityState==='visible')void refresh();};
+    acknowledged.current.clear();setNewBelow(false);setError('');setDraft('');setReply(null);setEditing(null);setSelected(null);setActionBusy(false);void refresh();void dismissCommunityNotification();
+    const onVisible=()=>{if(document.visibilityState==='visible'){void refresh();void dismissCommunityNotification();}};
     const timer=window.setInterval(onVisible,2_000);
     document.addEventListener('visibilitychange',onVisible);window.addEventListener('online',onVisible);
     window.addEventListener('youdo-community-refresh-chat', refresh);
@@ -153,7 +148,6 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       saveChatCache(userId,{messages:messagesRef.current,scrollTop:scrollPosition.current,hasOlder:olderRef.current},generation,roomScope);
     };
   },[refresh,userId,roomScope]);
-  useEffect(()=>()=>{if(pressTimer.current)window.clearTimeout(pressTimer.current);},[]);
   useEffect(()=>setUpdateOpen(false),[context.settings.announcement,context.settings.announcementUpdatedAt]);
   useEffect(()=>{if(!context.canJoin){clearChatCache(userId);setMessages([]);}},[context.canJoin,userId]);
   useEffect(()=>{
@@ -220,46 +214,24 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     }catch(e){if(mounted.current&&version===refreshVersion.current)setError(e instanceof Error?e.message:'Could not load older messages.');}
     finally{if(version===refreshVersion.current){fetching.current=false;if(mounted.current)setLoading(false);}}
   };
-  const openActions=(message:ChatMessage)=>{setSelected(message);setReason('');setActionError('');};
-    useEffect(() => {
-      if (!selected) return;
-      const handleOutsideClick = (event: PointerEvent) => {
-        const el = event.target;
-        if (el instanceof Element && el.closest('.yd-chat-actions')) return;
-        setSelected(null);
-      };
-      window.addEventListener('pointerdown', handleOutsideClick);
-      return () => window.removeEventListener('pointerdown', handleOutsideClick);
-    }, [selected]);
-  const beginReply=(message:ChatMessage)=>{
-    if(message.delivery!=='sent'||!canWriteRoom)return;
-    setReply(message);setEditing(null);setSelected(null);requestAnimationFrame(()=>composer.current?.focus());
-  };
-  const cancelPress=()=>{if(pressTimer.current)window.clearTimeout(pressTimer.current);pressTimer.current=undefined;};
-  const beginPress=(event:ReactPointerEvent<HTMLElement>,message:ChatMessage)=>{
-    if(event.button!==0 || (event.target as HTMLElement).closest('button,input,textarea,a'))return;
-    cancelPress();press.current={id:message.id,x:event.clientX,y:event.clientY,triggered:false};
-    pressTimer.current=window.setTimeout(()=>{
-      if(press.current?.id===message.id){press.current.triggered=true;openActions(message);}
-    },LONG_PRESS_MS);
-  };
-  const movePress=(event:ReactPointerEvent<HTMLElement>)=>{
-    const active=press.current;
-    if(active && Math.hypot(event.clientX-active.x,event.clientY-active.y)>9){cancelPress();press.current=null;}
-  };
-  const finishPress=(event:ReactPointerEvent<HTMLElement>,message:ChatMessage)=>{
-    const active=press.current;cancelPress();press.current=null;
-    if(!active || active.id!==message.id || active.triggered || Math.hypot(event.clientX-active.x,event.clientY-active.y)>9)return;
-    if(event.pointerType==='touch' && message.delivery==='sent'){
-      const now=Date.now();
-      if(lastTap.current?.id===message.id && now-lastTap.current.at<=DOUBLE_TAP_MS){lastTap.current=null;beginReply(message);}
-      else lastTap.current={id:message.id,at:now};
-    }
-  };
-  const keyboardActions=(event:ReactKeyboardEvent<HTMLElement>,message:ChatMessage)=>{
-    if(event.target!==event.currentTarget)return;
-    if(event.key==='Enter' || event.key==='ContextMenu' || (event.shiftKey && event.key==='F10')){event.preventDefault();openActions(message);}
-  };
+  const openActions = useCallback((message: ChatMessage) => {
+    setSelected(message);
+    setReason('');
+    setActionError('');
+  }, []);
+
+  const beginReply = useCallback((message: ChatMessage) => {
+    if (message.delivery !== 'sent' || !canWriteRoom) return;
+    setReply(message);
+    setEditing(null);
+    setSelected(null);
+    requestAnimationFrame(() => composer.current?.focus());
+  }, [canWriteRoom]);
+
+  const { getMessageProps } = useChatMessageGestures<ChatMessage>({
+    onOpenActions: openActions,
+    onDoubleTapReply: beginReply,
+  });
   const action=async(kind:'delete'|'report'|'remove')=>{
     if(!selected || actionBusy)return;
     setActionBusy(true);setActionError('');
@@ -386,11 +358,12 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           <div className="yd-chat-bubble-wrap">
           <div className="yd-chat-cluster">
           <div className="yd-chat-clip" data-yd-chat-anchor={message.id}>
-          <article className="yd-chat-bubble" tabIndex={0} aria-label={`${authorName}: ${message.body}`}
-            onPointerDown={event=>beginPress(event,message)} onPointerMove={movePress}
-            onPointerUp={event=>finishPress(event,message)} onPointerCancel={()=>{cancelPress();press.current=null;}}
-            onContextMenu={event=>{if((event.target as HTMLElement).closest('button,input,textarea,a'))return;event.preventDefault();openActions(message);}}
-            onDoubleClick={event=>{if(!(event.target as HTMLElement).closest('button,input,textarea,a'))beginReply(message);}} onKeyDown={event=>keyboardActions(event,message)}>
+          <article
+            className="yd-chat-bubble"
+            tabIndex={0}
+            aria-label={`${authorName}: ${message.body}`}
+            {...getMessageProps(message)}
+          >
             {!mine && (
               <div className="yd-chat-author">
                 <button type="button" className="text-left" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
@@ -411,57 +384,6 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
               </div>
             )}
           </article>
-              {selected?.id === message.id && (
-                <div
-                  role="menu"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
-                  className={`yd-chat-actions ${mine ? 'is-mine' : ''} ${menuPreferBelow ? 'is-below' : ''}`}
-                >
-                    {message.delivery === 'sent' && canWriteRoom && (
-                      <button type="button" className="yd-chat-action" onClick={(e) => { e.stopPropagation(); hapticTick(); beginReply(message); }}>
-                        <Reply size={18} />
-                        Reply
-                      </button>
-                    )}
-                    {selected?.id === message.id && selectedCanModify && (
-                      <button
-                        type="button"
-                        className="yd-chat-action"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          hapticTick();
-                          setEditing(message);
-                          setDraft(message.body);
-                          setSelected(null);
-                          requestAnimationFrame(() => composer.current?.focus());
-                        }}
-                      >
-                        <Pencil size={18} />
-                        Edit
-                      </button>
-                    )}
-                    {message.delivery === 'sent' && (mine || context.isAdmin) && (
-                      <button
-                        type="button"
-                        className="yd-chat-action is-danger"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          action(context.isAdmin ? 'remove' : 'delete');
-                        }}
-                      >
-                        <Trash2 size={18} />
-                        {context.isAdmin && !mine ? 'Remove' : 'Delete'}
-                      </button>
-                    )}
-                    {!mine && !context.isAdmin && (
-                      <button type="button" className="yd-chat-action is-danger" onClick={(e) => { e.stopPropagation(); action('report'); }}>
-                        <AlertTriangle size={18} />
-                        Report
-                      </button>
-                    )}
-                </div>
-              )}
           </div>
           <div className="yd-chat-meta">
             <span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>
@@ -521,5 +443,41 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         <span>{draft.length}/240</span>
       </p>
     </footer>
+    <ChatActionSheet
+      open={!!selected}
+      onClose={() => { if (!actionBusy) setSelected(null); }}
+      authorName={selected ? (selected.authorId === userId ? 'You' : names.get(selected.authorId) ?? 'Board member') : ''}
+      time={selected ? clock.format(new Date(selected.createdAt)) : ''}
+      body={selected?.body ?? ''}
+      canReply={selected?.delivery === 'sent' && canWriteRoom}
+      onReply={() => { if (selected) beginReply(selected); }}
+      canCopy={selected?.delivery === 'sent'}
+      canEdit={selectedCanModify && canWriteRoom}
+      onEdit={() => {
+        if (!selected) return;
+        setEditing(selected);
+        setDraft(selected.body);
+        setReply(null);
+        setSelected(null);
+        requestAnimationFrame(() => composer.current?.focus());
+      }}
+      canDelete={!!selected && (selected.delivery === 'failed' || selectedCanModify || (context.isAdmin && selected.delivery === 'sent'))}
+      deleteLabel={
+        selected?.delivery === 'failed'
+          ? 'Remove unsent message'
+          : context.isAdmin && selected?.authorId !== userId
+            ? 'Remove as admin'
+            : 'Delete for everyone'
+      }
+      onDelete={() => void action(context.isAdmin && selected?.authorId !== userId ? 'remove' : 'delete')}
+      canReport={!!selected && selected.authorId !== userId && !context.isAdmin}
+      onReport={() => void action('report')}
+      isAdmin={context.isAdmin && selected?.delivery === 'sent' && selected?.authorId !== userId}
+      adminReason={reason}
+      onAdminReasonChange={setReason}
+      onAdminRemove={() => void action('remove')}
+      actionBusy={actionBusy}
+      actionError={actionError}
+    />
     </section>;
 }
