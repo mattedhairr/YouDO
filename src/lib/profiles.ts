@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { dispatchPrivateHubSync } from './privateHubSync';
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -298,6 +299,7 @@ export async function sendFriendRequest(
     if (error.code === '23505') return { ok: false, error: 'Request already sent or friendship exists.' };
     return { ok: false, error: 'Failed to send request.' };
   }
+  dispatchPrivateHubSync('pending');
   return { ok: true };
 }
 
@@ -358,6 +360,7 @@ export async function fetchOutgoingFriendRequests(userId: string): Promise<Outgo
 
 export async function cancelOutgoingFriendRequest(requestId: string): Promise<boolean> {
   const { error } = await supabase.from('friendships').delete().eq('id', requestId).eq('status', 'pending');
+  if (!error) dispatchPrivateHubSync('pending');
   return !error;
 }
 
@@ -407,6 +410,7 @@ export async function acceptFriendRequest(requestId: string): Promise<boolean> {
     .from('friendships')
     .update({ status: 'accepted', updated_at: new Date().toISOString() })
     .eq('id', requestId);
+  if (!error) dispatchPrivateHubSync('friends');
   return !error;
 }
 
@@ -415,6 +419,7 @@ export async function rejectFriendRequest(requestId: string): Promise<boolean> {
     .from('friendships')
     .delete()
     .eq('id', requestId);
+  if (!error) dispatchPrivateHubSync('pending');
   return !error;
 }
 
@@ -447,6 +452,7 @@ export async function removeFriend(userId1: string, userId2: string) {
       .delete()
       .or(`and(requester_id.eq.${userId1},receiver_id.eq.${userId2}),and(requester_id.eq.${userId2},receiver_id.eq.${userId1})`);
       
+    if (!error) dispatchPrivateHubSync('friends');
     return { ok: !error, error: error?.message };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed' };
@@ -463,6 +469,7 @@ export async function addFriend(requesterId: string, receiverId: string) {
         receiver_id: receiverId,
         status: 'accepted'
       });
+    if (!error) dispatchPrivateHubSync('friends');
     return { ok: !error, error: error?.message };
   } catch (err: unknown) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed' };

@@ -1,28 +1,67 @@
-import { useState } from 'react';
-import { X, UsersRound } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, UsersRound, Globe, Lock, Search, Check, UserPlus } from 'lucide-react';
 import Overlay from './Overlay';
-import { createSquad } from '../lib/squads';
+import { createSquad, type SquadPrivacy } from '../lib/squads';
+import { searchProfilesByUsernamePrefix, type Profile } from '../lib/profiles';
+import { ProfileAvatarVisual } from '../lib/profileAvatar';
 import { useAuth } from '../contexts/AuthContext';
-import Toggle from './Toggle';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
 import { hapticTick } from '../lib/haptics';
 
 interface Props {
-  personalPace: number;
+  personalPace?: number;
   open: boolean;
   onClose: () => void;
   onSuccess: (squadId: string) => void;
 }
 
-export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace }: Props) {
+export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace = 4 }: Props) {
   const { user } = useAuth();
-  
+
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('🔥');
-  const [barHours, setBarHours] = useState<number>(4);
-  const [allowJoinRequests, setAllowJoinRequests] = useState(true);
+  const [barHours, setBarHours] = useState<number>(personalPace ?? 4);
+  const [privacy, setPrivacy] = useState<SquadPrivacy>('anyone_can_join');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [selectedInvites, setSelectedInvites] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedInvites([]);
+      setErrorMsg('');
+      return;
+    }
+    const prefix = searchQuery.replace(/^@/, '').trim();
+    if (prefix.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      setSearchError('');
+      return;
+    }
+
+    let cancelled = false;
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      void searchProfilesByUsernamePrefix(prefix, { excludeId: user?.id, limit: 5 }).then((rows) => {
+        if (cancelled) return;
+        setSearchResults(rows);
+        setSearching(false);
+        setSearchError(rows.length === 0 ? 'No user found with that @username.' : '');
+      });
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, searchQuery, user?.id]);
 
   if (!open) return null;
 
@@ -31,17 +70,23 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
       setErrorMsg('Please give your squad a name.');
       return;
     }
-    if (barHours !== personalPace) {
-      setErrorMsg(`Mismatch! The room pace must match your personal target pace (${personalPace}h/day).`);
-      return;
-    }
     if (!user) return;
 
     setLoading(true);
     setErrorMsg('');
 
-    const res = await createSquad(user.id, name.trim(), icon, barHours, allowJoinRequests);
-    
+    const allowJoinRequests = privacy === 'anyone_can_join';
+    const inviteIds = selectedInvites.map((p) => p.id);
+    const res = await createSquad(
+      user.id,
+      name.trim(),
+      icon,
+      barHours,
+      allowJoinRequests,
+      privacy,
+      inviteIds,
+    );
+
     setLoading(false);
     if (res.ok && res.squad) {
       onSuccess(res.squad.id);
@@ -59,7 +104,10 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
           <h2 className="text-[14px] font-bold text-content-primary flex items-center gap-1.5">
             <UsersRound size={16} /> Create Squad
           </h2>
-          <button onClick={onClose} className="p-2 -mr-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-elevated transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 -mr-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-elevated transition-colors"
+          >
             <X size={20} />
           </button>
         </div>
@@ -77,8 +125,10 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
                   onChange={(e) => setIcon(e.target.value)}
                   className="w-full h-11 bg-elevated border border-subtle rounded-xl text-center text-xl outline-none focus:border-primary appearance-none cursor-pointer"
                 >
-                  {['🔥', '⚡', '🦉', '🚀', '🎯', '📚', '☕', '⚔️', '🌊', '🏔️', '🏆', '💎'].map(e => (
-                    <option key={e} value={e}>{e}</option>
+                  {['🔥', '⚡', '🦉', '🚀', '🎯', '📚', '☕', '⚔️', '🌊', '🏔️', '🏆', '💎'].map((e) => (
+                    <option key={e} value={e}>
+                      {e}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -86,7 +136,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
                 type="text"
                 placeholder="e.g. The Night Owls"
                 value={name}
-                onChange={e => setName(e.target.value)}
+                onChange={(e) => setName(e.target.value)}
                 maxLength={30}
                 className="flex-1 bg-elevated border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary outline-none focus:border-primary"
               />
@@ -112,9 +162,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
                 —
               </button>
               <div className="flex-1 h-10 rounded-xl bg-elevated border border-subtle flex items-center justify-center">
-                <span className="tabular-nums text-sm font-bold text-content-primary">
-                  {barHours}h
-                </span>
+                <span className="tabular-nums text-sm font-bold text-content-primary">{barHours}h</span>
               </div>
               <button
                 type="button"
@@ -130,28 +178,180 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
               </button>
             </div>
             <p className="text-[11px] text-content-muted mt-2 leading-relaxed">
-              Only members with this exact target can join. Must match your personal target ({personalPace}h).
+              Target daily focus hours for squad members. Any member can join regardless of personal bar.
             </p>
           </div>
 
-          {/* Discoverability */}
+          {/* Privacy Settings */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-widest text-content-muted mb-2">
-              Privacy Settings
+              Room Privacy
             </label>
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-elevated border border-subtle">
-              <div>
-                <p className="text-[13px] font-bold text-content-primary">Allow Join Requests</p>
-                <p className="text-[11px] text-content-secondary mt-0.5 leading-snug pr-4">
-                  Make this room visible in the Discover list so compatible people can ask to join.
-                </p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  hapticTick();
+                  setPrivacy('anyone_can_join');
+                }}
+                className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-start gap-3 ${
+                  privacy === 'anyone_can_join'
+                    ? 'border-primary bg-primary/10 shadow-sm'
+                    : 'border-subtle bg-elevated/60 hover:bg-elevated'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-xl shrink-0 transition-colors ${
+                    privacy === 'anyone_can_join' ? 'bg-primary text-on-primary' : 'bg-surface text-content-muted'
+                  }`}
+                >
+                  <Globe size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[13px] font-bold text-content-primary">Anyone can join</p>
+                    {privacy === 'anyone_can_join' && <Check size={16} className="text-primary shrink-0" />}
+                  </div>
+                  <p className="text-[11px] text-content-secondary mt-0.5 leading-snug">
+                    Public squad listed in Discover. Compatible members can find it and request to join.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  hapticTick();
+                  setPrivacy('invite_only');
+                }}
+                className={`w-full text-left p-3.5 rounded-2xl border transition-all flex items-start gap-3 ${
+                  privacy === 'invite_only'
+                    ? 'border-primary bg-primary/10 shadow-sm'
+                    : 'border-subtle bg-elevated/60 hover:bg-elevated'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-xl shrink-0 transition-colors ${
+                    privacy === 'invite_only' ? 'bg-primary text-on-primary' : 'bg-surface text-content-muted'
+                  }`}
+                >
+                  <Lock size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[13px] font-bold text-content-primary">Invite-only</p>
+                    {privacy === 'invite_only' && <Check size={16} className="text-primary shrink-0" />}
+                  </div>
+                  <p className="text-[11px] text-content-secondary mt-0.5 leading-snug">
+                    Private squad hidden from Discover. Members can only enter if invited by username.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Invite Members */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-content-muted">
+                Invite Members (Optional)
+              </label>
+              <span className="text-[10px] text-content-muted">{selectedInvites.length}/3 selected</span>
+            </div>
+
+            {/* Staged Invitees Chips */}
+            {selectedInvites.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2.5">
+                {selectedInvites.map((p) => (
+                  <div
+                    key={p.id}
+                    className="inline-flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-full bg-primary-soft border border-primary/20 text-xs text-primary font-medium"
+                  >
+                    <ProfileAvatarVisual
+                      avatarUrl={p.avatar_url}
+                      displayName={p.display_name}
+                      className="w-4 h-4 text-[9px]"
+                    />
+                    <span className="truncate max-w-[120px]">@{p.username}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedInvites((prev) => prev.filter((item) => item.id !== p.id))}
+                      className="p-0.5 rounded-full hover:bg-primary/20 text-primary transition-colors"
+                      aria-label={`Remove ${p.username}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
               </div>
-              <Toggle
-                checked={allowJoinRequests}
-                label="List room in Discover"
-                onChange={() => setAllowJoinRequests((v) => !v)}
+            )}
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search size={16} className="absolute left-3.5 top-3.5 text-content-muted pointer-events-none" />
+              <input
+                type="search"
+                placeholder="@friend_handle to invite"
+                value={searchQuery}
+                disabled={selectedInvites.length >= 3}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.preventDefault();
+                }}
+                className="w-full h-11 bg-elevated border border-subtle rounded-xl pl-10 pr-4 text-[13px] outline-none focus:border-primary disabled:opacity-50 transition-colors"
               />
             </div>
+
+            {searching && <p className="text-[11px] text-content-muted mt-2 text-center">Searching users…</p>}
+            {searchError && <p className="text-[11px] text-error mt-2">{searchError}</p>}
+
+            {/* Search Results Dropdown */}
+            {searchResults.length > 0 && (
+              <ul className="mt-2 space-y-1.5 max-h-40 overflow-y-auto no-scrollbar rounded-xl border border-subtle bg-base p-1.5">
+                {searchResults.map((profile) => {
+                  const isSelected = selectedInvites.some((p) => p.id === profile.id);
+                  return (
+                    <li
+                      key={profile.id}
+                      className="flex items-center justify-between gap-2 p-2 hover:bg-elevated rounded-lg transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-primary-soft border border-primary/20 overflow-hidden flex items-center justify-center shrink-0">
+                          <ProfileAvatarVisual
+                            avatarUrl={profile.avatar_url}
+                            displayName={profile.display_name}
+                            className="text-xs"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-bold text-content-primary truncate">
+                            {profile.display_name}
+                          </p>
+                          <p className="text-[10px] text-primary truncate">@{profile.username}</p>
+                        </div>
+                      </div>
+                      {isSelected ? (
+                        <span className="text-[11px] font-semibold text-content-muted px-2 py-1">Added</span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={selectedInvites.length >= 3}
+                          onClick={() => {
+                            setSelectedInvites((prev) => [...prev, profile]);
+                            setSearchQuery('');
+                            setSearchResults([]);
+                          }}
+                          className="h-7 px-2.5 rounded-lg bg-primary text-on-primary text-[11px] font-bold flex items-center gap-1 disabled:opacity-40 shrink-0"
+                        >
+                          <UserPlus size={12} />
+                          Add
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           {errorMsg && (

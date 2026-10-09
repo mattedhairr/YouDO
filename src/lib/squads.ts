@@ -1,51 +1,41 @@
 import { supabase } from './supabase';
-import { fetchPendingRequests, type Profile } from './profiles';
+import { fetchPendingRequests, searchProfileByUsername, type Profile } from './profiles';
+import { dispatchPrivateHubSync } from './privateHubSync';
 
-/** Match squad room pace to personal daily bar hours from settings. */
-export function paceHoursMatch(squadBarHours: number, personalBarHours: number): boolean {
+export type SquadPrivacy = 'anyone_can_join' | 'invite_only';
+export type RoomPrivacy = SquadPrivacy;
+
+/**
+ * @deprecated Pace restrictions are removed per Requirement R1. Rooms no longer enforce matching daily bar hours.
+ * Kept for backwards compatibility; returns true if either value is null/undefined or if they match.
+ */
+export function paceHoursMatch(squadBarHours?: number | null, personalBarHours?: number | null): boolean {
+  if (squadBarHours == null || personalBarHours == null) return true;
   return Math.abs(Number(squadBarHours) - Number(personalBarHours)) < 0.01;
 }
 
-export function squadPaceGateMessage(squadBarHours: number, personalBarHours: number): string {
-  return `This room is ${squadBarHours}h/day. Your daily streak bar is ${personalBarHours}h. Match your bar in Settings to enter.`;
+/**
+ * @deprecated Room entry is no longer gated by personal daily bar hours.
+ */
+export function squadPaceGateMessage(squadBarHours?: number | null, personalBarHours?: number | null): string {
+  void squadBarHours;
+  void personalBarHours;
+  return '';
 }
 
 /**
- * Collective bar only when two or more members share the same daily hours.
- * Prefer the room’s bar if that group has 2+ people; otherwise the largest shared group.
+ * Unifies all squad members into the collective room board.
+ * All members contribute together regardless of differing daily bar targets.
+ * Segregation is removed per Requirement R1.
  */
-export function partitionSquadPaceMembers<T extends { barHours: number }>(
+export function partitionSquadPaceMembers<T extends { barHours?: number | null }>(
   members: T[],
-  squadBarHours: number,
+  squadBarHours?: number | null,
 ): { collective: T[]; separate: T[] } {
-  if (members.length < 2) return { collective: [], separate: [...members] };
-
-  const buckets = new Map<number, T[]>();
-  for (const member of members) {
-    const hours = Number(member.barHours);
-    if (!Number.isFinite(hours) || hours <= 0) continue;
-    const key = Math.round(hours * 100);
-    const list = buckets.get(key) ?? [];
-    list.push(member);
-    buckets.set(key, list);
-  }
-
-  const roomKey = Math.round(Number(squadBarHours) * 100);
-  const roomGroup = buckets.get(roomKey) ?? [];
-  let chosen = roomGroup.length >= 2 ? roomGroup : [];
-  if (chosen.length < 2) {
-    for (const group of buckets.values()) {
-      if (group.length > chosen.length) chosen = group;
-    }
-    if (chosen.length < 2) chosen = [];
-  }
-
-  if (chosen.length < 2) return { collective: [], separate: [...members] };
-
-  const inCollective = new Set(chosen);
+  void squadBarHours;
   return {
-    collective: chosen,
-    separate: members.filter((m) => !inCollective.has(m)),
+    collective: [...members],
+    separate: [],
   };
 }
 
@@ -53,10 +43,21 @@ export interface Squad {
   id: string;
   name: string;
   description: string;
-  bar_hours: number;
+  bar_hours?: number | null;
   allow_join_requests: boolean;
+  privacy?: SquadPrivacy;
   created_by: string;
   created_at: string;
+}
+
+export interface CreateSquadParams {
+  ownerId: string;
+  name: string;
+  icon?: string;
+  barHours?: number | null;
+  allowJoinRequests?: boolean;
+  privacy?: SquadPrivacy;
+  initialInviteUserIds?: string[];
 }
 
 export type SquadMemberStatus = 'accepted' | 'invited' | 'pending';
@@ -83,32 +84,78 @@ function squadFromJoinedRow(raw: unknown): Squad | null {
 }
 
 export async function createSquad(
+  params: CreateSquadParams,
+): Promise<{ ok: boolean; error?: string; squad?: Squad }>;
+export async function createSquad(
   ownerId: string,
   name: string,
-  icon: string, // We'll store icon in description for now since we didn't add an icon column
-  barHours: number,
-  allowJoinRequests: boolean
+  icon: string,
+  barHours?: number | null,
+  allowJoinRequests?: boolean,
+  privacy?: SquadPrivacy,
+  initialInviteUserIds?: string[],
+): Promise<{ ok: boolean; error?: string; squad?: Squad }>;
+export async function createSquad(
+  ownerIdOrParams: string | CreateSquadParams,
+  nameArg?: string,
+  iconArg?: string,
+  barHoursArg?: number | null,
+  allowJoinRequestsArg?: boolean,
+  privacyArg?: SquadPrivacy,
+  initialInviteUserIdsArg?: string[],
 ): Promise<{ ok: boolean; error?: string; squad?: Squad }> {
-  // First, verify the owner's personal pace matches barHours.
-  // In YouDO, personal pace is usually stored in local state/sync or metadata.
-  // We'll trust the client to pass the owner's current pace for validation.
-  // The actual check will be done by the UI before calling this.
+  let ownerId: string;
+  let name: string;
+  let icon: string;
+  let barHours: number | null | undefined;
+  let allowJoinRequests: boolean;
+  let privacy: SquadPrivacy;
+  let initialInviteUserIds: string[] | undefined;
+
+  if (typeof ownerIdOrParams === 'object') {
+    ownerId = ownerIdOrParams.ownerId;
+    name = ownerIdOrParams.name;
+    icon = ownerIdOrParams.icon || '🔥';
+    barHours = ownerIdOrParams.barHours;
+    privacy = ownerIdOrParams.privacy ?? 'anyone_can_join';
+    allowJoinRequests = privacy === 'invite_only' ? false : (ownerIdOrParams.allowJoinRequests ?? true);
+    initialInviteUserIds = ownerIdOrParams.initialInviteUserIds;
+  } else {
+    ownerId = ownerIdOrParams;
+    name = nameArg ?? '';
+    icon = iconArg || '🔥';
+    barHours = barHoursArg;
+    privacy = privacyArg ?? 'anyone_can_join';
+    allowJoinRequests = privacy === 'invite_only' ? false : (allowJoinRequestsArg ?? true);
+    initialInviteUserIds = initialInviteUserIdsArg;
+  }
+
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    return { ok: false, error: 'Please give your squad a name.' };
+  }
+
+  const insertPayload: Record<string, unknown> = {
+    name: trimmedName,
+    description: icon,
+    created_by: ownerId,
+    privacy,
+    allow_join_requests: allowJoinRequests,
+  };
+
+  if (barHours != null && Number.isFinite(barHours) && barHours > 0) {
+    insertPayload.bar_hours = barHours;
+  }
 
   const { data, error } = await supabase
     .from('squads')
-    .insert({
-      name,
-      description: icon, 
-      bar_hours: barHours,
-      allow_join_requests: allowJoinRequests,
-      created_by: ownerId
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
-  if (error) {
+  if (error || !data) {
     console.error('Failed to create squad:', error);
-    return { ok: false, error: error.message || 'Failed to create room.' };
+    return { ok: false, error: error?.message || 'Failed to create room.' };
   }
 
   const { error: memberError } = await supabase.from('squad_members').insert({
@@ -123,7 +170,37 @@ export async function createSquad(
     return { ok: false, error: memberError.message || 'Room created but membership failed.' };
   }
 
+  if (initialInviteUserIds && initialInviteUserIds.length > 0) {
+    const distinctInvites = [...new Set(initialInviteUserIds)].filter((id) => id !== ownerId);
+    if (distinctInvites.length > 0) {
+      const inviteRows = distinctInvites.map((userId) => ({
+        squad_id: data.id,
+        user_id: userId,
+        role: 'member' as const,
+        status: 'invited' as const,
+      }));
+      const { error: inviteError } = await supabase.from('squad_members').insert(inviteRows);
+      if (inviteError) {
+        console.warn('Initial invites failed to send:', inviteError);
+      }
+    }
+  }
+
   return { ok: true, squad: data as Squad };
+}
+
+export async function updateSquadPrivacy(
+  squadId: string,
+  privacy: SquadPrivacy,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('squads')
+    .update({
+      privacy,
+      allow_join_requests: privacy === 'anyone_can_join',
+    })
+    .eq('id', squadId);
+  return !error;
 }
 
 export async function getSquadDetails(squadId: string): Promise<{ squad: Squad; members: SquadMember[] } | null> {
@@ -173,16 +250,60 @@ export async function kickMember(squadId: string, userId: string) {
   return !error;
 }
 
-export async function inviteUserToSquad(squadId: string, userId: string) {
-  // We can insert an invitation into a hypothetical 'squad_invites' table,
-  // or we can just directly insert them into 'squad_members' with role 'invited' or 'pending'.
-  // The database schema hub_private_rooms.sql doesn't explicitly have an invites table.
-  // We'll just insert into squad_members with role='pending'.
+export async function inviteUserToSquad(squadId: string, userId: string): Promise<boolean> {
   const { error } = await supabase
     .from('squad_members')
     .insert({ squad_id: squadId, user_id: userId, role: 'member', status: 'invited' });
   
-  return !error;
+  if (error) {
+    console.error('inviteUserToSquad error:', error);
+    return false;
+  }
+  dispatchPrivateHubSync('pending');
+  return true;
+}
+
+export async function inviteUserToSquadByUsername(
+  squadId: string,
+  username: string,
+): Promise<{ ok: boolean; error?: string; userId?: string }> {
+  const clean = username.trim().replace(/^@/, '').toLowerCase();
+  if (!clean) {
+    return { ok: false, error: 'Enter a valid username.' };
+  }
+
+  // Try database RPC first (from rooms_privacy_and_invites.sql)
+  try {
+    const { data, error } = await supabase.rpc('invite_to_squad_by_username', {
+      p_squad_id: squadId,
+      p_username: clean,
+    });
+
+    if (!error && data) {
+      const res = typeof data === 'string' ? JSON.parse(data) : data;
+      if (res.ok) {
+        dispatchPrivateHubSync('pending');
+        return { ok: true, userId: res.user_id };
+      }
+      return { ok: false, error: res.error || 'Failed to invite user.' };
+    }
+  } catch {
+    // RPC may not be present before migration runs; fallback to client lookup
+  }
+
+  // Fallback: search profile by username
+  const profile = await searchProfileByUsername(clean);
+  if (!profile) {
+    return { ok: false, error: 'User not found.' };
+  }
+
+  const ok = await inviteUserToSquad(squadId, profile.id);
+  if (ok) {
+    dispatchPrivateHubSync('pending');
+  }
+  return ok
+    ? { ok: true, userId: profile.id }
+    : { ok: false, error: 'Could not send squad invite.' };
 }
 
 export async function fetchPendingSquadInvites(userId: string): Promise<PendingSquadInvite[]> {
@@ -196,11 +317,13 @@ export async function fetchPendingSquadInvites(userId: string): Promise<PendingS
     console.error('fetchPendingSquadInvites error:', error);
     return [];
   }
-  return (data ?? []).map((row) => ({
-    squad_id: row.squad_id,
-    status: row.status,
-    squads: squadFromJoinedRow(row.squads),
-  }));
+  return (data ?? [])
+    .map((row) => ({
+      squad_id: row.squad_id,
+      status: row.status,
+      squads: squadFromJoinedRow(row.squads),
+    }))
+    .filter((inv) => inv.squads !== null);
 }
 
 export async function acceptSquadJoinRequest(squadId: string, memberUserId: string): Promise<boolean> {
@@ -210,6 +333,7 @@ export async function acceptSquadJoinRequest(squadId: string, memberUserId: stri
     .eq('squad_id', squadId)
     .eq('user_id', memberUserId)
     .in('status', ['pending', 'invited']);
+  if (!error) dispatchPrivateHubSync('squads');
   return !error;
 }
 
@@ -220,6 +344,7 @@ export async function declineSquadJoinRequest(squadId: string, memberUserId: str
     .eq('squad_id', squadId)
     .eq('user_id', memberUserId)
     .in('status', ['pending', 'invited']);
+  if (!error) dispatchPrivateHubSync('squads');
   return !error;
 }
 
@@ -229,6 +354,7 @@ export async function acceptSquadInvite(squadId: string, userId: string) {
     .update({ status: 'accepted' })
     .eq('squad_id', squadId)
     .eq('user_id', userId);
+  if (!error) dispatchPrivateHubSync('squads');
   return !error;
 }
 
@@ -359,6 +485,7 @@ export async function requestJoinSquad(
     if (error.code === '23505') return { ok: false, error: 'You already requested or joined this squad.' };
     return { ok: false, error: error.message || 'Could not send join request.' };
   }
+  dispatchPrivateHubSync('squads');
   return { ok: true };
 }
 
@@ -369,5 +496,6 @@ export async function rejectSquadInvite(squadId: string, userId: string) {
     .eq('squad_id', squadId)
     .eq('user_id', userId)
     .eq('status', 'invited');
+  if (!error) dispatchPrivateHubSync('squads');
   return !error;
 }
