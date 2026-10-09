@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -316,7 +315,8 @@ function StudioTreeNode({
               {(node.startDate || node.endDate) && (
                 <button
                   type="button"
-                  title="Click to edit dates"
+                  title={`Click to edit dates (${[node.startDate, node.endDate].filter(Boolean).join(' → ')})`}
+                  aria-label={`Dates: ${[node.startDate, node.endDate].filter(Boolean).join(' → ')}`}
                   className="text-[10px] sm:text-[11px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap opacity-90"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -333,9 +333,9 @@ function StudioTreeNode({
 
               {/* Active Focus Pill */}
               {isActiveSession && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-soft/50 text-secondary whitespace-nowrap shrink-0">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-soft/50 text-secondary whitespace-nowrap shrink-0" aria-label="Active Focus">
                   <span className="w-1 h-1 rounded-full bg-secondary animate-pulse shrink-0" />
-                  Focus
+                  Active Focus
                 </span>
               )}
             </div>

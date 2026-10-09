@@ -1,4 +1,3 @@
-import React from 'react';
 import type { BlueprintStudioController } from './blueprintStudioState';
 import { StudioNodeExpansionModal } from './StudioNodeExpansionModal';
 import { StudioBulkAddModal } from './StudioBulkAddModal';

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, Copy, FileText, GripVertical, Link2, Play, Pause, Square, StickyNote, Trash2, CheckCircle2, Check } from 'lucide-react';
+import { Calendar, Clock, FileText, GripVertical, Link2, Play, Pause, Square, StickyNote, Trash2, CheckCircle2, Check } from 'lucide-react';
 import type { Priority, Task, ActiveSession, TaskSession } from '../types';
 import { isBacklogTask, isTaskComplete } from '../store';
 import { hapticSessionStart, hapticSessionPause, hapticAmbient } from '../lib/haptics';

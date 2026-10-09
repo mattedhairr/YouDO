@@ -1,4 +1,3 @@
-import React from 'react';
 import { Plus, ListChecks, Calendar, Trash2, X, Lock } from 'lucide-react';
 import type { BlueprintStudioController } from './blueprintStudioState';
 import { topStudioSelection } from '../../lib/studioWorkspace';

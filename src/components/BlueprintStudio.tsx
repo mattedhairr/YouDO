@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { GoalNode } from '../types';
 import type { GoalTreeChangeResult } from '../store';
 import {

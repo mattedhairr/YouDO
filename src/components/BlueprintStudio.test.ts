@@ -495,7 +495,7 @@ describe('BlueprintStudio Component Test Suite', () => {
       const goals = createTestGoals();
       const controller = createBlueprintStudioController({ goals });
       // Dispatch status message
-      (controller as unknown as { dispatch?: (action: unknown) => void }).clearMessages?.();
+      (controller as unknown as { clearMessages?: () => void }).clearMessages?.();
       // Set status via reducer action
       controller.applyChange(
         [...goals, { id: 'root-99', kind: 'goal', title: 'Goal 99', completed: false, createdAt: 9999, children: [] }],

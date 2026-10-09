@@ -1,12 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
-import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Zap, Clock, Cloud } from 'lucide-react';
+import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Clock, Cloud } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { ensureNotificationChannels, scheduleMorningBriefing } from './lib/notifications';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
-import { findNode, formatDDMMYYYY, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
+import { formatDDMMYYYY, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
 import { ensureProfileFromAuth } from './lib/profiles';
 import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
@@ -123,7 +123,6 @@ function AppInner() {
     tasks,
     goals,
     addTask,
-    duplicateTask,
     advance,
     undo,
     removeTask,
@@ -901,22 +900,6 @@ function AppInner() {
       }
     },
     [goals, navigateToGoalPath],
-  );
-
-  const handlePushBacklogTask = useCallback(
-    (t: Task) => {
-      if (t.goalNodeId) {
-        for (const root of goals) {
-          const [found] = findNode(root, t.goalNodeId);
-          if (found) {
-            pushModalState();
-            setSliceNodes([found]);
-            return;
-          }
-        }
-      }
-    },
-    [goals, pushModalState],
   );
 
   // Precompute goal breadcrumb paths for every task into a Map so the lookup is O(1) per render

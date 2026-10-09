@@ -198,14 +198,17 @@ export function addBlueprintChildrenBulk(
       : (options ?? {});
   const { convertExistingSteps = false, kind = 'node' } = optObj;
 
-  // Root level addition
+  // Root level addition (only when kind is explicitly 'goal')
   if (parentIds.length === 0) {
-    const newGoals = titles.map((t) => makeBlueprintNode(kind, t));
-    return {
-      goals: [...goals, ...newGoals],
-      count: newGoals.length,
-      createdIds: newGoals.map((n) => n.id),
-    };
+    if (kind === 'goal') {
+      const newGoals = titles.map((t) => makeBlueprintNode('goal', t));
+      return {
+        goals: [...goals, ...newGoals],
+        count: newGoals.length,
+        createdIds: newGoals.map((n) => n.id),
+      };
+    }
+    return { goals, count: 0, createdIds: [] };
   }
 
   const uniqueParentIds = [...new Set(parentIds)];

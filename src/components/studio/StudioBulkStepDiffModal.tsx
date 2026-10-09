@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ListChecks, Plus, Trash2, X, Lock, RotateCcw } from 'lucide-react';
 import type { BlueprintStudioController } from './blueprintStudioState';
 import { findGoal } from '../../lib/goalTree';
