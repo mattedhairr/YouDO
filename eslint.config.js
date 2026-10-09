@@ -37,7 +37,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/store.tsx', 'src/contexts/AuthContext.tsx', 'src/hooks/useTheme.ts'],
+    files: [
+      'src/store.tsx',
+      'src/contexts/AuthContext.tsx',
+      'src/hooks/useTheme.ts',
+      'src/components/chat/ChatActionSheet.tsx',
+      'src/components/squad/SquadProgressBoard.tsx',
+    ],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

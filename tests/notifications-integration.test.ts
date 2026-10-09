@@ -21,7 +21,6 @@ import {
   type NotificationPreferences,
 } from '../src/lib/notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { Capacitor } from '@capacitor/core';
 import type { GoalNode, Task } from '../src/types';
 
 vi.mock('@capacitor/local-notifications', () => ({
@@ -79,7 +78,7 @@ describe('Notification Integration & Read-State Synchronization', () => {
       });
 
       expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1);
-      const callArgs = (LocalNotifications.schedule as any).mock.calls[0][0];
+      const callArgs = vi.mocked(LocalNotifications.schedule).mock.calls[0][0];
       expect(callArgs.notifications[0].id).toBe(getDmNotificationId('user-456'));
       expect(callArgs.notifications[0].title).toBe('Alex');
       expect(callArgs.notifications[0].body).toBe('Hey, are you free to study?');
@@ -156,7 +155,7 @@ describe('Notification Integration & Read-State Synchronization', () => {
       });
 
       expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1);
-      const callArgs = (LocalNotifications.schedule as any).mock.calls[0][0];
+      const callArgs = vi.mocked(LocalNotifications.schedule).mock.calls[0][0];
       expect(callArgs.notifications[0].id).toBe(getRoomNotificationId('squad-101'));
       expect(callArgs.notifications[0].title).toBe('Room: Study Group A');
       expect(callArgs.notifications[0].body).toContain('Bob: Hey @rahul did you solve question 5?');
@@ -234,7 +233,7 @@ describe('Notification Integration & Read-State Synchronization', () => {
       });
 
       expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1);
-      const callArgs = (LocalNotifications.schedule as any).mock.calls[0][0];
+      const callArgs = vi.mocked(LocalNotifications.schedule).mock.calls[0][0];
       expect(callArgs.notifications[0].id).toBe(NOTIFICATION_IDS.COMMUNITY);
     });
 
@@ -251,7 +250,7 @@ describe('Notification Integration & Read-State Synchronization', () => {
     it('dispatches friend request notification and dismisses on view', async () => {
       await dispatchFriendRequestNotification('Priya');
       expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1);
-      const callArgs = (LocalNotifications.schedule as any).mock.calls[0][0];
+      const callArgs = vi.mocked(LocalNotifications.schedule).mock.calls[0][0];
       expect(callArgs.notifications[0].id).toBe(NOTIFICATION_IDS.FRIEND_REQUEST);
 
       await dismissFriendRequestNotification();
@@ -263,7 +262,7 @@ describe('Notification Integration & Read-State Synchronization', () => {
     it('dispatches room invite notification and dismisses on view', async () => {
       await dispatchRoomInviteNotification('Focus Squad', 'Vikram');
       expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1);
-      const callArgs = (LocalNotifications.schedule as any).mock.calls[0][0];
+      const callArgs = vi.mocked(LocalNotifications.schedule).mock.calls[0][0];
       expect(callArgs.notifications[0].id).toBe(NOTIFICATION_IDS.ROOM_INVITE);
 
       await dismissRoomInviteNotification();

@@ -837,7 +837,7 @@ describe('BlueprintStudio Tier 5 Adversarial UI & Component Hardening', () => {
       const controller = createBlueprintStudioController({ goals });
       controller.addChildrenInside(['root-eng'], ['New Core Service']);
 
-      const commitSpy = vi.fn((_base: unknown, _draft: unknown, _summary: string) => ({ ok: true }));
+      const commitSpy = vi.fn<(_base: unknown, _draft: unknown, _summary: string) => { ok: boolean }>(() => ({ ok: true }));
       const closeSpy = vi.fn();
 
       // Simulate commit handler logic directly
@@ -861,7 +861,7 @@ describe('BlueprintStudio Tier 5 Adversarial UI & Component Hardening', () => {
       const controller = createBlueprintStudioController({ goals });
       controller.addChildrenInside(['root-eng'], ['Rejected Service']);
 
-      const commitSpy = vi.fn((_base: unknown, _draft: unknown, _summary: string) => ({ ok: false, error: 'Database locked' }));
+      const commitSpy = vi.fn<(_base: unknown, _draft: unknown, _summary: string) => { ok: boolean; error?: string }>(() => ({ ok: false, error: 'Database locked' }));
       const closeSpy = vi.fn();
 
       const summary = controller.lastActionDescription || 'Updated studio items';

@@ -12,7 +12,7 @@ function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj;
   Object.freeze(obj);
   for (const key of Object.keys(obj)) {
-    const val = (obj as any)[key];
+    const val = (obj as Record<string, unknown>)[key];
     if (val !== null && typeof val === 'object') {
       deepFreeze(val);
     }
@@ -76,8 +76,8 @@ describe('Challenger 2 Adversarial Stress Suite', () => {
       expect(isValidISODate('2026-05-01T00:00:00Z')).toBe(false);
       expect(isValidISODate(null)).toBe(false);
       expect(isValidISODate(undefined)).toBe(false);
-      expect(isValidISODate(12345 as any)).toBe(false);
-      expect(isValidISODate({} as any)).toBe(false);
+      expect(isValidISODate(12345 as unknown as string)).toBe(false);
+      expect(isValidISODate({} as unknown as string)).toBe(false);
     });
 
     it('validateGoalDates handles inverted ranges, valid ranges, and edge cases', () => {
@@ -233,7 +233,7 @@ describe('Challenger 2 Adversarial Stress Suite', () => {
       const res = setGoalDatesBulk(original, ['n1'], { startDate: '2026-10-10', endDate: '2026-10-20' });
       expect(res.goals).not.toBe(original);
       expect(res.goals[0].children[0].startDate).toBe('2026-10-10');
-      expect((original[0].children[0] as any).startDate).toBeUndefined();
+      expect(original[0].children[0].startDate).toBeUndefined();
       // Structural sharing: unaffected child n2 should be referentially preserved
       expect(res.goals[0].children[1]).toBe(original[0].children[1]);
     });
@@ -349,7 +349,7 @@ describe('Challenger 2 Adversarial Stress Suite', () => {
       const res = convertNodeToBranch(original, 'n1', ['Child X'], { convertExistingSteps: true });
       expect(res).not.toBe(original);
       expect(res[0].children[0].children).toHaveLength(3);
-      expect((original[0].children[0] as any).steps).toEqual(['Step A', 'Step B']);
+      expect(original[0].children[0].steps).toEqual(['Step A', 'Step B']);
       // Structural sharing on unaffected sibling
       expect(res[0].children[1]).toBe(original[0].children[1]);
     });
@@ -425,7 +425,7 @@ describe('Challenger 2 Adversarial Stress Suite', () => {
       const res = convertNodeToTask(original, 'leaf-1', ['Step 1']);
       expect(res).not.toBe(original);
       expect(res[0].children[0].steps).toEqual(['Step 1']);
-      expect((original[0].children[0] as any).steps).toBeUndefined();
+      expect(original[0].children[0].steps).toBeUndefined();
       // Structural sharing on unaffected sibling
       expect(res[0].children[1]).toBe(original[0].children[1]);
     });

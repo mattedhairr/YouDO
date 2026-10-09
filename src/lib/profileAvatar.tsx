@@ -1,9 +1,9 @@
 /** Emoji or single-char avatars from profiles; HTTPS URLs render as images. */
-export function isProfileImageUrl(value?: string | null): boolean {
+function isProfileImageUrl(value?: string | null): boolean {
   return Boolean(value && /^https?:\/\//i.test(value));
 }
 
-export function profileAvatarGlyph(value?: string | null, displayName?: string): string {
+function profileAvatarGlyph(value?: string | null, displayName?: string): string {
   if (value && !isProfileImageUrl(value)) return value;
   const initial = displayName?.trim().charAt(0);
   return initial ? initial.toUpperCase() : '?';

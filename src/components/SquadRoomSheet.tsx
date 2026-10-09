@@ -152,6 +152,23 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
     return () => { supabase.removeChannel(channel); };
   }, [open, squadId, activeTab, user]);
 
+  const openActions = useCallback((msg: Message) => {
+    if (msg.system) return;
+    setSelectedMessage(msg);
+  }, []);
+
+  const handleReply = useCallback((msg: Message) => {
+    if (msg.system) return;
+    setReplyingTo(msg);
+    setSelectedMessage(null);
+    inputRef.current?.focus();
+  }, []);
+
+  const { getMessageProps } = useChatMessageGestures<Message>({
+    onOpenActions: openActions,
+    onDoubleTapReply: handleReply,
+  });
+
   if (!open || !squadId) return null;
 
   const barHours = squad?.bar_hours || 4;
@@ -205,23 +222,6 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
     
     await sendSquadMessage(squadId, user.id, content, replyId);
   };
-
-  const openActions = useCallback((msg: Message) => {
-    if (msg.system) return;
-    setSelectedMessage(msg);
-  }, []);
-
-  const handleReply = useCallback((msg: Message) => {
-    if (msg.system) return;
-    setReplyingTo(msg);
-    setSelectedMessage(null);
-    inputRef.current?.focus();
-  }, []);
-
-  const { getMessageProps } = useChatMessageGestures<Message>({
-    onOpenActions: openActions,
-    onDoubleTapReply: handleReply,
-  });
 
   const deleteMessage = async (id: string) => {
     setSelectedMessage(null);

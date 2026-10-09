@@ -72,7 +72,20 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
     };
   }, [open, user, friendId, loadMessages]);
 
-  if (!open) return null;
+  const openActions = useCallback((msg: Message) => {
+    setSelectedMessage(msg);
+  }, []);
+
+  const handleReply = useCallback((msg: Message) => {
+    setReplyingTo(msg);
+    setSelectedMessage(null);
+    inputRef.current?.focus();
+  }, []);
+
+  const { getMessageProps } = useChatMessageGestures<Message>({
+    onOpenActions: openActions,
+    onDoubleTapReply: handleReply,
+  });
 
   const handleSend = async () => {
     if (!message.trim() || !user || !friendId) return;
@@ -97,27 +110,14 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
     }
   };
 
-  const openActions = useCallback((msg: Message) => {
-    setSelectedMessage(msg);
-  }, []);
-
-  const handleReply = useCallback((msg: Message) => {
-    setReplyingTo(msg);
-    setSelectedMessage(null);
-    inputRef.current?.focus();
-  }, []);
-
-  const { getMessageProps } = useChatMessageGestures<Message>({
-    onOpenActions: openActions,
-    onDoubleTapReply: handleReply,
-  });
-
   const deleteMessage = async (id: string) => {
     setSelectedMessage(null);
     if (!user) return;
     setMessages(prev => prev.filter(m => m.id !== id));
     await deleteDirectMessage(id, user.id);
   };
+
+  if (!open) return null;
 
   return (
     <Overlay open={open} onClose={onClose} align="full">

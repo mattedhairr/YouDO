@@ -13,7 +13,6 @@ import Overlay from './components/Overlay';
 import TaskCard from './components/TaskCard';
 import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
-import SettingsSheet from './components/SettingsSheet';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useReviveDeadlineLabel } from './hooks/useReviveCountdown';
 import HelpCenterSheet from './components/HelpCenterSheet';
@@ -48,6 +47,7 @@ const GoalView = lazy(() => import('./components/GoalView'));
 const BlueprintStudio = lazy(() => import('./components/BlueprintStudio'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
 const HubView = lazy(() => import('./components/HubView'));
+const SettingsSheet = lazy(() => import('./components/SettingsSheet'));
 
 const pickQuote = (quotes: AppQuote[]): AppQuote | null => quotes.length
   ? quotes[Math.floor(Math.random() * quotes.length)]
@@ -828,7 +828,7 @@ function AppInner() {
   useEffect(() => {
     void ensureNotificationChannels();
     void scheduleMorningBriefing(tasks, goals, streakStatus.current, streakStatus.best);
-  }, [tasks, goals, streakStatus.current, streakStatus.best]);
+  }, [tasks, goals, streakStatus]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -1707,13 +1707,17 @@ function AppInner() {
           for (const plan of plans) planTask(plan.nodeId, targetDate, plan.stepSlice);
         }}
       />
-      <SettingsSheet
-        open={settingsOpen}
-        onClose={closeSettings}
-        focusSection={settingsFocus ?? undefined}
-        streakBarHours={streakMeta.barHours}
-        onStreakBarHoursChange={setStreakBarHours}
-      />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsSheet
+            open={settingsOpen}
+            onClose={closeSettings}
+            focusSection={settingsFocus ?? undefined}
+            streakBarHours={streakMeta.barHours}
+            onStreakBarHoursChange={setStreakBarHours}
+          />
+        </Suspense>
+      )}
 
       {/* Description Viewer Modal */}
       {descModalData && (

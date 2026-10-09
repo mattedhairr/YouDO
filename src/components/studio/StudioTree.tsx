@@ -74,7 +74,9 @@ function formatCompactDate(dateStr: string | null | undefined): string {
         return `${monthStr} ${day}, '${shortYear}`;
       }
     }
-  } catch (e) {}
+  } catch {
+    // Fallback to raw string if date parsing fails
+  }
   return dateStr;
 }
 

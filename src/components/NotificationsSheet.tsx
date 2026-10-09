@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { X, Check, XCircle, DoorOpen } from 'lucide-react';
 import Overlay from './Overlay';
 import { fetchPendingRequests, acceptFriendRequest, rejectFriendRequest, type FriendRequest } from '../lib/profiles';
@@ -39,7 +39,7 @@ export default function NotificationsSheet({
   const [squadJoinOutgoing, setSquadJoinOutgoing] = useState<Squad[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     const [friends, squads, incoming, outgoing] = await Promise.all([
@@ -53,13 +53,13 @@ export default function NotificationsSheet({
     setSquadJoinIncoming(incoming);
     setSquadJoinOutgoing(outgoing);
     setLoading(false);
-  };
+  }, [user]);
 
   useEffect(() => {
     if (open && user) {
       void reload();
     }
-  }, [open, user]);
+  }, [open, user, reload]);
 
   if (!open) return null;
 

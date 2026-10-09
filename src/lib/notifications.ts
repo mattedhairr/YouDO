@@ -591,7 +591,7 @@ export async function cancelNotification(id: number): Promise<void> {
     try {
       await LocalNotifications.cancel({ notifications: [{ id }] });
       await LocalNotifications.removeDeliveredNotifications({
-        notifications: [{ id } as any],
+        notifications: [{ id, title: '', body: '' }],
       });
     } catch {
       /* ignore */
