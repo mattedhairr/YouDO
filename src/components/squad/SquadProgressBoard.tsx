@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import type { CSSProperties } from 'react';
-import { Zap } from 'lucide-react';
 import {
   type PaceRow,
   type PaceWindow,
@@ -9,7 +8,6 @@ import {
 } from '../../lib/paceBoard';
 import { formatDuration } from '../../lib/format';
 import { ProfileAvatarVisual } from '../../lib/profileAvatar';
-import { partitionSquadPaceMembers } from '../../lib/squads';
 
 export type SquadBarProgress = {
   focused: number;
@@ -38,24 +36,17 @@ export function computeSquadBarProgress(
   };
 }
 
-function barLabel(progress: SquadBarProgress, windowLabel: string): string {
-  if (progress.overMs > 0) return `+${formatDuration(progress.overMs)} over bar`;
-  if (progress.percentRaw >= 100) return 'Bar reached';
-  return `${progress.percentRaw}% of ${windowLabel} bar`;
-}
-
 type StackMember = {
   userId: string;
   name: string;
   avatarUrl?: string;
   isSelf: boolean;
+  barHours: number;
   progress: SquadBarProgress;
 };
 
 /**
- * One vertical collective column. Each equal slice is that member's own bar.
- * Filling a slice fills the collective at the same time. The column is complete
- * only when every slice has reached its bar.
+ * One collective percentage. Average of all squad members' progress.
  */
 export function collectiveBarPercent(members: { progress: SquadBarProgress }[]): number {
   if (!members.length) return 0;
@@ -110,14 +101,14 @@ function collectiveBarLabelMetrics(memberCount: number) {
 
 function VerticalCollectiveBar({
   members,
-  windowShort,
   allComplete,
   collectivePercent,
+  onOpenProfile,
 }: {
   members: StackMember[];
-  windowShort: string;
   allComplete: boolean;
   collectivePercent: number;
+  onOpenProfile?: (userId: string) => void;
 }) {
   const overCollective = collectivePercent > 100;
   const accent = allComplete || overCollective ? 'text-secondary' : 'text-primary';
@@ -128,8 +119,6 @@ function VerticalCollectiveBar({
       : '0 0 8px color-mix(in srgb, var(--primary-glow) 75%, transparent), 0 0 16px color-mix(in srgb, var(--primary) 40%, transparent)';
   const count = members.length;
   const { arrowSize, labelFontPx, labelWidthPx, labelTracking } = collectiveBarLabelMetrics(count);
-  const pillTrackClass =
-    'flex w-3 shrink-0 flex-col overflow-hidden rounded-full border border-subtle bg-[color-mix(in_srgb,var(--bg-surface)_92%,transparent)]';
 
   return (
     <div>
@@ -137,18 +126,19 @@ function VerticalCollectiveBar({
         <span className="text-[11px] font-bold tabular-nums">{collectivePercent}%</span>
       </div>
       <div
-        className="grid items-stretch gap-x-1.5"
+        className="grid items-stretch gap-x-2"
         style={{
-          gridTemplateColumns: `${labelWidthPx}px 0.75rem minmax(0, 1fr)`,
+          gridTemplateColumns: `${labelWidthPx}px 0.85rem minmax(0, 1fr)`,
           gridTemplateRows: `repeat(${count}, minmax(3.5rem, auto))`,
         }}
         role="img"
         aria-label={
           allComplete
             ? 'Collective bar complete. Every member reached their bar.'
-            : 'Vertical collective bar. Each section is one member’s progress.'
+            : 'Vertical collective bar. Each capsule is one member’s progress.'
         }
       >
+        {/* Column 1: Vertical label + pointing arrow */}
         <div
           className={`flex h-full min-h-0 flex-col items-center bg-transparent py-1 ${accent}`}
           style={{ gridColumn: 1, gridRow: `1 / ${count + 1}`, width: labelWidthPx }}
@@ -178,50 +168,117 @@ function VerticalCollectiveBar({
           </div>
         </div>
 
-        <div className={pillTrackClass} style={{ gridColumn: 2, gridRow: `1 / ${count + 1}` }}>
-          {members.map((m, index) => {
-            const over = m.progress.overMs > 0;
-            const reached = m.progress.percentRaw >= 100;
-            return (
+        {/* Column 2: Stacked capsules with merging animation */}
+        {members.map((m, index) => {
+          const isSelfComplete = m.progress.percentRaw >= 100;
+          const isAboveComplete = index > 0 && members[index - 1].progress.percentRaw >= 100;
+          const isBelowComplete = index < count - 1 && members[index + 1].progress.percentRaw >= 100;
+          const mergeTop = isSelfComplete && isAboveComplete && index !== 0;
+          const mergeBottom = isSelfComplete && isBelowComplete && index !== count - 1;
+
+          // Capsule border radii: normally rounded-full; flattens where adjacent completed capsules merge
+          const topRadius = index === 0 ? 'rounded-t-full' : mergeTop ? 'rounded-t-none' : 'rounded-t-full';
+          const bottomRadius = index === count - 1 ? 'rounded-b-full' : mergeBottom ? 'rounded-b-none' : 'rounded-b-full';
+
+          // Capsule vertical margin: normally 3px spacing between capsules; collapses to 0px when merged
+          const marginClass = mergeTop && mergeBottom
+            ? 'my-0'
+            : mergeTop
+            ? 'mt-0 mb-0.5'
+            : mergeBottom
+            ? 'mt-0.5 mb-0'
+            : 'my-0.5';
+
+          const fillColor = isSelfComplete ? 'bg-secondary' : 'bg-primary';
+          const fillShadow = isSelfComplete
+            ? 'shadow-[0_0_8px_color-mix(in_srgb,var(--secondary)_60%,transparent)]'
+            : '';
+
+          return (
+            <div
+              key={`capsule-${m.userId}`}
+              style={{ gridColumn: 2, gridRow: index + 1 }}
+              className="flex items-stretch justify-center h-full min-h-0 py-0.5"
+            >
               <div
-                key={m.userId}
-                className={`relative min-h-0 flex-1 bg-track/80 ${index > 0 ? 'border-t border-subtle' : ''}`}
+                className={`w-3.5 relative flex flex-col justify-end overflow-hidden border border-subtle/80 bg-[color-mix(in_srgb,var(--bg-surface)_90%,transparent)] transition-all duration-300 ${topRadius} ${bottomRadius} ${marginClass}`}
                 title={`${m.name}: ${m.progress.percentRaw}%`}
               >
                 <div
-                  className={`absolute inset-x-0 bottom-0 transition-[height] duration-500 ${
-                    over || reached ? 'bg-secondary' : 'bg-primary'
-                  }`}
+                  className={`w-full transition-[height] duration-500 ease-out ${fillColor} ${fillShadow}`}
                   style={{ height: `${m.progress.percent}%` }}
                 />
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
 
+        {/* Column 3: Member rows with interactive DP & clean non-redundant typography */}
         {members.map((m, index) => {
           const over = m.progress.overMs > 0;
+          const reached = m.progress.percentRaw >= 100;
           return (
             <div
               key={m.userId}
               className={`flex min-h-14 items-center gap-2.5 py-1.5 ${index > 0 ? 'border-t border-subtle' : ''}`}
               style={{ gridColumn: 3, gridRow: index + 1 }}
             >
-              <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary-soft">
+              {/* Interactive DP (Display Picture) to open UserProfileSheet */}
+              <button
+                type="button"
+                onClick={() => onOpenProfile?.(m.userId)}
+                className="group relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary-soft hover:border-primary hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-sm"
+                title={`View ${m.name}'s profile`}
+                aria-label={`View ${m.name}'s profile`}
+              >
                 <ProfileAvatarVisual avatarUrl={m.avatarUrl} displayName={m.name} className="text-xs" />
-              </div>
+              </button>
+
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold text-content-primary">
-                  {index + 1}. {m.name}
-                  {m.isSelf && <span className="ml-1.5 text-[9px] font-bold uppercase text-primary">You</span>}
-                </p>
-                <p className={`text-[11px] font-medium ${over ? 'text-secondary' : 'text-content-muted'}`}>
-                  {m.progress.percentRaw}% complete
-                  {m.progress.focused > 0 ? ` · ${formatDuration(m.progress.focused)}` : ''}
-                </p>
-                <p className={`text-[10px] ${over ? 'font-semibold text-secondary' : 'text-content-muted'}`}>
-                  {barLabel(m.progress, windowShort)}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-[13px] font-semibold text-content-primary">
+                    {index + 1}. {m.name}
+                  </p>
+                  {m.isSelf && (
+                    <span className="text-[9px] font-bold uppercase text-primary bg-primary-soft/80 px-1.5 py-0.2 rounded-full border border-primary/20 shrink-0">
+                      You
+                    </span>
+                  )}
+                </div>
+
+                {/* Clean non-redundant focus and progress summary */}
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {over ? (
+                    <>
+                      <span className="font-semibold text-secondary">
+                        +{formatDuration(m.progress.overMs)} over bar
+                      </span>
+                      <span className="text-content-muted">·</span>
+                      <span className="text-content-muted">{formatDuration(m.progress.focused)} focus</span>
+                    </>
+                  ) : reached ? (
+                    <>
+                      <span className="font-semibold text-secondary">Bar reached</span>
+                      <span className="text-content-muted">·</span>
+                      <span className="text-content-muted">{formatDuration(m.progress.focused)} focus</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold text-primary tabular-nums">
+                        {m.progress.percentRaw}%
+                      </span>
+                      <span className="text-content-muted">·</span>
+                      <span className="text-content-muted">
+                        {m.progress.focused > 0 ? formatDuration(m.progress.focused) : '0m'} focus
+                      </span>
+                      {m.barHours > 0 && (
+                        <span className="text-[10px] text-content-muted/70">
+                          ({m.barHours}h bar)
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -245,6 +302,7 @@ interface Props {
   currentUserId?: string;
   viewerBarHours?: number;
   emptyPaceRow: (userId: string) => PaceRow;
+  onOpenProfile?: (userId: string) => void;
 }
 
 export default function SquadProgressBoard({
@@ -256,10 +314,10 @@ export default function SquadProgressBoard({
   currentUserId,
   viewerBarHours,
   emptyPaceRow,
+  onOpenProfile,
 }: Props) {
-  const windowShort = paceWindow === 'today' ? 'today' : paceWindow === 'week' ? 'this week' : 'this month';
-
-  const memberStats = useMemo(() => {
+  // All room members participate collectively without segregation
+  const memberStats: StackMember[] = useMemo(() => {
     return members.map((m) => {
       const row = paceByUserId[m.user_id] ?? emptyPaceRow(m.user_id);
       const isSelf = m.user_id === currentUserId;
@@ -273,24 +331,17 @@ export default function SquadProgressBoard({
         userId: m.user_id,
         name,
         avatarUrl: m.profiles?.avatar_url,
-        row,
         progress,
         barHours: personalBar,
-        updatedAt: row.updatedAt,
         isSelf,
       };
     });
   }, [members, paceByUserId, squadBarHours, paceWindow, anchorISO, currentUserId, viewerBarHours, emptyPaceRow]);
 
-  const { collective: collectiveMembers, separate: separateMembers } = useMemo(
-    () => partitionSquadPaceMembers(memberStats, squadBarHours),
-    [memberStats, squadBarHours],
-  );
-
   const collective = useMemo(() => {
-    if (!collectiveMembers.length) return null;
-    const totalFocused = collectiveMembers.reduce((s, m) => s + m.progress.focused, 0);
-    const totalTarget = collectiveMembers.reduce((s, m) => s + m.progress.targetMs, 0);
+    if (!memberStats.length) return null;
+    const totalFocused = memberStats.reduce((s, m) => s + m.progress.focused, 0);
+    const totalTarget = memberStats.reduce((s, m) => s + m.progress.targetMs, 0);
     const percentRaw = totalTarget > 0 ? Math.round((totalFocused / totalTarget) * 100) : 0;
     return {
       totalFocused,
@@ -299,26 +350,6 @@ export default function SquadProgressBoard({
       percentRaw,
       overMs: Math.max(0, totalFocused - totalTarget),
     };
-  }, [collectiveMembers]);
-
-  const activity = useMemo(() => {
-    const items = memberStats
-      .filter((m) => m.progress.focused > 0)
-      .map((m) => ({
-        id: m.userId,
-        name: m.name,
-        progress: m.progress,
-        updatedAt: m.updatedAt,
-        isSelf: m.isSelf,
-      }));
-
-    items.sort((a, b) => {
-      const ta = a.updatedAt ? Date.parse(a.updatedAt) : 0;
-      const tb = b.updatedAt ? Date.parse(b.updatedAt) : 0;
-      if (tb !== ta) return tb - ta;
-      return b.progress.focused - a.progress.focused;
-    });
-    return items;
   }, [memberStats]);
 
   if (!members.length) {
@@ -332,134 +363,32 @@ export default function SquadProgressBoard({
     );
   }
 
-  const reachedCount = collectiveMembers.filter((m) => m.progress.percentRaw >= 100).length;
-  const allComplete = collectiveMembers.length > 0 && reachedCount === collectiveMembers.length;
-  const collectivePercent = collectiveBarPercent(collectiveMembers);
-  const collectiveBarHours = collectiveMembers[0]?.barHours || squadBarHours;
+  const reachedCount = memberStats.filter((m) => m.progress.percentRaw >= 100).length;
+  const allComplete = memberStats.length > 0 && reachedCount === memberStats.length;
+  const collectivePercent = collectiveBarPercent(memberStats);
 
   return (
-    <div className="flex flex-col gap-5">
-      {collectiveMembers.length > 0 && (
+    <div className="flex flex-col gap-4">
       <section className="rounded-[18px] border border-subtle bg-elevated p-4">
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted capitalize">{paceWindow}</p>
             <p className={`mt-1 text-[15px] font-bold ${allComplete ? 'text-secondary' : 'text-content-primary'}`}>
-              {allComplete ? 'Collective complete' : `${reachedCount} of ${collectiveMembers.length} bars reached`}
+              {allComplete ? 'Collective complete' : `${reachedCount} of ${memberStats.length} bars reached`}
             </p>
           </div>
           <p className="max-w-[46%] text-right text-[11px] leading-snug text-content-secondary">
-            {formatDuration(collective?.totalFocused ?? 0)} together · {collectiveBarHours}h bar each
+            {formatDuration(collective?.totalFocused ?? 0)} together
           </p>
         </div>
+
         <VerticalCollectiveBar
-          members={collectiveMembers}
-          windowShort={windowShort}
+          members={memberStats}
           allComplete={allComplete}
           collectivePercent={collectivePercent}
+          onOpenProfile={onOpenProfile}
         />
-      </section>
-      )}
-
-      {separateMembers.length > 0 && (
-        <section className="rounded-[18px] border border-subtle/80 bg-elevated/40 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted mb-3">
-            {collectiveMembers.length > 0 ? 'Different daily bar' : 'On their own bars'}
-          </p>
-          <ul className="divide-y divide-subtle/80">
-            {separateMembers.map((m, index) => {
-              const over = m.progress.overMs > 0;
-              return (
-                <li
-                  key={m.userId}
-                  className={`flex min-h-14 items-center gap-2.5 py-1.5 opacity-45 ${index > 0 ? '' : 'pt-0'}`}
-                >
-                  <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-subtle bg-surface">
-                    <ProfileAvatarVisual avatarUrl={m.avatarUrl} displayName={m.name} className="text-xs" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-semibold text-content-primary">
-                      {m.name}
-                      {m.isSelf && <span className="ml-1.5 text-[9px] font-bold uppercase text-primary">You</span>}
-                    </p>
-                    <p className={`text-[11px] font-medium ${over ? 'text-secondary' : 'text-content-muted'}`}>
-                      {m.progress.percentRaw}% complete
-                      {m.progress.focused > 0 ? ` · ${formatDuration(m.progress.focused)}` : ''}
-                    </p>
-                    <p className="text-[10px] text-content-muted">
-                      {m.barHours > 0 ? `${m.barHours}h bar` : 'No synced bar'} · {barLabel(m.progress, windowShort)}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      {/* Dynamic activity board */}
-      <section>
-        <div className="flex items-center gap-2 px-0.5 mb-2.5">
-          <Zap size={14} className="text-primary" />
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-content-muted">Live board</h3>
-        </div>
-        <div className="rounded-[16px] border border-subtle bg-surface/80 divide-y divide-subtle overflow-hidden">
-          {activity.length === 0 ? (
-            <p className="text-[12px] text-content-muted text-center py-8 px-4 leading-relaxed">
-              No synced focus yet. When members complete sessions on the Public Board, updates appear here.
-            </p>
-          ) : (
-            activity.map((item) => (
-              <div key={item.id} className="px-3.5 py-3 flex items-start gap-3">
-                <div
-                  className={`mt-1.5 size-2 rounded-full shrink-0 ${
-                    item.progress.overMs > 0 ? 'bg-secondary' : 'bg-primary'
-                  }`}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] text-content-primary leading-snug">
-                    <span className="font-bold">{item.name}</span>
-                    {item.isSelf ? ' (you)' : ''}
-                    {' · '}
-                    <span className="tabular-nums">{formatDuration(item.progress.focused)}</span>
-                    {' '}
-                    {windowShort}
-                    {item.progress.overMs > 0 && (
-                      <span className="text-secondary font-semibold">
-                        {' '}
-                        · +{formatDuration(item.progress.overMs)} over bar
-                      </span>
-                    )}
-                  </p>
-                  {item.updatedAt && (
-                    <p className="text-[10px] text-content-muted mt-0.5">
-                      Last sync {formatRelative(item.updatedAt)}
-                    </p>
-                  )}
-                </div>
-                <span
-                  className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                    item.progress.percentRaw >= 100 ? 'text-secondary' : 'text-content-muted'
-                  }`}
-                >
-                  {item.progress.percentRaw}%
-                </span>
-              </div>
-            ))
-          )}
-        </div>
       </section>
     </div>
   );
-}
-
-function formatRelative(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return 'recently';
-  const mins = Math.floor((Date.now() - t) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 48) return `${hrs}h ago`;
-  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }

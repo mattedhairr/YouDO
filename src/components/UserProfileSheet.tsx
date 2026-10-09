@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { UserPlus, UserMinus, MessageCircle, X, Lock, Loader2 } from 'lucide-react';
+import { UserPlus, UserMinus, MessageCircle, X, Lock, Loader2, Flame, Clock, Target, Sparkles } from 'lucide-react';
 import Overlay from './Overlay';
 import {
   fetchProfile,
@@ -22,6 +22,7 @@ const FOCUS_WINDOWS: { id: PaceWindow; label: string }[] = [
 ];
 
 interface Props {
+  open?: boolean;
   onMessage?: () => void;
   onFriendshipChange?: () => void;
   userId: string | null;
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export default function UserProfileSheet({
+  open,
   userId,
   boardPreview,
   boardPaceWindow = 'week',
@@ -52,6 +54,8 @@ export default function UserProfileSheet({
   const privateHandle = normalizeUsername(profile?.username);
   const displayName = profile?.display_name ?? paceRow?.displayName ?? boardPreview?.displayName ?? 'Aspirant';
   const canUsePrivateHub = Boolean(privateHandle);
+
+  const isOpen = open !== undefined ? open : Boolean(userId);
 
   useEffect(() => {
     if (!userId) {
@@ -92,7 +96,7 @@ export default function UserProfileSheet({
     };
   }, [userId, user?.id, boardPreview, boardPaceWindow]);
 
-  if (!userId) return null;
+  if (!userId && !isOpen) return null;
 
   const handleAddFriend = async () => {
     if (!user?.id || !userId) return;
@@ -128,57 +132,91 @@ export default function UserProfileSheet({
   const hasPublicView = Boolean(profile || paceRow);
 
   return (
-    <Overlay open={!!userId} onClose={onClose}>
-      <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto rounded-[24px] flex flex-col max-h-[85vh] sm:my-auto mb-4">
-        <div className="flex justify-between items-center p-4 pb-2 border-b border-subtle">
-          <div className="w-10" />
-          <h2 className="text-[14px] font-bold text-content-primary">Profile</h2>
+    <Overlay open={isOpen} onClose={onClose}>
+      <div className="bg-[var(--bg-surface)] w-full max-w-md mx-auto rounded-[28px] border border-subtle/80 shadow-2xl flex flex-col max-h-[88vh] sm:my-auto mb-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Grab bar */}
+        <div className="w-10 h-1 rounded-full bg-subtle mx-auto mt-2.5 mb-1 opacity-70" />
+
+        {/* Modal Header */}
+        <div className="flex justify-between items-center px-5 py-2.5 border-b border-subtle/60">
+          <div className="flex items-center gap-1.5 text-content-muted">
+            <Sparkles size={14} className="text-primary" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.16em]">Profile Card</span>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 -mr-2 text-content-secondary hover:text-content-primary rounded-full hover:bg-elevated transition-colors"
+            className="p-1.5 text-content-secondary hover:text-content-primary rounded-full hover:bg-elevated transition-colors"
+            aria-label="Close profile"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {loading && !hasPublicView ? (
-            <div className="py-10 text-center text-sm text-content-muted">Loading profile...</div>
+            <div className="py-16 text-center flex flex-col items-center justify-center gap-3 text-content-muted">
+              <Loader2 className="animate-spin text-primary" size={24} />
+              <p className="text-[13px] font-medium">Loading profile...</p>
+            </div>
           ) : hasPublicView ? (
             <>
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 shrink-0 rounded-full bg-primary-soft border border-primary/20 flex items-center justify-center text-primary text-4xl font-bold shadow-elevated overflow-hidden">
-                  <ProfileAvatarVisual
-                    avatarUrl={profile?.avatar_url}
-                    displayName={displayName}
-                    className="text-4xl"
-                  />
+              {/* Profile Identity Hero */}
+              <div className="rounded-[22px] border border-subtle bg-elevated/50 p-4.5 flex items-start gap-4 shadow-sm">
+                <div className="relative shrink-0">
+                  <div className="size-18 rounded-full bg-primary-soft border border-primary/25 ring-4 ring-primary/10 flex items-center justify-center text-primary text-3xl font-bold shadow-md overflow-hidden">
+                    <ProfileAvatarVisual
+                      avatarUrl={profile?.avatar_url}
+                      displayName={displayName}
+                      className="text-3xl"
+                    />
+                  </div>
+                  {isSelf && (
+                    <span className="absolute -bottom-1 -right-1 text-[8.5px] font-extrabold uppercase tracking-wider bg-primary text-on-primary px-1.5 py-0.5 rounded-full border border-[var(--bg-surface)] shadow-sm">
+                      You
+                    </span>
+                  )}
                 </div>
+
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-[18px] font-bold text-content-primary truncate">{displayName}</h1>
-                  {privateHandle ? (
-                    <p className="text-[13px] font-medium text-primary mt-0.5 truncate">@{privateHandle}</p>
-                  ) : (
-                    <p className="text-[12px] font-medium text-content-muted mt-0.5">Public board only</p>
-                  )}
-                  {paceRow?.hashtagLabel && (
-                    <p className="text-[12px] text-secondary mt-1 truncate">#{paceRow.hashtagLabel}</p>
-                  )}
+                  <h1 className="text-[17px] font-bold text-content-primary truncate tracking-tight">{displayName}</h1>
+                  
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {privateHandle ? (
+                      <span className="inline-flex items-center text-[11.5px] font-bold text-primary bg-primary-soft/90 border border-primary/20 px-2 py-0.5 rounded-full">
+                        @{privateHandle}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-medium text-content-muted bg-surface/70 px-2 py-0.5 rounded-full border border-subtle">
+                        Public board only
+                      </span>
+                    )}
+
+                    {paceRow?.hashtagLabel && (
+                      <span className="inline-flex items-center text-[11px] font-bold text-secondary bg-secondary-soft/80 border border-secondary/20 px-2 py-0.5 rounded-full truncate max-w-[130px]">
+                        #{paceRow.hashtagLabel}
+                      </span>
+                    )}
+                  </div>
+
                   {profile?.bio && (
-                    <p className="text-[12px] text-content-secondary mt-1.5 leading-snug line-clamp-2">{profile.bio}</p>
+                    <p className="text-[12px] text-content-secondary mt-2.5 leading-relaxed bg-surface/50 border border-subtle/50 rounded-xl p-2.5 line-clamp-3">
+                      {profile.bio}
+                    </p>
                   )}
                 </div>
               </div>
 
+              {/* Social Actions (Friends / Message / Add) */}
               {!isSelf && user && canUsePrivateHub && (
-                <div className="mt-5 flex gap-2">
+                <div className="space-y-2">
                   {friendship === 'friends' ? (
-                    <>
+                    <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={onMessage}
-                        className="flex-1 bg-primary text-on-primary h-11 rounded-[12px] text-[14px] font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                        className="flex-1 bg-primary text-on-primary h-11 rounded-[14px] text-[13.5px] font-bold flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.98] transition-all"
                       >
                         <MessageCircle size={16} strokeWidth={2.5} />
                         Message
@@ -187,44 +225,41 @@ export default function UserProfileSheet({
                         type="button"
                         disabled={actionBusy}
                         onClick={() => void handleRemoveFriend()}
-                        className="flex-none bg-error-soft text-error px-4 h-11 rounded-[12px] text-[14px] font-semibold flex items-center justify-center hover:bg-error/20 transition-opacity disabled:opacity-50"
+                        className="flex-none bg-error-soft text-error px-4 h-11 rounded-[14px] text-[13px] font-semibold flex items-center justify-center border border-error/20 hover:bg-error/20 transition-all disabled:opacity-50"
                         title="Remove Friend"
                       >
-                        <UserMinus size={18} strokeWidth={2.5} />
+                        <UserMinus size={17} strokeWidth={2.5} />
                       </button>
-                    </>
+                    </div>
                   ) : friendship === 'pending' ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full bg-elevated text-content-muted h-11 rounded-[12px] text-[14px] font-semibold border border-subtle"
-                    >
-                      Request sent
-                    </button>
+                    <div className="w-full bg-elevated/70 text-content-muted h-11 rounded-[14px] text-[13px] font-semibold border border-subtle flex items-center justify-center gap-2">
+                      <span className="size-2 rounded-full bg-primary animate-pulse" />
+                      Friend request pending
+                    </div>
                   ) : (
-                    <div className="w-full flex flex-col gap-2">
-                      <label className="text-[11px] font-medium text-content-secondary px-0.5">
-                        Why are you sending this request?
+                    <div className="rounded-[20px] border border-subtle bg-elevated/40 p-3.5 space-y-2.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-content-muted px-0.5 block">
+                        Send Friend Request
                       </label>
                       <textarea
                         value={friendRequestNote}
                         onChange={(e) => setFriendRequestNote(e.target.value)}
                         maxLength={280}
-                        rows={3}
-                        placeholder="e.g. We met on the GATE board — would love to study together."
-                        className="w-full resize-none rounded-[12px] border border-subtle bg-elevated px-3 py-2.5 text-[13px] text-content-primary outline-none focus:border-primary"
+                        rows={2}
+                        placeholder="Say hello or introduce what you're focusing on..."
+                        className="w-full resize-none rounded-[14px] border border-subtle bg-surface px-3 py-2 text-[12.5px] text-content-primary placeholder:text-content-muted/60 outline-none focus:border-primary transition-colors"
                       />
                       {friendRequestError && (
-                        <p className="text-[11px] text-error px-0.5">{friendRequestError}</p>
+                        <p className="text-[11px] text-error font-medium px-0.5">{friendRequestError}</p>
                       )}
                       <button
                         type="button"
                         disabled={actionBusy || !friendRequestNote.trim()}
                         onClick={() => void handleAddFriend()}
-                        className="w-full bg-primary text-on-primary h-11 rounded-[12px] text-[14px] font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                        className="w-full bg-primary text-on-primary h-10 rounded-[12px] text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-40"
                       >
-                        {actionBusy ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={16} strokeWidth={2.5} />}
-                        Send request
+                        {actionBusy ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={15} strokeWidth={2.5} />}
+                        Send Request
                       </button>
                     </div>
                   )}
@@ -232,66 +267,86 @@ export default function UserProfileSheet({
               )}
 
               {!isSelf && user && !canUsePrivateHub && paceRow && (
-                <p className="mt-5 text-[11.5px] text-center text-content-secondary leading-relaxed rounded-[12px] border border-dashed border-subtle bg-elevated/40 px-3 py-2.5">
-                  Private Hub (DMs &amp; friend requests) unlocks after they claim a @username.
+                <p className="text-[11px] text-center text-content-secondary leading-relaxed rounded-[14px] border border-dashed border-subtle bg-elevated/40 px-3.5 py-2.5">
+                  Private Hub messaging &amp; requests unlock when this user claims a username handle.
                 </p>
               )}
 
-              <div className="mt-6">
-                <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-content-muted mb-2.5 px-0.5">
-                  Focus Stats
-                </h3>
+              {/* Focus Stats Card */}
+              <div className="rounded-[22px] border border-subtle bg-elevated/60 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Target size={14} className="text-primary" />
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-content-muted">
+                      Focus Stats
+                    </h3>
+                  </div>
+
+                  {paceRow && !profile?.stats_private && (
+                    <div className="flex gap-1 p-0.5 bg-surface border border-subtle rounded-[10px]">
+                      {FOCUS_WINDOWS.map((w) => (
+                        <button
+                          key={w.id}
+                          type="button"
+                          onClick={() => setFocusWindow(w.id)}
+                          className={`px-2 py-0.5 rounded-[8px] text-[10.5px] font-bold transition-all ${
+                            focusWindow === w.id
+                              ? 'bg-primary-soft text-primary shadow-xs'
+                              : 'text-content-muted hover:text-content-primary'
+                          }`}
+                        >
+                          {w.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {profile?.stats_private ? (
-                  <div className="bg-elevated/50 border border-dashed border-subtle rounded-[14px] p-5 flex flex-col items-center justify-center text-content-muted">
-                    <Lock size={20} className="mb-2 opacity-50" />
-                    <p className="text-[12px] font-medium">This user keeps their stats private</p>
+                  <div className="border border-dashed border-subtle/80 bg-surface/50 rounded-[16px] p-6 flex flex-col items-center justify-center text-content-muted gap-2">
+                    <Lock size={18} className="opacity-50" />
+                    <p className="text-[12px] font-medium">This user keeps their focus stats private</p>
                   </div>
                 ) : !paceRow ? (
-                  <div className="bg-elevated/50 border border-dashed border-subtle rounded-[14px] p-4 text-center">
+                  <div className="border border-dashed border-subtle/80 bg-surface/50 rounded-[16px] p-5 text-center">
                     <p className="text-[12px] text-content-secondary leading-relaxed">
-                      No public focus on the Board yet. Stats appear after they opt into the Public Board and sync focus.
+                      No public focus on the Board yet. Stats appear after opting into the Public Board.
                     </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="bg-elevated border border-subtle rounded-[14px] p-3.5 flex flex-col">
-                      <span className="text-[11px] font-medium text-content-secondary mb-1">Current Streak</span>
-                      <span className="text-[20px] font-bold text-content-primary tabular-nums">
-                        {paceRow.streak} {paceRow.streak === 1 ? 'day' : 'days'}
+                    <div className="bg-surface border border-subtle rounded-[16px] p-3.5 flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 text-content-muted mb-1">
+                        <Flame size={13} className="text-secondary" />
+                        <span className="text-[10.5px] font-bold uppercase tracking-wider">Streak</span>
+                      </div>
+                      <span className="text-[21px] font-extrabold text-content-primary tabular-nums">
+                        {paceRow.streak} <span className="text-[12px] font-medium text-content-muted">{paceRow.streak === 1 ? 'day' : 'days'}</span>
                       </span>
                     </div>
 
-                    <div className="bg-elevated border border-subtle rounded-[14px] p-3.5 flex flex-col">
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-[11px] font-medium text-content-secondary">Total Focus</span>
-                        <select
-                          value={focusWindow}
-                          onChange={(e) => setFocusWindow(e.target.value as PaceWindow)}
-                          className="text-[10px] font-semibold text-primary bg-primary-soft px-1.5 py-0.5 rounded-md border-0 outline-none cursor-pointer max-w-[5.5rem]"
-                          aria-label="Focus time window"
-                        >
-                          {FOCUS_WINDOWS.map((w) => (
-                            <option key={w.id} value={w.id}>{w.label}</option>
-                          ))}
-                        </select>
+                    <div className="bg-surface border border-subtle rounded-[16px] p-3.5 flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 text-content-muted mb-1">
+                        <Clock size={13} className="text-primary" />
+                        <span className="text-[10.5px] font-bold uppercase tracking-wider">{focusWindow} focus</span>
                       </div>
-                      <span className="text-[20px] font-bold text-content-primary tabular-nums">
+                      <span className="text-[21px] font-extrabold text-primary tabular-nums">
                         {formatDuration(windowMs(paceRow, focusWindow))}
                       </span>
                     </div>
                   </div>
                 )}
+
                 {paceRow && !profile?.stats_private && (
-                  <p className="mt-2.5 text-[10px] text-content-muted leading-relaxed px-0.5">
-                    Synced from the Public Board — same Today / Week / Month totals they opted in to share.
+                  <p className="text-[9.5px] text-content-muted leading-relaxed px-0.5">
+                    Synced from the Public Board with daily pace verified.
                   </p>
                 )}
               </div>
             </>
           ) : (
-            <div className="py-10 text-center text-sm text-content-muted">
-              This person isn&apos;t on the Public Board and hasn&apos;t set up a profile yet.
+            <div className="py-12 text-center text-sm text-content-muted">
+              This person is not on the Public Board and has not set up a profile yet.
             </div>
           )}
         </div>
