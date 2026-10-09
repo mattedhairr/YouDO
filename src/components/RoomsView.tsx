@@ -1,26 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Lock, UsersRound, DoorOpen, Loader2, Clock, X } from 'lucide-react';
+import { Lock, UsersRound, DoorOpen, Loader2, Clock, X, Globe } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import Toggle from './Toggle';
 import {
   fetchDiscoverableSquads,
   fetchMySquads,
   fetchOutgoingSquadJoinRequests,
   cancelOutgoingSquadJoinRequest,
-  paceHoursMatch,
   requestJoinSquad,
   type Squad,
 } from '../lib/squads';
+import { PRIVATE_HUB_SYNC_EVENT } from '../lib/privateHubSync';
 
 interface Props {
-  personalPace: number;
+  personalPace?: number;
   onOpenRoom: (squadId: string) => void;
   onNotificationsChanged?: () => void;
 }
 
-export default function RoomsView({ personalPace, onOpenRoom, onNotificationsChanged }: Props) {
+export default function RoomsView({ onOpenRoom, onNotificationsChanged }: Props) {
   const { user } = useAuth();
-  const [compatibleOnly, setCompatibleOnly] = useState(false);
   const [myRooms, setMyRooms] = useState<Squad[]>([]);
   const [discoverRooms, setDiscoverRooms] = useState<Squad[]>([]);
   const [pendingJoinRooms, setPendingJoinRooms] = useState<Squad[]>([]);
@@ -50,11 +48,14 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
 
   useEffect(() => {
     void reload();
+    const handleSync = () => {
+      void reload();
+    };
+    window.addEventListener(PRIVATE_HUB_SYNC_EVENT, handleSync);
+    return () => {
+      window.removeEventListener(PRIVATE_HUB_SYNC_EVENT, handleSync);
+    };
   }, [reload]);
-
-  const filteredDiscover = compatibleOnly
-    ? discoverRooms.filter((r) => paceHoursMatch(r.bar_hours, personalPace))
-    : discoverRooms;
 
   const handleRequestJoin = async (room: Squad) => {
     if (!user) return;
@@ -107,13 +108,26 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-2xl shrink-0">{room.description || '🔥'}</span>
                     <div className="min-w-0">
-                      <p className="text-[14px] font-bold text-content-primary truncate">{room.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[14px] font-bold text-content-primary truncate">{room.name}</p>
+                        {room.privacy === 'invite_only' ? (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-content-muted bg-surface px-1.5 py-0.5 rounded-md border border-subtle">
+                            <Lock size={9} /> Private
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary bg-primary-soft px-1.5 py-0.5 rounded-md border border-primary/20">
+                            <Globe size={9} /> Public
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-primary font-semibold mt-0.5">Your room · tap to open</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/20 shrink-0">
-                    🎯 {room.bar_hours}h/day
-                  </span>
+                  {room.bar_hours != null && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/20 shrink-0">
+                      🎯 {room.bar_hours}h/day
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
@@ -145,9 +159,11 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
                       </p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/20 shrink-0">
-                    🎯 {room.bar_hours}h/day
-                  </span>
+                  {room.bar_hours != null && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-soft text-primary border border-primary/20 shrink-0">
+                      🎯 {room.bar_hours}h/day
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -165,95 +181,77 @@ export default function RoomsView({ personalPace, onOpenRoom, onNotificationsCha
       )}
 
       <div>
-        <div className="flex items-center justify-between gap-3 mb-2.5 px-1">
+        <div className="flex items-center justify-between gap-3 mb-2 px-1">
           <h3 className="text-[11px] font-bold text-content-muted uppercase tracking-wider">Discover</h3>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] text-content-muted font-medium max-w-[7rem] leading-tight text-right">
-              Show my {personalPace}h bar
-            </span>
-            <Toggle
-              checked={compatibleOnly}
-              label="Only squads matching my daily bar hours"
-              onChange={() => setCompatibleOnly((v) => !v)}
-            />
-          </div>
+          <span className="text-[10px] text-content-muted font-medium">
+            {discoverRooms.length} {discoverRooms.length === 1 ? 'squad available' : 'squads available'}
+          </span>
         </div>
         <p className="text-[10px] text-content-muted px-1 mb-3 leading-relaxed">
-          Public rooms anyone can ask to join. Use the toggle to find squads at your daily bar.
+          Public rooms anyone can ask to join. Select a squad to request membership.
         </p>
 
         {loading ? (
           <p className="text-center text-[12px] text-content-muted py-6">Finding squads…</p>
-        ) : filteredDiscover.length === 0 ? (
+        ) : discoverRooms.length === 0 ? (
           <div className="py-8 flex flex-col items-center justify-center text-center text-content-muted border border-dashed border-subtle rounded-2xl bg-elevated/30 px-4">
             <UsersRound size={24} className="mb-3 opacity-50" />
             <p className="text-[13px] font-medium text-content-primary">No squads to discover</p>
             <p className="text-[11px] mt-1 max-w-[240px] mx-auto leading-relaxed">
               {pendingIds.size > 0
                 ? 'You have pending requests above — admins must accept before you can enter.'
-                : compatibleOnly
-                  ? `No public squads at ${personalPace}h/day. Turn off the filter to browse other paces.`
-                  : 'No public squads right now.'}
+                : 'No public squads available to join right now.'}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredDiscover.map((room) => {
-              const compatible = paceHoursMatch(room.bar_hours, personalPace);
-              return (
-                <div
-                  key={room.id}
-                  className={`bg-elevated border rounded-[18px] p-4 transition-all ${
-                    compatible ? 'border-subtle' : 'border-subtle/80 opacity-90'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="text-2xl shrink-0">{room.description || '🔥'}</div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <Lock size={12} className="text-content-muted shrink-0" />
-                          <h3 className="text-[14px] font-bold text-content-primary truncate">{room.name}</h3>
-                        </div>
-                        <p className="text-[10px] text-content-muted mt-0.5">Public · request to join</p>
+            {discoverRooms.map((room) => (
+              <div
+                key={room.id}
+                className="bg-elevated border border-subtle rounded-[18px] p-4 transition-all hover:border-primary/30"
+              >
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="text-2xl shrink-0">{room.description || '🔥'}</div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Globe size={12} className="text-content-muted shrink-0" />
+                        <h3 className="text-[14px] font-bold text-content-primary truncate">{room.name}</h3>
                       </div>
+                      <p className="text-[10px] text-content-muted mt-0.5">Public · request to join</p>
                     </div>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
-                        compatible
-                          ? 'bg-primary-soft text-primary border-primary/20'
-                          : 'bg-elevated text-content-muted border-subtle'
-                      }`}
-                    >
+                  </div>
+                  {room.bar_hours != null && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border bg-primary-soft text-primary border-primary/20">
                       🎯 {room.bar_hours}h/day
                     </span>
-                  </div>
-
-                  {joinMessage?.id === room.id && (
-                    <p
-                      className={`text-[11px] mb-2.5 px-1 ${joinMessage.error ? 'text-error' : 'text-secondary'}`}
-                      role="status"
-                    >
-                      {joinMessage.text}
-                    </p>
                   )}
-
-                  <button
-                    type="button"
-                    disabled={joinBusyId === room.id}
-                    onClick={() => void handleRequestJoin(room)}
-                    className="w-full h-10 rounded-xl text-[12px] font-bold flex items-center justify-center gap-2 bg-primary text-on-primary disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {joinBusyId === room.id ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <DoorOpen size={16} strokeWidth={2.2} />
-                    )}
-                    Request to join
-                  </button>
                 </div>
-              );
-            })}
+
+                {joinMessage?.id === room.id && (
+                  <p
+                    className={`text-[11px] mb-2.5 px-1 ${joinMessage.error ? 'text-error' : 'text-secondary'}`}
+                    role="status"
+                  >
+                    {joinMessage.text}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={joinBusyId === room.id}
+                  onClick={() => void handleRequestJoin(room)}
+                  className="w-full h-10 rounded-xl text-[12px] font-bold flex items-center justify-center gap-2 bg-primary text-on-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {joinBusyId === room.id ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <DoorOpen size={16} strokeWidth={2.2} />
+                  )}
+                  Request to join
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

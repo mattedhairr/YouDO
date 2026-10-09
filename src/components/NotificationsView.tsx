@@ -24,6 +24,7 @@ import {
 } from '../lib/squads';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
 import { PRIVATE_HUB_SYNC_EVENT } from '../lib/privateHubSync';
+import { dismissFriendRequestNotification, dismissRoomInviteNotification } from '../lib/notifications';
 
 type Screen = 'home' | 'pending';
 type PendingTab = 'received' | 'sent';
@@ -78,6 +79,8 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
 
   useEffect(() => {
     void reload();
+    void dismissFriendRequestNotification();
+    void dismissRoomInviteNotification();
   }, [reload]);
 
   useEffect(() => {
