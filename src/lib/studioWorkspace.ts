@@ -1,13 +1,16 @@
 import type { GoalNode } from '../types';
 import { findGoal, hasGoalExecutionState, isGoalEndpoint, updateNode } from './goalTree';
-import { findBlueprintPath, flattenBlueprint, removeBlueprintNodes } from './blueprintStudio';
+import { findBlueprintPath, flattenBlueprint, isValidISODate, removeBlueprintNodes } from './blueprintStudio';
 import { uid } from './ids';
+
+export { findBlueprintPath } from './blueprintStudio';
 
 export type StudioFields = Pick<GoalNode, 'title' | 'description' | 'startDate' | 'endDate' | 'pinned'>;
 export type StudioPatch = Partial<StudioFields>;
 
 /** IDs, progress, schedules and descendants are never replaced by a detail edit. */
 export function patchStudioItems(goals: GoalNode[], patches: Record<string, StudioPatch>): GoalNode[] {
+  if (!patches || Object.keys(patches).length === 0) return goals;
   const visit = (node: GoalNode): GoalNode => {
     const patch = patches[node.id];
     const children = node.children.map(visit);
@@ -15,9 +18,44 @@ export function patchStudioItems(goals: GoalNode[], patches: Record<string, Stud
     if (!patch && !changedChildren) return node;
     const next = { ...node, ...patch, children: changedChildren ? children : node.children };
     if (patch?.title !== undefined) next.title = patch.title.trim() || node.title;
+
+    // Sanitize dates if patched
+    if (patch && 'startDate' in patch) {
+      if (patch.startDate === null || patch.startDate === undefined || (typeof patch.startDate === 'string' && patch.startDate.trim() === '')) {
+        delete next.startDate;
+      } else if (typeof patch.startDate === 'string' && isValidISODate(patch.startDate)) {
+        next.startDate = patch.startDate.trim();
+      } else {
+        if (node.startDate !== undefined) next.startDate = node.startDate;
+        else delete next.startDate;
+      }
+    }
+    if (patch && 'endDate' in patch) {
+      if (patch.endDate === null || patch.endDate === undefined || (typeof patch.endDate === 'string' && patch.endDate.trim() === '')) {
+        delete next.endDate;
+      } else if (typeof patch.endDate === 'string' && isValidISODate(patch.endDate)) {
+        next.endDate = patch.endDate.trim();
+      } else {
+        if (node.endDate !== undefined) next.endDate = node.endDate;
+        else delete next.endDate;
+      }
+    }
+    if (next.startDate && next.endDate && next.startDate > next.endDate) {
+      if (node.startDate !== undefined) next.startDate = node.startDate;
+      else delete next.startDate;
+      if (node.endDate !== undefined) next.endDate = node.endDate;
+      else delete next.endDate;
+    }
+
     return next;
   };
-  return goals.map(visit);
+  let changed = false;
+  const nextGoals = goals.map((node) => {
+    const next = visit(node);
+    if (next !== node) changed = true;
+    return next;
+  });
+  return changed ? nextGoals : goals;
 }
 
 /** Selecting a parent and its descendant must not copy/move/remove the descendant twice. */
@@ -62,7 +100,10 @@ export function moveStudioItems(goals: GoalNode[], ids: string[], destinationId:
 
 /** Copies are fresh plans; their sources keep all recorded work and links. */
 export function duplicateStudioItems(goals: GoalNode[], ids: string[]): GoalNode[] {
-  const selected = new Set(topStudioSelection(goals, ids));
+  if (!ids || ids.length === 0) return goals;
+  const roots = topStudioSelection(goals, ids);
+  if (roots.length === 0) return goals;
+  const selected = new Set(roots);
   const clone = (node: GoalNode): GoalNode => ({
     ...node, id: uid('goal'), completed: false, pinned: false, todayTaskId: null,
     stepDone: node.steps?.map(() => false), createdAt: Date.now(), children: node.children.map(clone),

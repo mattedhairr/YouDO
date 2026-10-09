@@ -1361,7 +1361,7 @@ function AppInner() {
                               onAdvance={advance}
                               onUndo={undo}
                               onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                              onDuplicate={duplicateTask}
+
                               onDragStart={(id) => setDragId(id)}
                               onDragEnter={(id) => setOverId(id)}
                               onDragEnd={doReorder}
@@ -1452,7 +1452,7 @@ function AppInner() {
                                 onAdvance={advance}
                                 onUndo={undo}
                                 onDelete={activeBacklogTask.goalNodeId ? unlinkTask : removeTask}
-                                onDuplicate={duplicateTask}
+
                                 onDragStart={() => {}}
                                 onDragEnter={() => {}}
                                 onDragEnd={() => {}}
@@ -1499,7 +1499,7 @@ function AppInner() {
                                 onAdvance={advance}
                                 onUndo={undo}
                                 onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                                onDuplicate={duplicateTask}
+
                                 onDragStart={() => {}}
                                 onDragEnter={() => {}}
                                 onDragEnd={() => {}}
@@ -1517,18 +1517,6 @@ function AppInner() {
                                 onOpenAmbient={() => setShowAmbient(true)}
                                 taskSessions={getTaskSessions(t.id)}
                                 streakSave
-                                backlogAction={
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handlePushBacklogTask(t);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border border-subtle text-error hover:bg-error-soft shrink-0"
-                                    title="Reschedule task"
-                                  >
-                                    <Zap size={12} className="text-error" /> Reschedule
-                                  </button>
-                                }
                               />
                             ))}
                         </div>
@@ -1564,7 +1552,7 @@ function AppInner() {
                                   onAdvance={advance}
                                   onUndo={undo}
                                   onDelete={t.goalNodeId ? unlinkTask : removeTask}
-                                  onDuplicate={duplicateTask}
+
                                   onDragStart={() => {}}
                                   onDragEnter={() => {}}
                                   onDragEnd={() => {}}
@@ -1582,18 +1570,6 @@ function AppInner() {
                               onOpenAmbient={() => setShowAmbient(true)}
                                   taskSessions={getTaskSessions(t.id)}
                                   streakSave={reviveSaveIds.has(t.id)}
-                                  backlogAction={
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePushBacklogTask(t);
-                                      }}
-                                      className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border border-subtle text-error hover:bg-error-soft shrink-0"
-                                      title="Reschedule task"
-                                    >
-                                      <Zap size={12} className="text-error" /> Reschedule
-                                    </button>
-                                  }
                                 />
                               </div>
                             );
@@ -1759,7 +1735,7 @@ function AppInner() {
       {/* Description Viewer Modal */}
       {descModalData && (
         <Overlay open onClose={closeDescriptionModal} align="bottom">
-          <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-3">
+          <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] min-h-0 flex flex-col gap-3">
             <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
             <div className="flex items-start justify-between pb-3 gap-2 shrink-0">
               <div className="flex items-start gap-2.5 min-w-0">
@@ -1772,7 +1748,7 @@ function AppInner() {
                 </div>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar text-[14px] leading-relaxed text-content-primary whitespace-pre-wrap font-medium bg-surface p-4 rounded-2xl border border-subtle shadow-sm">
+            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar text-[14px] leading-relaxed text-content-primary whitespace-pre-wrap font-medium bg-surface p-4 rounded-2xl border border-subtle shadow-sm">
               {descModalData.description}
             </div>
             <button onClick={closeDescriptionModal} className="w-full h-12 mt-2 rounded-2xl bg-surface border border-subtle text-[13px] font-bold text-content-secondary hover:text-content-primary hover:bg-elevated transition-all shadow-sm shrink-0">

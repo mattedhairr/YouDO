@@ -40,6 +40,18 @@ export default function Overlay({
     layer.style.zIndex = String(1000 + layers.length);
     document.body.style.overflow = 'hidden';
     if (!layer.contains(document.activeElement)) layer.focus({ preventScroll: true });
+    const onViewport = () => {
+      if (window.visualViewport) {
+        layer.style.height = `${window.visualViewport.height}px`;
+        layer.style.top = `${window.visualViewport.offsetTop}px`;
+      }
+    };
+    if (window.visualViewport) {
+      onViewport();
+      window.visualViewport.addEventListener('resize', onViewport);
+      window.visualViewport.addEventListener('scroll', onViewport);
+    }
+
     const onKey = (e: KeyboardEvent) => {
       if (layers[layers.length - 1] !== layer) return;
       if (e.key === 'Escape') {
@@ -57,6 +69,10 @@ export default function Overlay({
     };
     window.addEventListener('keydown', onKey);
     return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', onViewport);
+        window.visualViewport.removeEventListener('scroll', onViewport);
+      }
       const wasTop = layers[layers.length - 1] === layer;
       unregisterClose();
       const index = layers.indexOf(layer);
@@ -91,6 +107,16 @@ export default function Overlay({
   ]
     .filter(Boolean)
     .join(' ');
+
+  if (typeof document === 'undefined') {
+    return (
+      <div className={rootClass} role="dialog" aria-modal="true" tabIndex={-1}>
+        <div className="overlay-content">
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return createPortal(
     <div

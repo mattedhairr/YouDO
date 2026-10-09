@@ -10,6 +10,23 @@ type Apply = (goals: GoalNode[], summary: string) => void;
 type FormProps = { goals: GoalNode[]; ids: string[]; onApply: Apply; onDirty: (dirty: boolean) => void };
 const getNodes = (goals: GoalNode[], ids: string[]) => ids.map((id) => findGoal(goals, id)).filter((node): node is GoalNode => Boolean(node));
 
+type IndivConfig = {
+  mode: 'one' | 'list' | 'numbered';
+  text: string;
+  prefix: string;
+  start: string;
+  count: string;
+};
+
+const getNamesForConfig = (cfg: IndivConfig): string[] => {
+  if (cfg.mode === 'numbered') {
+    return cfg.prefix.trim() && cfg.start !== '' && cfg.count !== '' && Number.isInteger(Number(cfg.start)) && Number(cfg.start) >= 0 && Number.isInteger(Number(cfg.count)) && Number(cfg.count) > 0 && Number(cfg.count) <= 100
+      ? numberedBlueprintTitles(cfg.prefix, Number(cfg.start), Number(cfg.count))
+      : [];
+  }
+  return normalizeBlueprintTitles(cfg.mode === 'list' ? cfg.text.split(/\r?\n/) : [cfg.text]);
+};
+
 export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps & { kind: 'goal' | 'items' | 'steps' }) {
   const parents = useMemo(() => getNodes(goals, ids), [goals, ids]);
   const single = parents.length <= 1;
@@ -25,13 +42,6 @@ export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps 
   const [error, setError] = useState('');
 
   // Individual state (per-parent entry configuration)
-  type IndivConfig = {
-    mode: 'one' | 'list' | 'numbered';
-    text: string;
-    prefix: string;
-    start: string;
-    count: string;
-  };
   const [indivConfigs, setIndivConfigs] = useState<Record<string, IndivConfig>>(() =>
     Object.fromEntries(parents.map((p) => [p.id, { mode: 'one', text: '', prefix: '', start: '1', count: '5' }]))
   );
@@ -48,16 +58,6 @@ export function StudioAddForm({ goals, ids, kind, onApply, onDirty }: FormProps 
     const existing = new Set((kind === 'steps' ? parent.steps ?? [] : parent.children.map((child) => child.title)).map((title) => title.trim().replace(/\s+/g, ' ').toLocaleLowerCase()));
     return total + sharedNames.filter((name) => !existing.has(name.toLocaleLowerCase())).length;
   }, 0);
-
-  // Individual names calculation per parent
-  const getNamesForConfig = (cfg: IndivConfig): string[] => {
-    if (cfg.mode === 'numbered') {
-      return cfg.prefix.trim() && cfg.start !== '' && cfg.count !== '' && Number.isInteger(Number(cfg.start)) && Number(cfg.start) >= 0 && Number.isInteger(Number(cfg.count)) && Number(cfg.count) > 0 && Number(cfg.count) <= 100
-        ? numberedBlueprintTitles(cfg.prefix, Number(cfg.start), Number(cfg.count))
-        : [];
-    }
-    return normalizeBlueprintTitles(cfg.mode === 'list' ? cfg.text.split(/\r?\n/) : [cfg.text]);
-  };
 
   const individualEntries = useMemo(() => {
     if (scope !== 'individual') return [];

@@ -11,7 +11,7 @@
 .studio-header { display: flex; align-items: center; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); flex-shrink: 0; }
 .studio-header-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .studio-header-title > svg { color: var(--primary); }
-.studio-header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
+.studio-header h1 { font-size: 16px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
 .studio-header-title span { font-size: 11px; color: var(--text-secondary); }
 .studio-save { padding: 8px 12px; border-radius: 8px; color: var(--primary); background: var(--primary-soft); font-weight: 650 !important; }
 .studio-breadcrumb { display: flex; align-items: center; gap: 7px; padding: 12px 20px; overflow-x: auto; flex-shrink: 0; font-size: 12px; scrollbar-width: thin; color: var(--text-secondary); }
@@ -39,8 +39,9 @@
 .studio-branch-section.is-multi { border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden; }
 .studio-items { border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden; background: var(--bg-surface); }
 .is-multi .studio-items { border: 0; border-radius: 0; }
-.studio-item { display: flex; align-items: center; gap: 5px; padding: 9px 8px; min-height: 70px; border-bottom: 1px solid var(--border-subtle); }
+.studio-item { display: flex; align-items: center; gap: 5px; padding: 9px 8px; min-height: 70px; border-bottom: 1px solid var(--border-subtle); transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease, opacity 0.2s ease; cursor: pointer; }
 .studio-item:last-child { border-bottom: 0; }
+.studio-item.is-pressing { transform: scale(0.97); background: var(--bg-elevated); opacity: 0.8; }
 .studio-item.is-selected { background: var(--primary-soft); }
 .studio-item-icon { display: flex; align-items: center; justify-content: center; width: 32px; flex-shrink: 0; color: var(--primary); }
 .studio-item-label { flex: 1; min-width: 0; text-align: left; padding: 5px 0; }

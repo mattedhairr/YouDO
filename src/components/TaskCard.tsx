@@ -14,7 +14,6 @@ interface Props {
   onAdvance: (id: string) => void;
   onUndo: (id: string) => void;
   onDelete: (id: string) => void;
-  onDuplicate: (id: string) => void;
   onDragStart: (id: string) => void;
   onDragEnter: (id: string) => void;
   onDragEnd: () => void;
@@ -24,7 +23,6 @@ interface Props {
   softRemove?: boolean;
   dark?: boolean;
   onCardClick?: () => void;
-  backlogAction?: React.ReactNode;
   streakSave?: boolean;
   onJumpToGoal?: () => void;
   onOpenDescription?: (title: string, description: string) => void;
@@ -62,7 +60,7 @@ function fmtCountdown(deadline: string | null): string {
 }
 
 export default function TaskCard({
-  task, stepDone, activeSession, onAdvance, onDelete, onDuplicate,
+  task, stepDone, activeSession, onAdvance, onDelete,
   onDragStart, onDragEnter, onDragEnd, isDragging, dragOver, originNodes, softRemove,
   onCardClick, onJumpToGoal, onOpenDescription,
   onStartSession, onPauseSession, onResumeSession, onStopSession, onOpenAmbient, taskSessions,
@@ -363,7 +361,7 @@ export default function TaskCard({
             </div>
           </div>
         </div>
-
+        
         {hasSteps && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-transparent">
             <div
@@ -375,12 +373,12 @@ export default function TaskCard({
       </div>
 
       <Overlay open={expanded} onClose={() => setExpanded(false)} align="bottom">
-        <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] max-h-[90vh] flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+        <div className="ios-sheet sheet-up w-full max-w-md mx-auto p-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] min-h-0 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
           {/* Grab Handle */}
           <div className="w-10 h-1 bg-border-subtle rounded-full mx-auto -mt-1 mb-1 opacity-70 shrink-0" />
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col [&>*]:shrink-0 gap-4">
             
             {/* Header / Info Section */}
             <div className="px-1 space-y-1.5">
@@ -489,34 +487,21 @@ export default function TaskCard({
                 <CheckCircle2 size={16} className="text-secondary" />
                 {task.goalNodeId ? 'Jump' : isSessionTask ? 'Finish sitting' : 'Advance'}
               </button>
-              <button
-                onClick={() => { setExpanded(false); onDuplicate(task.id); }}
-                className="flex-1 h-12 rounded-2xl bg-surface border border-subtle text-content-primary text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm active:bg-elevated transition-colors"
-              >
-                <Copy size={16} className="text-primary" />
-                Duplicate
-              </button>
-            </div>
 
-            {!isSessionTask && (
-              <button
-                onClick={() => { setExpanded(false); onDelete(task.id); }}
-                className="w-full h-12 rounded-2xl bg-error-soft text-error border border-error/20 text-[13px] font-bold flex items-center justify-center gap-2 active:bg-error/20 transition-colors mt-2"
-              >
-                <Trash2 size={16} />
-                {softRemove ? 'Remove' : 'Delete task'}
-              </button>
-            )}
-            
-            <button
-              onClick={() => setExpanded(false)}
-              className="w-full h-12 rounded-2xl bg-transparent text-content-secondary hover:text-content-primary text-[13px] font-bold mt-1 transition-colors"
-            >
-              Cancel
-            </button>
+              {!isSessionTask && (
+                <button
+                  onClick={() => { setExpanded(false); onDelete(task.id); }}
+                  className="flex-1 h-12 rounded-2xl bg-error-soft text-error border border-error/20 text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm active:bg-error/20 transition-colors"
+                >
+                  <Trash2 size={16} className="text-error" />
+                  {softRemove ? 'Remove' : 'Delete task'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </Overlay>
     </>
   );
 }
+

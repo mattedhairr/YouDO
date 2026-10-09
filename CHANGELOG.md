@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v7.8.0-beta] - 2026-10-09 - Preview Candidate: Private Hub Rooms & Studio Polish (test build)
+
+- **Private Hub Rooms** — Optional invite-only privacy, direct @username invites, stacking capsule progress bars, and zero bar hours restriction.
+- **Unified Chat** — Unified action sheet menus and long-press gestures across Community, Room, and Direct Message threads.
+- **Notifications & Daily Briefing** — Native Android channels with 4:00 AM morning briefing (countdown, daily schedule, focus streak, and backlog tasks) and zero-ghost auto dismissal.
+- **Blueprint Studio & Timeline** — Rebuilt Studio UI with single-line rows, calendar picker for custom dates, responsive mobile action bars, and clean task scheduling.
+- **Android APK** — versionName **7.8.0-beta**, versionCode **72**. Installs over v7.7.4 (71). Unpublished staging test candidate.
+
+---
+
 ## [v7.7.4] - 2026-10-04 - Hub load freeze and chat actions (test build)
 
 - **Responsiveness** — Today, Hub, notifications, and pending requests no longer stall or sit on Loading from a hub-attention update loop.
@@ -35,14 +45,13 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
-## [v7.7.2] - 2026-10-04 - Private Hub preview (test build)
+## [v7.7.2] - 2026-10-04 - Private Hub preview and UI overhaul (test build)
 
 - **Private Hub** — Friends, direct messages, private rooms, and squad chat improvements for early testing on your account.
 - **Unified chat** — Community, squad, and DM conversations share the same message layout, reply gestures, and composer style.
 - **Squad progress** — Squad rooms include a progress view aligned with your collective bar goals.
-- **Android APK** — versionName **7.7.2**, versionCode **68** (test builds; install over prior 7.7.2 candidates). Unpublished test candidate; not a public GitHub Release.
-
----
+- **Timeline & Studio** — Re-aligned action buttons, calendar picker, and responsive row layouts.
+- **Android APK** — versionName **7.7.2**, versionCode **68**. Installs cleanly over v7.7.1.
 
 ## [v7.7.1] - 2026-10-03 - Hotfix: update checker, hashtag panel, and UI polish
 

@@ -131,6 +131,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
   const { activeSession } = useSessionStore();
   const runningTask = tasks.find((task) => task.id === activeSession?.taskId);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pressingId, setPressingId] = useState<string | null>(null);
   const [dragIds, setDragIds] = useState<string[]>([]);
   const [overId, setOverId] = useState<string | null>(null);
   const [pathMapOpen, setPathMapOpen] = useState(false);
@@ -148,6 +149,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       longPressTimeoutRef.current = null;
     }
     pointerStartRef.current = null;
+    setPressingId(null);
   };
 
   const handleNodePointerDown = (nodeId: string, e: React.PointerEvent) => {
@@ -157,6 +159,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
     clearLongPress();
     pointerStartRef.current = { x: e.clientX, y: e.clientY };
     isLongPressTriggeredRef.current = false;
+    setPressingId(nodeId);
 
     longPressTimeoutRef.current = setTimeout(() => {
       isLongPressTriggeredRef.current = true;
@@ -758,8 +761,10 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   }
                 }
               }}
-              className={`px-3.5 py-3.5 flex flex-col gap-3 bg-surface select-none ${
+              className={`px-3.5 py-3.5 flex flex-col gap-3 bg-surface select-none transition-transform duration-200 ease-out ${
                 canDrill || selected.size > 0 ? 'cursor-pointer' : ''
+              } ${
+                pressingId === child.id ? 'transform scale-[0.97] bg-elevated' : ''
               } ${
                 !isLast ? 'border-b border-subtle' : ''
               } ${
