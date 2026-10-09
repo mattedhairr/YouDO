@@ -26,6 +26,7 @@ export const STORAGE_KEYS = {
   lastCommunityRoom: 'youdo-community-last-room-v1',
   privateHubIntroSeen: 'youdo-private-hub-intro-v1',
   squadChatRead: 'youdo-squad-chat-read-v1',
+  notificationPrefs: 'youdo-notification-prefs-v1',
 } as const;
 
 export const REQUEST_ACCOUNT_ACCESS_EVENT = 'youdo:request-account-access';

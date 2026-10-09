@@ -1,6 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Zap, Clock, Cloud } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { ensureNotificationChannels, scheduleMorningBriefing } from './lib/notifications';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { findNode, formatDDMMYYYY, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
@@ -357,30 +360,32 @@ function AppInner() {
   const tabs: View[] = useMemo(() => ['tasks', 'goals', 'calendar', 'board'], []);
 
   const [hubSubTab, setHubSubTab] = useState<'social' | 'private'>('social');
-  const [privateHubUsername, setPrivateHubUsername] = useState<string | null | undefined>(undefined);
+  const initialHubSubTabSetRef = useRef(false);
 
   const defaultHubSubTab = useCallback((): 'social' | 'private' => {
-    if (privateHubUsername === undefined) return 'social';
-    if (!privateHubUsername) return 'social';
+    if (privateHubAttention) return 'private';
     return activityPrefs.optedIn ? 'social' : 'private';
-  }, [privateHubUsername, activityPrefs.optedIn]);
+  }, [privateHubAttention, activityPrefs.optedIn]);
 
   useEffect(() => {
     if (!activityUser) {
-      setPrivateHubUsername(undefined);
+      initialHubSubTabSetRef.current = false;
       return;
     }
     let cancelled = false;
     void (async () => {
       const result = await ensureProfileFromAuth(activityUser);
       if (cancelled) return;
-      setPrivateHubUsername(result.username);
-      setHubSubTab(result.username ? (activityPrefs.optedIn ? 'social' : 'private') : 'social');
+      if (!initialHubSubTabSetRef.current) {
+        initialHubSubTabSetRef.current = true;
+        setHubSubTab(result.username ? defaultHubSubTab() : 'social');
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [activityUser?.id, activityUser?.user_metadata?.username, activityPrefs.optedIn]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityUser?.id, activityUser?.user_metadata?.username]);
   const toggleHubSubTab = useCallback(() => {
     setHubSubTab((prev) => (prev === 'social' ? 'private' : 'social'));
   }, []);
@@ -815,11 +820,48 @@ function AppInner() {
       setTodaySubTab('today');
       setActiveCategoryFilter('all');
     }
-    if (targetView === 'board' && view !== 'board') {
+    if (targetView === 'board') {
       setHubSubTab(defaultHubSubTab());
     }
     handleNavigateTab(targetView);
-  }, [handleNavigateTab, view, defaultHubSubTab]);
+  }, [handleNavigateTab, defaultHubSubTab]);
+
+  useEffect(() => {
+    void ensureNotificationChannels();
+    void scheduleMorningBriefing(tasks, goals, streakStatus.current, streakStatus.best);
+  }, [tasks, goals, streakStatus.current, streakStatus.best]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let sub: { remove: () => void } | undefined;
+    void LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
+      const extra = notificationAction?.notification?.extra as Record<string, unknown> | undefined;
+      if (!extra?.type) return;
+
+      if (extra.type === 'morning_briefing') {
+        handleNavigateTab('tasks');
+        setTodaySubTab('today');
+      } else if (
+        extra.type === 'dm' ||
+        extra.type === 'room' ||
+        extra.type === 'friend_request' ||
+        extra.type === 'room_invite'
+      ) {
+        handleNavigateTab('board');
+        setHubSubTab('private');
+      } else if (extra.type === 'community') {
+        handleNavigateTab('board');
+        setHubSubTab('social');
+      }
+    }).then((handle) => {
+      sub = handle;
+    });
+
+    return () => {
+      sub?.remove();
+    };
+  }, [handleNavigateTab]);
 
   const backlogByDate = useMemo(() => {
     const groups: Record<string, Task[]> = {};

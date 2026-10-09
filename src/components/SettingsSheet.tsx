@@ -1,35 +1,56 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import {
   AlertTriangle,
   ArrowLeft,
+  Bell,
   Bug,
   Check,
+  CheckCircle2,
   ChevronRight,
+  Clock,
   Download,
   Edit2,
-  History,
-  LogIn,
-  LogOut,
-  Moon,
-  Sun,
-  Trash2,
-  Upload,
-  ShieldCheck,
-  Smartphone,
   Flame,
-  TrendingUp,
+  Hash,
+  History,
   Info,
   KeyRound,
+  LogIn,
+  LogOut,
   Mail,
   MessageCircle,
+  MessageSquare,
   MonitorSmartphone,
+  Moon,
   Send,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Sun,
+  Target,
+  Trash2,
+  TrendingUp,
+  Upload,
+  Users,
   WifiOff,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import Toggle from './Toggle';
+import {
+  getNotificationPreferences,
+  saveNotificationPreferences,
+  checkNotificationPermission,
+  requestNotificationPermission,
+  scheduleMorningBriefing,
+  extractBriefingData,
+  buildMorningBriefingContent,
+  type NotificationPreferences,
+  type RoomNotificationMode,
+  type CommunityNotificationMode,
+} from '../lib/notifications';
 import { useReducedEffects } from '../hooks/useReducedEffects';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
@@ -110,6 +131,9 @@ export default function SettingsSheet({
     pacePrefs,
     updatePacePrefs,
     publishPublicPace,
+    tasks,
+    goals,
+    streakMeta,
   } = useStore();
   const { user, signOut, verifyAccount, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
   const cloudConflictDetails = (() => {
@@ -176,6 +200,66 @@ export default function SettingsSheet({
   const [trashRestoreError, setTrashRestoreError] = useState<string | null>(null);
   const [streakBarHelpOpen, setStreakBarHelpOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(() => getNotificationPreferences());
+  const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const [testNotifSent, setTestNotifSent] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setNotifPrefs(getNotificationPreferences());
+      void checkNotificationPermission().then(setNotifPermission);
+    }
+  }, [open]);
+
+  const updateNotifPrefs = (updater: (prev: NotificationPreferences) => NotificationPreferences) => {
+    setNotifPrefs((prev) => {
+      const next = updater(prev);
+      saveNotificationPreferences(next);
+      void scheduleMorningBriefing(tasks, goals, streakMeta.barHours);
+      return next;
+    });
+  };
+
+  const briefingData = useMemo(() => {
+    return extractBriefingData(tasks, goals, 0, 0);
+  }, [tasks, goals]);
+
+  const briefingPreview = useMemo(() => {
+    return buildMorningBriefingContent(briefingData, notifPrefs.morningBriefing);
+  }, [briefingData, notifPrefs.morningBriefing]);
+
+  const handleSendTestNotification = async () => {
+    const granted = await requestNotificationPermission();
+    setNotifPermission(granted ? 'granted' : 'denied');
+    if (!granted) return;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: 9999,
+              title: briefingPreview.title,
+              body: briefingPreview.body,
+              schedule: { at: new Date(Date.now() + 1000) },
+              channelId: 'daily-briefing',
+            },
+          ],
+        });
+      } catch {
+        /* ignore */
+      }
+    } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(briefingPreview.title, { body: briefingPreview.body });
+      } catch {
+        /* ignore */
+      }
+    }
+    setTestNotifSent(true);
+    setTimeout(() => setTestNotifSent(false), 3000);
+  };
 
   useEffect(() => {
     if (!open) {
@@ -1127,6 +1211,397 @@ export default function SettingsSheet({
               <div><h3 className="text-xs font-semibold text-content-primary">Reduced effects</h3><p className="text-[10.5px] text-content-secondary">Less motion and blur. Same features.</p></div>
             </div>
             <Toggle checked={reducedEffects} onChange={() => setReducedEffects(!reducedEffects)} label="Reduced effects" />
+          </div>
+        </section>
+
+        {/* ── SECTION: NOTIFICATIONS ── */}
+        <section>
+          <SectionLabel>NOTIFICATIONS</SectionLabel>
+
+          {/* Master Notification Switch & System Permission Status */}
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                  <Bell size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-content-primary">Notifications</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Device alerts &amp; morning focus briefings</p>
+                </div>
+              </div>
+              <Toggle
+                checked={notifPrefs.enabled}
+                onChange={() => updateNotifPrefs((p) => ({ ...p, enabled: !p.enabled }))}
+                label="Master notifications switch"
+              />
+            </div>
+
+            {/* Permission banner if needed */}
+            {notifPermission !== 'granted' && (
+              <div className="mt-2.5 p-3 rounded-xl bg-primary-soft/40 border border-primary/20 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11.5px] font-semibold text-content-primary">Device Permission Required</p>
+                  <p className="text-[10.5px] text-content-secondary mt-0.5">
+                    Allow notifications so YouDO can deliver lockscreen morning summaries and chat messages.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const granted = await requestNotificationPermission();
+                    setNotifPermission(granted ? 'granted' : 'denied');
+                    if (granted) {
+                      updateNotifPrefs((p) => ({ ...p, enabled: true }));
+                    }
+                  }}
+                  className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-on-primary shadow-sm hover:opacity-90 active:scale-95 transition"
+                >
+                  Enable
+                </button>
+              </div>
+            )}
+            {notifPermission === 'granted' && (
+              <div className="pt-1 flex items-center gap-2 text-[11px] text-secondary font-medium">
+                <CheckCircle2 size={13} className="shrink-0" />
+                <span>Device notifications enabled &amp; system channels active</span>
+              </div>
+            )}
+          </div>
+
+          {/* DAILY MORNING BRIEFING CARD */}
+          <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-secondary-soft flex items-center justify-center text-secondary shrink-0 mt-0.5">
+                  <Clock size={16} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-semibold text-content-primary">Daily Morning Briefing</h3>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-soft text-primary">Daily</span>
+                  </div>
+                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                    Informative lockscreen summary of goal deadlines, today's schedule, and backlog
+                  </p>
+                </div>
+              </div>
+              <Toggle
+                checked={notifPrefs.morningBriefing.enabled}
+                onChange={() =>
+                  updateNotifPrefs((p) => ({
+                    ...p,
+                    morningBriefing: { ...p.morningBriefing, enabled: !p.morningBriefing.enabled },
+                  }))
+                }
+                label="Daily morning briefing"
+              />
+            </div>
+
+            {notifPrefs.morningBriefing.enabled && (
+              <div className="space-y-3 pt-2 border-t border-subtle">
+                {/* Time Selector */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-[11.5px] font-semibold text-content-primary">Delivery Time</h4>
+                    <p className="text-[10px] text-content-secondary">When to trigger the morning focus alert</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={notifPrefs.morningBriefing.time}
+                      onChange={(e) => {
+                        const val = e.target.value || '04:00';
+                        updateNotifPrefs((p) => ({
+                          ...p,
+                          morningBriefing: { ...p.morningBriefing, time: val },
+                        }));
+                      }}
+                      className="px-2.5 py-1 bg-base border border-subtle rounded-xl text-xs font-semibold text-content-primary outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Sub-toggles for content */}
+                <div className="bg-base/60 rounded-xl p-3 border border-subtle/80 space-y-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-content-muted block mb-1">
+                    Include in Morning Summary
+                  </span>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target size={13} className="text-primary" />
+                      <span className="text-xs text-content-primary">Goal countdowns (days remaining)</span>
+                    </div>
+                    <Toggle
+                      checked={notifPrefs.morningBriefing.includeGoals}
+                      onChange={() =>
+                        updateNotifPrefs((p) => ({
+                          ...p,
+                          morningBriefing: { ...p.morningBriefing, includeGoals: !p.morningBriefing.includeGoals },
+                        }))
+                      }
+                      label="Include goals"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Check size={13} className="text-secondary" />
+                      <span className="text-xs text-content-primary">Today's planned schedule &amp; focus</span>
+                    </div>
+                    <Toggle
+                      checked={notifPrefs.morningBriefing.includeTodayPlan}
+                      onChange={() =>
+                        updateNotifPrefs((p) => ({
+                          ...p,
+                          morningBriefing: { ...p.morningBriefing, includeTodayPlan: !p.morningBriefing.includeTodayPlan },
+                        }))
+                      }
+                      label="Include today plan"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={13} className="text-amber-400" />
+                      <span className="text-xs text-content-primary">Uncompleted backlog tasks alert</span>
+                    </div>
+                    <Toggle
+                      checked={notifPrefs.morningBriefing.includeBacklog}
+                      onChange={() =>
+                        updateNotifPrefs((p) => ({
+                          ...p,
+                          morningBriefing: { ...p.morningBriefing, includeBacklog: !p.morningBriefing.includeBacklog },
+                        }))
+                      }
+                      label="Include backlog"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Flame size={13} className="text-orange-400" />
+                      <span className="text-xs text-content-primary">Streak counter &amp; momentum</span>
+                    </div>
+                    <Toggle
+                      checked={notifPrefs.morningBriefing.includeStreak}
+                      onChange={() =>
+                        updateNotifPrefs((p) => ({
+                          ...p,
+                          morningBriefing: { ...p.morningBriefing, includeStreak: !p.morningBriefing.includeStreak },
+                        }))
+                      }
+                      label="Include streak"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Preview Box */}
+                <div className="rounded-xl border border-subtle bg-base/80 p-3 space-y-1.5 shadow-inner">
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-content-muted tracking-wider uppercase">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles size={11} className="text-primary" />
+                      Briefing Preview ({notifPrefs.morningBriefing.time})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleSendTestNotification}
+                      className="text-[10px] font-semibold text-primary hover:underline"
+                    >
+                      {testNotifSent ? 'Sent to phone!' : 'Test notification'}
+                    </button>
+                  </div>
+                  <div className="pt-1">
+                    <div className="text-[12px] font-bold text-content-primary flex items-center gap-1.5">
+                      {briefingPreview.title}
+                    </div>
+                    <div className="mt-1 text-[11px] text-content-secondary leading-relaxed whitespace-pre-line font-mono bg-elevated/80 p-2 rounded-lg border border-subtle">
+                      {briefingPreview.body}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* PRIVATE HUB NOTIFICATIONS CARD */}
+          <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0 mt-0.5">
+                  <MessageSquare size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-content-primary">Private Hub Notifications</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                    Direct messages, room chats, and friend requests
+                  </p>
+                </div>
+              </div>
+              <Toggle
+                checked={notifPrefs.privateHub.enabled}
+                onChange={() =>
+                  updateNotifPrefs((p) => ({
+                    ...p,
+                    privateHub: { ...p.privateHub, enabled: !p.privateHub.enabled },
+                  }))
+                }
+                label="Private hub notifications"
+              />
+            </div>
+
+            {notifPrefs.privateHub.enabled && (
+              <div className="space-y-3 pt-2 border-t border-subtle">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-[11.5px] font-semibold text-content-primary">Direct Messages</h4>
+                    <p className="text-[10px] text-content-secondary">Alert when friends send you a direct message</p>
+                  </div>
+                  <Toggle
+                    checked={notifPrefs.privateHub.directMessages}
+                    onChange={() =>
+                      updateNotifPrefs((p) => ({
+                        ...p,
+                        privateHub: { ...p.privateHub, directMessages: !p.privateHub.directMessages },
+                      }))
+                    }
+                    label="Direct messages"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-[11.5px] font-semibold text-content-primary">Requests &amp; Invites</h4>
+                    <p className="text-[10px] text-content-secondary">Friend requests and room invitations</p>
+                  </div>
+                  <Toggle
+                    checked={notifPrefs.privateHub.friendRequests && notifPrefs.privateHub.roomInvites}
+                    onChange={() => {
+                      const next = !(notifPrefs.privateHub.friendRequests && notifPrefs.privateHub.roomInvites);
+                      updateNotifPrefs((p) => ({
+                        ...p,
+                        privateHub: { ...p.privateHub, friendRequests: next, roomInvites: next },
+                      }));
+                    }}
+                    label="Requests and invites"
+                  />
+                </div>
+
+                {/* Room Chat Messages Segmented Control */}
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div>
+                      <h4 className="text-[11.5px] font-semibold text-content-primary">Room Chat Messages</h4>
+                      <p className="text-[10px] text-content-secondary">Control noise from 4-person squad rooms</p>
+                    </div>
+                  </div>
+                  <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle gap-1">
+                    {(['all', 'mentions', 'off'] as RoomNotificationMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() =>
+                          updateNotifPrefs((p) => ({
+                            ...p,
+                            privateHub: { ...p.privateHub, roomMessages: mode },
+                          }))
+                        }
+                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition ${
+                          notifPrefs.privateHub.roomMessages === mode
+                            ? 'bg-primary text-on-primary shadow-sm'
+                            : 'text-content-secondary hover:text-content-primary'
+                        }`}
+                      >
+                        {mode === 'all' ? 'All Messages' : mode === 'mentions' ? '@Mentions' : 'Muted'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* PUBLIC HUB NOTIFICATIONS CARD */}
+          <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0 mt-0.5">
+                  <Users size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-content-primary">Public Hub &amp; Community</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                    Community chat and exam hashtag channels
+                  </p>
+                </div>
+              </div>
+              <Toggle
+                checked={notifPrefs.publicHub.enabled}
+                onChange={() =>
+                  updateNotifPrefs((p) => ({
+                    ...p,
+                    publicHub: { ...p.publicHub, enabled: !p.publicHub.enabled },
+                  }))
+                }
+                label="Public hub notifications"
+              />
+            </div>
+
+            {notifPrefs.publicHub.enabled && (
+              <div className="space-y-3 pt-2 border-t border-subtle">
+                {/* Community Messages Segmented Control */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div>
+                      <h4 className="text-[11.5px] font-semibold text-content-primary">Community Messages</h4>
+                      <p className="text-[10px] text-content-secondary">Prevent spam from active public community discussions</p>
+                    </div>
+                  </div>
+                  <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle gap-1">
+                    {(['mentions', 'all', 'off'] as CommunityNotificationMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() =>
+                          updateNotifPrefs((p) => ({
+                            ...p,
+                            publicHub: { ...p.publicHub, communityMessages: mode },
+                          }))
+                        }
+                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition ${
+                          notifPrefs.publicHub.communityMessages === mode
+                            ? 'bg-primary text-on-primary shadow-sm'
+                            : 'text-content-secondary hover:text-content-primary'
+                        }`}
+                      >
+                        {mode === 'mentions' ? '@Mentions Only' : mode === 'all' ? 'All Activity' : 'Muted'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Hash size={13} className="text-secondary" />
+                    <div>
+                      <h4 className="text-[11.5px] font-semibold text-content-primary">Hashtag Community Updates</h4>
+                      <p className="text-[10px] text-content-secondary">Alerts for your selected exam hashtag</p>
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={notifPrefs.publicHub.hashtagMentions}
+                    onChange={() =>
+                      updateNotifPrefs((p) => ({
+                        ...p,
+                        publicHub: { ...p.publicHub, hashtagMentions: !p.publicHub.hashtagMentions },
+                      }))
+                    }
+                    label="Hashtag community updates"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

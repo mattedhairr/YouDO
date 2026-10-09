@@ -1,0 +1,258 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GoalNode, Task } from '../types';
+import {
+  buildMorningBriefingContent,
+  calculateNextBriefingTime,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  extractBriefingData,
+  getDaysRemaining,
+  getDmNotificationId,
+  getNotificationPreferences,
+  getRoomNotificationId,
+  isMentioned,
+  saveNotificationPreferences,
+  stringToNotificationId,
+  type NotificationPreferences,
+} from './notifications';
+import { STORAGE_KEYS } from './storageKeys';
+
+class MemoryStorage implements Storage {
+  private values = new Map<string, string>();
+  get length() {
+    return this.values.size;
+  }
+  clear() {
+    this.values.clear();
+  }
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+  key(index: number) {
+    return [...this.values.keys()][index] ?? null;
+  }
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, String(value));
+  }
+}
+
+describe('notifications library', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', new MemoryStorage());
+  });
+
+  describe('preferences', () => {
+    it('returns default preferences when none stored', () => {
+      const prefs = getNotificationPreferences();
+      expect(prefs).toEqual(DEFAULT_NOTIFICATION_PREFERENCES);
+      expect(prefs.enabled).toBe(true);
+      expect(prefs.morningBriefing.time).toBe('04:00');
+    });
+
+    it('persists and restores updated preferences cleanly', () => {
+      const custom: NotificationPreferences = {
+        ...DEFAULT_NOTIFICATION_PREFERENCES,
+        morningBriefing: {
+          ...DEFAULT_NOTIFICATION_PREFERENCES.morningBriefing,
+          time: '05:30',
+          includeBacklog: false,
+        },
+        privateHub: {
+          ...DEFAULT_NOTIFICATION_PREFERENCES.privateHub,
+          roomMessages: 'mentions',
+        },
+      };
+
+      saveNotificationPreferences(custom);
+      const retrieved = getNotificationPreferences();
+      expect(retrieved.morningBriefing.time).toBe('05:30');
+      expect(retrieved.morningBriefing.includeBacklog).toBe(false);
+      expect(retrieved.privateHub.roomMessages).toBe('mentions');
+      expect(retrieved.enabled).toBe(true);
+    });
+
+    it('gracefully fills missing fields when stored JSON is partial', () => {
+      localStorage.setItem(
+        STORAGE_KEYS.notificationPrefs,
+        JSON.stringify({ enabled: false }),
+      );
+      const retrieved = getNotificationPreferences();
+      expect(retrieved.enabled).toBe(false);
+      expect(retrieved.morningBriefing.time).toBe('04:00');
+      expect(retrieved.privateHub.directMessages).toBe(true);
+    });
+  });
+
+  describe('days remaining calculation', () => {
+    it('computes positive days remaining for future dates', () => {
+      expect(getDaysRemaining('2026-10-19', '2026-10-09')).toBe(10);
+    });
+
+    it('computes 0 for today', () => {
+      expect(getDaysRemaining('2026-10-09', '2026-10-09')).toBe(0);
+    });
+
+    it('computes negative days for overdue dates', () => {
+      expect(getDaysRemaining('2026-10-05', '2026-10-09')).toBe(-4);
+    });
+  });
+
+  describe('deterministic notification IDs', () => {
+    it('generates reproducible positive integers within range', () => {
+      const id1 = stringToNotificationId('dm:user_abc123');
+      const id2 = stringToNotificationId('dm:user_abc123');
+      const id3 = stringToNotificationId('dm:user_def456');
+
+      expect(id1).toBe(id2);
+      expect(id1).toBeGreaterThan(0);
+      expect(id1).toBeLessThan(100000);
+      expect(id1).not.toBe(id3);
+    });
+
+    it('distinguishes DM and Room ids for same identifier', () => {
+      const dmId = getDmNotificationId('room-123');
+      const roomId = getRoomNotificationId('room-123');
+      expect(dmId).not.toBe(roomId);
+    });
+  });
+
+  describe('mention matching', () => {
+    it('detects @username mentions accurately', () => {
+      expect(isMentioned('Hey @rahul can you check this?', 'rahul')).toBe(true);
+      expect(isMentioned('Hey @rahul can you check this?', '@rahul')).toBe(true);
+      expect(isMentioned('Hey @rahul_v2 check this', 'rahul')).toBe(false);
+      expect(isMentioned('No mentions here', 'rahul')).toBe(false);
+    });
+
+    it('detects broadcast mentions like @all and @squad', () => {
+      expect(isMentioned('@all meeting in 5 minutes', 'anybody')).toBe(true);
+      expect(isMentioned('Check in @squad please', 'anybody')).toBe(true);
+      expect(isMentioned('@room team standup', 'anybody')).toBe(true);
+    });
+  });
+
+  describe('morning briefing content extraction and generation', () => {
+    const mockTasks: Task[] = [
+      {
+        id: 't1',
+        title: 'Review Chapter 4',
+        description: '',
+        priority: 'high',
+        targetDate: '2026-10-09',
+        deadline: null,
+        steps: ['Read', 'Notes'],
+        progress: 0,
+        createdAt: 1,
+        order: 1,
+      },
+      {
+        id: 't2',
+        title: 'Practice mock test',
+        description: '',
+        priority: 'medium',
+        targetDate: '2026-10-09',
+        deadline: null,
+        steps: [],
+        progress: 1, // complete
+        createdAt: 2,
+        order: 2,
+      },
+      {
+        id: 't3',
+        title: 'Backlog essay writing',
+        description: '',
+        priority: 'high',
+        targetDate: '2026-10-07', // past date -> backlog
+        deadline: null,
+        steps: [],
+        progress: 0,
+        createdAt: 3,
+        order: 3,
+      },
+    ];
+
+    const mockGoals: GoalNode[] = [
+      {
+        id: 'g1',
+        kind: 'goal',
+        title: 'UPSC CSE Prelims',
+        startDate: '2026-01-01',
+        endDate: '2026-10-23', // 14 days left from 2026-10-09
+        children: [],
+        completed: false,
+        createdAt: 10,
+      },
+      {
+        id: 'g2',
+        kind: 'goal',
+        title: 'Completed Goal',
+        endDate: '2026-10-10',
+        children: [],
+        completed: true,
+        createdAt: 11,
+      },
+    ];
+
+    it('extracts briefing data accurately with today tasks, backlog, and active goals', () => {
+      const data = extractBriefingData(mockTasks, mockGoals, 7, 10, '2026-10-09');
+      expect(data.todayTasksCount).toBe(1); // t1 is incomplete, t2 is complete
+      expect(data.openBacklogCount).toBe(1); // t3 is backlog
+      expect(data.activeGoals).toHaveLength(1);
+      expect(data.activeGoals[0].title).toBe('UPSC CSE Prelims');
+      expect(data.activeGoals[0].daysLeft).toBe(14);
+      expect(data.streakCount).toBe(7);
+    });
+
+    it('builds informative morning briefing including goal countdown, today plan, and backlog', () => {
+      const data = extractBriefingData(mockTasks, mockGoals, 5, 8, '2026-10-09');
+      const { title, body } = buildMorningBriefingContent(data);
+
+      expect(title).toContain('Good morning');
+      expect(body).toContain('🎯 UPSC CSE Prelims (14 days left)');
+      expect(body).toContain('📋 1 task scheduled for today');
+      expect(body).toContain('⚠️ 1 uncompleted task in backlog');
+      expect(body).toContain('🔥 5-day streak');
+    });
+
+    it('respects sub-toggles to omit specific sections if user turns them off', () => {
+      const data = extractBriefingData(mockTasks, mockGoals, 5, 8, '2026-10-09');
+      const { body } = buildMorningBriefingContent(data, {
+        enabled: true,
+        time: '04:00',
+        includeGoals: false,
+        includeTodayPlan: true,
+        includeBacklog: false,
+        includeStreak: false,
+      });
+
+      expect(body).not.toContain('UPSC CSE Prelims');
+      expect(body).not.toContain('backlog');
+      expect(body).not.toContain('streak');
+      expect(body).toContain('1 task scheduled for today');
+    });
+  });
+
+  describe('briefing scheduling time computation', () => {
+    it('schedules for today if target time is in the future today', () => {
+      const from = new Date('2026-10-09T03:30:00');
+      const target = calculateNextBriefingTime('04:00', from);
+      expect(target.getFullYear()).toBe(2026);
+      expect(target.getMonth()).toBe(9); // 0-indexed October
+      expect(target.getDate()).toBe(9);
+      expect(target.getHours()).toBe(4);
+      expect(target.getMinutes()).toBe(0);
+    });
+
+    it('schedules for tomorrow if target time has already passed today', () => {
+      const from = new Date('2026-10-09T05:30:00');
+      const target = calculateNextBriefingTime('04:00', from);
+      expect(target.getFullYear()).toBe(2026);
+      expect(target.getMonth()).toBe(9);
+      expect(target.getDate()).toBe(10); // tomorrow
+      expect(target.getHours()).toBe(4);
+      expect(target.getMinutes()).toBe(0);
+    });
+  });
+});
