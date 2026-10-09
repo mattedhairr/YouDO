@@ -39,6 +39,7 @@ pnpm-debug.log*
 Thumbs.db
 
 # Antigravity / agent one-off patch scripts (not product code)
+.agents/
 fix_*.cjs
 patch*.cjs
 patch_*.cjs

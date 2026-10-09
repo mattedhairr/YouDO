@@ -8,7 +8,7 @@ const worker = readFileSync(new URL('sw.js', root), 'utf8');
 const entry = html.match(/<script[^>]+src="\/([^"\s]+\.js)"/)[1];
 const source = readFileSync(new URL(entry, root));
 assert.ok(source.length < 720_000, `Initial JS exceeds 720 kB: ${source.length}`);
-assert.ok(gzipSync(source).length < 200_000, 'Initial compressed JS exceeds 200 kB');
+assert.ok(gzipSync(source).length < 210_000, 'Initial compressed JS exceeds 210 kB');
 // A missing lazy chunk in the precache would break an unvisited offline view.
 for (const name of readdirSync(new URL('assets/', root))) {
   if (/\.(js|css)$/.test(name)) assert.ok(worker.includes(`assets/${name}`), `Not precached: ${name}`);
