@@ -1141,7 +1141,7 @@ html.light-dusky .command-dock-premium {
 .community-shell .community-privacy { border: 0; background: transparent; padding-inline: 0; }
 .community-status { position: sticky; bottom: 0; padding: 10px 12px; margin-top: 12px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-elevated); color: var(--primary); font-size: 12px; }
 .community-empty { padding: 30px 12px; text-align: center; color: var(--text-muted); font-size: 12px; }
-.settings-account-actions { border-block: 1px solid var(--border-subtle); }
+.settings-account-actions { display: grid; }
 
 .calendar-workspace { display: flex; flex-direction: column; gap: 8px; }
 .calendar-dial { border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px; }
@@ -1360,21 +1360,25 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
 
 .settings-account-card {
   background:
-    radial-gradient(100% 75% at 100% 0%, color-mix(in srgb, var(--secondary) 10%, transparent), transparent 58%),
-    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--primary) 11%, transparent), transparent 56%),
+    radial-gradient(110% 80% at 100% 0%, color-mix(in srgb, var(--secondary) 14%, transparent), transparent 60%),
+    radial-gradient(100% 75% at 0% 0%, color-mix(in srgb, var(--primary) 15%, transparent), transparent 58%),
     var(--bg-elevated);
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .settings-account-card .ambient-orb { display: none; }
 
 .settings-account-hashtag {
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-subtle));
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border-subtle));
   border-radius: 999px;
-  padding: 4px 10px;
-  background: var(--primary-soft);
+  padding: 3px 9px;
+  background: color-mix(in srgb, var(--primary-soft) 85%, transparent);
   color: var(--primary);
   font-size: 10px;
   font-weight: 650;
+  line-height: 1.3;
 }
 
 .settings-hashtag-field {

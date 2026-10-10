@@ -24,6 +24,7 @@ import {
   MessageSquare,
   MonitorSmartphone,
   Moon,
+  RefreshCw,
   Send,
   ShieldCheck,
   Smartphone,
@@ -35,6 +36,7 @@ import {
   Upload,
   Users,
   WifiOff,
+  X,
 } from 'lucide-react';
 import Overlay from './Overlay';
 import Toggle from './Toggle';
@@ -151,6 +153,7 @@ export default function SettingsSheet({
   const publicBoardRef = useRef<HTMLElement>(null);
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
   const [signOutBusy, setSignOutBusy] = useState(false);
   const [confirmImport, setConfirmImport] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -473,95 +476,165 @@ export default function SettingsSheet({
         {/* ── SECTION 1: ACCOUNT & SYNC ── */}
         <section>
           <SectionLabel icon={<ShieldCheck size={13} className="text-secondary" />}>ACCOUNT &amp; SYNC</SectionLabel>
-          <div className="settings-card settings-account-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
+          <div className="settings-card settings-account-card relative rounded-2xl border border-subtle/80 bg-elevated overflow-hidden shadow-xl">
             {user && (
-              <div className="relative overflow-hidden">
-                <div className="pointer-events-none absolute -top-16 right-[-36px] w-52 h-52 rounded-full bg-secondary/20 blur-3xl ambient-orb" />
-                <div className="pointer-events-none absolute -bottom-20 left-[-40px] w-44 h-44 rounded-full bg-primary/18 blur-3xl ambient-orb ambient-orb-delay" />
+              <div className="relative">
+                {/* Ambient luxury glow overlay */}
                 <div
-                  className="pointer-events-none absolute inset-0"
+                  className="pointer-events-none absolute inset-0 opacity-70"
                   style={{
                     background:
-                      'radial-gradient(110% 70% at 12% -10%, rgba(134, 165, 136, 0.22), transparent 52%), radial-gradient(120% 80% at 92% 8%, rgba(196, 165, 116, 0.18), transparent 56%)',
+                      'radial-gradient(100% 75% at 90% 0%, rgba(134, 165, 136, 0.16), transparent 58%), radial-gradient(90% 70% at 10% 0%, rgba(196, 165, 116, 0.16), transparent 56%)',
                   }}
                 />
-                <div className="settings-account-summary relative p-4">
+
+                {/* ── Main Profile & Sync Summary Card ── */}
+                <div className="settings-account-summary relative p-4 sm:p-5 space-y-3.5">
+                  {/* Top: Avatar & User Identity */}
                   <div className="flex items-start gap-3.5">
+                    {/* Sculpted Avatar with Verified Shield badge */}
                     <div className="relative shrink-0">
-                      <div className="size-11 rounded-[16px] bg-primary-soft border border-primary/35 grid place-items-center text-[26px] shadow-elevated">
+                      <div className="size-[50px] rounded-[18px] bg-gradient-to-br from-primary-soft to-surface border border-primary/30 ring-1 ring-primary/15 grid place-items-center text-[26px] shadow-md select-none overflow-hidden">
                         {user.user_metadata?.avatar_url && /^https?:/.test(String(user.user_metadata.avatar_url)) ? (
                           <img
                             src={user.user_metadata.avatar_url}
                             alt=""
-                            className="size-full rounded-[16px] object-cover"
+                            className="size-full object-cover"
                           />
                         ) : (
                           user.user_metadata?.avatar_url || '🎓'
                         )}
                       </div>
-                      <span className="absolute -bottom-1 -right-1 size-5 rounded-full bg-secondary-soft border border-secondary/40 grid place-items-center">
-                        <ShieldCheck size={11} className="text-secondary" strokeWidth={2.4} />
+                      <span
+                        className="absolute -bottom-1 -right-1 size-5 rounded-full bg-secondary-soft border border-secondary/50 shadow-sm grid place-items-center"
+                        title={user.email_confirmed_at || user.confirmed_at ? 'Email verified' : 'Verified account'}
+                      >
+                        <ShieldCheck size={11} className="text-secondary" strokeWidth={2.5} />
                       </span>
                     </div>
+
+                    {/* User credentials & badges */}
                     <div className="min-w-0 flex-1 pt-0.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary">Your account</p>
-                      <h3 className="text-[17px] font-semibold text-content-primary leading-tight mt-0.5 truncate flex items-center gap-2">
-                          <span className="truncate">{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}</span>
-                          {user.user_metadata?.username && (
-                            <span className="text-[11px] font-bold text-primary bg-primary-soft/50 px-1.5 py-0.5 rounded-md tracking-wide shrink-0">@{user.user_metadata.username}</span>
-                          )}
-                        </h3>
-                        <p className="text-[12px] text-content-secondary truncate mt-0.5">{user.email}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">
+                          Your account
+                        </p>
+                        {/* Live Sync Status Pill */}
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide border shrink-0 transition-colors ${
+                            cloudSyncConflict
+                              ? 'text-warning bg-warning/10 border-warning/30'
+                              : 'text-secondary bg-secondary-soft border-secondary/30'
+                          }`}
+                        >
+                          <span
+                            className={`size-1.5 rounded-full ${
+                              cloudSyncConflict ? 'bg-warning animate-pulse' : 'bg-secondary animate-pulse'
+                            }`}
+                          />
+                          {cloudSyncConflict ? 'Sync paused safely' : 'Cloud live'}
+                        </span>
+                      </div>
+
+                      <h3 className="text-[17px] font-bold text-content-primary leading-tight mt-1 truncate flex items-center gap-2">
+                        <span className="truncate">
+                          {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}
+                        </span>
+                        {user.user_metadata?.username && (
+                          <span className="text-[11px] font-semibold font-mono text-primary bg-primary-soft/80 border border-primary/25 px-1.5 py-0.5 rounded-md tracking-wide shrink-0">
+                            @{user.user_metadata.username}
+                          </span>
+                        )}
+                      </h3>
+
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        <p className="text-[12px] text-content-secondary truncate max-w-[200px]">
+                          {user.email}
+                        </p>
+                        <span className="settings-account-hashtag text-[10px] shrink-0">
+                          {hashtagContext.mine ? `#${hashtagContext.mine.label}` : 'Exam hashtag not set'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
+                  {/* ── Sync Command Deck ── */}
+                  <div className="rounded-xl border border-subtle/80 bg-surface/50 p-3 space-y-2.5 shadow-inner">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11.5px] font-semibold text-content-primary leading-tight">
+                          Cloud Workspace Backup
+                        </p>
+                        <p className="text-[10.5px] text-content-muted mt-0.5">
+                          Continuous sync across devices
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={syncBusy}
+                        onClick={async () => {
+                          if (syncBusy) return;
+                          setSyncBusy(true);
+                          try {
+                            const res = await syncToCloud();
+                            setMsg(
+                              res.ok
+                                ? { text: '✓ Cloud backup synced.' }
+                                : { text: `✗ ${res.error || 'Failed to sync.'}`, error: true },
+                            );
+                          } finally {
+                            setSyncBusy(false);
+                          }
+                        }}
+                        className="h-9 px-4 rounded-xl bg-primary text-on-primary text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 hover:brightness-105 active:scale-[0.98] transition-all shrink-0 disabled:opacity-60"
+                      >
+                        {syncBusy ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>Syncing…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={13} strokeWidth={2.4} />
+                            <span>Sync now</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
 
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    <span className={`text-[10px] font-semibold tracking-wide border px-2.5 py-1 rounded-full ${
-                      cloudSyncConflict
-                        ? 'text-warning bg-warning/10 border-warning/25'
-                        : 'text-secondary bg-secondary-soft border-secondary/25'
-                    }`}>
-                      {cloudSyncConflict ? 'Sync paused safely' : 'Cloud live'}
-                    </span>
-                    <span className="settings-account-hashtag">
-                      {hashtagContext.mine ? `#${hashtagContext.mine.label}` : 'Exam hashtag not set'}
-                    </span>
+                    {/* Subtle Clear cloud backup trigger */}
+                    {!confirmWipeCloud && (
+                      <div className="flex items-center justify-end pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmWipeCloud(true)}
+                          className="inline-flex items-center gap-1.5 text-[10.5px] font-medium text-content-muted hover:text-error transition-colors"
+                        >
+                          <Trash2 size={11} />
+                          Clear cloud backup
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const res = await syncToCloud();
-                      setMsg(
-                        res.ok
-                          ? { text: '✓ Cloud backup synced.' }
-                          : { text: `✗ ${res.error || 'Failed to sync.'}`, error: true },
-                      );
-                    }}
-                    className="mt-3 w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 active:scale-[0.98]"
-                  >
-                    <Upload size={15} strokeWidth={2.25} />
-                    Sync now
-                  </button>
-
+                  {/* Conflict resolution card */}
                   {cloudSyncConflict && (
-                    <div className="mt-2.5 rounded-[14px] border border-warning/25 bg-warning/8 p-3">
+                    <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 space-y-2.5">
                       <div className="flex items-start gap-2.5">
                         <ShieldCheck size={16} className="mt-0.5 shrink-0 text-warning" />
                         <div className="min-w-0">
-                          <p className="text-[12px] font-semibold text-content-primary">Both copies are preserved</p>
-                          <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">
+                          <p className="text-[12px] font-bold text-content-primary">Both copies are preserved</p>
+                          <p className="mt-0.5 text-[11px] leading-relaxed text-content-secondary">
                             This device and cloud contain different work. YouDO stopped before overwriting either copy.
                           </p>
                           {cloudConflictDetails && (
-                            <p className="mt-1.5 text-[11px] leading-relaxed text-content-secondary">
+                            <p className="mt-1 text-[10.5px] leading-relaxed text-content-muted">
                               {cloudConflictDetails.reason}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
                           type="button"
                           onClick={async () => {
@@ -572,7 +645,7 @@ export default function SettingsSheet({
                                 : { text: `✗ ${result.error || 'Could not combine copies.'}`, error: true },
                             );
                           }}
-                          className="h-10 rounded-[11px] bg-primary text-on-primary text-[11px] font-semibold"
+                          className="h-9 rounded-xl bg-primary text-on-primary text-[11.5px] font-bold shadow-sm active:scale-[0.98] transition-all"
                         >
                           Combine copies
                         </button>
@@ -582,8 +655,9 @@ export default function SettingsSheet({
                             setConfirmRestore(null);
                             setRestoreOpen(true);
                             setEditProfileOpen(false);
+                            setSecurityOpen(false);
                           }}
-                          className="h-10 rounded-[11px] border border-subtle bg-surface text-content-secondary text-[11px] font-semibold"
+                          className="h-9 rounded-xl border border-subtle bg-surface text-content-secondary hover:text-content-primary text-[11.5px] font-semibold active:scale-[0.98] transition-all"
                         >
                           Review copies
                         </button>
@@ -591,12 +665,17 @@ export default function SettingsSheet({
                     </div>
                   )}
 
-                                    {confirmWipeCloud ? (
-                    <div className="mt-2 rounded-[12px] border border-error/30 bg-error-soft p-3 space-y-2">
-                      <p className="text-[12px] text-content-secondary leading-relaxed">
-                        Clearing the cloud backup permanently deletes your data from the server. Your local device copy will NOT be deleted.
+                  {/* Wipe cloud confirmation prompt */}
+                  {confirmWipeCloud && (
+                    <div className="rounded-xl border border-error/30 bg-error-soft/90 p-3 space-y-2.5">
+                      <div className="flex items-center gap-2 text-error font-semibold text-[11.5px]">
+                        <AlertTriangle size={14} className="shrink-0" />
+                        <span>Permanently clear cloud backup?</span>
+                      </div>
+                      <p className="text-[11px] text-content-secondary leading-relaxed">
+                        Clearing the cloud backup deletes your data from the server. Your local device copy will NOT be deleted.
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 pt-0.5">
                         <button
                           type="button"
                           onClick={async () => {
@@ -604,35 +683,27 @@ export default function SettingsSheet({
                             setConfirmWipeCloud(false);
                             setMsg(
                               success
-                                ? { text: ' Cloud backup permanently cleared.' }
-                                : { text: ' Failed to clear cloud backup.', error: true },
+                                ? { text: '✓ Cloud backup permanently cleared.' }
+                                : { text: '✗ Failed to clear cloud backup.', error: true },
                             );
                           }}
-                          className="flex-1 h-10 rounded-[12px] bg-error text-on-primary text-[12px] font-semibold"
+                          className="flex-1 h-9 rounded-xl bg-error text-white text-[11.5px] font-bold shadow-sm active:scale-[0.98] transition-all"
                         >
                           Yes, clear cloud
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmWipeCloud(false)}
-                          className="flex-1 h-10 rounded-[12px] border border-subtle text-[12px] font-medium text-content-secondary"
+                          className="flex-1 h-9 rounded-xl border border-subtle bg-surface text-[11.5px] font-semibold text-content-secondary hover:text-content-primary active:scale-[0.98] transition-all"
                         >
                           Cancel
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmWipeCloud(true)}
-                      className="mt-2 w-full h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft flex items-center justify-center gap-1.5"
-                    >
-                      <Trash2 size={14} />
-                      Clear cloud backup
-                    </button>
                   )}
 
-                  <div className="settings-account-actions mt-2 grid grid-cols-3 gap-1">
+                  {/* ── Quick Action Hub (3 Interactive Tabs) ── */}
+                  <div className="grid grid-cols-3 gap-2 pt-0.5">
                     <button
                       type="button"
                       onClick={async () => {
@@ -641,6 +712,7 @@ export default function SettingsSheet({
                           setEditAvatar(user.user_metadata?.avatar_url || '🎓');
                           setEditProfileOpen(true);
                           setRestoreOpen(false);
+                          setSecurityOpen(false);
                           setProfileLoading(true);
                           const profile = await fetchProfile(user.id);
                           if (profile) {
@@ -653,23 +725,69 @@ export default function SettingsSheet({
                           setEditProfileOpen(false);
                         }
                       }}
-                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-content-primary hover:bg-surface/80 flex items-center justify-center gap-1.5"
+                      className={`h-10 px-2 rounded-xl text-[11.5px] font-semibold border flex items-center justify-center gap-1.5 transition-all active:scale-[0.97] ${
+                        editProfileOpen
+                          ? 'bg-primary-soft border-primary/50 text-primary shadow-sm ring-1 ring-primary/20'
+                          : 'bg-surface/60 border-subtle/80 text-content-secondary hover:text-content-primary hover:bg-surface'
+                      }`}
                     >
-                      <Edit2 size={13} className="text-primary" />
-                      Edit
+                      <Edit2 size={12} className={editProfileOpen ? 'text-primary' : 'text-primary/80'} />
+                      <span>Edit</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => {
                         setConfirmRestore(null);
                         setRestoreOpen((v) => !v);
                         setEditProfileOpen(false);
+                        setSecurityOpen(false);
                       }}
-                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-content-primary hover:bg-surface/80 flex items-center justify-center gap-1.5"
+                      className={`h-10 px-2 rounded-xl text-[11.5px] font-semibold border flex items-center justify-center gap-1.5 transition-all active:scale-[0.97] ${
+                        restoreOpen
+                          ? 'bg-secondary-soft border-secondary/50 text-secondary shadow-sm ring-1 ring-secondary/20'
+                          : 'bg-surface/60 border-subtle/80 text-content-secondary hover:text-content-primary hover:bg-surface'
+                      }`}
                     >
-                      <History size={13} className="text-secondary" />
-                      Restore
+                      <History size={12} className={restoreOpen ? 'text-secondary' : 'text-secondary/80'} />
+                      <span>Restore</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSecurityOpen((value) => !value);
+                        setSecurityMode(null);
+                        setEditProfileOpen(false);
+                        setRestoreOpen(false);
+                        setCurrentPassword('');
+                      }}
+                      className={`h-10 px-2 rounded-xl text-[11.5px] font-semibold border flex items-center justify-center gap-1.5 transition-all active:scale-[0.97] ${
+                        securityOpen
+                          ? 'bg-secondary-soft border-secondary/50 text-secondary shadow-sm ring-1 ring-secondary/20'
+                          : 'bg-surface/60 border-subtle/80 text-content-secondary hover:text-content-primary hover:bg-surface'
+                      }`}
+                    >
+                      <KeyRound size={12} className={securityOpen ? 'text-secondary' : 'text-secondary/80'} />
+                      <span>Security</span>
+                    </button>
+                  </div>
+
+                  {/* Active Sitting Warning banner (if session in progress) */}
+                  {activeSession && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-warning/10 border border-warning/20 text-warning text-[11px] leading-tight">
+                      <AlertTriangle size={13} className="shrink-0" />
+                      <span>Finish or discard the active sitting before signing out.</span>
+                    </div>
+                  )}
+
+                  {/* ── Footer Session Control (Sign Out) ── */}
+                  <div className="pt-2 border-t border-subtle/60 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10.5px] text-content-muted">
+                      <ShieldCheck size={12} className="text-secondary shrink-0" />
+                      <span>{user.email_confirmed_at || user.confirmed_at ? 'Email verified' : 'Email pending'}</span>
+                    </div>
+
                     <button
                       type="button"
                       disabled={Boolean(activeSession) || signOutBusy}
@@ -679,9 +797,7 @@ export default function SettingsSheet({
                           const beforeSync = captureWorkspace();
                           const synced = await syncToCloud();
                           if (!synced.ok) {
-                            // A deleted account cannot sync, but must still be able to
-                            // leave the signed-in view without clearing its device copy.
-                            if (await verifyAccount() === 'gone') return;
+                            if ((await verifyAccount()) === 'gone') return;
                             setMsg({
                               text: `Could not sign out safely: ${synced.error || 'sync failed'}. Export a backup or reconnect first.`,
                               error: true,
@@ -700,38 +816,42 @@ export default function SettingsSheet({
                           setSignOutBusy(false);
                         }
                       }}
-                      className="h-10 rounded-[12px] text-[12px] font-medium text-content-secondary hover:text-error hover:bg-error-soft disabled:opacity-40 flex items-center justify-center gap-1.5"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-subtle/70 bg-surface/40 text-content-muted hover:text-error hover:border-error/30 hover:bg-error-soft text-[11.5px] font-semibold disabled:opacity-40 disabled:hover:text-content-muted disabled:hover:border-subtle/70 disabled:hover:bg-surface/40 transition-all active:scale-[0.98]"
                     >
-                      <LogOut size={13} />
-                      {signOutBusy ? 'Checking…' : 'Sign out'}
+                      <LogOut size={12} />
+                      <span>{signOutBusy ? 'Checking…' : 'Sign out'}</span>
                     </button>
-                    {activeSession && <p className="col-span-3 text-[10px] text-content-muted">Finish or discard the active sitting before signing out.</p>}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSecurityOpen((value) => !value);
-                      setSecurityMode(null);
-                      setEditProfileOpen(false);
-                      setRestoreOpen(false);
-                      setCurrentPassword('');
-                    }}
-                    className="mt-1 flex h-10 w-full items-center justify-center gap-1.5 rounded-[12px] text-[12px] font-medium text-content-secondary hover:bg-surface/80 hover:text-content-primary"
-                  >
-                    <KeyRound size={13} className="text-secondary" />
-                    Account security
-                  </button>
                 </div>
 
+                {/* ── Expandable: Edit Profile Sub-panel ── */}
                 {editProfileOpen && (
-                  <div className="relative px-5 pb-4 space-y-3">
+                  <div className="relative border-t border-subtle/80 bg-surface/40 px-4 sm:px-5 py-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Edit2 size={13} className="text-primary" />
+                        <h4 className="text-[12px] font-bold text-content-primary">Edit Profile</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditProfileOpen(false)}
+                        className="size-7 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface grid place-items-center transition-colors"
+                        aria-label="Close edit profile"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
                     {profileLoading ? (
-                      <div className="py-4 text-center text-sm text-content-muted">Loading profile...</div>
+                      <div className="py-6 text-center text-xs text-content-muted flex items-center justify-center gap-2">
+                        <RefreshCw size={13} className="animate-spin text-primary" />
+                        <span>Loading profile details…</span>
+                      </div>
                     ) : (
                       <>
-                        <div className="flex gap-3">
-                          <div className="flex-1">
-                            <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
                               Username
                             </label>
                             <input
@@ -739,11 +859,11 @@ export default function SettingsSheet({
                               value={editUsername}
                               onChange={(e) => setEditUsername(e.target.value.toLowerCase())}
                               placeholder="@username"
-                              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
+                              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-[12.5px] text-content-primary focus:outline-none focus:border-primary transition-colors"
                             />
                           </div>
-                          <div className="flex-1">
-                            <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
                               Display Name
                             </label>
                             <input
@@ -751,13 +871,13 @@ export default function SettingsSheet({
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
                               placeholder="Your name"
-                              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary"
+                              className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-[12.5px] text-content-primary focus:outline-none focus:border-primary transition-colors"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
                             Bio
                           </label>
                           <textarea
@@ -766,13 +886,13 @@ export default function SettingsSheet({
                             placeholder="Short bio about your goals..."
                             maxLength={150}
                             rows={2}
-                            className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-sm text-content-primary focus:outline-none focus:border-primary resize-none"
+                            className="w-full bg-surface border border-subtle rounded-xl px-3 py-2 text-[12.5px] text-content-primary focus:outline-none focus:border-primary resize-none transition-colors"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-content-muted mb-1">
-                            Avatar
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
+                            Avatar Icon
                           </label>
                           <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
                             {['🎓', '⚡', '🏆', '🚀', '🦉', '🧠', '🎯', '📚', '🔥', '👑', '🌟', '💻', '🎨', '🎧', '🏋️', '🌱', '☀️', '🌙', '🌊', '☕'].map((emoji) => (
@@ -780,9 +900,9 @@ export default function SettingsSheet({
                                 key={emoji}
                                 type="button"
                                 onClick={() => setEditAvatar(emoji)}
-                                className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center transition border shrink-0 ${
+                                className={`size-9 rounded-xl text-lg flex items-center justify-center transition-all border shrink-0 ${
                                   editAvatar === emoji
-                                    ? 'bg-primary-soft border-primary scale-105'
+                                    ? 'bg-primary-soft border-primary ring-1 ring-primary/40 scale-105 shadow-sm'
                                     : 'bg-surface border-subtle text-content-muted hover:bg-elevated'
                                 }`}
                               >
@@ -792,7 +912,7 @@ export default function SettingsSheet({
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-surface border border-subtle mt-2">
+                        <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-surface border border-subtle">
                           <div className="min-w-0 flex-1">
                             <p className="text-[12px] font-semibold text-content-primary">Private Stats</p>
                             <p className="text-[10px] text-content-muted mt-0.5">Hide your focus hours from others</p>
@@ -816,10 +936,10 @@ export default function SettingsSheet({
                               return;
                             }
                             setProfileLoading(true);
-                            
+
                             // Save to Auth (for quick display)
                             const ok = await updateProfile({ fullName: editName, avatarUrl: editAvatar });
-                            
+
                             // Save to Profiles table
                             const profileSave = await upsertProfile({
                               id: user.id,
@@ -827,7 +947,7 @@ export default function SettingsSheet({
                               display_name: editName,
                               bio: editBio,
                               stats_private: editStatsPrivate,
-                              avatar_url: editAvatar
+                              avatar_url: editAvatar,
                             });
 
                             if (ok && profileSave.ok) {
@@ -839,7 +959,7 @@ export default function SettingsSheet({
                             }
                             setProfileLoading(false);
                           }}
-                          className="w-full h-11 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold mt-2"
+                          className="w-full h-10 rounded-xl bg-primary text-on-primary text-[12.5px] font-bold shadow-md shadow-primary/10 hover:brightness-105 active:scale-[0.98] transition-all"
                         >
                           Save profile
                         </button>
@@ -848,104 +968,58 @@ export default function SettingsSheet({
                   </div>
                 )}
 
-                {securityOpen && (
-                  <div className="relative border-t border-subtle px-5 pb-4 pt-4">
-                    {!securityMode ? (
-                      <div className="space-y-2">
-                        <button type="button" onClick={() => { setSecurityMode('email'); setNextEmail(''); setCurrentPassword(''); }} className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left">
-                          <span className="grid size-9 place-items-center rounded-xl bg-primary-soft text-primary"><Mail size={15} /></span>
-                          <span className="min-w-0 flex-1"><span className="block text-[12px] font-semibold text-content-primary">Change email</span><span className="block truncate text-[10.5px] text-content-muted">{user.email}</span></span>
-                          <ChevronRight size={15} className="text-content-muted" />
-                        </button>
-                        <button type="button" onClick={() => { setSecurityMode('password'); setNextPassword(''); setConfirmPassword(''); setCurrentPassword(''); }} className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left">
-                          <span className="grid size-9 place-items-center rounded-xl bg-secondary-soft text-secondary"><KeyRound size={15} /></span>
-                          <span className="min-w-0 flex-1"><span className="block text-[12px] font-semibold text-content-primary">Change password</span><span className="block text-[10.5px] text-content-muted">Verify the current password first</span></span>
-                          <ChevronRight size={15} className="text-content-muted" />
-                        </button>
-                        <button type="button" onClick={() => setSecurityMode('devices')} className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left">
-                          <span className="grid size-9 place-items-center rounded-xl bg-primary-soft text-primary"><MonitorSmartphone size={15} /></span>
-                          <span className="min-w-0 flex-1"><span className="block text-[12px] font-semibold text-content-primary">Signed-in devices</span><span className="block text-[10.5px] text-content-muted">Review active sessions and sign out remotely</span></span>
-                          <ChevronRight size={15} className="text-content-muted" />
-                        </button>
-                        <div className="flex items-center gap-2 px-1 pt-1 text-[10px] text-content-muted">
-                          <ShieldCheck size={13} className="shrink-0 text-secondary" />
-                          <span>{user.email_confirmed_at || user.confirmed_at ? 'Email verified' : 'Email confirmation is pending'}</span>
-                        </div>
-                      </div>
-                    ) : securityMode === 'devices' ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-end">
-                          <button type="button" onClick={() => setSecurityMode(null)} className="text-[10.5px] font-semibold text-content-muted">Back</button>
-                        </div>
-                        {user && <SignedInDevices key={user.id} accountId={user.id} />}
-                      </div>
-                    ) : (
-                      <form
-                        className="space-y-3"
-                        onSubmit={async (event) => {
-                          event.preventDefault();
-                          if (securityMode === 'password' && nextPassword !== confirmPassword) {
-                            setMsg({ text: 'New passwords do not match.', error: true });
-                            return;
-                          }
-                          setSecurityBusy(true);
-                          const result = securityMode === 'email'
-                            ? await changeEmail(currentPassword, nextEmail)
-                            : await changePassword(currentPassword, nextPassword);
-                          setSecurityBusy(false);
-                          if (!result.ok) {
-                            setMsg({ text: result.error || 'Account security could not be updated.', error: true });
-                            return;
-                          }
-                          setMsg({ text: `✓ ${result.message || 'Account security updated.'}` });
-                          setSecurityMode(null);
-                          setCurrentPassword('');
-                          setNextEmail('');
-                          setNextPassword('');
-                          setConfirmPassword('');
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div><p className="text-[12px] font-semibold text-content-primary">{securityMode === 'email' ? 'New account email' : 'New password'}</p><p className="text-[10px] text-content-muted">Your workspace stays attached to the same account.</p></div>
-                          <button type="button" onClick={() => setSecurityMode(null)} className="text-[10.5px] font-semibold text-content-muted">Back</button>
-                        </div>
-                        {securityMode === 'email' && (
-                          <>
-                            <input type="email" aria-label="New email address" autoComplete="email" required value={nextEmail} onChange={(event) => setNextEmail(event.target.value)} placeholder="New email address" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
-                            <p className="rounded-xl border border-warning/20 bg-warning/8 px-3 py-2 text-[10px] leading-relaxed text-content-secondary">Keep access to both inboxes. Open the latest confirmation email in each to finish the change.</p>
-                          </>
-                        )}
-                        {securityMode === 'password' && (
-                          <>
-                            <input type="password" aria-label="New password" autoComplete="new-password" minLength={10} required value={nextPassword} onChange={(event) => setNextPassword(event.target.value)} placeholder="New password · 10+ characters" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
-                            <input type="password" aria-label="Repeat new password" autoComplete="new-password" minLength={10} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Repeat new password" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
-                          </>
-                        )}
-                        <input type="password" aria-label="Current password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} placeholder="Current password" className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary" />
-                        <button type="submit" disabled={securityBusy} className="h-10 w-full rounded-xl bg-primary text-[12px] font-semibold text-on-primary disabled:opacity-50">{securityBusy ? 'Verifying…' : securityMode === 'email' ? 'Request email change' : 'Change password'}</button>
-                      </form>
-                    )}
-                  </div>
-                )}
-
+                {/* ── Expandable: Restore Points Sub-panel ── */}
                 {restoreOpen && (
-                  <div className="relative px-5 pb-4 space-y-2">
-                    <p className="text-[12px] text-content-secondary leading-relaxed">
-                      Latest is what is in the cloud now. Safety copies are kept only when workspace content changes, up to the latest 10 copies. Compare their contents before restoring.
+                  <div className="relative border-t border-subtle/80 bg-surface/40 px-4 sm:px-5 py-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <History size={13} className="text-secondary" />
+                        <h4 className="text-[12px] font-bold text-content-primary">Cloud Restore Points</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRestoreOpen(false);
+                          setConfirmRestore(null);
+                        }}
+                        className="size-7 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface grid place-items-center transition-colors"
+                        aria-label="Close restore"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-content-secondary leading-relaxed">
+                      Safety copies are preserved when workspace content changes (up to 10 latest). Select a copy to preview and restore.
                     </p>
+
                     {restoreLoading && (
-                      <p className="text-[12px] text-content-muted">Loading copies…</p>
+                      <div className="py-6 text-center text-xs text-content-muted flex items-center justify-center gap-2">
+                        <RefreshCw size={13} className="animate-spin text-secondary" />
+                        <span>Loading copies…</span>
+                      </div>
                     )}
+
                     {!restoreLoading && restorePoints && !restorePoints.live && restorePoints.visits.length === 0 && (
-                      <p className="text-[12px] text-content-secondary">No cloud backup found yet.</p>
+                      <div className="p-4 rounded-xl border border-subtle bg-surface/60 text-center text-[12px] text-content-muted">
+                        No cloud backups found yet.
+                      </div>
                     )}
+
                     {!restoreLoading && restorePoints?.live && (
                       <button
                         type="button"
                         onClick={() => setConfirmRestore({ kind: 'live' })}
-                        className="w-full text-left p-3 rounded-xl bg-surface border border-subtle hover:border-primary/40 transition"
+                        className="w-full text-left p-3 rounded-xl bg-surface border border-subtle hover:border-primary/50 transition-all group"
                       >
-                        <div className="text-[12px] font-semibold text-content-primary">Latest cloud</div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12px] font-bold text-content-primary group-hover:text-primary transition-colors">
+                            Latest cloud copy
+                          </span>
+                          <span className="text-[10px] font-semibold text-primary bg-primary-soft/80 border border-primary/25 px-1.5 py-0.5 rounded">
+                            Live
+                          </span>
+                        </div>
                         <div className="text-[11px] text-content-secondary mt-0.5">
                           Includes this visit · {formatBackupStamp(restorePoints.live.updatedAt)}
                         </div>
@@ -954,6 +1028,7 @@ export default function SettingsSheet({
                         </div>
                       </button>
                     )}
+
                     {!restoreLoading &&
                       restorePoints?.visits.map((visit, index) => (
                         <button
@@ -967,27 +1042,33 @@ export default function SettingsSheet({
                               when: formatBackupStamp(visit.createdAt),
                             })
                           }
-                          className="w-full text-left p-3 rounded-xl bg-surface border border-subtle hover:border-primary/40 transition"
+                          className="w-full text-left p-3 rounded-xl bg-surface border border-subtle hover:border-secondary/50 transition-all group"
                         >
-                          <div className="text-[12px] font-semibold text-content-primary">{visitSnapshotLabel(index)}</div>
-                          <div className="text-[11px] text-content-secondary mt-0.5">{formatBackupStamp(visit.createdAt)}</div>
+                          <div className="text-[12px] font-bold text-content-primary group-hover:text-secondary transition-colors">
+                            {visitSnapshotLabel(index)}
+                          </div>
+                          <div className="text-[11px] text-content-secondary mt-0.5">
+                            {formatBackupStamp(visit.createdAt)}
+                          </div>
                           <div className="mt-1 text-[10.5px] leading-relaxed text-content-muted">
                             {backupSummaryText(visit.summary)}
                           </div>
                         </button>
                       ))}
+
+                    {/* Restore Confirmation Alert */}
                     {confirmRestore && (
-                      <div className="rounded-xl bg-error-soft border border-error/20 p-3 space-y-2">
+                      <div className="rounded-xl bg-error-soft/90 border border-error/25 p-3.5 space-y-2.5">
                         <div className="flex items-center gap-2 text-error font-semibold text-[12px]">
                           <AlertTriangle size={14} className="shrink-0" />
-                          Replace current data?
+                          <span>Replace current data?</span>
                         </div>
-                        <p className="text-[11px] text-error/75 font-medium leading-relaxed">
+                        <p className="text-[11px] text-content-secondary leading-relaxed">
                           {confirmRestore.kind === 'live'
                             ? 'Restore the latest cloud copy. Anything only on this device since the last sync will be lost.'
                             : `Restore “${confirmRestore.label}” from ${confirmRestore.when}. Work after that copy will be lost.`}
                         </p>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 pt-1">
                           <button
                             type="button"
                             onClick={async () => {
@@ -1003,14 +1084,14 @@ export default function SettingsSheet({
                                   : { text: '✗ Could not restore that copy.', error: true },
                               );
                             }}
-                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-error"
+                            className="flex-1 py-2 rounded-xl text-[11.5px] font-bold text-white bg-error active:scale-[0.98] transition-all"
                           >
                             Restore this copy
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirmRestore(null)}
-                            className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface"
+                            className="flex-1 py-2 rounded-xl text-[11.5px] font-semibold text-content-secondary bg-surface border border-subtle hover:text-content-primary active:scale-[0.98] transition-all"
                           >
                             Cancel
                           </button>
@@ -1020,81 +1101,326 @@ export default function SettingsSheet({
                   </div>
                 )}
 
-                <div hidden={!securityOpen} className="relative px-5 pb-4">
-                  {!confirmDeleteAccount ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteConfirmation('');
-                        setConfirmDeleteAccount(true);
-                      }}
-                      className="text-[11px] font-medium text-content-muted hover:text-error flex items-center gap-1.5 py-1"
-                    >
-                      <Trash2 size={12} /> Delete account
-                    </button>
-                  ) : (
-                    <div className="w-full rounded-xl bg-error-soft p-3 space-y-2.5">
-                      <div className="flex items-center gap-2 text-error font-semibold text-[11px]">
-                        <AlertTriangle size={13} /> Permanently delete this account?
+                {/* ── Expandable: Account Security Sub-panel ── */}
+                {securityOpen && (
+                  <div className="relative border-t border-subtle/80 bg-surface/40 px-4 sm:px-5 py-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <KeyRound size={13} className="text-secondary" />
+                        <h4 className="text-[12px] font-bold text-content-primary">Account Security</h4>
                       </div>
-                      <p className="text-[10.5px] leading-relaxed text-content-secondary">
-                        This removes your login, cloud backup, restore points and public Board profile. Export a backup first if you may need it later.
-                      </p>
-                      {activeSession && (
-                        <p className="rounded-lg bg-error/10 px-2.5 py-2 text-[10.5px] font-medium text-error">
-                          Stop the active focus session before deleting your account.
-                        </p>
-                      )}
-                      <input
-                        type="text"
-                        value={deleteConfirmation}
-                        onChange={(event) => setDeleteConfirmation(event.target.value)}
-                        placeholder="Type DELETE to confirm"
-                        autoCapitalize="characters"
-                        className="w-full h-9 rounded-lg border border-error/25 bg-base px-2.5 text-[11px] text-content-primary outline-none focus:border-error"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={deleteConfirmation !== 'DELETE' || deleteBusy || Boolean(activeSession)}
-                          onClick={async () => {
-                            setDeleteBusy(true);
-                            const result = await deleteAccount();
-                            setDeleteBusy(false);
-                            if (!result.ok) {
-                              setMsg({ text: result.error || 'Account deletion failed.', error: true });
-                              return;
-                            }
-                            setConfirmDeleteAccount(false);
-                          }}
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-error disabled:opacity-40"
-                        >
-                          {deleteBusy ? 'Deleting…' : 'Delete forever'}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={deleteBusy}
-                          onClick={() => {
-                            setConfirmDeleteAccount(false);
-                            setDeleteConfirmation('');
-                          }}
-                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-content-secondary bg-surface"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSecurityOpen(false);
+                          setSecurityMode(null);
+                          setConfirmDeleteAccount(false);
+                        }}
+                        className="size-7 rounded-lg text-content-muted hover:text-content-primary hover:bg-surface grid place-items-center transition-colors"
+                        aria-label="Close security"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
-                  )}
-                </div>
+
+                    {!securityMode ? (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSecurityMode('email');
+                            setNextEmail('');
+                            setCurrentPassword('');
+                          }}
+                          className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left hover:border-primary/40 transition-all group"
+                        >
+                          <span className="grid size-9 place-items-center rounded-xl bg-primary-soft text-primary shrink-0">
+                            <Mail size={15} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] font-semibold text-content-primary group-hover:text-primary transition-colors">
+                              Change email
+                            </span>
+                            <span className="block truncate text-[10.5px] text-content-muted">{user.email}</span>
+                          </span>
+                          <ChevronRight size={15} className="text-content-muted group-hover:text-content-primary transition-colors" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSecurityMode('password');
+                            setNextPassword('');
+                            setConfirmPassword('');
+                            setCurrentPassword('');
+                          }}
+                          className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left hover:border-secondary/40 transition-all group"
+                        >
+                          <span className="grid size-9 place-items-center rounded-xl bg-secondary-soft text-secondary shrink-0">
+                            <KeyRound size={15} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] font-semibold text-content-primary group-hover:text-secondary transition-colors">
+                              Change password
+                            </span>
+                            <span className="block text-[10.5px] text-content-muted">Verify current password first</span>
+                          </span>
+                          <ChevronRight size={15} className="text-content-muted group-hover:text-content-primary transition-colors" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSecurityMode('devices')}
+                          className="flex w-full items-center gap-3 rounded-xl border border-subtle bg-surface p-3 text-left hover:border-primary/40 transition-all group"
+                        >
+                          <span className="grid size-9 place-items-center rounded-xl bg-primary-soft text-primary shrink-0">
+                            <MonitorSmartphone size={15} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] font-semibold text-content-primary group-hover:text-primary transition-colors">
+                              Signed-in devices
+                            </span>
+                            <span className="block text-[10.5px] text-content-muted">Review active sessions &amp; remote sign-out</span>
+                          </span>
+                          <ChevronRight size={15} className="text-content-muted group-hover:text-content-primary transition-colors" />
+                        </button>
+
+                        <div className="flex items-center gap-2 px-1 pt-1 text-[10.5px] text-content-muted">
+                          <ShieldCheck size={13} className="shrink-0 text-secondary" />
+                          <span>{user.email_confirmed_at || user.confirmed_at ? 'Email verified' : 'Email confirmation is pending'}</span>
+                        </div>
+                      </div>
+                    ) : securityMode === 'devices' ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setSecurityMode(null)}
+                            className="text-[11px] font-semibold text-primary hover:underline"
+                          >
+                            ← Back to options
+                          </button>
+                        </div>
+                        {user && <SignedInDevices key={user.id} accountId={user.id} />}
+                      </div>
+                    ) : (
+                      <form
+                        className="space-y-3"
+                        onSubmit={async (event) => {
+                          event.preventDefault();
+                          if (securityMode === 'password' && nextPassword !== confirmPassword) {
+                            setMsg({ text: 'New passwords do not match.', error: true });
+                            return;
+                          }
+                          setSecurityBusy(true);
+                          const result =
+                            securityMode === 'email'
+                              ? await changeEmail(currentPassword, nextEmail)
+                              : await changePassword(currentPassword, nextPassword);
+                          setSecurityBusy(false);
+                          if (!result.ok) {
+                            setMsg({ text: result.error || 'Account security could not be updated.', error: true });
+                            return;
+                          }
+                          setMsg({ text: `✓ ${result.message || 'Account security updated.'}` });
+                          setSecurityMode(null);
+                          setCurrentPassword('');
+                          setNextEmail('');
+                          setNextPassword('');
+                          setConfirmPassword('');
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[12px] font-bold text-content-primary">
+                              {securityMode === 'email' ? 'New account email' : 'New password'}
+                            </p>
+                            <p className="text-[10px] text-content-muted">Your workspace stays attached to this account.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSecurityMode(null)}
+                            className="text-[11px] font-semibold text-primary hover:underline"
+                          >
+                            Back
+                          </button>
+                        </div>
+
+                        {securityMode === 'email' && (
+                          <>
+                            <input
+                              type="email"
+                              aria-label="New email address"
+                              autoComplete="email"
+                              required
+                              value={nextEmail}
+                              onChange={(event) => setNextEmail(event.target.value)}
+                              placeholder="New email address"
+                              className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary transition-colors"
+                            />
+                            <p className="rounded-xl border border-warning/20 bg-warning/8 px-3 py-2 text-[10.5px] leading-relaxed text-content-secondary">
+                              Keep access to both inboxes. Open the confirmation email in each to finish the change.
+                            </p>
+                          </>
+                        )}
+
+                        {securityMode === 'password' && (
+                          <>
+                            <input
+                              type="password"
+                              aria-label="New password"
+                              autoComplete="new-password"
+                              minLength={10}
+                              required
+                              value={nextPassword}
+                              onChange={(event) => setNextPassword(event.target.value)}
+                              placeholder="New password · 10+ characters"
+                              className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary transition-colors"
+                            />
+                            <input
+                              type="password"
+                              aria-label="Repeat new password"
+                              autoComplete="new-password"
+                              minLength={10}
+                              required
+                              value={confirmPassword}
+                              onChange={(event) => setConfirmPassword(event.target.value)}
+                              placeholder="Repeat new password"
+                              className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary transition-colors"
+                            />
+                          </>
+                        )}
+
+                        <input
+                          type="password"
+                          aria-label="Current password"
+                          autoComplete="current-password"
+                          required
+                          value={currentPassword}
+                          onChange={(event) => setCurrentPassword(event.target.value)}
+                          placeholder="Current password"
+                          className="h-10 w-full rounded-xl border border-subtle bg-surface px-3 text-[12px] outline-none focus:border-primary transition-colors"
+                        />
+                        <button
+                          type="submit"
+                          disabled={securityBusy}
+                          className="h-10 w-full rounded-xl bg-primary text-[12px] font-bold text-on-primary shadow-md shadow-primary/10 hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-50"
+                        >
+                          {securityBusy ? 'Verifying…' : securityMode === 'email' ? 'Request email change' : 'Change password'}
+                        </button>
+                      </form>
+                    )}
+
+                    {/* Danger zone: Account deletion */}
+                    <div className="pt-3 border-t border-subtle/60">
+                      {!confirmDeleteAccount ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteConfirmation('');
+                            setConfirmDeleteAccount(true);
+                          }}
+                          className="text-[11px] font-medium text-content-muted hover:text-error flex items-center gap-1.5 py-1 transition-colors group"
+                        >
+                          <Trash2 size={12} className="group-hover:text-error transition-colors" />
+                          <span>Delete account</span>
+                        </button>
+                      ) : (
+                        <div className="w-full rounded-xl bg-error-soft/90 border border-error/25 p-3.5 space-y-2.5">
+                          <div className="flex items-center gap-2 text-error font-semibold text-[11.5px]">
+                            <AlertTriangle size={13} className="shrink-0" />
+                            <span>Permanently delete this account?</span>
+                          </div>
+                          <p className="text-[10.5px] leading-relaxed text-content-secondary">
+                            This removes your login, cloud backup, restore points, and public Board profile. Export a backup first if needed.
+                          </p>
+                          {activeSession && (
+                            <p className="rounded-lg bg-error/15 px-2.5 py-2 text-[10.5px] font-medium text-error">
+                              Stop the active focus session before deleting your account.
+                            </p>
+                          )}
+                          <input
+                            type="text"
+                            value={deleteConfirmation}
+                            onChange={(event) => setDeleteConfirmation(event.target.value)}
+                            placeholder="Type DELETE to confirm"
+                            autoCapitalize="characters"
+                            className="w-full h-9 rounded-lg border border-error/30 bg-base px-2.5 text-[11.5px] text-content-primary outline-none focus:border-error transition-colors"
+                          />
+                          <div className="flex gap-2 pt-0.5">
+                            <button
+                              type="button"
+                              disabled={deleteConfirmation !== 'DELETE' || deleteBusy || Boolean(activeSession)}
+                              onClick={async () => {
+                                setDeleteBusy(true);
+                                const result = await deleteAccount();
+                                setDeleteBusy(false);
+                                if (!result.ok) {
+                                  setMsg({ text: result.error || 'Account deletion failed.', error: true });
+                                  return;
+                                }
+                                setConfirmDeleteAccount(false);
+                              }}
+                              className="flex-1 py-2 rounded-lg text-[11.5px] font-bold text-white bg-error hover:bg-error/90 active:scale-[0.98] transition-all disabled:opacity-40"
+                            >
+                              {deleteBusy ? 'Deleting…' : 'Delete forever'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={deleteBusy}
+                              onClick={() => {
+                                setConfirmDeleteAccount(false);
+                                setDeleteConfirmation('');
+                              }}
+                              className="flex-1 py-2 rounded-lg text-[11.5px] font-semibold text-content-secondary bg-surface border border-subtle hover:text-content-primary active:scale-[0.98] transition-all"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
             {!user && (
-              <div className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-secondary-soft text-secondary"><WifiOff size={17} /></div>
-                  <div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-secondary">Offline workspace</p><h3 className="mt-0.5 text-[15px] font-semibold text-content-primary">Stored on this device</h3><p className="mt-1 text-[10.5px] leading-relaxed text-content-secondary">You can use every private planning tool without an account. Connect when you want cloud backup and multi-device sync.</p></div>
+              <div className="p-4 sm:p-5 relative overflow-hidden">
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-60"
+                  style={{
+                    background:
+                      'radial-gradient(100% 75% at 90% 0%, rgba(134, 165, 136, 0.12), transparent 58%), radial-gradient(90% 70% at 10% 0%, rgba(196, 165, 116, 0.12), transparent 56%)',
+                  }}
+                />
+                <div className="relative flex items-start gap-3.5">
+                  <div className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-secondary-soft border border-secondary/35 text-secondary shadow-sm">
+                    <WifiOff size={18} strokeWidth={2.3} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">Offline workspace</p>
+                      <span className="text-[10px] font-medium text-content-muted bg-surface border border-subtle px-1.5 py-0.5 rounded-full">
+                        Local device
+                      </span>
+                    </div>
+                    <h3 className="mt-1 text-[16px] font-bold text-content-primary leading-tight">Stored on this device</h3>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-content-secondary">
+                      You can use every private planning tool without an account. Connect when you want encrypted cloud backup and multi-device sync.
+                    </p>
+                  </div>
                 </div>
-                <button type="button" onClick={() => { onClose(); requestAccountAccess(); }} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-[11px] bg-primary text-[12px] font-semibold text-on-primary"><LogIn size={14} /> Connect an account</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    requestAccountAccess();
+                  }}
+                  className="relative mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-on-primary text-[12.5px] font-bold shadow-md shadow-primary/10 hover:brightness-105 active:scale-[0.98] transition-all"
+                >
+                  <LogIn size={15} strokeWidth={2.4} /> Connect an account
+                </button>
               </div>
             )}
           </div>
