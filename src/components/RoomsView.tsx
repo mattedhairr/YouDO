@@ -7,6 +7,7 @@ import {
   fetchOutgoingSquadJoinRequests,
   cancelOutgoingSquadJoinRequest,
   requestJoinSquad,
+  normalizeSquadPrivacy,
   type Squad,
 } from '../lib/squads';
 import { PRIVATE_HUB_SYNC_EVENT } from '../lib/privateHubSync';
@@ -110,7 +111,7 @@ export default function RoomsView({ onOpenRoom, onNotificationsChanged }: Props)
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-[14px] font-bold text-content-primary truncate">{room.name}</p>
-                        {room.privacy === 'invite_only' ? (
+                        {normalizeSquadPrivacy(room.privacy) === 'invite_only' ? (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-content-muted bg-surface px-1.5 py-0.5 rounded-md border border-subtle">
                             <Lock size={9} /> Private
                           </span>

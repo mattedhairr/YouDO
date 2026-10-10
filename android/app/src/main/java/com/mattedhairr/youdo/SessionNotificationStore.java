@@ -156,7 +156,7 @@ final class SessionNotificationStore {
         expanded.setTextColor(R.id.notif_title, titleColor);
         expanded.setTextViewText(R.id.notif_hint, hint);
         expanded.setTextColor(R.id.notif_hint, hintColor);
-        expanded.setChronometer(R.id.notif_elapsed, chronometerBase, paused ? "⏱️  %s elapsed (paused)" : "⏱️  %s elapsed", !paused);
+        expanded.setChronometer(R.id.notif_elapsed, chronometerBase, paused ? "%s elapsed (paused)" : "%s elapsed", !paused);
         expanded.setTextColor(R.id.notif_elapsed, secondaryColor);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
@@ -170,11 +170,15 @@ final class SessionNotificationStore {
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .setShowWhen(false)
+            .setShowWhen(true)
+            .setUsesChronometer(!paused)
+            .setChronometerCountDown(false)
+            .setWhen(chronometerBase)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppIntent(ctx))
+            .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(compact)
             .setCustomHeadsUpContentView(compact)
             .setCustomBigContentView(expanded);

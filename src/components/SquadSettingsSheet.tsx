@@ -8,6 +8,7 @@ import {
   acceptSquadJoinRequest,
   declineSquadJoinRequest,
   updateSquadPrivacy,
+  normalizeSquadPrivacy,
   type Squad,
   type SquadMember,
   type SquadPrivacy,
@@ -37,13 +38,13 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
   );
 
   const [currentPrivacy, setCurrentPrivacy] = useState<SquadPrivacy>(
-    squad.privacy ?? (squad.allow_join_requests ? 'anyone_can_join' : 'invite_only'),
+    normalizeSquadPrivacy(squad.privacy ?? (squad.allow_join_requests ? 'anyone_can_join' : 'invite_only')),
   );
   const [privacySaving, setPrivacySaving] = useState(false);
   const [privacyMsg, setPrivacyMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    setCurrentPrivacy(squad.privacy ?? (squad.allow_join_requests ? 'anyone_can_join' : 'invite_only'));
+    setCurrentPrivacy(normalizeSquadPrivacy(squad.privacy ?? (squad.allow_join_requests ? 'anyone_can_join' : 'invite_only')));
   }, [squad.privacy, squad.allow_join_requests]);
 
   const handlePrivacyChange = async (nextPrivacy: SquadPrivacy) => {
@@ -61,7 +62,7 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
       setTimeout(() => setPrivacyMsg(null), 3000);
     } else {
       // Revert on failure
-      setCurrentPrivacy(squad.privacy ?? (squad.allow_join_requests ? 'anyone_can_join' : 'invite_only'));
+      setCurrentPrivacy(normalizeSquadPrivacy(squad.privacy ?? (squad.allow_join_requests ? 'anyone_can_join' : 'invite_only')));
       setPrivacyMsg('Failed to update privacy.');
     }
   };

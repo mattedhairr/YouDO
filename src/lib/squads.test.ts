@@ -6,6 +6,7 @@ import {
   createSquad,
   updateSquadPrivacy,
   fetchDiscoverableSquads,
+  fetchOutgoingSquadJoinRequests,
   normalizeSquadPrivacy,
   type Squad,
   type SquadPrivacy,
@@ -328,6 +329,26 @@ describe('createSquad & updateSquadPrivacy check constraint graceful recovery', 
     const ok = await updateSquadPrivacy('sq-1', 'private' as unknown as SquadPrivacy);
     expect(ok).toBe(true);
     expect(patches[0].privacy).toBe('invite_only');
+  });
+
+  it('fetchOutgoingSquadJoinRequests normalizes legacy privacy values', async () => {
+    vi.spyOn(supabase, 'rpc').mockImplementation((fn: string) => {
+      if (fn === 'my_pending_squad_joins') {
+        return Promise.resolve({
+          data: [
+            { id: 'sq-out-1', name: 'Legacy Public Request', privacy: 'public' },
+            { id: 'sq-out-2', name: 'Legacy Private Request', privacy: 'private' },
+          ],
+          error: null,
+        }) as unknown as ReturnType<typeof supabase.rpc>;
+      }
+      return Promise.resolve({ data: null, error: null }) as unknown as ReturnType<typeof supabase.rpc>;
+    });
+
+    const requests = await fetchOutgoingSquadJoinRequests();
+    expect(requests).toHaveLength(2);
+    expect(requests[0].privacy).toBe('anyone_can_join');
+    expect(requests[1].privacy).toBe('invite_only');
   });
 });
 

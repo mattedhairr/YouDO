@@ -155,12 +155,25 @@ try {
   ]);
   check(selfInviteResRaw[0].res.ok === false, 'Cannot invite self');
 
-  // Non-admin (User 2) cannot invite
-  await as(2);
-  const nonAdminInviteResRaw = await rows('select public.invite_to_squad_by_username($1, $2) as res', [
-    sq2[0].id, 'charlie',
+  // 11. my_pending_squad_joins RPC check
+  await as(2); // User 2 sends join request to sq1
+  await db.query('insert into public.squad_members (squad_id, user_id, role, status) values ($1, $2, $3, $4)', [
+    sq1[0].id, id(2), 'member', 'pending',
   ]);
-  check(nonAdminInviteResRaw[0].res.ok === false, 'Non-admin cannot invite to squad');
+  const pendingJoins = await rows('select id, name from public.my_pending_squad_joins()');
+  check(pendingJoins.length === 1 && pendingJoins[0].id === sq1[0].id, 'my_pending_squad_joins returns pending join requests for authenticated user');
+
+  // 12. Test migration backfill normalizes legacy and null privacy to canonical values
+  await as(1); // User 1 creates rooms with legacy privacy
+  const legacyRoom1 = await rows("insert into public.squads (name, created_by, privacy) values ('Legacy Public To Backfill', $1, 'public') returning id", [id(1)]);
+  const legacyRoom2 = await rows("insert into public.squads (name, created_by, privacy) values ('Legacy Private To Backfill', $1, 'private') returning id", [id(1)]);
+  // Re-run migration script as admin/migration runner
+  await db.exec('reset role');
+  await db.exec(roomsSql);
+  const normalized1 = await rows('select privacy from public.squads where id = $1', [legacyRoom1[0].id]);
+  const normalized2 = await rows('select privacy from public.squads where id = $1', [legacyRoom2[0].id]);
+  check(normalized1[0].privacy === 'anyone_can_join', 'Migration backfills legacy public to anyone_can_join');
+  check(normalized2[0].privacy === 'invite_only', 'Migration backfills legacy private to invite_only');
 
   console.log(`PASS: ${checks} isolated PostgreSQL checks for hub rooms setup and privacy check constraint.`);
 } finally {

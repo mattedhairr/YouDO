@@ -72,16 +72,14 @@ alter table public.squads
 alter table public.squads drop constraint if exists squads_privacy_check;
 alter table public.squads add constraint squads_privacy_check check (privacy in ('anyone_can_join', 'invite_only', 'public', 'private'));
 
--- Normalize any null privacy values to canonical default
+-- Backfill and normalize legacy or null privacy values to canonical
 update public.squads
-set privacy = case
-  when privacy = 'public' then 'anyone_can_join'
-  when privacy = 'private' then 'invite_only'
-  when privacy is null and allow_join_requests = false then 'invite_only'
-  when privacy is null then 'anyone_can_join'
-  else privacy
-end
-where privacy is null;
+set privacy = 'invite_only'
+where privacy = 'private' or (privacy is null and allow_join_requests = false);
+
+update public.squads
+set privacy = 'anyone_can_join'
+where privacy = 'public' or privacy is null;
 
 alter table public.squads
   add column if not exists allow_join_requests boolean not null default true;
@@ -342,6 +340,23 @@ $$;
 
 revoke all on function public.discover_squads() from public, anon;
 grant execute on function public.discover_squads() to authenticated;
+
+create or replace function public.my_pending_squad_joins()
+returns setof public.squads
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select s.*
+  from public.squad_members sm
+  join public.squads s on s.id = sm.squad_id
+  where sm.user_id = auth.uid()
+    and sm.status = 'pending';
+$$;
+
+revoke all on function public.my_pending_squad_joins() from public, anon;
+grant execute on function public.my_pending_squad_joins() to authenticated;
 
 create or replace function public.invite_to_squad_by_username(
   p_squad_id uuid,

@@ -496,7 +496,9 @@ export async function fetchOutgoingSquadJoinRequests(): Promise<Squad[]> {
     console.error('fetchOutgoingSquadJoinRequests error:', error);
     return [];
   }
-  return (data ?? []) as Squad[];
+  const squads = (data ?? []) as Squad[];
+  squads.forEach(normalizeSquadPrivacyInPlace);
+  return squads;
 }
 
 export async function cancelOutgoingSquadJoinRequest(squadId: string, userId: string): Promise<boolean> {
