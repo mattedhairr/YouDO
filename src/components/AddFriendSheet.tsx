@@ -4,6 +4,7 @@ import Overlay from './Overlay';
 import { searchProfilesByUsernamePrefix, sendFriendRequest, type Profile } from '../lib/profiles';
 import { useAuth } from '../contexts/AuthContext';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
+import { requestAccountAccess } from '../lib/storageKeys';
 
 interface Props {
   open: boolean;
@@ -32,14 +33,45 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
       return;
     }
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setMatches([]);
+      setSearching(false);
+      setErrorMsg('You are offline. Connect to search for study partners.');
+      return;
+    }
+
     let cancelled = false;
     setSearching(true);
+    let searchFailed = false;
+    let isOfflineFailure = false;
+
     const timer = window.setTimeout(() => {
-      void searchProfilesByUsernamePrefix(prefix, { excludeId: user?.id, limit: 8 }).then((rows) => {
+      void searchProfilesByUsernamePrefix(prefix, {
+        excludeId: user?.id,
+        limit: 8,
+        onError: (err) => {
+          searchFailed = true;
+          const msg = err && typeof err === 'object' && 'message' in err ? String(err.message).toLowerCase() : '';
+          if (
+            (typeof navigator !== 'undefined' && !navigator.onLine) ||
+            msg.includes('fetch') ||
+            msg.includes('network') ||
+            msg.includes('offline')
+          ) {
+            isOfflineFailure = true;
+          }
+        },
+      }).then((rows) => {
         if (cancelled) return;
         setMatches(rows);
         setSearching(false);
-        setErrorMsg(rows.length === 0 ? 'No matching @username found.' : '');
+        if (isOfflineFailure || (typeof navigator !== 'undefined' && !navigator.onLine && rows.length === 0)) {
+          setErrorMsg('You are offline. Connect to search for study partners.');
+        } else if (searchFailed && rows.length === 0) {
+          setErrorMsg('Unable to reach companion search. Check your connection.');
+        } else {
+          setErrorMsg(rows.length === 0 ? 'No matching @username found.' : '');
+        }
       });
     }, 220);
 
@@ -52,7 +84,12 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
   if (!open) return null;
 
   const handleSendRequest = async () => {
-    if (!user || !selected) return;
+    if (!user) {
+      setErrorMsg('Please sign in to send companion requests.');
+      requestAccountAccess();
+      return;
+    }
+    if (!selected) return;
     setSending(true);
     setErrorMsg('');
     const res = await sendFriendRequest(user.id, selected.id, requestNote);
@@ -102,6 +139,12 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
             <p className="text-[12px] text-content-secondary mt-0.5 leading-relaxed">
               Search by unique @username to connect, message, and study together.
             </p>
+            {!user && (
+              <p className="text-[11px] text-content-muted mt-1 flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-content-muted/60" />
+                <span>Browsing as guest. Sign in to send friend requests.</span>
+              </p>
+            )}
           </div>
 
           {/* Search Input Box */}
@@ -111,7 +154,11 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
               className={`mr-2.5 transition-colors shrink-0 ${query ? 'text-primary' : 'text-content-muted'}`}
             />
             <input
-              type="search"
+              type="text"
+              inputMode="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="Search @username (e.g. @alex_study)"
               value={query}
               autoComplete="off"
@@ -126,7 +173,7 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.preventDefault();
               }}
-              className="w-full bg-transparent text-[13.5px] font-medium text-content-primary placeholder:text-content-muted/60 focus:outline-none py-2"
+              className="w-full bg-transparent text-[13.5px] font-medium text-content-primary placeholder:text-content-muted/60 focus:outline-none py-2 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
             />
             {query.length > 0 && (
               <button
@@ -301,19 +348,33 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
                     >
                       Back
                     </button>
-                    <button
-                      type="button"
-                      disabled={sending || !requestNote.trim()}
-                      onClick={() => void handleSendRequest()}
-                      className="flex-1 h-10.5 rounded-[14px] bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-40 cursor-pointer"
-                    >
-                      {sending ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
+                    {!user ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          requestAccountAccess();
+                          setErrorMsg('Please sign in to send companion requests.');
+                        }}
+                        className="flex-1 h-10.5 rounded-[14px] bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer"
+                      >
                         <UserPlus size={16} strokeWidth={2.5} />
-                      )}
-                      <span>Send Request</span>
-                    </button>
+                        <span>Sign in to Connect</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={sending || !requestNote.trim()}
+                        onClick={() => void handleSendRequest()}
+                        className="flex-1 h-10.5 rounded-[14px] bg-primary text-on-primary text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-40 cursor-pointer"
+                      >
+                        {sending ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          <UserPlus size={16} strokeWidth={2.5} />
+                        )}
+                        <span>Send Request</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (

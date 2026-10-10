@@ -5,6 +5,7 @@ import {
   ensureProfileFromAuth,
   fetchProfile,
   resolvePrivateHubUsername,
+  normalizeUsername,
   profileDisplayLabel,
   upsertProfile,
   type Profile,
@@ -85,7 +86,7 @@ export default function HubView({
     () => (user ? resolvePrivateHubUsername(myProfile, user.user_metadata) : null),
     [user, myProfile],
   );
-  const needsUsernameClaim = Boolean(user && !loadingProfile && !resolvedUsername);
+  const needsUsernameClaim = Boolean(user && !loadingProfile && !normalizeUsername(myProfile?.username));
 
   const refreshFriends = useCallback(async () => {
     if (!user) return;
@@ -387,7 +388,13 @@ export default function HubView({
                       const { ok, error } = await upsertProfile({
                         id: user.id,
                         username: draftUsername.toLowerCase().trim(),
-                        display_name: draftUsername.trim(),
+                        display_name:
+                          (typeof user.user_metadata?.full_name === 'string' &&
+                            user.user_metadata.full_name.trim()) ||
+                          draftUsername.trim(),
+                        ...(typeof user.user_metadata?.avatar_url === 'string'
+                          ? { avatar_url: user.user_metadata.avatar_url }
+                          : {}),
                       });
                       if (ok) {
                         const p = await fetchProfile(user.id);

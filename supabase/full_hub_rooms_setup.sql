@@ -32,6 +32,7 @@ begin
 end $$;
 
 grant select, insert, update on table public.profiles to authenticated;
+grant select on table public.profiles to anon;
 
 -- ============================================================================
 -- 2. Friendships Table

@@ -74,7 +74,7 @@ import CommunityHashtagProfileField from './community/CommunityHashtagProfileFie
 import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
-import { fetchProfile, upsertProfile } from '../lib/profiles';
+import { fetchProfile, upsertProfile, usernameFromAuthMetadata } from '../lib/profiles';
 import { fetchCommunityContext } from '../lib/community';
 
 interface Props {
@@ -726,6 +726,9 @@ export default function SettingsSheet({
                             setEditUsername(profile.username || '');
                             setEditBio(profile.bio || '');
                             setEditStatsPrivate(profile.stats_private || false);
+                          } else {
+                            const metaUser = usernameFromAuthMetadata(user.user_metadata);
+                            if (metaUser) setEditUsername(metaUser);
                           }
                           setProfileLoading(false);
                         } else {

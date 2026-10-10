@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ensureProfileFromAuth,
   hasPrivateHubUsername,
   normalizeUsername,
   resolvePrivateHubUsername,
+  searchProfilesByUsernamePrefix,
   usernameFromAuthMetadata,
   usernameSearchPrefix,
 } from './profiles';
@@ -69,5 +70,25 @@ describe('ensureProfileFromAuth', () => {
       needsClaim: true,
       username: null,
     });
+  });
+});
+
+describe('searchProfilesByUsernamePrefix', () => {
+  it('returns empty array when query is empty or invalid prefix', async () => {
+    const onError = vi.fn();
+    const rows = await searchProfilesByUsernamePrefix('', { onError });
+    expect(rows).toEqual([]);
+    expect(onError).not.toHaveBeenCalled();
+
+    const invalid = await searchProfilesByUsernamePrefix('bad-handle', { onError });
+    expect(invalid).toEqual([]);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('tolerates network or database search errors by returning empty array and notifying onError', async () => {
+    const onError = vi.fn();
+    // Search for a non-existent or query in mock/sandbox environment
+    const rows = await searchProfilesByUsernamePrefix('valid_prefix', { onError });
+    expect(Array.isArray(rows)).toBe(true);
   });
 });

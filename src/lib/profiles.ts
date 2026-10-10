@@ -238,23 +238,36 @@ export async function searchProfileByUsername(username: string): Promise<Profile
 
 export async function searchProfilesByUsernamePrefix(
   query: string,
-  options?: { excludeId?: string; limit?: number },
+  options?: {
+    excludeId?: string;
+    limit?: number;
+    onError?: (error: unknown) => void;
+  },
 ): Promise<Profile[]> {
   const prefix = usernameSearchPrefix(query);
   if (!prefix) return [];
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .ilike('username', `${prefix}%`)
-    .order('username', { ascending: true })
-    .limit(options?.limit ?? 8);
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .ilike('username', `${prefix}%`)
+      .order('username', { ascending: true })
+      .limit(options?.limit ?? 8);
 
-  if (error || !data) return [];
-  return (data as Profile[]).filter((row) => {
-    if (!normalizeUsername(row.username)) return false;
-    if (options?.excludeId && row.id === options.excludeId) return false;
-    return true;
-  });
+    if (error) {
+      options?.onError?.(error);
+      return [];
+    }
+    if (!data) return [];
+    return (data as Profile[]).filter((row) => {
+      if (!normalizeUsername(row.username)) return false;
+      if (options?.excludeId && row.id === options.excludeId) return false;
+      return true;
+    });
+  } catch (err) {
+    options?.onError?.(err);
+    return [];
+  }
 }
 
 export async function sendFriendRequest(
