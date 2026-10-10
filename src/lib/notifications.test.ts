@@ -7,6 +7,7 @@ import {
   extractBriefingData,
   getDaysRemaining,
   getDmNotificationId,
+  getGoalEndDate,
   getNotificationPreferences,
   getRoomNotificationId,
   isMentioned,
@@ -242,6 +243,189 @@ describe('notifications library', () => {
       expect(content.largeBody).toBe(content.body);
       expect(content.summaryText).toBe('Daily Morning Briefing');
       expect(content.body).not.toContain(' \n'); // ensures clean \n without trailing space
+    });
+
+    it('only considers root/top-level goals in the hierarchy and ignores child sub-nodes with earlier deadlines', () => {
+      const goalsWithChildren: GoalNode[] = [
+        {
+          id: 'root-1',
+          kind: 'goal',
+          title: 'Main UPSC Exam',
+          startDate: '2026-01-01',
+          endDate: '2026-10-29', // 20 days left from 2026-10-09
+          completed: false,
+          createdAt: 10,
+          children: [
+            {
+              id: 'child-1',
+              kind: 'node',
+              title: 'Sub-chapter 1 Milestone',
+              endDate: '2026-10-14', // 5 days left from 2026-10-09
+              completed: false,
+              createdAt: 12,
+              children: [
+                {
+                  id: 'grandchild-1',
+                  kind: 'node',
+                  title: 'Deep child task',
+                  endDate: '2026-10-10', // 1 day left
+                  completed: false,
+                  createdAt: 14,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const data = extractBriefingData([], goalsWithChildren, 0, 0, '2026-10-09');
+      // activeGoals MUST contain only root-1, NOT child-1 or grandchild-1
+      expect(data.activeGoals).toHaveLength(1);
+      expect(data.activeGoals[0].id).toBe('root-1');
+      expect(data.activeGoals[0].title).toBe('Main UPSC Exam');
+      expect(data.activeGoals[0].daysLeft).toBe(20);
+
+      const content = buildMorningBriefingContent(data);
+      expect(content.body).toContain('🎯 Main UPSC Exam (20 days left)');
+      expect(content.body).not.toContain('Sub-chapter 1 Milestone');
+      expect(content.body).not.toContain('Deep child task');
+    });
+
+    it('features the user-selected root goal when multiple root goals exist', () => {
+      const multipleRootGoals: GoalNode[] = [
+        {
+          id: 'goal-alpha',
+          kind: 'goal',
+          title: 'Goal Alpha (Near Deadline)',
+          endDate: '2026-10-12', // 3 days left
+          completed: false,
+          createdAt: 1,
+          children: [],
+        },
+        {
+          id: 'goal-beta',
+          kind: 'goal',
+          title: 'Goal Beta (Selected Goal)',
+          endDate: '2026-10-24', // 15 days left
+          completed: false,
+          createdAt: 2,
+          children: [],
+        },
+        {
+          id: 'goal-gamma',
+          kind: 'goal',
+          title: 'Goal Gamma (Far Deadline)',
+          endDate: '2026-11-09', // 31 days left
+          completed: false,
+          createdAt: 3,
+          children: [],
+        },
+      ];
+
+      // Default / 'auto' should pick nearest deadline (Goal Alpha)
+      const dataAuto = extractBriefingData([], multipleRootGoals, 0, 0, '2026-10-09', 'auto');
+      expect(dataAuto.activeGoals[0].id).toBe('goal-alpha');
+      const contentAuto = buildMorningBriefingContent(dataAuto, {
+        ...DEFAULT_NOTIFICATION_PREFERENCES.morningBriefing,
+        selectedGoalId: 'auto',
+      });
+      expect(contentAuto.body).toContain('🎯 Goal Alpha (Near Deadline) (3 days left)');
+
+      // Explicit selection: Goal Beta
+      const dataSelected = extractBriefingData([], multipleRootGoals, 0, 0, '2026-10-09', 'goal-beta');
+      expect(dataSelected.activeGoals[0].id).toBe('goal-beta');
+      const contentSelected = buildMorningBriefingContent(dataSelected, {
+        ...DEFAULT_NOTIFICATION_PREFERENCES.morningBriefing,
+        selectedGoalId: 'goal-beta',
+      });
+      expect(contentSelected.body).toContain('🎯 Goal Beta (Selected Goal) (15 days left)');
+      expect(contentSelected.body).not.toContain('Goal Alpha');
+
+      // Fallback: if selected goal is invalid or missing, falls back to nearest deadline
+      const dataFallback = extractBriefingData([], multipleRootGoals, 0, 0, '2026-10-09', 'nonexistent-id');
+      expect(dataFallback.activeGoals[0].id).toBe('goal-alpha');
+      const contentFallback = buildMorningBriefingContent(dataFallback, {
+        ...DEFAULT_NOTIFICATION_PREFERENCES.morningBriefing,
+        selectedGoalId: 'nonexistent-id',
+      });
+      expect(contentFallback.body).toContain('🎯 Goal Alpha (Near Deadline) (3 days left)');
+    });
+
+    it('resolves root goal endDate from child milestone if root has no explicit endDate', () => {
+      const rootWithoutEndDate: GoalNode[] = [
+        {
+          id: 'goal-milestones',
+          kind: 'goal',
+          title: 'Chartered Financial Analyst Exam',
+          completed: false,
+          createdAt: 1,
+          children: [
+            {
+              id: 'phase-1',
+              kind: 'node',
+              title: 'Level 1 Milestone',
+              endDate: '2026-10-19', // 10 days left
+              completed: false,
+              createdAt: 2,
+              children: [],
+            },
+            {
+              id: 'phase-2',
+              kind: 'node',
+              title: 'Final Examination Milestone',
+              endDate: '2026-11-09', // 31 days left (latest milestone)
+              completed: false,
+              createdAt: 3,
+              children: [],
+            },
+          ],
+        },
+      ];
+
+      expect(getGoalEndDate(rootWithoutEndDate[0])).toBe('2026-11-09');
+
+      const data = extractBriefingData([], rootWithoutEndDate, 0, 0, '2026-10-09');
+      expect(data.activeGoals).toHaveLength(1);
+      expect(data.activeGoals[0].id).toBe('goal-milestones');
+      expect(data.activeGoals[0].title).toBe('Chartered Financial Analyst Exam');
+      expect(data.activeGoals[0].daysLeft).toBe(31);
+
+      const content = buildMorningBriefingContent(data);
+      expect(content.body).toContain('🎯 Chartered Financial Analyst Exam (31 days left)');
+      expect(content.body).not.toContain('Level 1 Milestone');
+      expect(content.body).not.toContain('Final Examination Milestone');
+    });
+
+    it('features an active root goal without deadline when explicitly selected by the user', () => {
+      const mixedGoals: GoalNode[] = [
+        {
+          id: 'goal-dated',
+          kind: 'goal',
+          title: 'Dated Target',
+          endDate: '2026-10-15',
+          completed: false,
+          createdAt: 1,
+          children: [],
+        },
+        {
+          id: 'goal-open',
+          kind: 'goal',
+          title: 'Continuous Habit Mastery',
+          completed: false,
+          createdAt: 2,
+          children: [],
+        },
+      ];
+
+      const data = extractBriefingData([], mixedGoals, 0, 0, '2026-10-09', 'goal-open');
+      expect(data.activeGoals[0].id).toBe('goal-open');
+      const content = buildMorningBriefingContent(data, {
+        ...DEFAULT_NOTIFICATION_PREFERENCES.morningBriefing,
+        selectedGoalId: 'goal-open',
+      });
+      expect(content.body).toContain('🎯 Continuous Habit Mastery (In progress)');
+      expect(content.body).not.toContain('Dated Target');
     });
   });
 

@@ -222,12 +222,16 @@ export default function SettingsSheet({
   };
 
   const briefingData = useMemo(() => {
-    return extractBriefingData(tasks, goals, 0, 0);
-  }, [tasks, goals]);
+    return extractBriefingData(tasks, goals, 0, 0, undefined, notifPrefs.morningBriefing.selectedGoalId);
+  }, [tasks, goals, notifPrefs.morningBriefing.selectedGoalId]);
 
   const briefingPreview = useMemo(() => {
     return buildMorningBriefingContent(briefingData, notifPrefs.morningBriefing);
   }, [briefingData, notifPrefs.morningBriefing]);
+
+  const rootGoals = useMemo(() => {
+    return goals.filter((g) => !g.completed);
+  }, [goals]);
 
   const handleSendTestNotification = async () => {
     const granted = await requestNotificationPermission();
@@ -1388,6 +1392,40 @@ export default function SettingsSheet({
                       label="Include goals"
                     />
                   </div>
+
+                  {notifPrefs.morningBriefing.includeGoals && rootGoals.length >= 2 && (
+                    <div className="pt-0.5 pb-1 pl-5 flex items-center justify-between gap-2 border-l-2 border-primary/20 ml-1">
+                      <div>
+                        <span className="text-[11px] font-semibold text-content-primary block">Featured Goal</span>
+                        <span className="text-[10px] text-content-secondary block">Choose which goal to highlight</span>
+                      </div>
+                      <select
+                        aria-label="Featured root goal"
+                        data-testid="featured-goal-select"
+                        value={
+                          notifPrefs.morningBriefing.selectedGoalId &&
+                          rootGoals.some((g) => g.id === notifPrefs.morningBriefing.selectedGoalId)
+                            ? notifPrefs.morningBriefing.selectedGoalId
+                            : 'auto'
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          updateNotifPrefs((p) => ({
+                            ...p,
+                            morningBriefing: { ...p.morningBriefing, selectedGoalId: val },
+                          }));
+                        }}
+                        className="px-2 py-1 bg-base border border-subtle rounded-xl text-xs font-semibold text-content-primary outline-none focus:border-primary max-w-[170px] truncate cursor-pointer"
+                      >
+                        <option value="auto">Automatic (nearest deadline)</option>
+                        {rootGoals.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.title.trim() || 'Untitled Goal'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

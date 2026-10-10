@@ -14,6 +14,7 @@ export interface NotificationPreferences {
     enabled: boolean;
     time: string; // '04:00' (24-hour format HH:mm)
     includeGoals: boolean;
+    selectedGoalId?: string | 'auto';
     includeTodayPlan: boolean;
     includeBacklog: boolean;
     includeStreak: boolean;
@@ -40,6 +41,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     enabled: true,
     time: '04:00',
     includeGoals: true,
+    selectedGoalId: 'auto',
     includeTodayPlan: true,
     includeBacklog: true,
     includeStreak: true,
@@ -104,6 +106,10 @@ export function getNotificationPreferences(): NotificationPreferences {
       morningBriefing: {
         ...DEFAULT_NOTIFICATION_PREFERENCES.morningBriefing,
         ...(parsed.morningBriefing ?? {}),
+        selectedGoalId:
+          typeof parsed.morningBriefing?.selectedGoalId === 'string'
+            ? parsed.morningBriefing.selectedGoalId
+            : DEFAULT_NOTIFICATION_PREFERENCES.morningBriefing.selectedGoalId,
       },
       privateHub: {
         ...DEFAULT_NOTIFICATION_PREFERENCES.privateHub,
@@ -220,33 +226,78 @@ export function getDaysRemaining(endDate: string, today = todayISO()): number {
   return Math.round((endUtc - todayUtc) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Returns the deadline for a root goal. If node.endDate is set, it takes precedence.
+ * Otherwise, checks descendant nodes for the latest uncompleted deadline.
+ */
+export function getGoalEndDate(node: GoalNode): string | undefined {
+  if (node.endDate) return node.endDate;
+  let latestEnd: string | undefined;
+  const walk = (children: GoalNode[]) => {
+    for (const child of children) {
+      if (!child.completed && child.endDate) {
+        if (!latestEnd || child.endDate > latestEnd) {
+          latestEnd = child.endDate;
+        }
+      }
+      if (child.children?.length) {
+        walk(child.children);
+      }
+    }
+  };
+  if (node.children?.length) {
+    walk(node.children);
+  }
+  return latestEnd;
+}
+
 export interface BriefingData {
   todayTasksCount: number;
   openBacklogCount: number;
-  activeGoals: { title: string; daysLeft: number }[];
+  activeGoals: { id: string; title: string; daysLeft: number }[];
   streakCount: number;
   streakBest: number;
 }
 
-export function extractBriefingData(tasks: Task[], goals: GoalNode[], streakCount = 0, streakBest = 0, today = todayISO()): BriefingData {
+export function extractBriefingData(
+  tasks: Task[],
+  goals: GoalNode[],
+  streakCount = 0,
+  streakBest = 0,
+  today = todayISO(),
+  selectedGoalId?: string,
+): BriefingData {
   const todayTasks = tasks.filter((t) => (t.targetDate ? t.targetDate.slice(0, 10) === today : false) && !isBacklogTask(t, today) && !isTaskComplete(t));
   const openBacklog = tasks.filter((t) => isOpenBacklogTask(t, today));
 
-  const activeGoals: { title: string; daysLeft: number }[] = [];
-  const walkGoals = (nodes: GoalNode[]) => {
-    for (const node of nodes) {
-      if (!node.completed && node.endDate) {
-        const daysLeft = getDaysRemaining(node.endDate, today);
-        activeGoals.push({ title: node.title, daysLeft });
-      }
-      if (node.children?.length) {
-        walkGoals(node.children);
+  const activeGoals: { id: string; title: string; daysLeft: number }[] = [];
+  // Only consider root/top-level goals in the hierarchy (i.e. top-level goals in the goal tree, not child sub-nodes)
+  for (const node of goals) {
+    if (!node.completed) {
+      const endDate = getGoalEndDate(node);
+      if (endDate) {
+        const daysLeft = getDaysRemaining(endDate, today);
+        activeGoals.push({ id: node.id, title: node.title, daysLeft });
+      } else if (selectedGoalId && node.id === selectedGoalId) {
+        // User explicitly chose this goal, preserve it even if no deadline is specified
+        activeGoals.push({ id: node.id, title: node.title, daysLeft: Number.NaN });
       }
     }
-  };
-  walkGoals(goals);
+  }
 
-  activeGoals.sort((a, b) => a.daysLeft - b.daysLeft);
+  activeGoals.sort((a, b) => {
+    if (Number.isNaN(a.daysLeft)) return 1;
+    if (Number.isNaN(b.daysLeft)) return -1;
+    return a.daysLeft - b.daysLeft;
+  });
+
+  if (selectedGoalId && selectedGoalId !== 'auto') {
+    const selectedIdx = activeGoals.findIndex((g) => g.id === selectedGoalId);
+    if (selectedIdx > -1) {
+      const [selected] = activeGoals.splice(selectedIdx, 1);
+      activeGoals.unshift(selected);
+    }
+  }
 
   return {
     todayTasksCount: todayTasks.length,
@@ -265,15 +316,24 @@ export function buildMorningBriefingContent(
 
   // Goal countdown
   if (prefs.includeGoals && data.activeGoals.length > 0) {
-    const topGoal = data.activeGoals[0];
-    if (topGoal.daysLeft > 1) {
-      parts.push(`🎯 ${topGoal.title} (${topGoal.daysLeft} days left)`);
-    } else if (topGoal.daysLeft === 1) {
-      parts.push(`🎯 ${topGoal.title} (Deadline tomorrow!)`);
-    } else if (topGoal.daysLeft === 0) {
-      parts.push(`🎯 ${topGoal.title} (Due today!)`);
-    } else {
-      parts.push(`🎯 ${topGoal.title} (${Math.abs(topGoal.daysLeft)}d overdue)`);
+    const selectedId = prefs.selectedGoalId;
+    const topGoal =
+      selectedId && selectedId !== 'auto'
+        ? (data.activeGoals.find((g) => g.id === selectedId) ?? data.activeGoals[0])
+        : data.activeGoals[0];
+
+    if (topGoal) {
+      if (Number.isNaN(topGoal.daysLeft)) {
+        parts.push(`🎯 ${topGoal.title} (In progress)`);
+      } else if (topGoal.daysLeft > 1) {
+        parts.push(`🎯 ${topGoal.title} (${topGoal.daysLeft} days left)`);
+      } else if (topGoal.daysLeft === 1) {
+        parts.push(`🎯 ${topGoal.title} (Deadline tomorrow!)`);
+      } else if (topGoal.daysLeft === 0) {
+        parts.push(`🎯 ${topGoal.title} (Due today!)`);
+      } else {
+        parts.push(`🎯 ${topGoal.title} (${Math.abs(topGoal.daysLeft)}d overdue)`);
+      }
     }
   }
 
@@ -355,10 +415,10 @@ export async function scheduleMorningBriefing(
     return;
   }
 
-  const data = extractBriefingData(tasks, goals, streakCount, streakBest);
+  const data = extractBriefingData(tasks, goals, streakCount, streakBest, todayISO(), prefs.morningBriefing.selectedGoalId);
   const { title, body, largeBody, summaryText } = buildMorningBriefingContent(data, prefs.morningBriefing);
   const nextAt = calculateNextBriefingTime(prefs.morningBriefing.time);
-  const fingerprint = `${prefs.morningBriefing.time}|${nextAt.getTime()}|${title}|${body}`;
+  const fingerprint = `${prefs.morningBriefing.time}|${prefs.morningBriefing.selectedGoalId ?? 'auto'}|${nextAt.getTime()}|${title}|${body}`;
 
   if (!options?.force && lastScheduledBriefingFingerprint === fingerprint) {
     return;
