@@ -35,8 +35,25 @@ export function hasPrivateHubUsername(
 export function resolvePrivateHubUsername(
   profile: Pick<Profile, 'username'> | null | undefined,
   meta?: Record<string, unknown>,
+  userId?: string,
 ): string | null {
-  return normalizeUsername(profile?.username) ?? usernameFromAuthMetadata(meta);
+  const fromProfile = normalizeUsername(profile?.username);
+  if (fromProfile) return fromProfile;
+  const fromMeta = usernameFromAuthMetadata(meta);
+  if (fromMeta) return fromMeta;
+  if (typeof window !== 'undefined') {
+    try {
+      if (userId) {
+        const fromUserStore = normalizeUsername(window.localStorage?.getItem(`youdo_signup_username:${userId}`));
+        if (fromUserStore) return fromUserStore;
+      }
+      const fromPending = normalizeUsername(window.localStorage?.getItem('youdo_pending_signup_claim'));
+      if (fromPending) return fromPending;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
 }
 
 function authDisplayName(meta: Record<string, unknown>): string | null {
@@ -165,31 +182,119 @@ async function syncAuthUsernameMetadata(username: string, avatarUrl?: string): P
   }
 }
 
+const inFlightEnsureProfiles = new Map<
+  string,
+  Promise<{ ok: boolean; needsClaim: boolean; username: string | null; error?: string }>
+>();
+
 /** Create or sync `profiles` after signup/sign-in; repair metadata ↔ profile mismatches. */
 export async function ensureProfileFromAuth(user: {
   id: string;
+  created_at?: string;
   user_metadata?: Record<string, unknown>;
 }): Promise<{ ok: boolean; needsClaim: boolean; username: string | null; error?: string }> {
-  const meta = user.user_metadata ?? {};
-  const metaUsername = usernameFromAuthMetadata(meta);
-  const existing = await fetchProfile(user.id);
-  const profileUsername = normalizeUsername(existing?.username);
+  const running = inFlightEnsureProfiles.get(user.id);
+  if (running) return running;
 
-  if (profileUsername) {
-    if (metaUsername !== profileUsername) {
-      await syncAuthUsernameMetadata(profileUsername, existing?.avatar_url);
+  const promise = (async () => {
+    const meta = user.user_metadata ?? {};
+    const metaUsername = usernameFromAuthMetadata(meta);
+    const existing = await fetchProfile(user.id);
+    const profileUsername = normalizeUsername(existing?.username);
+
+    // If a valid username is already established in public.profiles, maintain it.
+    if (profileUsername) {
+      if (metaUsername !== profileUsername) {
+        await syncAuthUsernameMetadata(profileUsername, existing?.avatar_url);
+      }
+      await syncProfileRowFromAuth(user);
+      return { ok: true, needsClaim: false, username: profileUsername };
     }
-    await syncProfileRowFromAuth(user);
-    return { ok: true, needsClaim: false, username: profileUsername };
-  }
 
-  // If no profiles row exists, do not revive stale metadata into the database;
-  // clear the stale metadata username and require a clean username claim.
-  if (metaUsername) {
-    await syncAuthUsernameMetadata('', existing?.avatar_url);
-  }
+    const candidateUsername =
+      metaUsername ||
+      (typeof window !== 'undefined' ? resolvePrivateHubUsername(null, meta, user.id) : null);
 
-  return { ok: false, needsClaim: true, username: null };
+    if (!candidateUsername) {
+      return { ok: false, needsClaim: true, username: null };
+    }
+
+    // Check if this account has an active signup claim that needs registration in public.profiles.
+    // This covers:
+    // 1. Explicit signup_claim metadata set during AuthGate signUp
+    // 2. A recent signup within the last 30 days that provided a username in auth metadata or signup
+    // 3. A pending registration handle stored in the current browser session
+    const isRecentSignup = Boolean(
+      user.created_at &&
+      Date.now() - new Date(user.created_at).getTime() < 30 * 24 * 60 * 60 * 1000,
+    );
+    const hasLocalPendingClaim =
+      typeof window !== 'undefined' &&
+      Boolean(
+        window.localStorage?.getItem('youdo_pending_signup_claim') === candidateUsername ||
+        window.localStorage?.getItem(`youdo_signup_username:${user.id}`) === candidateUsername,
+      );
+    const isSignupClaim = Boolean(
+      meta.signup_claim === true ||
+      isRecentSignup ||
+      hasLocalPendingClaim,
+    );
+
+    if (isSignupClaim) {
+      const displayName =
+        typeof meta.full_name === 'string' && meta.full_name.trim()
+          ? meta.full_name.trim()
+          : candidateUsername;
+      const avatarUrl = typeof meta.avatar_url === 'string' ? meta.avatar_url : undefined;
+      const result = await upsertProfile({
+        id: user.id,
+        username: candidateUsername,
+        display_name: displayName,
+        bio: existing?.bio ?? '',
+        stats_private: existing?.stats_private ?? false,
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
+      });
+
+      if (result.ok) {
+        if (typeof window !== 'undefined') {
+          try {
+            window.localStorage?.removeItem('youdo_pending_signup_claim');
+            window.localStorage?.removeItem(`youdo_signup_username:${user.id}`);
+          } catch {
+            /* ignore */
+          }
+        }
+        return { ok: true, needsClaim: false, username: candidateUsername };
+      }
+
+      // Check if another concurrent request or previous attempt actually claimed this handle for this user
+      const recheck = await fetchProfile(user.id);
+      if (normalizeUsername(recheck?.username) === candidateUsername) {
+        return { ok: true, needsClaim: false, username: candidateUsername };
+      }
+
+      // Auto-claim failed due to collision with another user or network failure.
+      // Do NOT erase the user's username metadata so it pre-fills the claim draft input.
+      return {
+        ok: false,
+        needsClaim: true,
+        username: null,
+        error: result.error,
+      };
+    }
+
+    // If no profiles row exists and it is not a fresh signup (e.g. wiped database without signup context),
+    // require a clean username claim without auto-registering into the database.
+    // Crucially, preserve candidate metadata so the username gate pre-populates their handle.
+    return { ok: false, needsClaim: true, username: null };
+  })();
+
+  inFlightEnsureProfiles.set(user.id, promise);
+  try {
+    return await promise;
+  } finally {
+    inFlightEnsureProfiles.delete(user.id);
+  }
 }
 
 export async function upsertProfile(profile: Partial<Profile> & { id: string }): Promise<{ ok: boolean; error?: string }> {

@@ -19,7 +19,12 @@ import { assertWorkspaceUnchanged, captureWorkspace, commitWorkspaceReplacement,
 import { useTheme } from '../hooks/useTheme';
 import { APP_VERSION } from '../lib/version';
 import { supabase } from '../lib/supabase';
-import { normalizeUsername } from '../lib/profiles';
+import {
+  ensureProfileFromAuth,
+  normalizeUsername,
+  searchProfileByUsername,
+  upsertProfile,
+} from '../lib/profiles';
 import {
   readOfflineMode,
   readLocalWorkspaceSummary,
@@ -107,23 +112,63 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
         if (error) throw error;
         setMessage({ text: 'If that email belongs to an account, a reset link is on its way.' });
       } else if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
+        if (data.session && data.user) {
+          await ensureProfileFromAuth(data.user);
+        }
       } else {
         const handle = normalizeUsername(username);
         if (!handle) {
           throw new Error('Username must be 3–20 characters: lowercase letters, numbers, and underscores only.');
         }
+
+        const existing = await searchProfileByUsername(handle);
+        if (existing) {
+          throw new Error('That username is already taken. Please choose another.');
+        }
+
+        try {
+          localStorage.setItem('youdo_pending_signup_claim', handle);
+        } catch {
+          /* ignore */
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
-            data: { full_name: fullName.trim() || undefined, username: handle },
+            data: {
+              full_name: fullName.trim() || undefined,
+              username: handle,
+              signup_claim: true,
+            },
             emailRedirectTo: resolveAuthRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL),
           },
         });
         if (error) throw error;
+
+        if (data.session && data.user) {
+          try {
+            localStorage.setItem(`youdo_signup_username:${data.user.id}`, handle);
+          } catch {
+            /* ignore */
+          }
+          await upsertProfile({
+            id: data.user.id,
+            username: handle,
+            display_name: fullName.trim() || handle,
+          });
+        }
+
         if (!data.session) {
+          if (data.user?.id) {
+            try {
+              localStorage.setItem(`youdo_signup_username:${data.user.id}`, handle);
+            } catch {
+              /* ignore */
+            }
+          }
           setMessage({
             text: 'Almost done. Check your inbox and Spam for the YouDO verification email. You cannot sign in until you open its link.',
           });

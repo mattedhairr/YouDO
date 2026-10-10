@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
   AtSign,
@@ -11,7 +11,7 @@ import {
   Sparkles,
   User as UserIcon,
 } from 'lucide-react';
-import { upsertProfile, fetchProfile, type Profile } from '../lib/profiles';
+import { upsertProfile, fetchProfile, resolvePrivateHubUsername, type Profile } from '../lib/profiles';
 
 interface Props {
   user: User;
@@ -26,11 +26,22 @@ export default function PrivateHubUsernameGate({
   onSuccess,
   onSwitchToPublic,
 }: Props) {
-  const [draftUsername, setDraftUsername] = useState(
-    initialDraft.replace(/^@/, '').toLowerCase().trim(),
-  );
+  const [draftUsername, setDraftUsername] = useState(() => {
+    return (
+      initialDraft.replace(/^@/, '').toLowerCase().trim() ||
+      resolvePrivateHubUsername(null, user.user_metadata, user.id) ||
+      ''
+    );
+  });
   const [usernameError, setUsernameError] = useState('');
   const [savingUsername, setSavingUsername] = useState(false);
+
+  useEffect(() => {
+    const cleanInitial = initialDraft.replace(/^@/, '').toLowerCase().trim();
+    if (cleanInitial && !draftUsername) {
+      setDraftUsername(cleanInitial);
+    }
+  }, [initialDraft, draftUsername]);
 
   const cleanHandle = draftUsername.replace(/^@/, '').toLowerCase().trim();
   const isValidFormat = /^[a-z0-9_]{3,20}$/.test(cleanHandle);

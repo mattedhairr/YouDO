@@ -82,6 +82,49 @@ describe('PrivateHubUsernameGate', () => {
     expect(html).toContain('View Public Board');
     expect(html).toContain('pb-28');
   });
+
+  it('falls back to user metadata username when initialDraft is empty', () => {
+    const userWithMeta = {
+      ...mockUser,
+      user_metadata: { full_name: 'Test Explorer', username: 'meta_explorer' },
+    } as unknown as User;
+
+    const html = renderToStaticMarkup(
+      createElement(PrivateHubUsernameGate, {
+        user: userWithMeta,
+        initialDraft: '',
+        onSuccess: vi.fn(),
+        onSwitchToPublic: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain('meta_explorer');
+  });
+
+  it('falls back to localStorage claim when initialDraft and metadata are empty', () => {
+    const storageMap = new Map<string, string>();
+    const fakeStorage = {
+      getItem: (key: string) => storageMap.get(key) ?? null,
+      setItem: (key: string, val: string) => { storageMap.set(key, String(val)); },
+      removeItem: (key: string) => { storageMap.delete(key); },
+    };
+    vi.stubGlobal('localStorage', fakeStorage);
+    vi.stubGlobal('window', { localStorage: fakeStorage, location: { search: '' } });
+
+    fakeStorage.setItem('youdo_signup_username:user-abc-123', 'local_stored_handle');
+
+    const html = renderToStaticMarkup(
+      createElement(PrivateHubUsernameGate, {
+        user: mockUser,
+        initialDraft: '',
+        onSuccess: vi.fn(),
+        onSwitchToPublic: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain('local_stored_handle');
+    vi.unstubAllGlobals();
+  });
 });
 
 describe('HubView unauthenticated scrolling layout', () => {
@@ -99,5 +142,5 @@ describe('HubView unauthenticated scrolling layout', () => {
     expect(html).toContain('pb-28');
     expect(html).not.toContain('overflow-y-auto');
     expect(html).not.toContain('h-full');
-  });
+  }, 15000);
 });

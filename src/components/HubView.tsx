@@ -6,6 +6,7 @@ import {
   fetchProfile,
   normalizeUsername,
   profileDisplayLabel,
+  resolvePrivateHubUsername,
   type Profile,
 } from '../lib/profiles';
 import { Bell, UserPlus, Users, UsersRound, Loader2, Sparkles, X, WifiOff } from 'lucide-react';
@@ -144,8 +145,23 @@ export default function HubView({
 
     setLoadingProfile(true);
     void (async () => {
-      await ensureProfileFromAuth(user);
-      const p = await fetchProfile(user.id);
+      const res = await ensureProfileFromAuth(user);
+      let p = await fetchProfile(user.id);
+      if (!p && res.ok && res.username) {
+        p = await fetchProfile(user.id);
+        if (!p) {
+          p = {
+            id: user.id,
+            username: res.username,
+            display_name:
+              (typeof user.user_metadata?.full_name === 'string'
+                ? user.user_metadata.full_name.trim()
+                : '') || res.username,
+            bio: '',
+            stats_private: false,
+          };
+        }
+      }
       setMyProfile(p);
       void refreshFriends();
       const handle = normalizeUsername(p?.username);
@@ -156,7 +172,8 @@ export default function HubView({
       } else {
         setFriends([]);
         setDmPreviews({});
-        setDraftUsername('');
+        const draft = resolvePrivateHubUsername(null, user.user_metadata, user.id);
+        if (draft) setDraftUsername(draft);
       }
       setLoadingProfile(false);
     })();
