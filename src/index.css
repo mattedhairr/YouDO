@@ -1028,6 +1028,7 @@ html.light-dusky .command-dock-premium {
   transition: border-color 150ms ease, box-shadow 150ms ease;
   min-width: 0;
   box-sizing: border-box;
+  cursor: pointer;
 }
 .board-community-link.has-unread {
   border-color: color-mix(in srgb, var(--secondary) 42%, var(--border-subtle));
@@ -1081,18 +1082,19 @@ html.light-dusky .command-dock-premium {
 }
 .board-community-actions.with-admin {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: stretch;
 }
 .board-admin-link {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-height: 44px;
-  padding: 0 10px;
+  min-width: 82px;
+  padding: 0 12px;
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   background: var(--bg-elevated);
@@ -1101,9 +1103,53 @@ html.light-dusky .command-dock-premium {
   font-weight: 600;
   min-width: 0;
   box-sizing: border-box;
-  transition: border-color 150ms ease, background-color 150ms ease;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 100ms ease;
 }
 .board-admin-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.board-admin-link:active,
+.board-community-link:active {
+  transform: scale(0.985);
+}
+@media (hover: hover) {
+  .board-community-link:hover,
+  .board-admin-link:hover {
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border-subtle));
+    background: color-mix(in srgb, var(--primary-soft) 25%, var(--bg-elevated));
+  }
+}
+@media (max-width: 360px) {
+  .board-community-actions.with-admin {
+    gap: 6px;
+  }
+  .board-community-link {
+    padding-inline: 8px;
+    gap: 6px;
+  }
+  .board-admin-link {
+    padding-inline: 8px;
+    gap: 4px;
+    min-width: 72px;
+  }
+}
+.board-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--warning, #f59e0b);
+  color: #000;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  animation: board-pulse-glow 1.8s ease-in-out infinite;
+}
 .community-shell header { min-height: 72px; }
 .community-shell main { scroll-padding: 16px; }
 .community-room-main { display: flex; flex-direction: column; }

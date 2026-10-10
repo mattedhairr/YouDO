@@ -240,9 +240,13 @@ function EmptyRankSlot({ rank }: { rank: number }) {
 export default function BoardView({
   onOpenBoardSettings,
   onOpenProfile,
+  initialCommunity,
+  initialAdminCounts,
 }: {
   onOpenBoardSettings: () => void;
   onOpenProfile?: (userId: string, row: PaceRow, paceWindow: PaceWindow) => void;
+  initialCommunity?: CommunityContext;
+  initialAdminCounts?: AdminHubCounts;
 }) {
   const { user } = useAuth();
   const { publishPublicPace, syncToCloud, pacePrefs } = useStore();
@@ -257,7 +261,7 @@ export default function BoardView({
   const [anchorISO, setAnchorISO] = useState(todayISO());
   const [communityOpen, setCommunityOpen] = useState(false);
   const [communityStartInAdmin, setCommunityStartInAdmin] = useState(false);
-  const [community, setCommunity] = useState<CommunityContext>(EMPTY_COMMUNITY_CONTEXT());
+  const [community, setCommunity] = useState<CommunityContext>(initialCommunity ?? EMPTY_COMMUNITY_CONTEXT());
   const communityUnreadCount =
     pacePrefs.optedIn && !community.banned
       ? (community.unread?.chat ?? 0) + (community.unread?.updates ?? 0)
@@ -291,7 +295,9 @@ export default function BoardView({
     return () => { cancelled=true;clearInterval(timer);window.removeEventListener('youdo-community-read',refreshUnread);document.removeEventListener('visibilitychange',refreshUnread); };
   },[user]);
 
-  const [adminCounts, setAdminCounts] = useState<AdminHubCounts>({ reports: 0, appeals: 0, hashtagRequests: 0, chatReplies: 0, total: 0 });
+  const [adminCounts, setAdminCounts] = useState<AdminHubCounts>(
+    initialAdminCounts ?? { reports: 0, appeals: 0, hashtagRequests: 0, chatReplies: 0, total: 0 }
+  );
   const prevAdminCounts = useRef<AdminHubCounts | null>(null);
 
   useEffect(() => {
@@ -567,14 +573,14 @@ export default function BoardView({
             <button
               type="button"
               onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }}
-              className="board-admin-link relative"
+              className="board-admin-link"
               aria-label={adminCounts.total > 0 ? `Open community admin, ${adminCounts.total} unreviewed items` : 'Open community admin'}
             >
-              <Gauge size={16} />
+              <Gauge size={16} className="shrink-0" />
               <span>Admin</span>
               {adminCounts.total > 0 && (
                 <span
-                  className="absolute top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-black text-black shadow-sm ring-1 ring-elevated animate-pulse"
+                  className="board-admin-badge"
                   title={`${adminCounts.total} pending admin items`}
                   aria-hidden="true"
                 >
