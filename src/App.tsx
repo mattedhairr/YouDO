@@ -1579,6 +1579,7 @@ function AppInner() {
                 activeTab={hubSubTab}
                 personalPace={streakMeta.barHours}
                 onSwitchToPrivate={() => setHubSubTab('private')}
+                onSwitchToPublic={() => setHubSubTab('social')}
                 pendingCount={hubPrivatePending}
                 refreshPendingCount={refreshHubPrivate}
                 refreshDmInbox={refreshHubDmInbox}

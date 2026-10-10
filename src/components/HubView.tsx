@@ -7,10 +7,9 @@ import {
   resolvePrivateHubUsername,
   normalizeUsername,
   profileDisplayLabel,
-  upsertProfile,
   type Profile,
 } from '../lib/profiles';
-import { Bell, UserPlus, UsersRound, Lock, Loader2, ArrowRight, Users, Sparkles, MessageCircle, X } from 'lucide-react';
+import { Bell, UserPlus, Users, UsersRound, Loader2, Sparkles, X, WifiOff } from 'lucide-react';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import BoardView from './BoardView';
 import type { PaceRow, PaceWindow } from '../lib/paceBoard';
@@ -22,6 +21,8 @@ import CreateRoomSheet from './CreateRoomSheet';
 import SquadRoomSheet from './SquadRoomSheet';
 import DmInboxSheet from './DmInboxSheet';
 import RoomsView from './RoomsView';
+import HubAuthGate from './HubAuthGate';
+import PrivateHubUsernameGate from './PrivateHubUsernameGate';
 import { fetchDmInboxPreviews, type DmInboxPreview } from '../lib/messages';
 import { ProfileAvatarVisual } from '../lib/profileAvatar';
 import { subscribePrivateHubInbox } from '../lib/privateHubSync';
@@ -44,6 +45,7 @@ export default function HubView({
   activeTab = 'social',
   personalPace = 4,
   onSwitchToPrivate,
+  onSwitchToPublic,
   pendingCount = 0,
   refreshPendingCount,
   refreshDmInbox,
@@ -55,6 +57,7 @@ export default function HubView({
   activeTab?: 'social' | 'private';
   personalPace?: number;
   onSwitchToPrivate?: () => void;
+  onSwitchToPublic?: () => void;
   pendingCount?: number;
   refreshPendingCount?: () => void;
   refreshDmInbox?: () => void;
@@ -77,10 +80,22 @@ export default function HubView({
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [draftUsername, setDraftUsername] = useState('');
-  const [usernameError, setUsernameError] = useState('');
-  const [savingUsername, setSavingUsername] = useState(false);
   const [dmPreviews, setDmPreviews] = useState<Record<string, DmInboxPreview>>({});
   const [showPrivateHubIntro, setShowPrivateHubIntro] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const resolvedUsername = useMemo(
     () => (user ? resolvePrivateHubUsername(myProfile, user.user_metadata) : null),
@@ -183,6 +198,25 @@ export default function HubView({
     setShowPrivateHubIntro(false);
   }, [user]);
 
+  if (!user) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex-1 overflow-y-auto">
+          <div key={activeTab} className="hub-screen-transition">
+            <HubAuthGate
+              tab={activeTab}
+              isOffline={!isOnline}
+              onSwitchTab={(target) => {
+                if (target === 'private') onSwitchToPrivate?.();
+                else onSwitchToPublic?.();
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto">
@@ -253,197 +287,121 @@ export default function HubView({
                 </div>
               )}
 
-              {!loadingProfile && !needsUsernameClaim && !notificationsOpen && (
-              <div className="flex items-center justify-between border-b border-subtle pb-3 mb-4">
-                <div className="flex gap-5 px-1">
-                  <button
-                    type="button"
-                    onClick={() => setPrivateSubTab('dms')}
-                    className={`text-[15px] font-semibold transition-colors relative ${
-                      privateSubTab === 'dms' ? 'text-primary' : 'text-content-muted'
-                    }`}
-                  >
-                    <span className="relative inline-flex items-center gap-1.5">
-                      DMs
-                      {showDmsTabDot && (
-                        <span
-                          className="size-[6px] rounded-full bg-primary shrink-0"
-                          aria-label="DMs have new activity"
-                        />
-                      )}
-                    </span>
-                    {privateSubTab === 'dms' && (
-                      <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPrivateSubTab('rooms')}
-                    className={`text-[15px] font-semibold transition-colors relative ${
-                      privateSubTab === 'rooms' ? 'text-primary' : 'text-content-muted'
-                    }`}
-                  >
-                    <span className="relative inline-flex items-center gap-1.5">
-                      Rooms
-                      {showRoomsTabDot && (
-                        <span
-                          className="size-[6px] rounded-full bg-primary shrink-0"
-                          aria-label="Rooms have pending activity"
-                        />
-                      )}
-                    </span>
-                    {privateSubTab === 'rooms' && (
-                      <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
-                    )}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2 sm:gap-3 pr-1 text-content-secondary">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      refreshPendingCount?.();
-                      setNotificationsOpen(true);
-                    }}
-                    className="relative grid place-items-center size-7 rounded-full hover:text-primary transition-colors"
-                    title="Notifications"
-                    aria-label="Notifications"
-                  >
-                    <Bell size={18} strokeWidth={2.2} />
-                    {pendingCount > 0 && (
-                      <span
-                        className="absolute top-1 right-1 size-2 rounded-full bg-error ring-2 ring-[var(--bg-surface)]"
-                        aria-hidden
-                      />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (privateSubTab === 'dms') setAddFriendOpen(true);
-                      else setCreateRoomOpen(true);
-                    }}
-                    className="grid place-items-center size-7 rounded-full bg-primary-soft text-primary hover:bg-primary hover:text-on-primary transition-colors"
-                    title={privateSubTab === 'dms' ? 'Add Friend' : 'Create Room'}
-                    aria-label={privateSubTab === 'dms' ? 'Add friend' : 'Create room'}
-                  >
-                    {privateSubTab === 'dms' ? (
-                      <UserPlus size={15} strokeWidth={2.5} />
-                    ) : (
-                      <UsersRound size={15} strokeWidth={2.5} />
-                    )}
-                  </button>
-                  {privateSubTab === 'dms' && friends.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setFriendsListOpen(true)}
-                      className="h-7 px-2.5 rounded-full border border-subtle bg-elevated/80 text-[10.5px] font-semibold text-content-secondary tabular-nums hover:border-primary/30 hover:text-primary transition-colors"
-                      aria-label={`${friends.length} friends`}
-                    >
-                      {friends.length} {friends.length === 1 ? 'friend' : 'friends'}
-                    </button>
-                  )}
-                </div>
-              </div>
-              )}
-
               {!loadingProfile && needsUsernameClaim ? (
-                <div className="flex-1 flex flex-col justify-center px-4 py-6 max-w-md mx-auto w-full fade-in">
-                  <div className="relative overflow-hidden rounded-[24px] border border-primary/20 bg-gradient-to-b from-primary-soft/40 to-elevated p-6 shadow-elevated mb-6">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/15 to-transparent" />
-                    <div className="relative text-center">
-                      <div className="w-[72px] h-[72px] rounded-[20px] bg-primary text-on-primary flex items-center justify-center mx-auto mb-4 shadow-elevated rotate-3">
-                        <Lock size={34} strokeWidth={2.2} />
-                      </div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Welcome to Private Hub</p>
-                      <h2 className="text-[22px] font-bold text-content-primary mt-2 mb-2">Choose your @handle</h2>
-                      <p className="text-content-secondary text-[13px] leading-relaxed max-w-[280px] mx-auto">
-                        One username unlocks DMs, friend requests, and squad rooms. Your public board ranking stays on the Public side.
-                      </p>
-                    </div>
-                    <ul className="relative mt-5 space-y-2.5 text-left">
-                      {[
-                        { icon: MessageCircle, text: 'Message friends with 24h ephemeral DMs' },
-                        { icon: UsersRound, text: 'Create or join focused squad rooms' },
-                        { icon: Users, text: 'Get found by @username — never your email' },
-                      ].map(({ icon: Icon, text }) => (
-                        <li key={text} className="flex items-start gap-2.5 text-[12px] text-content-secondary">
-                          <Icon size={15} className="shrink-0 mt-0.5 text-primary" strokeWidth={2.3} />
-                          <span>{text}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      if (!draftUsername.trim() || !user) return;
-                      if (!/^[a-z0-9_]+$/.test(draftUsername.toLowerCase())) {
-                        setUsernameError('Letters, numbers, and underscores only.');
-                        return;
-                      }
-                      setSavingUsername(true);
-                      setUsernameError('');
-                      const { ok, error } = await upsertProfile({
-                        id: user.id,
-                        username: draftUsername.toLowerCase().trim(),
-                        display_name:
-                          (typeof user.user_metadata?.full_name === 'string' &&
-                            user.user_metadata.full_name.trim()) ||
-                          draftUsername.trim(),
-                        ...(typeof user.user_metadata?.avatar_url === 'string'
-                          ? { avatar_url: user.user_metadata.avatar_url }
-                          : {}),
-                      });
-                      if (ok) {
-                        const p = await fetchProfile(user.id);
-                        setMyProfile(p);
-                        dismissPrivateHubIntro();
-                        setSavingUsername(false);
-                      } else {
-                        setUsernameError(error || 'Username might be taken!');
-                        setSavingUsername(false);
-                      }
-                    }}
-                    className="space-y-4"
-                  >
-                    <div>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-content-tertiary font-bold">@</span>
-                        <input
-                          type="text"
-                          value={draftUsername}
-                          onChange={(e) => setDraftUsername(e.target.value)}
-                          placeholder="username"
-                          maxLength={20}
-                          className="w-full bg-elevated border-2 border-subtle rounded-2xl py-3 pl-9 pr-4 font-bold text-content-primary focus:border-primary focus:outline-none transition-colors"
-                        />
-                      </div>
-                      {usernameError && (
-                        <p className="text-error text-[13px] mt-2 ml-1 font-medium">{usernameError}</p>
-                      )}
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={savingUsername || !draftUsername.trim()}
-                      className="w-full bg-primary text-on-primary py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-50"
-                    >
-                      {savingUsername ? (
-                        <Loader2 className="animate-spin" size={20} />
-                      ) : (
-                        <>
-                          Continue <ArrowRight size={18} />
-                        </>
-                      )}
-                    </button>
-                  </form>
-                  <p className="text-center text-[11px] text-content-muted mt-4">
-                    Scroll the Hub nav to Public anytime — no username required there.
-                  </p>
-                </div>
+                <PrivateHubUsernameGate
+                  user={user}
+                  initialDraft={draftUsername}
+                  onSuccess={(profile) => {
+                    setMyProfile(profile);
+                    dismissPrivateHubIntro();
+                    void refreshFriends();
+                    refreshPendingCount?.();
+                    void refreshDmPreviews();
+                  }}
+                  onSwitchToPublic={onSwitchToPublic}
+                />
               ) : !loadingProfile ? (
                 <>
+                  {!isOnline && (
+                    <div className="mx-1 mb-3 rounded-2xl border border-warning/30 bg-warning-soft/60 px-3.5 py-2.5 flex items-center gap-2 text-[11.5px] text-warning">
+                      <WifiOff size={15} className="shrink-0" />
+                      <span>You are offline. Reconnect to sync squad rooms, messages, and companion requests.</span>
+                    </div>
+                  )}
+
+                  {!notificationsOpen && (
+                    <div className="flex items-center justify-between border-b border-subtle pb-3 mb-4">
+                      <div className="flex gap-5 px-1">
+                        <button
+                          type="button"
+                          onClick={() => setPrivateSubTab('dms')}
+                          className={`text-[15px] font-semibold transition-colors relative ${
+                            privateSubTab === 'dms' ? 'text-primary' : 'text-content-muted'
+                          }`}
+                        >
+                          <span className="relative inline-flex items-center gap-1.5">
+                            DMs
+                            {showDmsTabDot && (
+                              <span
+                                className="size-[6px] rounded-full bg-primary shrink-0"
+                                aria-label="DMs have new activity"
+                              />
+                            )}
+                          </span>
+                          {privateSubTab === 'dms' && (
+                            <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrivateSubTab('rooms')}
+                          className={`text-[15px] font-semibold transition-colors relative ${
+                            privateSubTab === 'rooms' ? 'text-primary' : 'text-content-muted'
+                          }`}
+                        >
+                          <span className="relative inline-flex items-center gap-1.5">
+                            Rooms
+                            {showRoomsTabDot && (
+                              <span
+                                className="size-[6px] rounded-full bg-primary shrink-0"
+                                aria-label="Rooms have pending activity"
+                              />
+                            )}
+                          </span>
+                          {privateSubTab === 'rooms' && (
+                            <div className="absolute -bottom-[13px] left-0 right-0 h-[2px] bg-primary rounded-t-full" />
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 sm:gap-3 pr-1 text-content-secondary">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            refreshPendingCount?.();
+                            setNotificationsOpen(true);
+                          }}
+                          className="relative grid place-items-center size-7 rounded-full hover:text-primary transition-colors"
+                          title="Notifications"
+                          aria-label="Notifications"
+                        >
+                          <Bell size={18} strokeWidth={2.2} />
+                          {pendingCount > 0 && (
+                            <span
+                              className="absolute top-1 right-1 size-2 rounded-full bg-error ring-2 ring-[var(--bg-surface)]"
+                              aria-hidden
+                            />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (privateSubTab === 'dms') setAddFriendOpen(true);
+                            else setCreateRoomOpen(true);
+                          }}
+                          className="grid place-items-center size-7 rounded-full bg-primary-soft text-primary hover:bg-primary hover:text-on-primary transition-colors"
+                          title={privateSubTab === 'dms' ? 'Add Friend' : 'Create Room'}
+                          aria-label={privateSubTab === 'dms' ? 'Add friend' : 'Create room'}
+                        >
+                          {privateSubTab === 'dms' ? (
+                            <UserPlus size={15} strokeWidth={2.5} />
+                          ) : (
+                            <UsersRound size={15} strokeWidth={2.5} />
+                          )}
+                        </button>
+                        {privateSubTab === 'dms' && friends.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setFriendsListOpen(true)}
+                            className="h-7 px-2.5 rounded-full border border-subtle bg-elevated/80 text-[10.5px] font-semibold text-content-secondary tabular-nums hover:border-primary/30 hover:text-primary transition-colors"
+                            aria-label={`${friends.length} friends`}
+                          >
+                            {friends.length} {friends.length === 1 ? 'friend' : 'friends'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {notificationsOpen ? (
                     <NotificationsView
                       onClose={() => setNotificationsOpen(false)}
