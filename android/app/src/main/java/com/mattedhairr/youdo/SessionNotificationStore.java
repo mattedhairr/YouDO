@@ -129,7 +129,7 @@ final class SessionNotificationStore {
         ensureChannel(ctx);
         String safeTitle = title == null || title.trim().isEmpty() ? "Focus Session" : title.trim();
         long elapsedMs = elapsedFocusMs(sessionObject(ctx), paused);
-        long chronometerBase = SystemClock.elapsedRealtime() - elapsedMs;
+        long chronometerBase = System.currentTimeMillis() - elapsedMs;
 
         android.app.PendingIntent toggleIntent = actionIntent(ctx, paused ? ACTION_RESUME : ACTION_PAUSE);
         NotificationCompat.Action action = new NotificationCompat.Action.Builder(

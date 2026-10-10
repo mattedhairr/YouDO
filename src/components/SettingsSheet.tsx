@@ -678,15 +678,15 @@ export default function SettingsSheet({
         {/* Status Messages */}
         {msg && (
           <div
-            className={`p-3 rounded-2xl text-xs font-bold flex items-center justify-between animate-fade-in ${
+            className={`p-3 rounded-xl text-[12px] font-semibold flex items-start gap-3 animate-fade-in ${
               msg.error
-                ? 'bg-error-soft border border-error/20 text-error'
-                : 'bg-secondary/10 border border-secondary/20 text-secondary'
+                ? "bg-error-soft border border-error/20 text-error"
+                : "bg-secondary/10 border border-secondary/20 text-secondary"
             }`}
           >
-            <span>{msg.text}</span>
-            <button onClick={() => setMsg(null)} className="text-xs opacity-70 hover:opacity-100">
-              ✕
+            <span className="flex-1 leading-relaxed">{msg.text}</span>
+            <button onClick={() => setMsg(null)} className="shrink-0 p-0.5 opacity-60 hover:opacity-100 transition-opacity">
+              <X size={16} />
             </button>
           </div>
         )}

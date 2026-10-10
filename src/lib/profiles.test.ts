@@ -98,7 +98,6 @@ describe('ensureProfileFromAuth', () => {
   });
 
   it('automatically registers profile for fresh signup with signup_claim flag', async () => {
-    let upsertPayload: Record<string, unknown> | null = null;
     vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
@@ -107,8 +106,7 @@ describe('ensureProfileFromAuth', () => {
               single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
             }),
           }),
-          upsert: vi.fn((payload: Record<string, unknown>) => {
-            upsertPayload = payload;
+          upsert: vi.fn(() => {
             return Promise.resolve({ error: null });
           }),
         } as unknown as ReturnType<typeof supabase.from>;
@@ -137,7 +135,6 @@ describe('ensureProfileFromAuth', () => {
   });
 
   it('automatically registers profile for recent signup created within 7 days', async () => {
-    let upsertPayload: Record<string, unknown> | null = null;
     vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
@@ -146,8 +143,7 @@ describe('ensureProfileFromAuth', () => {
               single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
             }),
           }),
-          upsert: vi.fn((payload: Record<string, unknown>) => {
-            upsertPayload = payload;
+          upsert: vi.fn(() => {
             return Promise.resolve({ error: null });
           }),
         } as unknown as ReturnType<typeof supabase.from>;

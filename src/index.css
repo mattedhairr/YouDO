@@ -1022,7 +1022,7 @@ html.light-dusky .command-dock-premium {
 .board-bar-label { text-align: right; font-size: 10px; line-height: 16px; font-variant-numeric: tabular-nums; }
 .board-community-link {
   display: grid; grid-template-columns: 18px minmax(0,1fr) auto;
-  align-items: center; gap: 8px; min-height: 44px; width: 100%; padding: 6px 12px;
+  align-items: center; gap: 8px; min-height: 44px; flex: 1; padding: 6px 12px;
   border: 1px solid var(--border-subtle); border-radius: 12px;
   background: var(--bg-elevated); color: var(--primary); text-align: left;
   transition: border-color 150ms ease, box-shadow 150ms ease;
