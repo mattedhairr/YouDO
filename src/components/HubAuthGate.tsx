@@ -48,7 +48,7 @@ export default function HubAuthGate({ tab, isOffline = false, onSwitchTab }: Pro
         <div className="relative text-center flex flex-col items-center">
           {/* Glowing Icon Shield */}
           <div className="relative mb-4">
-            <div className="size-16 sm:size-18 rounded-[22px] bg-gradient-to-br from-primary to-primary-hover text-on-primary flex items-center justify-center shadow-elevated shadow-primary/30">
+            <div className="size-16 sm:size-20 rounded-[22px] bg-gradient-to-br from-primary to-primary-hover text-on-primary flex items-center justify-center shadow-elevated shadow-primary/30">
               {isSocial ? (
                 <Globe size={30} strokeWidth={2.2} className="text-on-primary" />
               ) : (

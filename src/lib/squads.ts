@@ -524,6 +524,7 @@ export async function fetchIncomingSquadJoinRequests(adminUserId: string): Promi
   }
 
   const { data: squads } = await supabase.from('squads').select('*').in('id', squadIds);
+  (squads ?? []).forEach(normalizeSquadPrivacyInPlace);
   const squadById = new Map((squads ?? []).map((s) => [s.id, s as Squad]));
   const requesterIds = [...new Set(pending.map((p) => p.user_id))];
   const { data: profiles } = await supabase.from('profiles').select('*').in('id', requesterIds);
@@ -560,7 +561,9 @@ export async function fetchDiscoverableSquads(): Promise<Squad[]> {
     console.error('fetchDiscoverableSquads error:', error);
     return [];
   }
-  return (data ?? []) as Squad[];
+  const squads = (data ?? []) as Squad[];
+  squads.forEach(normalizeSquadPrivacyInPlace);
+  return squads;
 }
 
 export async function requestJoinSquad(

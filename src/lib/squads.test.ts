@@ -5,6 +5,7 @@ import {
   squadPaceGateMessage,
   createSquad,
   updateSquadPrivacy,
+  fetchDiscoverableSquads,
   type Squad,
   type SquadPrivacy,
 } from './squads';
@@ -235,6 +236,28 @@ describe('createSquad & updateSquadPrivacy check constraint graceful recovery', 
     expect(updates).toHaveLength(2);
     expect(updates[0].privacy).toBe('invite_only');
     expect(updates[1].privacy).toBe('private');
+  });
+
+  it('fetchDiscoverableSquads normalizes legacy public and private to anyone_can_join and invite_only', async () => {
+    vi.spyOn(supabase, 'rpc').mockImplementation((fn: string) => {
+      if (fn === 'discover_squads') {
+        return Promise.resolve({
+          data: [
+            { id: 'sq-legacy-1', name: 'Legacy Public Squad', privacy: 'public' },
+            { id: 'sq-legacy-2', name: 'Legacy Private Squad', privacy: 'private' },
+            { id: 'sq-modern-3', name: 'Modern Squad', privacy: 'anyone_can_join' },
+          ],
+          error: null,
+        }) as unknown as ReturnType<typeof supabase.rpc>;
+      }
+      return Promise.resolve({ data: null, error: null }) as unknown as ReturnType<typeof supabase.rpc>;
+    });
+
+    const squads = await fetchDiscoverableSquads();
+    expect(squads).toHaveLength(3);
+    expect(squads[0].privacy).toBe('anyone_can_join');
+    expect(squads[1].privacy).toBe('invite_only');
+    expect(squads[2].privacy).toBe('anyone_can_join');
   });
 });
 

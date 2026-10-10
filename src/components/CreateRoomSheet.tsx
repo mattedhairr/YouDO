@@ -291,7 +291,15 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
               <Search size={16} className="absolute left-3.5 top-3.5 text-content-muted pointer-events-none" />
               <input
                 type="search"
-                placeholder="@friend_handle to invite"
+                name="room_invite_search"
+                id="room_invite_search_query"
+                data-protonpass-ignore="true"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                data-bwignore="true"
+                data-form-type="other"
+                autoComplete="off"
+                placeholder="Search friend handle (e.g. @alex)..."
                 value={searchQuery}
                 disabled={selectedInvites.length >= 3}
                 onChange={(e) => setSearchQuery(e.target.value)}

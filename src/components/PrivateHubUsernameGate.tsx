@@ -92,7 +92,7 @@ export default function PrivateHubUsernameGate({
         <div className="relative text-center flex flex-col items-center">
           {/* Glowing Icon Container */}
           <div className="relative mb-4">
-            <div className="size-16 sm:size-18 rounded-[22px] bg-gradient-to-br from-primary to-primary-hover text-on-primary flex items-center justify-center shadow-elevated shadow-primary/30">
+            <div className="size-16 sm:size-20 rounded-[22px] bg-gradient-to-br from-primary to-primary-hover text-on-primary flex items-center justify-center shadow-elevated shadow-primary/30">
               <AtSign size={32} strokeWidth={2.4} className="text-on-primary" />
             </div>
             <div className="absolute -bottom-1 -right-1 size-6 rounded-full bg-elevated border-2 border-surface flex items-center justify-center text-primary shadow-xs">

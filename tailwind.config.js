@@ -42,6 +42,9 @@ export default {
       borderColor: {
         DEFAULT: 'var(--border)',
         'subtle': 'var(--border-subtle)',
+        'surface': 'var(--bg-surface)',
+        'base': 'var(--bg-base)',
+        'elevated': 'var(--bg-elevated)',
       },
       boxShadow: {
         'card': 'var(--shadow-card)',

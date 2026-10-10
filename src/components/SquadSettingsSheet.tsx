@@ -224,7 +224,14 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
                 <Search size={16} className="absolute left-3.5 top-3.5 text-content-muted pointer-events-none" />
                 <input
                   type="search"
-                  placeholder="@friend_handle"
+                  name="squad_invite_search"
+                  id="squad_invite_search_query"
+                  data-protonpass-ignore="true"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
+                  placeholder="Search friend handle (e.g. @alex)..."
                   value={search}
                   autoComplete="off"
                   enterKeyHint="search"

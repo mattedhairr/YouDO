@@ -1079,7 +1079,7 @@ html.light-dusky .command-dock-premium {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding-inline: 1px;
+  padding-inline: 2px;
 }
 .board-community-actions.with-admin {
   display: grid;
@@ -1105,6 +1105,7 @@ html.light-dusky .command-dock-premium {
   white-space: nowrap;
   overflow: hidden;
   cursor: pointer;
+  flex-shrink: 0;
   transition: border-color 150ms ease, background-color 150ms ease, transform 100ms ease;
 }
 .board-admin-link.has-unread {
@@ -1147,7 +1148,7 @@ html.light-dusky .command-dock-premium {
   border-radius: 999px;
   background: color-mix(in srgb, var(--primary) 12%, transparent);
   color: var(--primary);
-  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  border: none;
   font-size: 9.5px;
   font-weight: 700;
   line-height: 1;

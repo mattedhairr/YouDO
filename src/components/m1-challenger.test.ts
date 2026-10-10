@@ -97,6 +97,10 @@ describe('Milestone 1 Empirical Challenger — UI Components & Flow Verification
       expect(html).toContain('Anyone can join');
       expect(html).toContain('Invite-only');
       expect(html).toContain('0/3 selected');
+      expect(html).toContain('data-protonpass-ignore="true"');
+      expect(html).toContain('data-1p-ignore="true"');
+      expect(html).toContain('name="room_invite_search"');
+      expect(html).toContain('placeholder="Search friend handle (e.g. @alex)..."');
     });
 
     it('1.2: Returns null when open is false', () => {
@@ -394,6 +398,10 @@ describe('Milestone 1 Empirical Challenger — UI Components & Flow Verification
       expect(html).toContain('@ada_coder');
       expect(html).toContain('Admin');
       expect(html).toContain('Members (2/4)');
+      expect(html).toContain('data-protonpass-ignore="true"');
+      expect(html).toContain('data-1p-ignore="true"');
+      expect(html).toContain('name="squad_invite_search"');
+      expect(html).toContain('placeholder="Search friend handle (e.g. @alex)..."');
     });
 
     it('3.2: Non-admin member renders read-only privacy indicator without admin controls', () => {
