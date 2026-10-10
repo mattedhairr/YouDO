@@ -503,7 +503,7 @@ export default function SettingsSheet({
             ref={tabBarRef}
             role="tablist"
             aria-label="Settings categories"
-            className="relative flex items-center gap-1 overflow-x-auto overscroll-x-contain no-scrollbar scroll-smooth p-1 bg-surface/90 rounded-2xl border border-subtle/80 shadow-inner"
+            className="relative flex items-center gap-1 overflow-x-auto overscroll-x-contain no-scrollbar scroll-smooth touch-pan-x p-1 bg-surface/90 rounded-2xl border border-subtle/80 shadow-inner"
           >
             {tabs.map((tab, idx) => {
               const isActive = activeTab === tab.id;
@@ -522,7 +522,7 @@ export default function SettingsSheet({
                   tabIndex={isActive ? 0 : -1}
                   onKeyDown={(e) => handleTabKeyDown(e, idx)}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`shrink-0 flex-none px-3.5 py-1.5 rounded-xl text-[12px] font-bold tracking-tight whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
+                  className={`shrink-0 flex-none px-3.5 py-1.5 rounded-xl text-[12px] tracking-tight whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
                     isActive
                       ? 'bg-primary text-on-primary shadow-sm shadow-primary/25 font-bold'
                       : 'text-content-secondary hover:text-content-primary hover:bg-white/5 font-semibold'

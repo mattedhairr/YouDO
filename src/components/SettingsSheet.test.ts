@@ -163,6 +163,14 @@ describe('SettingsSheet Tab Navigation System', () => {
 
     expect(html).toContain('shrink-0 flex-none px-3.5 py-1.5');
     expect(html).not.toContain('flex-1 min-w-fit');
+    expect(html).not.toMatch(/id="settings-tab-account"[^>]*class="[^"]*flex-1[^"]*"/);
+
+    // Active tab (Account) has font-bold and bg-primary
+    expect(html).toMatch(/id="settings-tab-account"[^>]*class="[^"]*bg-primary[^"]*font-bold[^"]*"/);
+
+    // Inactive tab (Preferences) has font-semibold and no font-bold
+    expect(html).toMatch(/id="settings-tab-preferences"[^>]*class="[^"]*font-semibold[^"]*"/);
+    expect(html).not.toMatch(/id="settings-tab-preferences"[^>]*class="[^"]*font-bold[^"]*"/);
   });
 
   it('defaults to the Account tab being selected and its panel visible', () => {
@@ -323,11 +331,12 @@ describe('SettingsSheet Tab Navigation System', () => {
     expect(html).toMatch(/id="settings-panel-about"[^>]*hidden=""[^>]*tabindex="-1"/);
   });
 
-  it('renders tab strip with mobile gesture overscroll containment', () => {
+  it('renders tab strip with mobile gesture overscroll containment and touch pan', () => {
     const html = renderToStaticMarkup(
       createElement(SettingsSheet, defaultProps)
     );
 
     expect(html).toContain('overscroll-x-contain');
+    expect(html).toContain('touch-pan-x');
   });
 });

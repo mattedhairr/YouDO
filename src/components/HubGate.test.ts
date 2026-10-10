@@ -83,3 +83,21 @@ describe('PrivateHubUsernameGate', () => {
     expect(html).toContain('pb-28');
   });
 });
+
+describe('HubView unauthenticated scrolling layout', () => {
+  it('renders unauthenticated gate in naturally flowing w-full container without trapping overflow', async () => {
+    const HubView = (await import('./HubView')).default;
+    const html = renderToStaticMarkup(
+      createElement(HubView, {
+        onOpenBoardSettings: vi.fn(),
+        activeTab: 'social',
+      }),
+    );
+
+    expect(html).toContain('w-full');
+    expect(html).toContain('Join the Global Focus Board');
+    expect(html).toContain('pb-28');
+    expect(html).not.toContain('overflow-y-auto');
+    expect(html).not.toContain('h-full');
+  });
+});
