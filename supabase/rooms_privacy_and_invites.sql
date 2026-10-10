@@ -51,6 +51,7 @@ grant select, insert, update, delete on table public.squad_members to authentica
 -- ============================================================================
 
 -- Check if user is either an accepted member OR an invited user of a squad
+drop function if exists public.is_squad_member_or_invited(uuid, uuid) cascade;
 create or replace function public.is_squad_member_or_invited(p_squad_id uuid, p_user_id uuid)
 returns boolean
 language sql
@@ -70,6 +71,7 @@ revoke all on function public.is_squad_member_or_invited(uuid, uuid) from public
 grant execute on function public.is_squad_member_or_invited(uuid, uuid) to authenticated;
 
 -- Check if user is an accepted member of a squad
+drop function if exists public.is_accepted_squad_member(uuid, uuid) cascade;
 create or replace function public.is_accepted_squad_member(p_squad_id uuid, p_user_id uuid)
 returns boolean
 language sql
@@ -89,6 +91,7 @@ revoke all on function public.is_accepted_squad_member(uuid, uuid) from public, 
 grant execute on function public.is_accepted_squad_member(uuid, uuid) to authenticated;
 
 -- Check if user is an admin of a squad
+drop function if exists public.is_squad_admin(uuid, uuid) cascade;
 create or replace function public.is_squad_admin(p_squad_id uuid, p_user_id uuid)
 returns boolean
 language sql
@@ -164,6 +167,7 @@ create policy "Users can join squads" on public.squad_members for insert with ch
 -- 4. RPC Functions (Discover & Username Invites)
 -- ============================================================================
 
+drop function if exists public.discover_squads() cascade;
 create or replace function public.discover_squads()
 returns setof public.squads
 language sql
@@ -186,6 +190,7 @@ $$;
 revoke all on function public.discover_squads() from public, anon;
 grant execute on function public.discover_squads() to authenticated;
 
+drop function if exists public.my_pending_squad_joins() cascade;
 create or replace function public.my_pending_squad_joins()
 returns setof public.squads
 language sql
@@ -203,6 +208,7 @@ $$;
 revoke all on function public.my_pending_squad_joins() from public, anon;
 grant execute on function public.my_pending_squad_joins() to authenticated;
 
+drop function if exists public.invite_to_squad_by_username(uuid, text) cascade;
 create or replace function public.invite_to_squad_by_username(
   p_squad_id uuid,
   p_username text

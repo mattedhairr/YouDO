@@ -145,6 +145,7 @@ alter table public.squad_messages enable row level security;
 -- ============================================================================
 -- 8. Security Definer Helper Functions
 -- ============================================================================
+drop function if exists public.is_accepted_squad_member(uuid, uuid) cascade;
 create or replace function public.is_accepted_squad_member(p_squad_id uuid, p_user_id uuid)
 returns boolean language sql security definer stable set search_path = public as $$
   select exists (
@@ -156,6 +157,7 @@ $$;
 revoke all on function public.is_accepted_squad_member(uuid, uuid) from public, anon;
 grant execute on function public.is_accepted_squad_member(uuid, uuid) to authenticated;
 
+drop function if exists public.is_squad_admin(uuid, uuid) cascade;
 create or replace function public.is_squad_admin(p_squad_id uuid, p_user_id uuid)
 returns boolean language sql security definer stable set search_path = public as $$
   select exists (
@@ -167,6 +169,7 @@ $$;
 revoke all on function public.is_squad_admin(uuid, uuid) from public, anon;
 grant execute on function public.is_squad_admin(uuid, uuid) to authenticated;
 
+drop function if exists public.is_squad_member_or_invited(uuid, uuid) cascade;
 create or replace function public.is_squad_member_or_invited(p_squad_id uuid, p_user_id uuid)
 returns boolean language sql security definer stable set search_path = public as $$
   select exists (
@@ -319,6 +322,7 @@ create policy "Senders can delete own squad messages" on public.squad_messages f
 -- 10. RPC Functions (Discover & Username Invites)
 -- ============================================================================
 
+drop function if exists public.discover_squads() cascade;
 create or replace function public.discover_squads()
 returns setof public.squads
 language sql
@@ -341,6 +345,7 @@ $$;
 revoke all on function public.discover_squads() from public, anon;
 grant execute on function public.discover_squads() to authenticated;
 
+drop function if exists public.my_pending_squad_joins() cascade;
 create or replace function public.my_pending_squad_joins()
 returns setof public.squads
 language sql
@@ -358,6 +363,7 @@ $$;
 revoke all on function public.my_pending_squad_joins() from public, anon;
 grant execute on function public.my_pending_squad_joins() to authenticated;
 
+drop function if exists public.invite_to_squad_by_username(uuid, text) cascade;
 create or replace function public.invite_to_squad_by_username(
   p_squad_id uuid,
   p_username text
@@ -422,6 +428,7 @@ grant execute on function public.invite_to_squad_by_username(uuid, text) to auth
 -- 11. Board Name Removal & Profile Display Name Sync
 -- ============================================================================
 
+drop function if exists public.sync_profile_name_to_public_pace() cascade;
 create or replace function public.sync_profile_name_to_public_pace()
 returns trigger
 language plpgsql
@@ -442,6 +449,7 @@ create trigger trg_sync_profile_name_to_public_pace
   after insert or update of display_name on public.profiles
   for each row execute function public.sync_profile_name_to_public_pace();
 
+drop function if exists public.sync_public_pace_name_from_profile() cascade;
 create or replace function public.sync_public_pace_name_from_profile()
 returns trigger
 language plpgsql
@@ -477,6 +485,7 @@ where p.user_id = pr.id
   and p.display_name is distinct from pr.display_name;
 
 -- Update board_pace_rows(board_timezone text) to join profiles directly
+drop function if exists public.board_pace_rows(text) cascade;
 create or replace function public.board_pace_rows(board_timezone text)
 returns table(
   user_id uuid, display_name text, exam_label text, hashtag_id uuid, hashtag_label text,
@@ -530,6 +539,7 @@ grant execute on function public.board_pace_rows(text) to authenticated;
 -- ============================================================================
 -- 12. 24-Hour Message Pruning Integration
 -- ============================================================================
+drop function if exists public.prune_community_history() cascade;
 create or replace function public.prune_community_history()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
