@@ -198,27 +198,24 @@ export default function HubView({
 
   if (!user) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div key={activeTab} className="hub-screen-transition overflow-x-hidden">
-            <HubAuthGate
-              tab={activeTab}
-              isOffline={!isOnline}
-              onSwitchTab={(target) => {
-                if (target === 'private') onSwitchToPrivate?.();
-                else onSwitchToPublic?.();
-              }}
-            />
-          </div>
+      <div className="w-full">
+        <div key={activeTab} className="hub-screen-transition overflow-x-hidden">
+          <HubAuthGate
+            tab={activeTab}
+            isOffline={!isOnline}
+            onSwitchTab={(target) => {
+              if (target === 'private') onSwitchToPrivate?.();
+              else onSwitchToPublic?.();
+            }}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div key={activeTab} className="hub-screen-transition overflow-x-hidden">
+    <div className="w-full">
+      <div key={activeTab} className="hub-screen-transition overflow-x-hidden">
           {activeTab === 'social' ? (
             <>
               {showPrivateHubIntro && needsUsernameClaim && (
@@ -530,7 +527,6 @@ export default function HubView({
             </div>
           )}
         </div>
-      </div>
 
       <UserProfileSheet
         userId={profileUserId}

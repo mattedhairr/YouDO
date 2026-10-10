@@ -156,6 +156,15 @@ describe('SettingsSheet Tab Navigation System', () => {
     expect(html).toContain('About');
   });
 
+  it('renders tab buttons with shrink-0 and flex-none to prevent label overlapping', () => {
+    const html = renderToStaticMarkup(
+      createElement(SettingsSheet, defaultProps)
+    );
+
+    expect(html).toContain('shrink-0 flex-none px-3.5 py-1.5');
+    expect(html).not.toContain('flex-1 min-w-fit');
+  });
+
   it('defaults to the Account tab being selected and its panel visible', () => {
     const html = renderToStaticMarkup(
       createElement(SettingsSheet, defaultProps)

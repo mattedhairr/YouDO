@@ -522,7 +522,7 @@ export default function SettingsSheet({
                   tabIndex={isActive ? 0 : -1}
                   onKeyDown={(e) => handleTabKeyDown(e, idx)}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`flex-1 min-w-fit px-3 py-1.5 rounded-xl text-[12px] font-bold tracking-tight whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
+                  className={`shrink-0 flex-none px-3.5 py-1.5 rounded-xl text-[12px] font-bold tracking-tight whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
                     isActive
                       ? 'bg-primary text-on-primary shadow-sm shadow-primary/25 font-bold'
                       : 'text-content-secondary hover:text-content-primary hover:bg-white/5 font-semibold'

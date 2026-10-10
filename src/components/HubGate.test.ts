@@ -20,6 +20,7 @@ describe('HubAuthGate', () => {
     expect(html).toContain('Global &amp; Periodic Leaderboards');
     expect(html).toContain('Sign In or Create Account');
     expect(html).toContain('Switch to Private Hub');
+    expect(html).toContain('pb-28');
   });
 
   it('renders Private Hub gate with squad rooms and companion DMs highlights', () => {
@@ -79,5 +80,6 @@ describe('PrivateHubUsernameGate', () => {
     expect(html).toContain('Test Explorer (explorer@example.com)');
     expect(html).toContain('Claim Username &amp; Enter');
     expect(html).toContain('View Public Board');
+    expect(html).toContain('pb-28');
   });
 });

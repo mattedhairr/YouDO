@@ -37,7 +37,7 @@ export default function HubAuthGate({ tab, isOffline = false, onSwitchTab }: Pro
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-lg mx-auto w-full select-none animate-fadeIn">
+    <div className="flex-1 flex flex-col items-center justify-center px-4 pt-4 pb-28 max-w-lg mx-auto w-full select-none animate-fadeIn">
       {/* Outer Glow Card */}
       <div className="relative w-full rounded-[28px] border border-primary/25 bg-gradient-to-b from-primary-soft/30 via-elevated/95 to-surface/90 p-6 sm:p-8 shadow-elevated overflow-hidden backdrop-blur-md">
         {/* Ambient Top Glow Orbs */}
