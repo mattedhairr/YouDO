@@ -84,6 +84,7 @@ interface TabItem {
   label: string;
   icon: typeof ShieldCheck;
   badge?: boolean;
+  badgeLabel?: string;
 }
 
 interface Props {
@@ -166,6 +167,7 @@ export default function SettingsSheet({
   const [highlightBoard, setHighlightBoard] = useState(focusSection === 'public-board');
   const contentRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<SettingsTab, HTMLButtonElement | null>>>({});
+  const tabBarRef = useRef<HTMLDivElement>(null);
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -358,11 +360,14 @@ export default function SettingsSheet({
 
   useEffect(() => {
     if (open && activeTab && !trashOpen) {
-      tabRefs.current[activeTab]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
-      });
+      const btn = tabRefs.current[activeTab];
+      const bar = tabBarRef.current;
+      if (btn && bar) {
+        const left = btn.offsetLeft - (bar.clientWidth - btn.clientWidth) / 2;
+        if (typeof bar.scrollTo === 'function') {
+          bar.scrollTo({ left, behavior: 'smooth' });
+        }
+      }
     }
   }, [open, activeTab, trashOpen]);
 
@@ -372,6 +377,7 @@ export default function SettingsSheet({
       label: 'Account',
       icon: ShieldCheck,
       badge: Boolean(cloudSyncConflict),
+      badgeLabel: 'Sync conflict requires review',
     },
     {
       id: 'preferences',
@@ -393,11 +399,15 @@ export default function SettingsSheet({
       label: 'About',
       icon: Info,
       badge: Boolean(availableUpdate),
+      badgeLabel: 'App update available',
     },
   ], [cloudSyncConflict, availableUpdate]);
 
   const handleTabClick = (tabId: SettingsTab) => {
-    if (tabId === activeTab) return;
+    if (tabId === activeTab) {
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     hapticTick();
     setActiveTab(tabId);
     contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -490,13 +500,15 @@ export default function SettingsSheet({
       {!trashOpen && (
         <div className="settings-tab-bar shrink-0 px-3 pt-2 pb-2.5 bg-elevated/95 backdrop-blur-md border-b border-subtle">
           <div
+            ref={tabBarRef}
             role="tablist"
             aria-label="Settings categories"
-            className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth p-1 bg-surface/90 rounded-2xl border border-subtle/80 shadow-inner"
+            className="relative flex items-center gap-1 overflow-x-auto overscroll-x-contain no-scrollbar scroll-smooth p-1 bg-surface/90 rounded-2xl border border-subtle/80 shadow-inner"
           >
             {tabs.map((tab, idx) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
+              const accessibleLabel = tab.badge && tab.badgeLabel ? `${tab.label}, ${tab.badgeLabel}` : tab.label;
               return (
                 <button
                   key={tab.id}
@@ -504,6 +516,7 @@ export default function SettingsSheet({
                   type="button"
                   role="tab"
                   id={`settings-tab-${tab.id}`}
+                  aria-label={accessibleLabel}
                   aria-selected={isActive}
                   aria-controls={`settings-panel-${tab.id}`}
                   tabIndex={isActive ? 0 : -1}
@@ -621,7 +634,9 @@ export default function SettingsSheet({
           role="tabpanel"
           id="settings-panel-account"
           aria-labelledby="settings-tab-account"
-          className={activeTab === 'account' ? 'space-y-5 fade-in' : 'hidden'}
+          hidden={activeTab !== 'account'}
+          tabIndex={activeTab === 'account' ? 0 : -1}
+          className={activeTab === 'account' ? 'space-y-5 fade-in outline-none' : 'hidden'}
         >
           {/* ── SECTION 1: ACCOUNT & SYNC ── */}
           <section>
@@ -1596,191 +1611,233 @@ export default function SettingsSheet({
         </section>
       </div>
 
-      {/* ── TAB PANEL: BOARD ── */}
+      {/* ── TAB PANEL: PREFERENCES ── */}
       <div
         role="tabpanel"
-        id="settings-panel-board"
-        aria-labelledby="settings-tab-board"
-        className={activeTab === 'board' ? 'space-y-5 fade-in' : 'hidden'}
+        id="settings-panel-preferences"
+        aria-labelledby="settings-tab-preferences"
+        hidden={activeTab !== 'preferences'}
+        tabIndex={activeTab === 'preferences' ? 0 : -1}
+        className={activeTab === 'preferences' ? 'space-y-5 fade-in outline-none' : 'hidden'}
       >
-        {/* ── SECTION 2: FOCUS & LEADERBOARD ── */}
-        <section
-          ref={publicBoardRef}
-          className={
-            highlightBoard
-              ? 'rounded-2xl ring-2 ring-primary ring-offset-2 ring-offset-base transition-all duration-700'
-              : ''
-          }
-        >
-          <SectionLabel icon={<Flame size={13} className="text-primary" />}>FOCUS &amp; LEADERBOARD</SectionLabel>
+        {/* ── SECTION 4: APPEARANCE & EXPERIENCE ── */}
+        <section>
+          <SectionLabel icon={<Sparkles size={13} className="text-secondary" />}>APPEARANCE &amp; EXPERIENCE</SectionLabel>
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                  {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs font-semibold text-content-primary">Theme</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Dark or Light look</p>
+                </div>
+              </div>
 
-          {/* Daily streak bar card */}
-          <div className="settings-card settings-focus-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mb-2.5">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <Flame size={16} />
+              {/* Segmented Switch Control */}
+              <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setTheme({ darkMode: true })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    theme.darkMode
+                      ? 'bg-primary text-on-primary'
+                      : 'text-content-secondary hover:text-content-primary'
+                  }`}
+                >
+                  <Moon size={12} /> Dark
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme({ darkMode: false })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    !theme.darkMode
+                      ? 'bg-primary text-on-primary'
+                      : 'text-content-secondary hover:text-content-primary'
+                  }`}
+                >
+                  <Sun size={12} /> Light
+                </button>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xs font-semibold text-content-primary">Daily streak bar</h3>
-                  <button
-                    type="button"
-                    onClick={() => setStreakBarHelpOpen((v) => !v)}
-                    className={`p-1.5 rounded-lg shrink-0 transition ${
-                      streakBarHelpOpen
-                        ? 'bg-primary-soft text-primary'
-                        : 'text-content-secondary hover:text-content-primary hover:bg-base'
-                    }`}
-                    title="How streaks work"
-                    aria-label="How streaks work"
-                    aria-expanded={streakBarHelpOpen}
-                  >
-                    <Info size={15} />
-                  </button>
+            </div>
+
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                  <Smartphone size={16} />
                 </div>
-                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
-                  Minimum focus per day to keep your streak. Syncs with cloud.
-                </p>
-                {streakBarHelpOpen && (
-                  <div className="mt-2.5 bg-base border border-subtle rounded-[12px] p-3 space-y-2 text-[11.5px] text-content-secondary leading-relaxed">
-                    <p>
-                      <span className="font-semibold text-content-primary">Keep it:</span> Hit this much net focus
-                      each day. Paused time does not count.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-content-primary">Miss a day:</span> You have{' '}
-                      <span className="font-semibold text-content-primary">1 day</span> to restore.
-                    </p>
-                    <p>
-                      Had overdue tasks in Backlog? Finish every task marked{' '}
-                      <span className="text-primary font-semibold">Save streak</span> (frozen backlog plus today’s
-                      scheduled work, including tasks you add today), then hit this bar once.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-content-primary">No backlog?</span> Hit{' '}
-                      <span className="font-semibold text-content-primary">1.5×</span> this bar once that day (6h bar
-                      → 9h). That restores the streak.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-content-primary">Range:</span> 30 minutes to 10 hours.
-                    </p>
-                  </div>
-                )}
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-[11px] font-semibold text-content-muted uppercase tracking-wider">
-                    Hours
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Decrease streak bar"
-                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
-                      disabled={streakBarHours <= MIN_STREAK_BAR_HOURS}
-                      onClick={() => {
-                        hapticTick();
-                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours - 0.5));
-                      }}
-                    >
-                      −
-                    </button>
-                    <span className="tabular-nums text-sm font-semibold text-content-primary w-12 text-center">
-                      {streakBarHours}h
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Increase streak bar"
-                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
-                      disabled={streakBarHours >= MAX_STREAK_BAR_HOURS}
-                      onClick={() => {
-                        hapticTick();
-                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours + 0.5));
-                      }}
-                    >
-                      +
-                    </button>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs font-semibold text-content-primary">Haptic Feedback</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Distinct cues for meaningful actions</p>
                 </div>
               </div>
+
+              <Toggle checked={hapticsEnabled} onChange={toggleHaptics} label="Haptic feedback" />
+            </div>
+
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-secondary-soft flex items-center justify-center text-secondary shrink-0">
+                  <Sparkles size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs font-semibold text-content-primary">Reduced Effects</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Less motion and blur. Same features.</p>
+                </div>
+              </div>
+              <Toggle checked={reducedEffects} onChange={() => setReducedEffects(!reducedEffects)} label="Reduced effects" />
             </div>
           </div>
+        </section>
 
-          {/* Public Board Participation Card */}
-          <div className="settings-card settings-board-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <TrendingUp size={16} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
-                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
-                  Off by default. Uses your Profile name on the board, plus synced focus, streak, and bar. Turning it off removes your public row.
-                </p>
-              </div>
-              <Toggle checked={pacePrefs.optedIn} label="Public Board participation" onChange={() => {
-                  if (!user) {
-                    setMsg({ text: 'Sign in to join the public board.', error: true });
-                    return;
-                  }
-                  const profileName =
-                    (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
-                    editName.trim();
-                  if (!pacePrefs.optedIn && !profileName) {
-                    setMsg({ text: 'Set your name in Profile first.', error: true });
-                    return;
-                  }
-                  hapticTick();
-                  updatePacePrefs({ optedIn: !pacePrefs.optedIn });
-                }} />
-            </div>
-            {user && <CommunityHashtagProfileField
-              boardEnabled={pacePrefs.optedIn}
-              onBeforeChoose={async () => { await publishPublicPace(); }}
-              onContextChange={setHashtagContext}
-            />}
-            {(() => {
-              const preview = paceWindowTotals(Object.values(sessionHistory).flat(), todayISO());
-              const name =
-                (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
-                editName.trim() ||
-                'Your name';
-              return (
-                <div className="rounded-[12px] border border-subtle bg-base p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Device preview · Board updates after sync</p>
-                  <div className="mt-1.5 flex items-baseline justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-content-primary truncate">{name}</p>
-                      {hashtagContext.mine ? (
-                        <p className="text-[11px] text-secondary truncate">#{hashtagContext.mine.label}</p>
-                      ) : null}
-                    </div>
-                    <p className="text-[13px] font-semibold tabular-nums text-content-primary shrink-0">
-                      {formatDuration(preview.todayMs)} today
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
-            <details className="group overflow-hidden rounded-[12px] border border-subtle bg-base">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left [&::-webkit-details-marker]:hidden">
+        {/* ── SECTION 5: DATA & STORAGE ── */}
+        <section>
+          <SectionLabel icon={<History size={13} className="text-primary" />}>DATA &amp; STORAGE</SectionLabel>
+          <div className="settings-card settings-data-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
+            <button
+              type="button"
+              onClick={() => setTrashOpen(true)}
+              className="settings-data-row w-full p-4 flex flex-nowrap items-center justify-between text-left hover:bg-white/2 transition"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <Trash2 size={16} className="text-primary shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[11.5px] font-semibold text-content-primary">How to cheat the Board</p>
-                  <p className="mt-0.5 text-[10px] text-content-muted">A shortcut to a better number and the same preparation.</p>
+                  <h3 className="text-xs font-semibold text-content-primary">Recently Deleted Goals</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">
+                    {recentlyDeletedGoals.length} {recentlyDeletedGoals.length === 1 ? 'item' : 'items'} in trash
+                  </p>
                 </div>
-                <ChevronRight size={15} className="shrink-0 text-primary transition-transform group-open:rotate-90" />
-              </summary>
-              <div className="border-t border-subtle px-3 pb-3 pt-2.5">
-                <p className="text-[10.5px] font-semibold text-content-secondary">Congratulations. You found the method:</p>
-                <ol className="mt-2 space-y-1.5 pl-4 text-[10.5px] leading-relaxed text-content-muted">
-                  {PACE_CHEATING_GUIDE.map((method) => (
-                    <li key={method} className="list-decimal pl-1">{method}</li>
-                  ))}
-                </ol>
-                <p className="mt-3 border-t border-subtle pt-3 text-[12px] font-semibold leading-relaxed text-content-primary">
-                  {PACE_HONEST_QUOTE}
-                </p>
               </div>
-            </details>
+              <ChevronRight size={16} className="text-content-muted" />
+            </button>
+
+            {/* Row 2: Export JSON */}
+            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <Download size={16} className="text-primary shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">Export Backup (JSON)</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Download offline JSON snapshot</p>
+                </div>
+              </div>
+              <button
+                onClick={handleExport}
+                className="py-1.5 px-3 rounded-xl bg-primary-soft hover:bg-primary-soft text-primary-glow text-xs font-semibold transition active:scale-95"
+              >
+                Export
+              </button>
+            </div>
+
+            {/* Row 3: Import JSON */}
+            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <Upload size={16} className="text-secondary shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">Import Backup (JSON)</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Restore state from file</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setMsg(null);
+                  setConfirmImport(true);
+                }}
+                className="py-1.5 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-xs font-semibold transition active:scale-95"
+              >
+                Import
+              </button>
+            </div>
+
+            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <History size={16} className="text-primary shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">Trim old sittings</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">
+                    Keep the last 90 days of focus history
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMsg(null);
+                  setConfirmTrimSessions(true);
+                }}
+                className="py-1.5 px-3 rounded-xl bg-primary-soft text-primary-glow text-xs font-semibold"
+              >
+                Trim
+              </button>
+            </div>
           </div>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              handleImport(e.target.files?.[0]);
+              if (fileRef.current) fileRef.current.value = '';
+            }}
+          />
+
+          {confirmImport && (
+            <div className="rounded-2xl bg-error-soft border border-error/20 p-3.5 space-y-2.5 animate-fade-in">
+              <div className="flex items-center gap-2 text-error font-semibold text-[12px]">
+                <AlertTriangle size={14} className="shrink-0" />
+                Replace ALL current data?
+              </div>
+              <p className="text-[11px] text-error/75 font-medium leading-relaxed">
+                Your goals and tasks will be overwritten by the backup file. This cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-error hover:bg-error-soft transition"
+                >
+                  Yes, Replace All
+                </button>
+                <button
+                  onClick={() => setConfirmImport(false)}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {confirmTrimSessions && (
+            <div className="rounded-2xl bg-surface border border-subtle p-3.5 space-y-2.5 mt-2">
+              <p className="text-[12px] font-semibold text-content-primary">Remove sittings older than 90 days?</p>
+              <p className="text-[11px] text-content-secondary leading-relaxed">
+                Recent focus stats stay. Older rows leave this phone, then the next cloud sync. Goals and Today cards are not touched.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const removed = pruneOldSessions();
+                    setConfirmTrimSessions(false);
+                    setMsg({
+                      text: removed === 0 ? 'Nothing older than 90 days to trim.' : `Removed ${removed} old ${removed === 1 ? 'sitting' : 'sittings'}.`,
+                    });
+                  }}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-primary text-on-primary"
+                >
+                  Trim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmTrimSessions(false)}
+                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-elevated"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
@@ -1789,7 +1846,9 @@ export default function SettingsSheet({
         role="tabpanel"
         id="settings-panel-notifications"
         aria-labelledby="settings-tab-notifications"
-        className={activeTab === 'notifications' ? 'space-y-5 fade-in' : 'hidden'}
+        hidden={activeTab !== 'notifications'}
+        tabIndex={activeTab === 'notifications' ? 0 : -1}
+        className={activeTab === 'notifications' ? 'space-y-5 fade-in outline-none' : 'hidden'}
       >
         {/* ── SECTION 3: NOTIFICATIONS & BRIEFINGS ── */}
         <section>
@@ -2331,231 +2390,193 @@ export default function SettingsSheet({
         </section>
       </div>
 
-      {/* ── TAB PANEL: PREFERENCES ── */}
+      {/* ── TAB PANEL: BOARD ── */}
       <div
         role="tabpanel"
-        id="settings-panel-preferences"
-        aria-labelledby="settings-tab-preferences"
-        className={activeTab === 'preferences' ? 'space-y-5 fade-in' : 'hidden'}
+        id="settings-panel-board"
+        aria-labelledby="settings-tab-board"
+        hidden={activeTab !== 'board'}
+        tabIndex={activeTab === 'board' ? 0 : -1}
+        className={activeTab === 'board' ? 'space-y-5 fade-in outline-none' : 'hidden'}
       >
-        {/* ── SECTION 4: APPEARANCE & EXPERIENCE ── */}
-        <section>
-          <SectionLabel icon={<Sparkles size={13} className="text-secondary" />}>APPEARANCE &amp; EXPERIENCE</SectionLabel>
-          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
-            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                  {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
+        {/* ── SECTION 2: FOCUS & LEADERBOARD ── */}
+        <section
+          ref={publicBoardRef}
+          className={
+            highlightBoard
+              ? 'rounded-2xl ring-2 ring-primary ring-offset-2 ring-offset-base transition-all duration-700'
+              : ''
+          }
+        >
+          <SectionLabel icon={<Flame size={13} className="text-primary" />}>FOCUS &amp; LEADERBOARD</SectionLabel>
+
+          {/* Daily streak bar card */}
+          <div className="settings-card settings-focus-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mb-2.5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                <Flame size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold text-content-primary">Daily streak bar</h3>
+                  <button
+                    type="button"
+                    onClick={() => setStreakBarHelpOpen((v) => !v)}
+                    className={`p-1.5 rounded-lg shrink-0 transition ${
+                      streakBarHelpOpen
+                        ? 'bg-primary-soft text-primary'
+                        : 'text-content-secondary hover:text-content-primary hover:bg-base'
+                    }`}
+                    title="How streaks work"
+                    aria-label="How streaks work"
+                    aria-expanded={streakBarHelpOpen}
+                  >
+                    <Info size={15} />
+                  </button>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xs font-semibold text-content-primary">Theme</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">Dark or Light look</p>
+                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                  Minimum focus per day to keep your streak. Syncs with cloud.
+                </p>
+                {streakBarHelpOpen && (
+                  <div className="mt-2.5 bg-base border border-subtle rounded-[12px] p-3 space-y-2 text-[11.5px] text-content-secondary leading-relaxed">
+                    <p>
+                      <span className="font-semibold text-content-primary">Keep it:</span> Hit this much net focus
+                      each day. Paused time does not count.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">Miss a day:</span> You have{' '}
+                      <span className="font-semibold text-content-primary">1 day</span> to restore.
+                    </p>
+                    <p>
+                      Had overdue tasks in Backlog? Finish every task marked{' '}
+                      <span className="text-primary font-semibold">Save streak</span> (frozen backlog plus today’s
+                      scheduled work, including tasks you add today), then hit this bar once.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">No backlog?</span> Hit{' '}
+                      <span className="font-semibold text-content-primary">1.5×</span> this bar once that day (6h bar
+                      → 9h). That restores the streak.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">Range:</span> 30 minutes to 10 hours.
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[11px] font-semibold text-content-muted uppercase tracking-wider">
+                    Hours
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Decrease streak bar"
+                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      disabled={streakBarHours <= MIN_STREAK_BAR_HOURS}
+                      onClick={() => {
+                        hapticTick();
+                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours - 0.5));
+                      }}
+                    >
+                      −
+                    </button>
+                    <span className="tabular-nums text-sm font-semibold text-content-primary w-12 text-center">
+                      {streakBarHours}h
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase streak bar"
+                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      disabled={streakBarHours >= MAX_STREAK_BAR_HOURS}
+                      onClick={() => {
+                        hapticTick();
+                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours + 0.5));
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* Segmented Switch Control */}
-              <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setTheme({ darkMode: true })}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                    theme.darkMode
-                      ? 'bg-primary text-on-primary'
-                      : 'text-content-secondary hover:text-content-primary'
-                  }`}
-                >
-                  <Moon size={12} /> Dark
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme({ darkMode: false })}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                    !theme.darkMode
-                      ? 'bg-primary text-on-primary'
-                      : 'text-content-secondary hover:text-content-primary'
-                  }`}
-                >
-                  <Sun size={12} /> Light
-                </button>
-              </div>
-            </div>
-
-            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                  <Smartphone size={16} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xs font-semibold text-content-primary">Haptic Feedback</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">Distinct cues for meaningful actions</p>
-                </div>
-              </div>
-
-              <Toggle checked={hapticsEnabled} onChange={toggleHaptics} label="Haptic feedback" />
-            </div>
-
-            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-secondary-soft flex items-center justify-center text-secondary shrink-0">
-                  <Sparkles size={16} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xs font-semibold text-content-primary">Reduced Effects</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">Less motion and blur. Same features.</p>
-                </div>
-              </div>
-              <Toggle checked={reducedEffects} onChange={() => setReducedEffects(!reducedEffects)} label="Reduced effects" />
-            </div>
-          </div>
-        </section>
-
-        {/* ── SECTION 5: DATA & STORAGE ── */}
-        <section>
-          <SectionLabel icon={<History size={13} className="text-primary" />}>DATA &amp; STORAGE</SectionLabel>
-          <div className="settings-card settings-data-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
-            <button
-              type="button"
-              onClick={() => setTrashOpen(true)}
-              className="settings-data-row w-full p-4 flex flex-nowrap items-center justify-between text-left hover:bg-white/2 transition"
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <Trash2 size={16} className="text-primary shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-content-primary">Recently Deleted Goals</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">
-                    {recentlyDeletedGoals.length} {recentlyDeletedGoals.length === 1 ? 'item' : 'items'} in trash
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-content-muted" />
-            </button>
-
-            {/* Row 2: Export JSON */}
-            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <Download size={16} className="text-primary shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-content-primary">Export Backup (JSON)</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">Download offline JSON snapshot</p>
-                </div>
-              </div>
-              <button
-                onClick={handleExport}
-                className="py-1.5 px-3 rounded-xl bg-primary-soft hover:bg-primary-soft text-primary-glow text-xs font-semibold transition active:scale-95"
-              >
-                Export
-              </button>
-            </div>
-
-            {/* Row 3: Import JSON */}
-            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <Upload size={16} className="text-secondary shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-content-primary">Import Backup (JSON)</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">Restore state from file</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setMsg(null);
-                  setConfirmImport(true);
-                }}
-                className="py-1.5 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 text-secondary text-xs font-semibold transition active:scale-95"
-              >
-                Import
-              </button>
-            </div>
-
-            <div className="settings-data-row p-4 flex flex-nowrap items-center justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <History size={16} className="text-primary shrink-0" />
-                <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-content-primary">Trim old sittings</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">
-                    Keep the last 90 days of focus history
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setMsg(null);
-                  setConfirmTrimSessions(true);
-                }}
-                className="py-1.5 px-3 rounded-xl bg-primary-soft text-primary-glow text-xs font-semibold"
-              >
-                Trim
-              </button>
             </div>
           </div>
 
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => {
-              handleImport(e.target.files?.[0]);
-              if (fileRef.current) fileRef.current.value = '';
-            }}
-          />
-
-          {confirmImport && (
-            <div className="rounded-2xl bg-error-soft border border-error/20 p-3.5 space-y-2.5 animate-fade-in">
-              <div className="flex items-center gap-2 text-error font-semibold text-[12px]">
-                <AlertTriangle size={14} className="shrink-0" />
-                Replace ALL current data?
+          {/* Public Board Participation Card */}
+          <div className="settings-card settings-board-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                <TrendingUp size={16} />
               </div>
-              <p className="text-[11px] text-error/75 font-medium leading-relaxed">
-                Your goals and tasks will be overwritten by the backup file. This cannot be undone.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-white bg-error hover:bg-error-soft transition"
-                >
-                  Yes, Replace All
-                </button>
-                <button
-                  onClick={() => setConfirmImport(false)}
-                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-surface hover:bg-elevated transition"
-                >
-                  Cancel
-                </button>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
+                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
+                  Off by default. Uses your Profile name on the board, plus synced focus, streak, and bar. Turning it off removes your public row.
+                </p>
               </div>
+              <Toggle checked={pacePrefs.optedIn} label="Public Board participation" onChange={() => {
+                  if (!user) {
+                    setMsg({ text: 'Sign in to join the public board.', error: true });
+                    return;
+                  }
+                  const profileName =
+                    (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+                    editName.trim();
+                  if (!pacePrefs.optedIn && !profileName) {
+                    setMsg({ text: 'Set your name in Profile first.', error: true });
+                    return;
+                  }
+                  hapticTick();
+                  updatePacePrefs({ optedIn: !pacePrefs.optedIn });
+                }} />
             </div>
-          )}
-          {confirmTrimSessions && (
-            <div className="rounded-2xl bg-surface border border-subtle p-3.5 space-y-2.5 mt-2">
-              <p className="text-[12px] font-semibold text-content-primary">Remove sittings older than 90 days?</p>
-              <p className="text-[11px] text-content-secondary leading-relaxed">
-                Recent focus stats stay. Older rows leave this phone, then the next cloud sync. Goals and Today cards are not touched.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const removed = pruneOldSessions();
-                    setConfirmTrimSessions(false);
-                    setMsg({
-                      text: removed === 0 ? 'Nothing older than 90 days to trim.' : `Removed ${removed} old ${removed === 1 ? 'sitting' : 'sittings'}.`,
-                    });
-                  }}
-                  className="flex-1 py-2 rounded-xl text-[11px] font-bold bg-primary text-on-primary"
-                >
-                  Trim
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmTrimSessions(false)}
-                  className="flex-1 py-2 rounded-xl text-[11px] font-bold text-content-secondary bg-elevated"
-                >
-                  Cancel
-                </button>
+            {user && <CommunityHashtagProfileField
+              boardEnabled={pacePrefs.optedIn}
+              onBeforeChoose={async () => { await publishPublicPace(); }}
+              onContextChange={setHashtagContext}
+            />}
+            {(() => {
+              const preview = paceWindowTotals(Object.values(sessionHistory).flat(), todayISO());
+              const name =
+                (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+                editName.trim() ||
+                'Your name';
+              return (
+                <div className="rounded-[12px] border border-subtle bg-base p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Device preview · Board updates after sync</p>
+                  <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-content-primary truncate">{name}</p>
+                      {hashtagContext.mine ? (
+                        <p className="text-[11px] text-secondary truncate">#{hashtagContext.mine.label}</p>
+                      ) : null}
+                    </div>
+                    <p className="text-[13px] font-semibold tabular-nums text-content-primary shrink-0">
+                      {formatDuration(preview.todayMs)} today
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+            <details className="group overflow-hidden rounded-[12px] border border-subtle bg-base">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="text-[11.5px] font-semibold text-content-primary">How to cheat the Board</p>
+                  <p className="mt-0.5 text-[10px] text-content-muted">A shortcut to a better number and the same preparation.</p>
+                </div>
+                <ChevronRight size={15} className="shrink-0 text-primary transition-transform group-open:rotate-90" />
+              </summary>
+              <div className="border-t border-subtle px-3 pb-3 pt-2.5">
+                <p className="text-[10.5px] font-semibold text-content-secondary">Congratulations. You found the method:</p>
+                <ol className="mt-2 space-y-1.5 pl-4 text-[10.5px] leading-relaxed text-content-muted">
+                  {PACE_CHEATING_GUIDE.map((method) => (
+                    <li key={method} className="list-decimal pl-1">{method}</li>
+                  ))}
+                </ol>
+                <p className="mt-3 border-t border-subtle pt-3 text-[12px] font-semibold leading-relaxed text-content-primary">
+                  {PACE_HONEST_QUOTE}
+                </p>
               </div>
-            </div>
-          )}
+            </details>
+          </div>
         </section>
       </div>
 
@@ -2564,7 +2585,9 @@ export default function SettingsSheet({
         role="tabpanel"
         id="settings-panel-about"
         aria-labelledby="settings-tab-about"
-        className={activeTab === 'about' ? 'space-y-5 fade-in' : 'hidden'}
+        hidden={activeTab !== 'about'}
+        tabIndex={activeTab === 'about' ? 0 : -1}
+        className={activeTab === 'about' ? 'space-y-5 fade-in outline-none' : 'hidden'}
       >
         {/* ── SECTION 6: UPDATES & COMMUNITY ── */}
         <section>

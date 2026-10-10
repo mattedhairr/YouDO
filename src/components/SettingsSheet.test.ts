@@ -279,4 +279,46 @@ describe('SettingsSheet Tab Navigation System', () => {
     expect(html).toMatch(/id="settings-tab-notifications"[^>]*tabindex="-1"/);
     expect(html).toMatch(/id="settings-tab-about"[^>]*tabindex="-1"/);
   });
+
+  it('renders tab panels in exact matching DOM order as the tablist', () => {
+    const html = renderToStaticMarkup(
+      createElement(SettingsSheet, defaultProps)
+    );
+
+    const accountIndex = html.indexOf('id="settings-panel-account"');
+    const preferencesIndex = html.indexOf('id="settings-panel-preferences"');
+    const notificationsIndex = html.indexOf('id="settings-panel-notifications"');
+    const boardIndex = html.indexOf('id="settings-panel-board"');
+    const aboutIndex = html.indexOf('id="settings-panel-about"');
+
+    expect(accountIndex).toBeGreaterThan(-1);
+    expect(preferencesIndex).toBeGreaterThan(accountIndex);
+    expect(notificationsIndex).toBeGreaterThan(preferencesIndex);
+    expect(boardIndex).toBeGreaterThan(notificationsIndex);
+    expect(aboutIndex).toBeGreaterThan(boardIndex);
+  });
+
+  it('sets native hidden attribute and tabIndex on inactive vs active panels', () => {
+    const html = renderToStaticMarkup(
+      createElement(SettingsSheet, { ...defaultProps, initialTab: 'preferences' })
+    );
+
+    // Preferences panel is active: has tabindex="0", not hidden
+    expect(html).toMatch(/id="settings-panel-preferences"[^>]*tabindex="0"/);
+    expect(html).not.toMatch(/id="settings-panel-preferences"[^>]*hidden=""/);
+
+    // Inactive panels have hidden="" attribute and tabindex="-1"
+    expect(html).toMatch(/id="settings-panel-account"[^>]*hidden=""[^>]*tabindex="-1"/);
+    expect(html).toMatch(/id="settings-panel-notifications"[^>]*hidden=""[^>]*tabindex="-1"/);
+    expect(html).toMatch(/id="settings-panel-board"[^>]*hidden=""[^>]*tabindex="-1"/);
+    expect(html).toMatch(/id="settings-panel-about"[^>]*hidden=""[^>]*tabindex="-1"/);
+  });
+
+  it('renders tab strip with mobile gesture overscroll containment', () => {
+    const html = renderToStaticMarkup(
+      createElement(SettingsSheet, defaultProps)
+    );
+
+    expect(html).toContain('overscroll-x-contain');
+  });
 });
