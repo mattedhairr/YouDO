@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.SystemClock;
 
 import androidx.core.app.NotificationCompat;
+import androidx.media.app.NotificationCompat.MediaStyle;
 import androidx.core.app.NotificationManagerCompat;
 import java.text.DateFormat;
 import java.util.Date;
@@ -143,7 +144,7 @@ final class SessionNotificationStore {
             .setColor(paused ? 0xFF8FA68E : 0xFFC4A574)
             .setColorized(false)
             .setContentTitle(safeTitle)
-            .setContentText(paused ? "⏸️ Paused · Tap to resume" : "⏱️ Focus in progress")
+            .setContentText(paused ? "Paused" : "Focus in progress")
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
@@ -156,7 +157,8 @@ final class SessionNotificationStore {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppIntent(ctx))
-            .addAction(action);
+            .addAction(action)
+            .setStyle(new MediaStyle().setShowActionsInCompactView(0));
 
         try {
             NotificationManagerCompat.from(ctx).notify(NOTIF_ID, builder.build());
