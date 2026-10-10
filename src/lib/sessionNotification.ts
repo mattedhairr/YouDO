@@ -43,7 +43,7 @@ export async function syncSessionNotification(
     }
     await YouDoSessionNotification.sync({
       paused: session.isPaused,
-      title: taskTitle?.trim() || 'Sitting in progress',
+      title: taskTitle?.trim() || 'Focus Session',
       sessionJson: JSON.stringify(session),
     });
     return true;

@@ -25,18 +25,19 @@
             android:letterSpacing="0.08"
             android:maxLines="1"
             android:textAllCaps="true"
-            android:textColor="#C4A574"
+            android:textColor="@color/notif_brand_gold"
             android:textSize="11sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/notif_title"
+            style="@style/TextAppearance.Compat.Notification.Title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:paddingTop="1dp"
-            android:textColor="?android:attr/textColorPrimary"
+            android:paddingTop="2dp"
+            android:textColor="@color/notif_title_color"
             android:textSize="15sp"
             android:textStyle="bold" />
     </LinearLayout>

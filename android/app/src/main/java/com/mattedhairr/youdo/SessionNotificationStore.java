@@ -5,6 +5,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.SystemClock;
 import android.widget.RemoteViews;
@@ -54,7 +55,7 @@ final class SessionNotificationStore {
     }
 
     static String title(Context ctx) {
-        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TITLE, "Sitting in progress");
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TITLE, "Focus Session");
     }
 
     static JSONObject acceptWebSnapshot(Context ctx, String sessionJson, String title) throws Exception {
@@ -126,31 +127,45 @@ final class SessionNotificationStore {
 
     static void show(Context ctx, boolean paused, String title) {
         ensureChannel(ctx);
-        String safeTitle = title == null || title.trim().isEmpty() ? "Sitting in progress" : title.trim();
-        String status = paused ? "Paused" : "Sitting active";
-        String hint = paused ? "Tap to open · Resume here" : "Elapsed sitting · Pause here";
+        String safeTitle = title == null || title.trim().isEmpty() ? "Focus Session" : title.trim();
+        String statusLabel = paused ? "⏸️  PAUSED" : "⏱️  ACTIVE FOCUS";
+        String hint = paused ? "Tap to open · Resume here" : "Tap to open · Pause here";
         long elapsedMs = elapsedFocusMs(sessionObject(ctx), paused);
         long chronometerBase = SystemClock.elapsedRealtime() - elapsedMs;
 
+        boolean isDarkMode = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        // In dark mode / dark shade, use crisp high-contrast off-white and warm tones.
+        // In light mode, use refined deep charcoal and muted earth tones.
+        int titleColor = isDarkMode ? 0xFFF3EEE6 : 0xFF1A1815;
+        int secondaryColor = isDarkMode ? 0xFFC5BEB3 : 0xFF4A443B;
+        int hintColor = isDarkMode ? 0xFFA39A8C : 0xFF70675A;
+        int statusColor = paused ? (isDarkMode ? 0xFF9EC49C : 0xFF356138) : (isDarkMode ? 0xFFE0BC82 : 0xFF8A5D19);
+
         RemoteViews compact = new RemoteViews(ctx.getPackageName(), R.layout.notification_session);
         bindAction(ctx, compact, paused);
-        compact.setTextViewText(R.id.notif_status, status);
+        compact.setTextViewText(R.id.notif_status, statusLabel);
+        compact.setTextColor(R.id.notif_status, statusColor);
         compact.setTextViewText(R.id.notif_title, safeTitle);
+        compact.setTextColor(R.id.notif_title, titleColor);
 
         RemoteViews expanded = new RemoteViews(ctx.getPackageName(), R.layout.notification_session_expanded);
         bindAction(ctx, expanded, paused);
-        expanded.setTextViewText(R.id.notif_status, status);
+        expanded.setTextViewText(R.id.notif_status, statusLabel);
+        expanded.setTextColor(R.id.notif_status, statusColor);
         expanded.setTextViewText(R.id.notif_title, safeTitle);
+        expanded.setTextColor(R.id.notif_title, titleColor);
         expanded.setTextViewText(R.id.notif_hint, hint);
-        expanded.setChronometer(R.id.notif_elapsed, chronometerBase, paused ? "Paused · %s" : "%s", !paused);
+        expanded.setTextColor(R.id.notif_hint, hintColor);
+        expanded.setChronometer(R.id.notif_elapsed, chronometerBase, paused ? "⏱️  %s elapsed (paused)" : "⏱️  %s elapsed", !paused);
+        expanded.setTextColor(R.id.notif_elapsed, secondaryColor);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_youdo)
             .setColor(paused ? 0xFF8FA68E : 0xFFC4A574)
             .setColorized(false)
             .setContentTitle(safeTitle)
-            .setContentText(status)
-            .setSubText(paused ? "Paused" : "Sitting elapsed time")
+            .setContentText(paused ? "⏸️ Paused · Tap to resume" : "⏱️ Focus in progress · Tap to pause")
+            .setSubText(paused ? "Paused" : "Live Focus")
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
@@ -219,10 +234,10 @@ final class SessionNotificationStore {
         manager.deleteNotificationChannel("youdo_focus");
         NotificationChannel channel = new NotificationChannel(
             CHANNEL_ID,
-            "Focus sitting",
+            "Live Focus Session",
             NotificationManager.IMPORTANCE_DEFAULT
         );
-        channel.setDescription("Live Pause and Resume while a sitting is running");
+        channel.setDescription("Live pause and resume controls for active focus sessions");
         channel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
         channel.enableVibration(false);
         channel.enableLights(false);

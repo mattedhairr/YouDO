@@ -88,7 +88,7 @@ public class YouDoSessionNotificationPlugin extends Plugin {
     }
 
     private void post(PluginCall call) {
-        String title = call.getString("title", "Sitting in progress");
+        String title = call.getString("title", "Focus Session");
         String sessionJson = call.getString("sessionJson");
         if (sessionJson == null || sessionJson.isEmpty()) {
             call.reject("Missing timer snapshot");
