@@ -153,12 +153,16 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 }
 
 async function syncAuthUsernameMetadata(username: string, avatarUrl?: string): Promise<void> {
-  await supabase.auth.updateUser({
-    data: {
-      username,
-      ...(avatarUrl !== undefined ? { avatar_url: avatarUrl } : {}),
-    },
-  });
+  try {
+    await supabase.auth.updateUser({
+      data: {
+        username: username || null,
+        ...(avatarUrl !== undefined ? { avatar_url: avatarUrl } : {}),
+      },
+    });
+  } catch {
+    /* ignore session update failures */
+  }
 }
 
 /** Create or sync `profiles` after signup/sign-in; repair metadata ↔ profile mismatches. */
@@ -180,7 +184,11 @@ export async function ensureProfileFromAuth(user: {
   }
 
   // If no profiles row exists, do not revive stale metadata into the database;
-  // require a clean username claim.
+  // clear the stale metadata username and require a clean username claim.
+  if (metaUsername) {
+    await syncAuthUsernameMetadata('', existing?.avatar_url);
+  }
+
   return { ok: false, needsClaim: true, username: null };
 }
 

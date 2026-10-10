@@ -4,7 +4,6 @@ import {
   fetchAcceptedFriends,
   ensureProfileFromAuth,
   fetchProfile,
-  resolvePrivateHubUsername,
   normalizeUsername,
   profileDisplayLabel,
   type Profile,
@@ -98,7 +97,7 @@ export default function HubView({
   }, []);
 
   const resolvedUsername = useMemo(
-    () => (user ? resolvePrivateHubUsername(myProfile, user.user_metadata) : null),
+    () => (user ? normalizeUsername(myProfile?.username) : null),
     [user, myProfile],
   );
   const needsUsernameClaim = Boolean(user && !loadingProfile && !normalizeUsername(myProfile?.username));
@@ -149,7 +148,7 @@ export default function HubView({
       const p = await fetchProfile(user.id);
       setMyProfile(p);
       void refreshFriends();
-      const handle = resolvePrivateHubUsername(p, user.user_metadata);
+      const handle = normalizeUsername(p?.username);
       if (handle) {
         void refreshFriends();
         refreshPendingCount?.();
@@ -157,8 +156,7 @@ export default function HubView({
       } else {
         setFriends([]);
         setDmPreviews({});
-        const draft = resolvePrivateHubUsername(null, user.user_metadata);
-        if (draft) setDraftUsername(draft);
+        setDraftUsername('');
       }
       setLoadingProfile(false);
     })();

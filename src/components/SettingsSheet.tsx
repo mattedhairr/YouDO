@@ -74,7 +74,7 @@ import CommunityHashtagProfileField from './community/CommunityHashtagProfileFie
 import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
-import { fetchProfile, upsertProfile, usernameFromAuthMetadata } from '../lib/profiles';
+import { fetchProfile, upsertProfile, normalizeUsername, type Profile } from '../lib/profiles';
 import { fetchCommunityContext } from '../lib/community';
 
 interface Props {
@@ -209,18 +209,21 @@ export default function SettingsSheet({
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [testNotifStatus, setTestNotifStatus] = useState<'idle' | 'sent' | 'permission_denied' | 'failed'>('idle');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [accountProfile, setAccountProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     if (open) {
       setNotifPrefs(getNotificationPreferences());
       void checkNotificationPermission().then(setNotifPermission);
       if (user?.id) {
+        void fetchProfile(user.id).then(setAccountProfile);
         void fetchCommunityContext(user.id).then((ctx) => {
           setIsAdmin(Boolean(ctx.isAdmin));
         }).catch(() => {
           setIsAdmin(false);
         });
       } else {
+        setAccountProfile(null);
         setIsAdmin(false);
       }
     }
@@ -523,9 +526,13 @@ export default function SettingsSheet({
                         <span className="truncate">
                           {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}
                         </span>
-                        {user.user_metadata?.username && (
+                        {normalizeUsername(accountProfile?.username) ? (
                           <span className="text-[11px] font-semibold font-mono text-primary bg-primary-soft/80 border border-primary/25 px-1.5 py-0.5 rounded-md tracking-wide shrink-0">
-                            @{user.user_metadata.username}
+                            @{accountProfile!.username}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium text-content-muted bg-surface/60 border border-subtle/80 px-1.5 py-0.5 rounded-md tracking-wide shrink-0">
+                            No @handle set
                           </span>
                         )}
                       </h3>
@@ -722,13 +729,15 @@ export default function SettingsSheet({
                           setSecurityOpen(false);
                           setProfileLoading(true);
                           const profile = await fetchProfile(user.id);
+                          setAccountProfile(profile);
                           if (profile) {
                             setEditUsername(profile.username || '');
                             setEditBio(profile.bio || '');
                             setEditStatsPrivate(profile.stats_private || false);
                           } else {
-                            const metaUser = usernameFromAuthMetadata(user.user_metadata);
-                            if (metaUser) setEditUsername(metaUser);
+                            setEditUsername('');
+                            setEditBio('');
+                            setEditStatsPrivate(false);
                           }
                           setProfileLoading(false);
                         } else {
@@ -913,6 +922,7 @@ export default function SettingsSheet({
                             if (ok && profileSave.ok) {
                               setEditProfileOpen(false);
                               setMsg({ text: '✓ Profile updated.' });
+                              void fetchProfile(user.id).then(setAccountProfile);
                               if (pacePrefs.optedIn) void publishPublicPace();
                             } else {
                               setMsg({ text: profileSave.error || 'Profile could not be updated.', error: true });
