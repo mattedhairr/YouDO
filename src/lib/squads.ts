@@ -3,7 +3,21 @@ import { fetchPendingRequests, searchProfileByUsername, type Profile } from './p
 import { dispatchPrivateHubSync } from './privateHubSync';
 
 export type SquadPrivacy = 'anyone_can_join' | 'invite_only';
+export type LegacySquadPrivacy = 'public' | 'private';
+export type AnySquadPrivacy = SquadPrivacy | LegacySquadPrivacy;
 export type RoomPrivacy = SquadPrivacy;
+
+/**
+ * Normalizes any squad privacy value (canonical or legacy) to canonical SquadPrivacy.
+ * Canonical: 'anyone_can_join' | 'invite_only'.
+ * Legacy: 'public' -> 'anyone_can_join', 'private' -> 'invite_only'.
+ */
+export function normalizeSquadPrivacy(privacy?: string | null): SquadPrivacy {
+  if (!privacy) return 'anyone_can_join';
+  if (privacy === 'public' || privacy === 'anyone_can_join') return 'anyone_can_join';
+  if (privacy === 'private' || privacy === 'invite_only') return 'invite_only';
+  return 'anyone_can_join';
+}
 
 /**
  * @deprecated Pace restrictions are removed per Requirement R1. Rooms no longer enforce matching daily bar hours.
@@ -56,7 +70,7 @@ export interface CreateSquadParams {
   icon?: string;
   barHours?: number | null;
   allowJoinRequests?: boolean;
-  privacy?: SquadPrivacy;
+  privacy?: AnySquadPrivacy;
   initialInviteUserIds?: string[];
 }
 
@@ -79,11 +93,7 @@ export interface PendingSquadInvite {
 
 function normalizeSquadPrivacyInPlace(squad: { privacy?: string | null } | null | undefined) {
   if (!squad) return;
-  if (squad.privacy === 'public') {
-    squad.privacy = 'anyone_can_join';
-  } else if (squad.privacy === 'private') {
-    squad.privacy = 'invite_only';
-  }
+  squad.privacy = normalizeSquadPrivacy(squad.privacy);
 }
 
 function squadFromJoinedRow(raw: unknown): Squad | null {
@@ -124,7 +134,7 @@ export async function createSquad(
   icon: string,
   barHours?: number | null,
   allowJoinRequests?: boolean,
-  privacy?: SquadPrivacy,
+  privacy?: AnySquadPrivacy,
   initialInviteUserIds?: string[],
 ): Promise<{ ok: boolean; error?: string; squad?: Squad }>;
 export async function createSquad(
@@ -133,7 +143,7 @@ export async function createSquad(
   iconArg?: string,
   barHoursArg?: number | null,
   allowJoinRequestsArg?: boolean,
-  privacyArg?: SquadPrivacy,
+  privacyArg?: AnySquadPrivacy,
   initialInviteUserIdsArg?: string[],
 ): Promise<{ ok: boolean; error?: string; squad?: Squad }> {
   let ownerId: string;
@@ -149,7 +159,7 @@ export async function createSquad(
     name = ownerIdOrParams.name;
     icon = ownerIdOrParams.icon || '🔥';
     barHours = ownerIdOrParams.barHours;
-    privacy = ownerIdOrParams.privacy ?? 'anyone_can_join';
+    privacy = normalizeSquadPrivacy(ownerIdOrParams.privacy);
     allowJoinRequests = privacy === 'invite_only' ? false : (ownerIdOrParams.allowJoinRequests ?? true);
     initialInviteUserIds = ownerIdOrParams.initialInviteUserIds;
   } else {
@@ -157,7 +167,7 @@ export async function createSquad(
     name = nameArg ?? '';
     icon = iconArg || '🔥';
     barHours = barHoursArg;
-    privacy = privacyArg ?? 'anyone_can_join';
+    privacy = normalizeSquadPrivacy(privacyArg);
     allowJoinRequests = privacy === 'invite_only' ? false : (allowJoinRequestsArg ?? true);
     initialInviteUserIds = initialInviteUserIdsArg;
   }
@@ -263,8 +273,9 @@ export async function createSquad(
 
 export async function updateSquadPrivacy(
   squadId: string,
-  privacy: SquadPrivacy,
+  privacy: AnySquadPrivacy,
 ): Promise<boolean> {
+  const canonical = normalizeSquadPrivacy(privacy);
   const attemptUpdate = async (patch: Record<string, unknown>) => {
     let res = await supabase
       .from('squads')
@@ -282,15 +293,15 @@ export async function updateSquadPrivacy(
   };
 
   let { error } = await attemptUpdate({
-    privacy,
-    allow_join_requests: privacy === 'anyone_can_join',
+    privacy: canonical,
+    allow_join_requests: canonical === 'anyone_can_join',
   });
 
   if (error && isPrivacyCheckConstraintError(error)) {
-    const legacyPrivacy = privacy === 'anyone_can_join' ? 'public' : 'private';
+    const legacyPrivacy = canonical === 'anyone_can_join' ? 'public' : 'private';
     const retry = await attemptUpdate({
       privacy: legacyPrivacy,
-      allow_join_requests: privacy === 'anyone_can_join',
+      allow_join_requests: canonical === 'anyone_can_join',
     });
     error = retry.error;
   }

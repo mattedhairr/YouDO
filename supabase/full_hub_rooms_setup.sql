@@ -72,6 +72,17 @@ alter table public.squads
 alter table public.squads drop constraint if exists squads_privacy_check;
 alter table public.squads add constraint squads_privacy_check check (privacy in ('anyone_can_join', 'invite_only', 'public', 'private'));
 
+-- Normalize any null privacy values to canonical default
+update public.squads
+set privacy = case
+  when privacy = 'public' then 'anyone_can_join'
+  when privacy = 'private' then 'invite_only'
+  when privacy is null and allow_join_requests = false then 'invite_only'
+  when privacy is null then 'anyone_can_join'
+  else privacy
+end
+where privacy is null;
+
 alter table public.squads
   add column if not exists allow_join_requests boolean not null default true;
 
@@ -210,7 +221,7 @@ create policy "Participants can delete friendships" on public.friendships for de
 drop policy if exists "Users view squads they are in" on public.squads;
 create policy "Users view squads they are in" on public.squads for select using (
   auth.uid() = created_by
-  or privacy = 'anyone_can_join'
+  or privacy in ('anyone_can_join', 'public')
   or public.is_squad_member_or_invited(squads.id, auth.uid())
 );
 
@@ -240,7 +251,7 @@ create policy "Users can join squads" on public.squad_members for insert with ch
     and exists (
       select 1 from public.squads s
       where s.id = squad_members.squad_id
-        and (s.privacy = 'anyone_can_join' or s.created_by = auth.uid())
+        and (s.privacy in ('anyone_can_join', 'public') or s.created_by = auth.uid())
     )
   )
   or (
@@ -319,7 +330,7 @@ set search_path = public
 as $$
   select s.*
   from public.squads s
-  where s.privacy = 'anyone_can_join'
+  where s.privacy in ('anyone_can_join', 'public')
     and s.allow_join_requests = true
     and auth.uid() is not null
     and not exists (

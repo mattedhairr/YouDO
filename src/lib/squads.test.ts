@@ -6,6 +6,7 @@ import {
   createSquad,
   updateSquadPrivacy,
   fetchDiscoverableSquads,
+  normalizeSquadPrivacy,
   type Squad,
   type SquadPrivacy,
 } from './squads';
@@ -65,6 +66,17 @@ describe('Squad types & privacy', () => {
     const inviteOnlyPrivacy: SquadPrivacy = 'invite_only';
     expect(publicPrivacy).toBe('anyone_can_join');
     expect(inviteOnlyPrivacy).toBe('invite_only');
+  });
+
+  it('normalizes canonical, legacy, and fallback privacy values', () => {
+    expect(normalizeSquadPrivacy('anyone_can_join')).toBe('anyone_can_join');
+    expect(normalizeSquadPrivacy('invite_only')).toBe('invite_only');
+    expect(normalizeSquadPrivacy('public')).toBe('anyone_can_join');
+    expect(normalizeSquadPrivacy('private')).toBe('invite_only');
+    expect(normalizeSquadPrivacy(null)).toBe('anyone_can_join');
+    expect(normalizeSquadPrivacy(undefined)).toBe('anyone_can_join');
+    expect(normalizeSquadPrivacy('')).toBe('anyone_can_join');
+    expect(normalizeSquadPrivacy('unknown_privacy')).toBe('anyone_can_join');
   });
 
   it('allows Squad interface with optional bar_hours and privacy', () => {
@@ -258,6 +270,64 @@ describe('createSquad & updateSquadPrivacy check constraint graceful recovery', 
     expect(squads[0].privacy).toBe('anyone_can_join');
     expect(squads[1].privacy).toBe('invite_only');
     expect(squads[2].privacy).toBe('anyone_can_join');
+  });
+
+  it('createSquad seamlessly accepts legacy privacy public and normalizes it', async () => {
+    const payloads: Record<string, unknown>[] = [];
+    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+      if (table === 'squads') {
+        return {
+          insert: vi.fn((payload: Record<string, unknown>) => {
+            payloads.push(payload);
+            return {
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'sq-legacy-pub', name: 'Legacy In', privacy: payload.privacy, created_by: 'u1' },
+                  error: null,
+                }),
+              }),
+            };
+          }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      if (table === 'squad_members') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      return {} as unknown as ReturnType<typeof supabase.from>;
+    });
+
+    const res = await createSquad({
+      ownerId: 'u1',
+      name: 'Legacy In',
+      privacy: 'public' as unknown as SquadPrivacy,
+    });
+
+    expect(res.ok).toBe(true);
+    expect(payloads[0].privacy).toBe('anyone_can_join');
+    expect(res.squad?.privacy).toBe('anyone_can_join');
+  });
+
+  it('updateSquadPrivacy seamlessly accepts legacy privacy private and normalizes it', async () => {
+    const patches: Record<string, unknown>[] = [];
+    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+      if (table === 'squads') {
+        return {
+          update: vi.fn((patch: Record<string, unknown>) => {
+            patches.push(patch);
+            return {
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      return {} as unknown as ReturnType<typeof supabase.from>;
+    });
+
+    const ok = await updateSquadPrivacy('sq-1', 'private' as unknown as SquadPrivacy);
+    expect(ok).toBe(true);
+    expect(patches[0].privacy).toBe('invite_only');
   });
 });
 
