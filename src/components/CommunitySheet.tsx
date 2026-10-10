@@ -382,15 +382,15 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
         <div hidden={adminTab !== 'controls'} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         <section className="rounded-[24px] border border-subtle bg-surface overflow-hidden shadow-sm">
-          <div className="flex items-center justify-between p-5 border-b border-subtle/50">
-            <div>
+          <div className="flex items-center justify-between gap-3 p-5 border-b border-subtle/50">
+            <div className="min-w-0 flex-1">
               <p className="text-[13px] font-bold text-content-primary">Community room</p>
               <p className="text-[11px] text-content-muted mt-1">Pause messages and automatic notes</p>
             </div>
             <Toggle disabled={busy || savingFeature} checked={context.settings.roomEnabled} onChange={() => void setFeature('roomEnabled', !context.settings.roomEnabled)} label="Toggle community room" />
           </div>
-          <div className="flex items-center justify-between p-5">
-            <div>
+          <div className="flex items-center justify-between gap-3 p-5">
+            <div className="min-w-0 flex-1">
               <p className="text-[13px] font-bold text-content-primary">Kudos</p>
               <p className="text-[11px] text-content-muted mt-1">Recognition for the top three</p>
             </div>

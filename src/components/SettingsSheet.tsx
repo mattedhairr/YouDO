@@ -792,8 +792,8 @@ export default function SettingsSheet({
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-surface border border-subtle mt-2">
-                          <div>
+                        <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-surface border border-subtle mt-2">
+                          <div className="min-w-0 flex-1">
                             <p className="text-[12px] font-semibold text-content-primary">Private Stats</p>
                             <p className="text-[10px] text-content-muted mt-0.5">Hide your focus hours from others</p>
                           </div>
@@ -1279,14 +1279,14 @@ export default function SettingsSheet({
 
           {/* Master Notification Switch & System Permission Status */}
           <div className="settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
                   <Bell size={16} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-content-primary">Notifications</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">Device alerts &amp; morning focus briefings</p>
+                  <p className="text-[10.5px] text-content-secondary font-medium truncate">Device alerts &amp; morning focus briefings</p>
                 </div>
               </div>
               <Toggle
@@ -1330,17 +1330,17 @@ export default function SettingsSheet({
 
           {/* DAILY MORNING BRIEFING CARD */}
           <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-secondary-soft flex items-center justify-center text-secondary shrink-0 mt-0.5">
                   <Clock size={16} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs font-semibold text-content-primary">Daily Morning Briefing</h3>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-soft text-primary">Daily</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-soft text-primary shrink-0">Daily</span>
                   </div>
-                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
                     Informative lockscreen summary of goal deadlines, today's schedule, and backlog
                   </p>
                 </div>
@@ -1360,12 +1360,12 @@ export default function SettingsSheet({
             {notifPrefs.morningBriefing.enabled && (
               <div className="space-y-3 pt-2 border-t border-subtle">
                 {/* Time Selector */}
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <h4 className="text-[11.5px] font-semibold text-content-primary">Delivery Time</h4>
                     <p className="text-[10px] text-content-secondary">When to trigger the morning focus alert</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <input
                       type="time"
                       value={notifPrefs.morningBriefing.time}
@@ -1387,10 +1387,10 @@ export default function SettingsSheet({
                     Include in Morning Summary
                   </span>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target size={13} className="text-primary" />
-                      <span className="text-xs text-content-primary">Goal countdowns (days remaining)</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Target size={13} className="text-primary shrink-0" />
+                      <span className="text-xs text-content-primary truncate">Goal countdowns (days remaining)</span>
                     </div>
                     <Toggle
                       checked={notifPrefs.morningBriefing.includeGoals}
@@ -1406,9 +1406,9 @@ export default function SettingsSheet({
 
                   {notifPrefs.morningBriefing.includeGoals && rootGoals.length >= 2 && (
                     <div className="pt-0.5 pb-1 pl-5 flex items-center justify-between gap-2 border-l-2 border-primary/20 ml-1">
-                      <div>
-                        <span className="text-[11px] font-semibold text-content-primary block">Featured Goal</span>
-                        <span className="text-[10px] text-content-secondary block">Choose which goal to highlight</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[11px] font-semibold text-content-primary block truncate">Featured Goal</span>
+                        <span className="text-[10px] text-content-secondary block truncate">Choose which goal to highlight</span>
                       </div>
                       <select
                         aria-label="Featured root goal"
@@ -1426,7 +1426,7 @@ export default function SettingsSheet({
                             morningBriefing: { ...p.morningBriefing, selectedGoalId: val },
                           }));
                         }}
-                        className="px-2 py-1 bg-base border border-subtle rounded-xl text-xs font-semibold text-content-primary outline-none focus:border-primary max-w-[170px] truncate cursor-pointer"
+                        className="px-2 py-1 bg-base border border-subtle rounded-xl text-xs font-semibold text-content-primary outline-none focus:border-primary max-w-[170px] truncate cursor-pointer shrink-0"
                       >
                         <option value="auto">Automatic (nearest deadline)</option>
                         {rootGoals.map((g) => (
@@ -1438,10 +1438,10 @@ export default function SettingsSheet({
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Check size={13} className="text-secondary" />
-                      <span className="text-xs text-content-primary">Today's planned schedule &amp; focus</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Check size={13} className="text-secondary shrink-0" />
+                      <span className="text-xs text-content-primary truncate">Today's planned schedule &amp; focus</span>
                     </div>
                     <Toggle
                       checked={notifPrefs.morningBriefing.includeTodayPlan}
@@ -1455,10 +1455,10 @@ export default function SettingsSheet({
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle size={13} className="text-amber-400" />
-                      <span className="text-xs text-content-primary">Uncompleted backlog tasks alert</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <AlertTriangle size={13} className="text-amber-400 shrink-0" />
+                      <span className="text-xs text-content-primary truncate">Uncompleted backlog tasks alert</span>
                     </div>
                     <Toggle
                       checked={notifPrefs.morningBriefing.includeBacklog}
@@ -1472,10 +1472,10 @@ export default function SettingsSheet({
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Flame size={13} className="text-orange-400" />
-                      <span className="text-xs text-content-primary">Streak counter &amp; momentum</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Flame size={13} className="text-orange-400 shrink-0" />
+                      <span className="text-xs text-content-primary truncate">Streak counter &amp; momentum</span>
                     </div>
                     <Toggle
                       checked={notifPrefs.morningBriefing.includeStreak}
@@ -1526,14 +1526,14 @@ export default function SettingsSheet({
 
           {/* PRIVATE HUB NOTIFICATIONS CARD */}
           <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0 mt-0.5">
                   <MessageSquare size={16} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-content-primary">Private Hub Notifications</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
                     Direct messages, room chats, and friend requests
                   </p>
                 </div>
@@ -1552,8 +1552,8 @@ export default function SettingsSheet({
 
             {notifPrefs.privateHub.enabled && (
               <div className="space-y-3 pt-2 border-t border-subtle">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <h4 className="text-[11.5px] font-semibold text-content-primary">Direct Messages</h4>
                     <p className="text-[10px] text-content-secondary">Alert when friends send you a direct message</p>
                   </div>
@@ -1569,8 +1569,8 @@ export default function SettingsSheet({
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <h4 className="text-[11.5px] font-semibold text-content-primary">Requests &amp; Invites</h4>
                     <p className="text-[10px] text-content-secondary">Friend requests and room invitations</p>
                   </div>
@@ -1623,14 +1623,14 @@ export default function SettingsSheet({
 
           {/* PUBLIC HUB NOTIFICATIONS CARD */}
           <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0 mt-0.5">
                   <Users size={16} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-content-primary">Public Hub &amp; Community</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
                     Community chat and exam hashtag channels
                   </p>
                 </div>
@@ -1680,10 +1680,10 @@ export default function SettingsSheet({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Hash size={13} className="text-secondary" />
-                    <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Hash size={13} className="text-secondary shrink-0" />
+                    <div className="min-w-0 flex-1">
                       <h4 className="text-[11.5px] font-semibold text-content-primary">Hashtag Community Updates</h4>
                       <p className="text-[10px] text-content-secondary">Alerts for your selected exam hashtag</p>
                     </div>
@@ -1706,14 +1706,14 @@ export default function SettingsSheet({
           {/* ADMIN HUB NOTIFICATIONS CARD (VISIBLE ONLY TO ADMINS) */}
           {isAdmin && (
             <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
                   <div className="w-9 h-9 rounded-xl bg-warning/15 flex items-center justify-center text-warning shrink-0 mt-0.5">
                     <ShieldCheck size={16} />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-xs font-semibold text-content-primary">Admin Hub Notifications</h3>
-                    <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                    <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
                       Moderation alerts and room request management
                     </p>
                   </div>
@@ -1736,10 +1736,10 @@ export default function SettingsSheet({
               {(notifPrefs.adminHub?.enabled ?? true) && (
                 <div className="space-y-3 pt-2 border-t border-subtle">
                   {/* New Hashtag Requests */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Hash size={13} className="text-secondary" />
-                      <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Hash size={13} className="text-secondary shrink-0" />
+                      <div className="min-w-0 flex-1">
                         <h4 className="text-[11.5px] font-semibold text-content-primary">New Hashtag Requests</h4>
                         <p className="text-[10px] text-content-secondary">Alerts when users submit new exam room requests</p>
                       </div>
@@ -1760,10 +1760,10 @@ export default function SettingsSheet({
                   </div>
 
                   {/* Reported Messages */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle size={13} className="text-warning" />
-                      <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <AlertTriangle size={13} className="text-warning shrink-0" />
+                      <div className="min-w-0 flex-1">
                         <h4 className="text-[11.5px] font-semibold text-content-primary">Reported Messages</h4>
                         <p className="text-[10px] text-content-secondary">Alerts when members flag chat messages for moderation</p>
                       </div>
@@ -1784,10 +1784,10 @@ export default function SettingsSheet({
                   </div>
 
                   {/* Support Chat Replies */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare size={13} className="text-secondary" />
-                      <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <MessageSquare size={13} className="text-secondary shrink-0" />
+                      <div className="min-w-0 flex-1">
                         <h4 className="text-[11.5px] font-semibold text-content-primary">Support Chat Replies</h4>
                         <p className="text-[10px] text-content-secondary">Alerts when a requester answers your note in Support Chat</p>
                       </div>
@@ -1816,12 +1816,12 @@ export default function SettingsSheet({
         <section>
           <SectionLabel icon={<Sparkles size={13} className="text-secondary" />}>APPEARANCE &amp; EXPERIENCE</SectionLabel>
           <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
-            <div className="settings-data-row p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
                   {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-content-primary">Theme</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">Dark or Light look</p>
                 </div>
@@ -1854,12 +1854,12 @@ export default function SettingsSheet({
               </div>
             </div>
 
-            <div className="settings-data-row p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
                   <Smartphone size={16} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-content-primary">Haptic Feedback</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">Distinct cues for meaningful actions</p>
                 </div>
@@ -1869,11 +1869,11 @@ export default function SettingsSheet({
             </div>
 
             <div className="settings-data-row p-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-secondary-soft flex items-center justify-center text-secondary shrink-0">
                   <Sparkles size={16} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-content-primary">Reduced Effects</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium">Less motion and blur. Same features.</p>
                 </div>

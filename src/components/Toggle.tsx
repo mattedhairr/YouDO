@@ -9,7 +9,7 @@ interface Props {
 export default function Toggle({ checked, onChange, label, disabled = false }: Props) {
   return (
     <button type="button" role="switch" aria-checked={checked} aria-label={label}
-      disabled={disabled} onClick={onChange} className="control-switch">
+      disabled={disabled} onClick={onChange} className="control-switch shrink-0">
       <span className="control-switch-track" aria-hidden="true"><span className="control-switch-thumb" /></span>
     </button>
   );

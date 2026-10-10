@@ -1354,6 +1354,10 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
     inset 0 1px 0 color-mix(in srgb, var(--text-primary) 3.5%, transparent) !important;
 }
 
+.settings-card .flex.justify-between {
+  flex-wrap: nowrap;
+}
+
 .settings-account-card {
   background:
     radial-gradient(100% 75% at 100% 0%, color-mix(in srgb, var(--secondary) 10%, transparent), transparent 58%),
