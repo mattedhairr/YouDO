@@ -1141,7 +1141,6 @@ html.light-dusky .command-dock-premium {
 .community-shell .community-privacy { border: 0; background: transparent; padding-inline: 0; }
 .community-status { position: sticky; bottom: 0; padding: 10px 12px; margin-top: 12px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-elevated); color: var(--primary); font-size: 12px; }
 .community-empty { padding: 30px 12px; text-align: center; color: var(--text-muted); font-size: 12px; }
-.settings-account-actions { display: grid; }
 
 .calendar-workspace { display: flex; flex-direction: column; gap: 8px; }
 .calendar-dial { border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px; }

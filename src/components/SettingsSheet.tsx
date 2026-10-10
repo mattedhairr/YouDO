@@ -494,7 +494,7 @@ export default function SettingsSheet({
                   <div className="flex items-start gap-3.5">
                     {/* Sculpted Avatar with Verified Shield badge */}
                     <div className="relative shrink-0">
-                      <div className="size-[50px] rounded-[18px] bg-gradient-to-br from-primary-soft to-surface border border-primary/30 ring-1 ring-primary/15 grid place-items-center text-[26px] shadow-md select-none overflow-hidden">
+                      <div className="size-[52px] rounded-[18px] bg-gradient-to-br from-primary-soft to-surface border border-primary/30 ring-1 ring-primary/15 grid place-items-center text-[26px] shadow-md select-none overflow-hidden">
                         {user.user_metadata?.avatar_url && /^https?:/.test(String(user.user_metadata.avatar_url)) ? (
                           <img
                             src={user.user_metadata.avatar_url}
@@ -513,30 +513,13 @@ export default function SettingsSheet({
                       </span>
                     </div>
 
-                    {/* User credentials & badges */}
+                    {/* User credentials & names */}
                     <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">
-                          Your account
-                        </p>
-                        {/* Live Sync Status Pill */}
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide border shrink-0 transition-colors ${
-                            cloudSyncConflict
-                              ? 'text-warning bg-warning/10 border-warning/30'
-                              : 'text-secondary bg-secondary-soft border-secondary/30'
-                          }`}
-                        >
-                          <span
-                            className={`size-1.5 rounded-full ${
-                              cloudSyncConflict ? 'bg-warning animate-pulse' : 'bg-secondary animate-pulse'
-                            }`}
-                          />
-                          {cloudSyncConflict ? 'Sync paused safely' : 'Cloud live'}
-                        </span>
-                      </div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-secondary">
+                        Your account
+                      </p>
 
-                      <h3 className="text-[17px] font-bold text-content-primary leading-tight mt-1 truncate flex items-center gap-2">
+                      <h3 className="text-[17px] font-bold text-content-primary leading-tight mt-0.5 truncate flex items-center gap-2">
                         <span className="truncate">
                           {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant'}
                         </span>
@@ -547,28 +530,54 @@ export default function SettingsSheet({
                         )}
                       </h3>
 
-                      <div className="mt-1 flex items-center gap-2 flex-wrap">
-                        <p className="text-[12px] text-content-secondary truncate max-w-[200px]">
-                          {user.email}
-                        </p>
-                        <span className="settings-account-hashtag text-[10px] shrink-0">
-                          {hashtagContext.mine ? `#${hashtagContext.mine.label}` : 'Exam hashtag not set'}
-                        </span>
-                      </div>
+                      <p className="mt-0.5 text-[12px] text-content-secondary truncate">
+                        {user.email}
+                      </p>
                     </div>
                   </div>
 
+                  {/* ── Metadata & Status Chips Row ── */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Live Sync Status Pill */}
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide border shrink-0 transition-colors ${
+                        cloudSyncConflict
+                          ? 'text-warning bg-warning/10 border-warning/30'
+                          : 'text-secondary bg-secondary-soft border-secondary/30'
+                      }`}
+                    >
+                      <span
+                        className={`size-1.5 rounded-full ${
+                          cloudSyncConflict ? 'bg-warning animate-pulse' : 'bg-secondary animate-pulse'
+                        }`}
+                      />
+                      {cloudSyncConflict ? 'Sync paused safely' : 'Cloud live'}
+                    </span>
+
+                    {/* Exam Hashtag Pill */}
+                    <span className="settings-account-hashtag text-[10px] shrink-0">
+                      {hashtagContext.mine ? `#${hashtagContext.mine.label}` : '#Exam hashtag not set'}
+                    </span>
+
+                    {/* Email Verification Pill */}
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium border border-subtle/70 bg-surface/60 text-content-muted shrink-0">
+                      <ShieldCheck size={11} className={user.email_confirmed_at || user.confirmed_at ? 'text-secondary' : 'text-content-muted'} />
+                      <span>{user.email_confirmed_at || user.confirmed_at ? 'Email verified' : 'Email pending'}</span>
+                    </span>
+                  </div>
+
                   {/* ── Sync Command Deck ── */}
-                  <div className="rounded-xl border border-subtle/80 bg-surface/50 p-3 space-y-2.5 shadow-inner">
-                    <div className="flex items-center justify-between gap-2">
+                  <div className="rounded-xl border border-subtle/80 bg-surface/50 p-3.5 space-y-3 shadow-inner">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11.5px] font-semibold text-content-primary leading-tight">
+                        <p className="text-[12px] font-bold text-content-primary leading-tight">
                           Cloud Workspace Backup
                         </p>
-                        <p className="text-[10.5px] text-content-muted mt-0.5">
-                          Continuous sync across devices
+                        <p className="text-[10.5px] text-content-muted mt-0.5 leading-snug">
+                          Continuous sync & multi-device restore points
                         </p>
                       </div>
+
                       <button
                         type="button"
                         disabled={syncBusy}
@@ -602,17 +611,52 @@ export default function SettingsSheet({
                       </button>
                     </div>
 
-                    {/* Subtle Clear cloud backup trigger */}
-                    {!confirmWipeCloud && (
-                      <div className="flex items-center justify-end pt-0.5">
+                    {/* Clear cloud backup flow in-place */}
+                    {!confirmWipeCloud ? (
+                      <div className="flex items-center justify-between pt-1 border-t border-subtle/50 text-[10.5px]">
+                        <span className="text-content-muted">Encrypted cloud copy</span>
                         <button
                           type="button"
                           onClick={() => setConfirmWipeCloud(true)}
-                          className="inline-flex items-center gap-1.5 text-[10.5px] font-medium text-content-muted hover:text-error transition-colors"
+                          className="inline-flex items-center gap-1.5 font-medium text-content-muted hover:text-error transition-colors py-0.5"
                         >
                           <Trash2 size={11} />
                           Clear cloud backup
                         </button>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-error/30 bg-error-soft/90 p-3 space-y-2.5">
+                        <div className="flex items-center gap-2 text-error font-semibold text-[11.5px]">
+                          <AlertTriangle size={14} className="shrink-0" />
+                          <span>Permanently clear cloud backup?</span>
+                        </div>
+                        <p className="text-[11px] text-content-secondary leading-relaxed">
+                          Clearing the cloud backup deletes your data from the server. Your local device copy will NOT be deleted.
+                        </p>
+                        <div className="flex gap-2 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const success = await clearCloudData();
+                              setConfirmWipeCloud(false);
+                              setMsg(
+                                success
+                                  ? { text: '✓ Cloud backup permanently cleared.' }
+                                  : { text: '✗ Failed to clear cloud backup.', error: true },
+                              );
+                            }}
+                            className="flex-1 h-9 rounded-xl bg-error text-white text-[11.5px] font-bold shadow-sm active:scale-[0.98] transition-all"
+                          >
+                            Yes, clear cloud
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmWipeCloud(false)}
+                            className="flex-1 h-9 rounded-xl border border-subtle bg-surface text-[11.5px] font-semibold text-content-secondary hover:text-content-primary active:scale-[0.98] transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -665,43 +709,6 @@ export default function SettingsSheet({
                     </div>
                   )}
 
-                  {/* Wipe cloud confirmation prompt */}
-                  {confirmWipeCloud && (
-                    <div className="rounded-xl border border-error/30 bg-error-soft/90 p-3 space-y-2.5">
-                      <div className="flex items-center gap-2 text-error font-semibold text-[11.5px]">
-                        <AlertTriangle size={14} className="shrink-0" />
-                        <span>Permanently clear cloud backup?</span>
-                      </div>
-                      <p className="text-[11px] text-content-secondary leading-relaxed">
-                        Clearing the cloud backup deletes your data from the server. Your local device copy will NOT be deleted.
-                      </p>
-                      <div className="flex gap-2 pt-0.5">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const success = await clearCloudData();
-                            setConfirmWipeCloud(false);
-                            setMsg(
-                              success
-                                ? { text: '✓ Cloud backup permanently cleared.' }
-                                : { text: '✗ Failed to clear cloud backup.', error: true },
-                            );
-                          }}
-                          className="flex-1 h-9 rounded-xl bg-error text-white text-[11.5px] font-bold shadow-sm active:scale-[0.98] transition-all"
-                        >
-                          Yes, clear cloud
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmWipeCloud(false)}
-                          className="flex-1 h-9 rounded-xl border border-subtle bg-surface text-[11.5px] font-semibold text-content-secondary hover:text-content-primary active:scale-[0.98] transition-all"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {/* ── Quick Action Hub (3 Interactive Tabs) ── */}
                   <div className="grid grid-cols-3 gap-2 pt-0.5">
                     <button
@@ -732,7 +739,7 @@ export default function SettingsSheet({
                       }`}
                     >
                       <Edit2 size={12} className={editProfileOpen ? 'text-primary' : 'text-primary/80'} />
-                      <span>Edit</span>
+                      <span>Edit Profile</span>
                     </button>
 
                     <button
@@ -770,56 +777,6 @@ export default function SettingsSheet({
                     >
                       <KeyRound size={12} className={securityOpen ? 'text-secondary' : 'text-secondary/80'} />
                       <span>Security</span>
-                    </button>
-                  </div>
-
-                  {/* Active Sitting Warning banner (if session in progress) */}
-                  {activeSession && (
-                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-warning/10 border border-warning/20 text-warning text-[11px] leading-tight">
-                      <AlertTriangle size={13} className="shrink-0" />
-                      <span>Finish or discard the active sitting before signing out.</span>
-                    </div>
-                  )}
-
-                  {/* ── Footer Session Control (Sign Out) ── */}
-                  <div className="pt-2 border-t border-subtle/60 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[10.5px] text-content-muted">
-                      <ShieldCheck size={12} className="text-secondary shrink-0" />
-                      <span>{user.email_confirmed_at || user.confirmed_at ? 'Email verified' : 'Email pending'}</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={Boolean(activeSession) || signOutBusy}
-                      onClick={async () => {
-                        setSignOutBusy(true);
-                        try {
-                          const beforeSync = captureWorkspace();
-                          const synced = await syncToCloud();
-                          if (!synced.ok) {
-                            if ((await verifyAccount()) === 'gone') return;
-                            setMsg({
-                              text: `Could not sign out safely: ${synced.error || 'sync failed'}. Export a backup or reconnect first.`,
-                              error: true,
-                            });
-                            return;
-                          }
-                          const syncedWorkspace = captureAccountSignOutAfterSync(beforeSync);
-                          const result = await signOut({ clearWorkspace: true, syncedWorkspace });
-                          if (!result.ok) setMsg({ text: result.error || 'Could not sign out.', error: true });
-                        } catch (error) {
-                          setMsg({
-                            text: error instanceof Error ? error.message : 'The workspace could not be checked. Nothing was cleared.',
-                            error: true,
-                          });
-                        } finally {
-                          setSignOutBusy(false);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-subtle/70 bg-surface/40 text-content-muted hover:text-error hover:border-error/30 hover:bg-error-soft text-[11.5px] font-semibold disabled:opacity-40 disabled:hover:text-content-muted disabled:hover:border-subtle/70 disabled:hover:bg-surface/40 transition-all active:scale-[0.98]"
-                    >
-                      <LogOut size={12} />
-                      <span>{signOutBusy ? 'Checking…' : 'Sign out'}</span>
                     </button>
                   </div>
                 </div>
@@ -1382,6 +1339,58 @@ export default function SettingsSheet({
                     </div>
                   </div>
                 )}
+
+                {/* ── Footer Session Control (Sign Out) ── */}
+                <div className="border-t border-subtle/60 p-4 sm:p-5 pt-3 space-y-2.5 bg-surface/20">
+                  {/* Active Sitting Warning banner (if session in progress) */}
+                  {activeSession && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-warning/10 border border-warning/20 text-warning text-[11px] leading-tight">
+                      <AlertTriangle size={13} className="shrink-0" />
+                      <span>Finish or discard the active sitting before signing out.</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-[10.5px] text-content-muted">
+                      <span className="size-1.5 rounded-full bg-secondary" />
+                      <span>Encrypted local workspace</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={Boolean(activeSession) || signOutBusy}
+                      onClick={async () => {
+                        setSignOutBusy(true);
+                        try {
+                          const beforeSync = captureWorkspace();
+                          const synced = await syncToCloud();
+                          if (!synced.ok) {
+                            if ((await verifyAccount()) === 'gone') return;
+                            setMsg({
+                              text: `Could not sign out safely: ${synced.error || 'sync failed'}. Export a backup or reconnect first.`,
+                              error: true,
+                            });
+                            return;
+                          }
+                          const syncedWorkspace = captureAccountSignOutAfterSync(beforeSync);
+                          const result = await signOut({ clearWorkspace: true, syncedWorkspace });
+                          if (!result.ok) setMsg({ text: result.error || 'Could not sign out.', error: true });
+                        } catch (error) {
+                          setMsg({
+                            text: error instanceof Error ? error.message : 'The workspace could not be checked. Nothing was cleared.',
+                            error: true,
+                          });
+                        } finally {
+                          setSignOutBusy(false);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-subtle/70 bg-surface/40 text-content-muted hover:text-error hover:border-error/30 hover:bg-error-soft text-[11.5px] font-semibold disabled:opacity-40 disabled:hover:text-content-muted disabled:hover:border-subtle/70 disabled:hover:bg-surface/40 transition-all active:scale-[0.98]"
+                    >
+                      <LogOut size={12} />
+                      <span>{signOutBusy ? 'Checking…' : 'Sign out'}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
