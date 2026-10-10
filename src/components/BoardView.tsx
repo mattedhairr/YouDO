@@ -561,9 +561,7 @@ export default function BoardView({
             <span className="board-community-label">{community.banned ? 'Community access · Request a review' : 'Community'}</span>
             {hasCommunityUnread ? (
               <span className="board-unread-pill" aria-hidden="true">
-                <span className="board-unread-pulse" />
-                <span className="board-unread-count">{communityUnreadCount > 99 ? '99+' : communityUnreadCount}</span>
-                <span className="board-unread-text">new</span>
+                {communityUnreadCount > 99 ? '99+' : communityUnreadCount}
               </span>
             ) : (
               <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Open' : 'Paused'}</span>
@@ -584,8 +582,7 @@ export default function BoardView({
                   title={`${adminCounts.total} pending admin items`}
                   aria-hidden="true"
                 >
-                  <span className="board-admin-badge-dot" />
-                  <span>{adminCounts.total > 9 ? '9+' : adminCounts.total}</span>
+                  {adminCounts.total > 9 ? '9+' : adminCounts.total}
                 </span>
               )}
             </button>

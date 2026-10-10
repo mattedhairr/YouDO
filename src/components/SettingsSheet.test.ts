@@ -353,4 +353,14 @@ describe('SettingsSheet Tab Navigation System', () => {
     expect(html).toContain('Hashtag Community Updates');
     expect(html).not.toContain('@Mentions Only');
   });
+
+  it('renders settings content container with touch-pan-y for fluid vertical scrolling and swipe tab switching', () => {
+    const html = renderToStaticMarkup(
+      createElement(SettingsSheet, defaultProps)
+    );
+
+    expect(html).toContain('settings-content');
+    expect(html).toContain('touch-pan-y');
+  });
 });
+

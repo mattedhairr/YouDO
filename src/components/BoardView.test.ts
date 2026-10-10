@@ -95,7 +95,7 @@ describe('BoardView responsive layout & hygiene', () => {
 
     expect(html).toContain('board-admin-link');
     expect(html).toContain('board-admin-badge');
-    expect(html).toContain('board-admin-badge-dot');
+    expect(html).not.toContain('board-admin-badge-dot');
     expect(html).toContain('>1<');
     expect(html).toContain('Open community admin, 1 unreviewed items');
     expect(html).toContain('1 pending admin items');
@@ -174,4 +174,30 @@ describe('BoardView responsive layout & hygiene', () => {
     expect(html).toContain('board-workspace');
     expect(typeof onOpenProfile).toBe('function');
   });
+
+  it('renders community unread count pill cleanly without pulse dot or extra text for visual uniformity', () => {
+    const html = renderToStaticMarkup(
+      createElement(BoardView, {
+        onOpenBoardSettings: vi.fn(),
+        initialCommunity: {
+          available: true,
+          dayKey: '2026-10-10',
+          isAdmin: false,
+          canJoin: true,
+          canPost: true,
+          settings: { roomEnabled: true, appreciationsEnabled: true, announcement: '' },
+          staffIds: [],
+          banned: false,
+          unread: { chat: 4, updates: 0 },
+        },
+      }),
+    );
+
+    expect(html).toContain('board-community-link has-unread');
+    expect(html).toContain('board-unread-pill');
+    expect(html).toContain('>4<');
+    expect(html).not.toContain('board-unread-pulse');
+    expect(html).not.toContain('board-unread-text');
+  });
 });
+

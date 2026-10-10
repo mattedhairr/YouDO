@@ -431,6 +431,63 @@ export default function SettingsSheet({
     }
   };
 
+  // Horizontal touch swipe to switch between tabs
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (trashOpen || editProfileOpen || securityOpen || restoreOpen) return;
+    if (e.touches.length !== 1) return;
+
+    const target = e.target as HTMLElement | null;
+    if (target) {
+      const tag = target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (target.closest('input, textarea, select, [data-no-swipe]')) return;
+    }
+
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+
+    if (e.changedTouches.length === 0) return;
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const diffX = endX - start.x;
+    const diffY = endY - start.y;
+    const duration = Date.now() - start.time;
+
+    // Check if the gesture is predominantly horizontal
+    const isHorizontal = Math.abs(diffX) > Math.abs(diffY) * 1.25;
+    const isSufficientDistance = Math.abs(diffX) >= 45;
+    const isFastFlick = duration < 320 && Math.abs(diffX) >= 28;
+
+    if (isHorizontal && (isSufficientDistance || isFastFlick)) {
+      const currentIndex = tabs.findIndex((t) => t.id === activeTab);
+      if (currentIndex !== -1) {
+        if (diffX < 0 && currentIndex < tabs.length - 1) {
+          // Swiped left -> Next tab
+          handleTabClick(tabs[currentIndex + 1].id);
+        } else if (diffX > 0 && currentIndex > 0) {
+          // Swiped right -> Previous tab
+          handleTabClick(tabs[currentIndex - 1].id);
+        }
+      }
+    }
+  };
+
+  const handleTouchCancel = () => {
+    touchStartRef.current = null;
+  };
+
   if (!open) return null;
 
   const handleExport = async () => {
@@ -611,7 +668,13 @@ export default function SettingsSheet({
         )}
       </div>
       ) : (
-      <div ref={contentRef} className="settings-content flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-12 space-y-5">
+      <div
+        ref={contentRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+        className="settings-content flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-12 space-y-5 touch-pan-y"
+      >
         {/* Status Messages */}
         {msg && (
           <div

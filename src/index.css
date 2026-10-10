@@ -1042,22 +1042,20 @@ html.light-dusky .command-dock-premium {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px;
+  justify-content: center;
+  height: 19px;
+  min-width: 19px;
+  padding: 0 5.5px;
   border-radius: 999px;
-  background: var(--secondary);
-  color: var(--on-secondary, #000);
-  font-size: 10.5px;
-  font-weight: 750;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--secondary) 50%, transparent);
-}
-.board-unread-pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: board-pulse-glow 1.8s ease-in-out infinite;
+  background: color-mix(in srgb, var(--secondary) 18%, var(--bg-surface));
+  color: var(--secondary);
+  border: 1px solid color-mix(in srgb, var(--secondary) 35%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 .board-unread-count {
   font-variant-numeric: tabular-nums;
@@ -1068,10 +1066,6 @@ html.light-dusky .command-dock-premium {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: 0.9;
-}
-@keyframes board-pulse-glow {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.75); }
 }
 .board-room-status { font-size: 10px; color: var(--text-muted); }
 .board-community-actions {
@@ -1141,29 +1135,23 @@ html.light-dusky .command-dock-premium {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 3.5px;
-  height: 18px;
-  min-width: 18px;
-  padding: 0 5px;
+  height: 19px;
+  min-width: 19px;
+  padding: 0 5.5px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  background: color-mix(in srgb, var(--primary) 18%, var(--bg-surface));
   color: var(--primary);
-  border: none;
-  font-size: 9.5px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+  box-sizing: border-box;
   box-shadow: none;
 }
 .board-admin-badge-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--primary);
-  box-shadow: 0 0 6px var(--primary);
-  animation: board-pulse-glow 1.8s ease-in-out infinite;
-  flex-shrink: 0;
+  display: none;
 }
 .community-shell header { min-height: 72px; }
 .community-shell main { scroll-padding: 16px; }
