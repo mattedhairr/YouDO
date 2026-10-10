@@ -154,12 +154,19 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
               className={`mr-2.5 transition-colors shrink-0 ${query ? 'text-primary' : 'text-content-muted'}`}
             />
             <input
-              type="text"
+              type="search"
+              name="companion_search"
+              id="companion_search_query"
+              data-protonpass-ignore="true"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              data-bwignore="true"
+              data-form-type="other"
               inputMode="search"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="Search @username (e.g. @alex_study)"
+              placeholder="Search study partner handle (e.g. @alex)..."
               value={query}
               autoComplete="off"
               enterKeyHint="search"
@@ -280,7 +287,7 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
 
           {/* Selected Companion Connection Card & Request Composer */}
           {selected && (
-            <div className="rounded-[24px] border border-subtle bg-elevated/60 p-4.5 flex flex-col gap-4 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="rounded-[24px] border border-subtle bg-elevated/60 p-4 flex flex-col gap-4 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
               {/* Selected User Header */}
               <div className="flex items-center justify-between pb-3 border-b border-subtle/70">
                 <div className="flex items-center gap-3 min-w-0">

@@ -48,7 +48,7 @@ export default function UserProfileSheet({
   const [friendRequestError, setFriendRequestError] = useState('');
   const { user } = useAuth();
   const [focusWindow, setFocusWindow] = useState<PaceWindow>(boardPaceWindow);
-  const [paceRow, setPaceRow] = useState<PaceRow | null>(null);
+  const [paceRow, setPaceRow] = useState<PaceRow | null>(boardPreview?.userId === userId ? boardPreview : null);
 
   const isSelf = Boolean(user?.id && userId && user.id === userId);
   const privateHandle = normalizeUsername(profile?.username);
@@ -163,17 +163,17 @@ export default function UserProfileSheet({
           ) : hasPublicView ? (
             <>
               {/* Profile Identity Hero */}
-              <div className="rounded-[22px] border border-subtle bg-elevated/50 p-4.5 flex items-start gap-4 shadow-sm">
+              <div className="rounded-[22px] border border-subtle bg-elevated/50 p-4 flex items-start gap-4 shadow-sm">
                 <div className="relative shrink-0">
-                  <div className="size-18 rounded-full bg-primary-soft border border-primary/25 ring-4 ring-primary/10 flex items-center justify-center text-primary text-3xl font-bold shadow-md overflow-hidden">
+                  <div className="w-16 h-16 shrink-0 aspect-square rounded-full bg-primary-soft border border-primary/25 ring-4 ring-primary/10 flex items-center justify-center text-primary text-3xl font-bold shadow-md overflow-hidden select-none">
                     <ProfileAvatarVisual
                       avatarUrl={profile?.avatar_url}
                       displayName={displayName}
-                      className="text-3xl"
+                      className="text-3xl leading-none flex items-center justify-center select-none"
                     />
                   </div>
                   {isSelf && (
-                    <span className="absolute -bottom-1 -right-1 text-[8.5px] font-extrabold uppercase tracking-wider bg-primary text-on-primary px-1.5 py-0.5 rounded-full border border-[var(--bg-surface)] shadow-sm">
+                    <span className="absolute -bottom-0.5 -right-0.5 text-[8.5px] font-extrabold uppercase tracking-wider bg-primary text-on-primary px-1.5 py-0.5 rounded-full border-2 border-surface shadow-sm">
                       You
                     </span>
                   )}

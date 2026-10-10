@@ -550,7 +550,7 @@ export default function BoardView({
       </p>}
 
       {community.available && (community.canJoin || community.isAdmin || community.banned) && (
-        <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}>
+        <div className={`board-community-actions px-0.5 ${community.isAdmin ? 'with-admin' : ''}`}>
           <button
             type="button"
             aria-label={hasCommunityUnread ? `Community, ${communityUnreadCount} new messages` : 'Community'}

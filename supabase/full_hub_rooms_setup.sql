@@ -59,7 +59,7 @@ create table if not exists public.squads (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text default '',
-  privacy text not null default 'anyone_can_join' check (privacy in ('anyone_can_join', 'invite_only')),
+  privacy text not null default 'anyone_can_join' check (privacy in ('anyone_can_join', 'invite_only', 'public', 'private')),
   bar_hours numeric default null,
   allow_join_requests boolean not null default true,
   created_by uuid not null references auth.users (id) on delete cascade,
@@ -67,8 +67,10 @@ create table if not exists public.squads (
 );
 
 alter table public.squads
-  add column if not exists privacy text not null default 'anyone_can_join'
-  check (privacy in ('anyone_can_join', 'invite_only'));
+  add column if not exists privacy text not null default 'anyone_can_join';
+
+alter table public.squads drop constraint if exists squads_privacy_check;
+alter table public.squads add constraint squads_privacy_check check (privacy in ('anyone_can_join', 'invite_only', 'public', 'private'));
 
 alter table public.squads
   add column if not exists allow_join_requests boolean not null default true;

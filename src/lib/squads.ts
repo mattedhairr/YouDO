@@ -77,10 +77,21 @@ export interface PendingSquadInvite {
   squads: Squad | null;
 }
 
+function normalizeSquadPrivacyInPlace(squad: { privacy?: string | null } | null | undefined) {
+  if (!squad) return;
+  if (squad.privacy === 'public') {
+    squad.privacy = 'anyone_can_join';
+  } else if (squad.privacy === 'private') {
+    squad.privacy = 'invite_only';
+  }
+}
+
 function squadFromJoinedRow(raw: unknown): Squad | null {
   if (!raw || typeof raw !== 'object') return null;
-  if (Array.isArray(raw)) return (raw[0] as Squad) ?? null;
-  return raw as Squad;
+  const row = (Array.isArray(raw) ? raw[0] : raw) as Squad;
+  if (!row) return null;
+  normalizeSquadPrivacyInPlace(row);
+  return row;
 }
 
 function isAllowJoinRequestsMissingError(err: { message?: string; details?: string; hint?: string; code?: string } | null | undefined): boolean {
@@ -91,6 +102,16 @@ function isAllowJoinRequestsMissingError(err: { message?: string; details?: stri
     err.hint?.includes('allow_join_requests') ||
     err.code === 'PGRST204' ||
     err.code === '42703',
+  );
+}
+
+function isPrivacyCheckConstraintError(err: { message?: string; details?: string; hint?: string; code?: string } | null | undefined): boolean {
+  if (!err) return false;
+  const str = `${err.message || ''} ${err.details || ''} ${err.hint || ''}`.toLowerCase();
+  return Boolean(
+    err.code === '23514' ||
+    str.includes('squads_privacy_check') ||
+    (str.includes('check constraint') && str.includes('privacy'))
   );
 }
 
@@ -158,28 +179,56 @@ export async function createSquad(
     insertPayload.bar_hours = barHours;
   }
 
-  let { data, error } = await supabase
-    .from('squads')
-    .insert(insertPayload)
-    .select()
-    .single();
-
-  if (error && isAllowJoinRequestsMissingError(error)) {
-    const fallbackPayload = { ...insertPayload };
-    delete fallbackPayload.allow_join_requests;
-    const retry = await supabase
+  const attemptInsert = async (payload: Record<string, unknown>) => {
+    let res = await supabase
       .from('squads')
-      .insert(fallbackPayload)
+      .insert(payload)
       .select()
       .single();
-    data = retry.data;
-    error = retry.error;
+    if (res.error && isAllowJoinRequestsMissingError(res.error)) {
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.allow_join_requests;
+      res = await supabase
+        .from('squads')
+        .insert(fallbackPayload)
+        .select()
+        .single();
+    }
+    return res;
+  };
+
+  let { data, error } = await attemptInsert(insertPayload);
+
+  if (error && isPrivacyCheckConstraintError(error)) {
+    // Check constraint failed (e.g. live database constraint expects 'public' / 'private')
+    // 1. Try mapping: 'anyone_can_join' -> 'public', 'invite_only' -> 'private'
+    const mappedPrivacy = privacy === 'anyone_can_join' ? 'public' : 'private';
+    const mappedPayload = { ...insertPayload, privacy: mappedPrivacy };
+    const retryMapped = await attemptInsert(mappedPayload);
+
+    if (!retryMapped.error && retryMapped.data) {
+      data = retryMapped.data;
+      error = null;
+    } else {
+      // 2. If mapped value still fails or privacy is rejected, omit privacy column entirely (let DB default take over)
+      const omitPayload = { ...insertPayload };
+      delete omitPayload.privacy;
+      const retryOmit = await attemptInsert(omitPayload);
+      if (!retryOmit.error && retryOmit.data) {
+        data = retryOmit.data;
+        error = null;
+      } else {
+        error = retryOmit.error || retryMapped.error || error;
+      }
+    }
   }
 
   if (error || !data) {
     console.error('Failed to create squad:', error);
     return { ok: false, error: error?.message || 'Failed to create room.' };
   }
+
+  normalizeSquadPrivacyInPlace(data);
 
   const { error: memberError } = await supabase.from('squad_members').insert({
     squad_id: data.id,
@@ -216,19 +265,33 @@ export async function updateSquadPrivacy(
   squadId: string,
   privacy: SquadPrivacy,
 ): Promise<boolean> {
-  let { error } = await supabase
-    .from('squads')
-    .update({
-      privacy,
-      allow_join_requests: privacy === 'anyone_can_join',
-    })
-    .eq('id', squadId);
-
-  if (error && isAllowJoinRequestsMissingError(error)) {
-    const retry = await supabase
+  const attemptUpdate = async (patch: Record<string, unknown>) => {
+    let res = await supabase
       .from('squads')
-      .update({ privacy })
+      .update(patch)
       .eq('id', squadId);
+    if (res.error && isAllowJoinRequestsMissingError(res.error)) {
+      const fallbackPatch = { ...patch };
+      delete fallbackPatch.allow_join_requests;
+      res = await supabase
+        .from('squads')
+        .update(fallbackPatch)
+        .eq('id', squadId);
+    }
+    return res;
+  };
+
+  let { error } = await attemptUpdate({
+    privacy,
+    allow_join_requests: privacy === 'anyone_can_join',
+  });
+
+  if (error && isPrivacyCheckConstraintError(error)) {
+    const legacyPrivacy = privacy === 'anyone_can_join' ? 'public' : 'private';
+    const retry = await attemptUpdate({
+      privacy: legacyPrivacy,
+      allow_join_requests: privacy === 'anyone_can_join',
+    });
     error = retry.error;
   }
 
@@ -246,6 +309,8 @@ export async function getSquadDetails(squadId: string): Promise<{ squad: Squad; 
     if (squadErr) console.error('getSquadDetails squad:', squadErr);
     return null;
   }
+
+  normalizeSquadPrivacyInPlace(squad);
 
   const { data: members, error: memErr } = await supabase
     .from('squad_members')
@@ -402,12 +467,7 @@ export async function fetchMySquads(userId: string): Promise<Squad[]> {
     return [];
   }
   return data
-    .map((row) => {
-      const squad = row.squads;
-      if (!squad) return null;
-      if (Array.isArray(squad)) return squad[0] ?? null;
-      return squad as Squad;
-    })
+    .map((row) => squadFromJoinedRow(row.squads))
     .filter((s): s is Squad => s != null);
 }
 

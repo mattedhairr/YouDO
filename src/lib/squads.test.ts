@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   paceHoursMatch,
   partitionSquadPaceMembers,
   squadPaceGateMessage,
+  createSquad,
+  updateSquadPrivacy,
   type Squad,
   type SquadPrivacy,
 } from './squads';
+import { supabase } from './supabase';
 
 describe('partitionSquadPaceMembers (Unification without segregation)', () => {
   it('unifies all members into collective regardless of different bar hours', () => {
@@ -94,6 +97,144 @@ describe('paceHoursMatch & squadPaceGateMessage (deprecated compatibility)', () 
   it('handles message gracefully', () => {
     const msg = squadPaceGateMessage(8, 5);
     expect(typeof msg).toBe('string');
+  });
+});
+
+describe('createSquad & updateSquadPrivacy check constraint graceful recovery', () => {
+  it('retries with mapped privacy when squads_privacy_check constraint fails', async () => {
+    const payloads: Record<string, unknown>[] = [];
+    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+      if (table === 'squads') {
+        return {
+          insert: vi.fn((payload: Record<string, unknown>) => {
+            payloads.push(payload);
+            if (payload.privacy === 'anyone_can_join') {
+              return {
+                select: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: {
+                      code: '23514',
+                      message: 'new row for relation "squads" violates check constraint "squads_privacy_check"',
+                    },
+                  }),
+                }),
+              };
+            }
+            return {
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'sq-10', name: 'Check Test', privacy: 'public', created_by: 'u1' },
+                  error: null,
+                }),
+              }),
+            };
+          }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      if (table === 'squad_members') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      return {} as unknown as ReturnType<typeof supabase.from>;
+    });
+
+    const res = await createSquad({
+      ownerId: 'u1',
+      name: 'Check Test',
+      privacy: 'anyone_can_join',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.squad?.id).toBe('sq-10');
+    // Normalized to modern privacy in client model
+    expect(res.squad?.privacy).toBe('anyone_can_join');
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0].privacy).toBe('anyone_can_join');
+    expect(payloads[1].privacy).toBe('public');
+  });
+
+  it('omits privacy column if mapped privacy also fails check constraint', async () => {
+    const payloads: Record<string, unknown>[] = [];
+    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+      if (table === 'squads') {
+        return {
+          insert: vi.fn((payload: Record<string, unknown>) => {
+            payloads.push(payload);
+            if ('privacy' in payload) {
+              return {
+                select: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: {
+                      code: '23514',
+                      message: 'violates check constraint "squads_privacy_check"',
+                    },
+                  }),
+                }),
+              };
+            }
+            return {
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'sq-20', name: 'Check Test 2', created_by: 'u1' },
+                  error: null,
+                }),
+              }),
+            };
+          }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      if (table === 'squad_members') {
+        return {
+          insert: vi.fn().mockResolvedValue({ error: null }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      return {} as unknown as ReturnType<typeof supabase.from>;
+    });
+
+    const res = await createSquad({
+      ownerId: 'u1',
+      name: 'Check Test 2',
+      privacy: 'invite_only',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.squad?.id).toBe('sq-20');
+    expect(payloads).toHaveLength(3);
+    expect(payloads[0].privacy).toBe('invite_only');
+    expect(payloads[1].privacy).toBe('private');
+    expect('privacy' in payloads[2]).toBe(false);
+  });
+
+  it('updateSquadPrivacy retries with mapped legacy privacy on check constraint', async () => {
+    const updates: Record<string, unknown>[] = [];
+    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+      if (table === 'squads') {
+        return {
+          update: vi.fn((patch: Record<string, unknown>) => {
+            updates.push(patch);
+            const isLegacy = patch.privacy === 'private';
+            return {
+              eq: vi.fn().mockResolvedValue({
+                error: isLegacy ? null : {
+                  code: '23514',
+                  message: 'violates check constraint squads_privacy_check',
+                },
+              }),
+            };
+          }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      }
+      return {} as unknown as ReturnType<typeof supabase.from>;
+    });
+
+    const ok = await updateSquadPrivacy('sq-1', 'invite_only');
+    expect(ok).toBe(true);
+    expect(updates).toHaveLength(2);
+    expect(updates[0].privacy).toBe('invite_only');
+    expect(updates[1].privacy).toBe('private');
   });
 });
 
