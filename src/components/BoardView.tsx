@@ -22,9 +22,10 @@ import { formatDuration } from '../lib/format';
 import { STORAGE_KEYS } from '../lib/storageKeys';
 import { formatStreakHours } from '../lib/focusTrends';
 import { todayISO } from '../lib/dates';
-import { fetchAppreciations, fetchCommunityContext, giveKudos, type AppreciationState, type CommunityContext } from '../lib/community';
+import { fetchAdminHubCounts, fetchAppreciations, fetchCommunityContext, giveKudos, type AdminHubCounts, type AppreciationState, type CommunityContext } from '../lib/community';
 import CommunitySheet from './CommunitySheet';
 import { hapticTick } from '../lib/haptics';
+import { dispatchAdminNotification, dismissAdminNotification } from '../lib/notifications';
 
 const WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -269,7 +270,7 @@ export default function BoardView({
   const [appreciationError, setAppreciationError] = useState('');
 
   useEffect(() => {
-    if (!user || !pacePrefs.optedIn) {
+    if (!user) {
       return;
     }
     let cancelled = false;
@@ -289,7 +290,75 @@ export default function BoardView({
     window.addEventListener('youdo-community-read',refreshUnread);
     document.addEventListener('visibilitychange',refreshUnread);
     return () => { cancelled=true;clearInterval(timer);window.removeEventListener('youdo-community-read',refreshUnread);document.removeEventListener('visibilitychange',refreshUnread); };
-  },[user, pacePrefs.optedIn]);
+  },[user]);
+
+  const [adminCounts, setAdminCounts] = useState<AdminHubCounts>({ reports: 0, appeals: 0, hashtagRequests: 0, chatReplies: 0, total: 0 });
+  const prevAdminCounts = useRef<AdminHubCounts | null>(null);
+
+  useEffect(() => {
+    if (!community.isAdmin) {
+      setAdminCounts({ reports: 0, appeals: 0, hashtagRequests: 0, chatReplies: 0, total: 0 });
+      prevAdminCounts.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    let busy = false;
+
+    const checkAdminCounts = async () => {
+      if (busy || document.visibilityState !== 'visible') return;
+      busy = true;
+      try {
+        const counts = await fetchAdminHubCounts();
+        if (cancelled) return;
+
+        if (prevAdminCounts.current !== null) {
+          if (counts.reports > prevAdminCounts.current.reports) {
+            void dispatchAdminNotification({
+              type: 'message_report',
+              title: 'New Message Report',
+              body: `${counts.reports} ${counts.reports === 1 ? 'message report requires' : 'message reports require'} review in Admin Hub.`,
+            });
+          }
+          if (counts.hashtagRequests > prevAdminCounts.current.hashtagRequests) {
+            void dispatchAdminNotification({
+              type: 'hashtag_request',
+              title: 'New Hashtag Request',
+              body: `${counts.hashtagRequests} ${counts.hashtagRequests === 1 ? 'hashtag request is' : 'hashtag requests are'} waiting for admin review.`,
+            });
+          }
+          if (counts.chatReplies > prevAdminCounts.current.chatReplies) {
+            void dispatchAdminNotification({
+              type: 'chat_reply',
+              title: 'New Support Chat Reply',
+              body: 'A requester replied to your note in Hashtag Support Chat.',
+            });
+          }
+          if (counts.total === 0 && prevAdminCounts.current.total > 0) {
+            void dismissAdminNotification();
+          }
+        }
+        prevAdminCounts.current = counts;
+        setAdminCounts(counts);
+      } catch {
+        // Keep last known admin counts
+      } finally {
+        busy = false;
+      }
+    };
+
+    void checkAdminCounts();
+    const timer = window.setInterval(() => { void checkAdminCounts(); }, 30_000);
+    window.addEventListener('youdo-community-read', checkAdminCounts);
+    document.addEventListener('visibilitychange', checkAdminCounts);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('youdo-community-read', checkAdminCounts);
+      document.removeEventListener('visibilitychange', checkAdminCounts);
+    };
+  }, [community.isAdmin]);
 
   useEffect(() => {
     const refreshDate = () => setAnchorISO(todayISO());
@@ -361,6 +430,12 @@ export default function BoardView({
     void fetchCommunityContext(user.id).then((next) => {
       if (!next.error) setCommunity(next);
     }).catch(() => { /* Keep the last known Board state during a connection failure. */ });
+    if (community.isAdmin) {
+      void fetchAdminHubCounts().then((counts) => {
+        setAdminCounts(counts);
+        prevAdminCounts.current = counts;
+      }).catch(() => {});
+    }
   };
 
   const toggleAppreciation = async (targetId: string) => {
@@ -489,8 +564,28 @@ export default function BoardView({
         ) : (
           <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Open' : 'Paused'}</span>
         )}
-        <ChevronDown size={14} className="-rotate-90 text-content-muted" />
-      </button>{community.isAdmin && <button type="button" onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }} className="board-admin-link" aria-label="Open community admin"><Gauge size={16} /><span>Admin</span></button>}</div>}
+      </button>
+      {community.isAdmin && (
+        <button
+          type="button"
+          onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }}
+          className="board-admin-link relative"
+          aria-label={adminCounts.total > 0 ? `Open community admin, ${adminCounts.total} unreviewed items` : 'Open community admin'}
+        >
+          <Gauge size={16} />
+          <span>Admin</span>
+          {adminCounts.total > 0 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-black text-black shadow-sm ring-2 ring-elevated animate-pulse"
+              title={`${adminCounts.total} pending admin items`}
+              aria-hidden="true"
+            >
+              {adminCounts.total > 9 ? '9+' : adminCounts.total}
+            </span>
+          )}
+        </button>
+      )}
+    </div>}
 
       {appreciationError && <p role="status" className="text-[11px] text-error">{appreciationError}</p>}
       {missingTable ? (

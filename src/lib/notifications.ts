@@ -8,6 +8,13 @@ import { STORAGE_KEYS } from './storageKeys';
 export type RoomNotificationMode = 'all' | 'mentions' | 'off';
 export type CommunityNotificationMode = 'mentions' | 'all' | 'off';
 
+export interface AdminHubNotificationPreferences {
+  enabled: boolean;
+  newHashtagRequests: boolean;
+  reportedMessages: boolean;
+  chatReplies: boolean;
+}
+
 export interface NotificationPreferences {
   enabled: boolean;
   morningBriefing: {
@@ -31,6 +38,7 @@ export interface NotificationPreferences {
     communityMessages: CommunityNotificationMode;
     hashtagMentions: boolean;
   };
+  adminHub?: AdminHubNotificationPreferences;
   sound: boolean;
   vibrate: boolean;
 }
@@ -58,6 +66,12 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     communityMessages: 'mentions',
     hashtagMentions: true,
   },
+  adminHub: {
+    enabled: true,
+    newHashtagRequests: true,
+    reportedMessages: true,
+    chatReplies: true,
+  },
   sound: true,
   vibrate: true,
 };
@@ -66,6 +80,7 @@ export const NOTIFICATION_CHANNELS = {
   DAILY_BRIEFING: 'daily-briefing',
   PRIVATE_HUB: 'private-hub',
   PUBLIC_HUB: 'public-hub',
+  ADMIN_HUB: 'admin-hub',
 } as const;
 
 export const NOTIFICATION_IDS = {
@@ -74,6 +89,7 @@ export const NOTIFICATION_IDS = {
   FRIEND_REQUEST: 2001,
   ROOM_INVITE: 2002,
   COMMUNITY: 3001,
+  ADMIN_HUB: 4001,
 } as const;
 
 export const NOTIFICATION_PREFS_CHANGED_EVENT = 'youdo:notification-prefs-changed';
@@ -118,6 +134,10 @@ export function getNotificationPreferences(): NotificationPreferences {
       publicHub: {
         ...DEFAULT_NOTIFICATION_PREFERENCES.publicHub,
         ...(parsed.publicHub ?? {}),
+      },
+      adminHub: {
+        ...DEFAULT_NOTIFICATION_PREFERENCES.adminHub!,
+        ...(parsed.adminHub ?? {}),
       },
       sound: typeof parsed.sound === 'boolean' ? parsed.sound : DEFAULT_NOTIFICATION_PREFERENCES.sound,
       vibrate: typeof parsed.vibrate === 'boolean' ? parsed.vibrate : DEFAULT_NOTIFICATION_PREFERENCES.vibrate,
@@ -209,6 +229,14 @@ export async function ensureNotificationChannels(): Promise<void> {
         description: 'Community chats, hashtag discussions, and public room alerts.',
         importance: 3,
         visibility: 0,
+        vibration: true,
+      }),
+      LocalNotifications.createChannel({
+        id: NOTIFICATION_CHANNELS.ADMIN_HUB,
+        name: 'Community Admin Hub',
+        description: 'Moderator alerts for hashtag requests, reports, and replies.',
+        importance: 4,
+        visibility: 1,
         vibration: true,
       }),
     ]);
@@ -803,3 +831,66 @@ export async function dismissAllHubNotifications(): Promise<void> {
     }
   }
 }
+
+export async function dispatchAdminNotification(params: {
+  type: 'hashtag_request' | 'message_report' | 'chat_reply';
+  title: string;
+  body: string;
+  tagId?: string;
+}): Promise<void> {
+  const prefs = getNotificationPreferences();
+  if (!prefs.enabled) return;
+  const adminPrefs = prefs.adminHub ?? DEFAULT_NOTIFICATION_PREFERENCES.adminHub!;
+  if (!adminPrefs.enabled) return;
+
+  if (params.type === 'hashtag_request' && !adminPrefs.newHashtagRequests) return;
+  if (params.type === 'message_report' && !adminPrefs.reportedMessages) return;
+  if (params.type === 'chat_reply' && !adminPrefs.chatReplies) return;
+
+  const id = params.tagId
+    ? stringToNotificationId(`admin:${params.tagId}`, 4000, 1000)
+    : NOTIFICATION_IDS.ADMIN_HUB;
+
+  const title = params.title || 'Admin Hub Alert';
+  const body = params.body.length > 120 ? `${params.body.slice(0, 117)}...` : params.body;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await ensureNotificationChannels();
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id,
+            title,
+            body,
+            channelId: NOTIFICATION_CHANNELS.ADMIN_HUB,
+            extra: {
+              type: 'admin_hub',
+              alertType: params.type,
+              tagId: params.tagId,
+            },
+          },
+        ],
+      });
+    } catch (err) {
+      console.warn('Failed to dispatch admin notification:', err);
+    }
+  } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body,
+        tag: `admin:${params.type}:${params.tagId ?? 'general'}`,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export async function dismissAdminNotification(tagId?: string): Promise<void> {
+  const id = tagId
+    ? stringToNotificationId(`admin:${tagId}`, 4000, 1000)
+    : NOTIFICATION_IDS.ADMIN_HUB;
+  await cancelNotification(id);
+}
+

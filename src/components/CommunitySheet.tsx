@@ -37,6 +37,7 @@ import CommunityQuoteAdmin from './community/CommunityQuoteAdmin';
 import { clearChatCache } from '../lib/communityChat';
 import { fetchAdminCommunityHashtags, fetchAdminHashtagRequests, type AdminCommunityHashtag, type CommunityHashtagRequest } from '../lib/communityHashtags';
 import { fetchAdminAppQuotes, type AdminAppQuote } from '../lib/appQuotes';
+import { dismissAdminNotification } from '../lib/notifications';
 
 interface Props {
   open: boolean;
@@ -65,7 +66,10 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [adminTab, setAdminTab] = useState<'review' | 'hashtags' | 'controls' | 'quotes' | 'history'>('review');
   const [savingFeature, setSavingFeature] = useState(false);
   const featureBusy = useRef(false);
-  const mode = startInAdmin ? 'admin' : 'room';
+  const [mode, setMode] = useState<'room' | 'admin'>(startInAdmin ? 'admin' : 'room');
+  useEffect(() => {
+    setMode(startInAdmin ? 'admin' : 'room');
+  }, [startInAdmin, open]);
   const [draft, setDraft] = useState('');
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -134,6 +138,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       setQuotes(quoteResult.value);
       setQuoteLoadError(quoteResult.error);
       setAdminLoaded(true);
+      void dismissAdminNotification();
     }
     setRefreshError('');
     } catch (error) {
@@ -249,7 +254,28 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       <header className={`flex shrink-0 items-center gap-2 bg-elevated px-3 pt-[max(0.75rem,var(--safe-area-top))] ${mode === 'room' && context.chatV2 ? 'pb-1' : 'border-b border-subtle pb-3'}`}>
         <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-content-secondary hover:bg-surface" aria-label="Close community"><ArrowLeft size={19} /></button>
         <span className="grid size-9 place-items-center rounded-xl border border-primary/20 bg-primary-soft text-primary">{mode === 'admin' ? <Gauge size={17} /> : <MessageCircle size={17} />}</span>
-        <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p><h2 className="text-[16px] font-bold text-content-primary">{mode === 'admin' ? 'Community admin' : 'Community'}</h2></div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p>
+          <h2 className="text-[16px] font-bold text-content-primary truncate">{mode === 'admin' ? 'Community admin' : 'Community'}</h2>
+        </div>
+        {context.isAdmin && (
+          <button
+            type="button"
+            onClick={() => setMode(mode === 'admin' ? 'room' : 'admin')}
+            className={`relative flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-bold transition border ${
+              mode === 'admin'
+                ? 'border-primary/30 bg-primary-soft text-primary'
+                : 'border-subtle bg-surface hover:bg-surface-elevated text-secondary'
+            }`}
+            aria-label={mode === 'admin' ? 'Switch to Community chat room' : 'Switch to Community Admin Hub'}
+          >
+            <Gauge size={13} />
+            <span>{mode === 'admin' ? 'Room' : 'Admin'}</span>
+            {mode === 'room' && (reports.length + appeals.length + hashtagRequests.length > 0) && (
+              <span className="size-2 rounded-full bg-warning ring-2 ring-elevated animate-pulse" />
+            )}
+          </button>
+        )}
         <button type="button" disabled={refreshing} onClick={() => void refresh()} className="grid size-9 place-items-center rounded-xl text-content-muted" aria-label="Refresh"><RefreshCw size={15} /></button>
       </header>
 

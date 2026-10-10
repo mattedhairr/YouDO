@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, MessageSquare, X } from 'lucide-react';
 import {
   fetchCommunityRooms,
   requestCommunityHashtag,
   type CommunityHashtagContext,
+  type CommunityHashtagRequest,
 } from '../../lib/communityHashtags';
 import Overlay from '../Overlay';
+import CommunityHashtagSupportChat from './CommunityHashtagSupportChat';
 
 interface Props {
   selectedId?: string;
@@ -18,6 +20,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
   selectedRef.current=selectedId;
   const [context,setContext]=useState<CommunityHashtagContext>({hashtags:[],requests:[]});
   const [panel,setPanel]=useState<'request'|'explore'|null>(null);
+  const [chatRequest, setChatRequest] = useState<CommunityHashtagRequest | null>(null);
   const [exam,setExam]=useState('');
   const [details,setDetails]=useState('');
   const [busy,setBusy]=useState(false);
@@ -59,6 +62,8 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
   if (selectedId && selectedId !== context.mine?.id) {
     secondTabTag = context.hashtags.find(t => t.id === selectedId) || secondTabTag;
   }
+
+  const hasWaitingRequests = context.requests.some(r => r.status === 'waiting');
 
   const otherUnreadCount = context.hashtags.reduce((acc, tag) => {
     if (tag.id !== secondTabTag?.id) {
@@ -126,7 +131,9 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
           aria-label="Explore other rooms"
         >
           <ChevronDown size={16} />
-          {otherUnreadCount > 0 && (
+          {hasWaitingRequests ? (
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-surface animate-pulse" aria-hidden="true" />
+          ) : otherUnreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-secondary border-2 border-surface" aria-hidden="true" />
           )}
         </button>
@@ -144,6 +151,86 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
               </div>
               <button type="button" onClick={() => setPanel(null)} aria-label="Close"><X size={17} /></button>
             </header>
+
+            {/* User Hashtag Requests Section */}
+            {context.requests.length > 0 && (
+              <div className="mt-2 mb-3 space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
+                    <MessageSquare size={12} />
+                    Your Hashtag Requests
+                  </span>
+                  <span className="text-[9.5px] font-semibold text-content-muted">
+                    {context.requests.length} sent
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {context.requests.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-3 rounded-xl border ${
+                        item.status === 'waiting'
+                          ? 'border-warning/35 bg-warning/10 shadow-sm'
+                          : item.status === 'declined'
+                          ? 'border-error/25 bg-error-soft/30'
+                          : 'border-subtle bg-surface'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-content-primary text-[12.5px]">
+                          #{item.examName}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            item.status === 'waiting'
+                              ? 'bg-warning/20 text-warning border border-warning/30'
+                              : item.status === 'declined'
+                              ? 'bg-error-soft text-error'
+                              : 'bg-primary-soft text-primary'
+                          }`}
+                        >
+                          {item.status === 'waiting'
+                            ? 'Admin replied'
+                            : item.status === 'declined'
+                            ? 'Not approved'
+                            : 'Pending review'}
+                        </span>
+                      </div>
+
+                      {item.adminResponse ? (
+                        <p className="text-[11px] leading-relaxed text-content-secondary mt-1 bg-elevated/60 p-2 rounded-lg border border-subtle/50">
+                          <strong className="text-secondary font-semibold">Admin: </strong>
+                          {item.adminResponse}
+                        </p>
+                      ) : item.details ? (
+                        <p className="text-[10.5px] text-content-muted truncate mt-0.5">
+                          {item.details}
+                        </p>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => setChatRequest(item)}
+                        className={`mt-2 w-full flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-[11px] font-semibold transition active:scale-[0.98] ${
+                          item.status === 'waiting'
+                            ? 'bg-secondary text-on-secondary shadow-sm font-bold'
+                            : 'bg-surface border border-subtle text-content-secondary hover:text-content-primary'
+                        }`}
+                      >
+                        <MessageSquare size={13} />
+                        <span>
+                          {item.status === 'waiting'
+                            ? 'Open Support Chat & Reply'
+                            : 'Open Support Chat'}
+                        </span>
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-2 flex max-h-[50vh] flex-col gap-2 overflow-y-auto pb-4">
               {context.hashtags.map(tag => {
                 const unreadCount = context.roomUnread?.[tag.id] ?? 0;
@@ -174,24 +261,23 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
             </header>
             <>
               {context.requests.length > 0 && (
-                <div className="c-hashtag-request-list">
+                <div className="c-hashtag-request-list mb-3">
                   {context.requests.map((item) => (
                     <div className={`c-hashtag-request-state is-${item.status}`} key={item.id}>
-                      <strong>{item.status === 'waiting' ? 'Admin replied' : item.status === 'declined' ? 'Not approved' : 'Request sent'}</strong>
-                      <span>#{item.examName}</span>
+                      <div className="flex items-center justify-between w-full">
+                        <strong>{item.status === 'waiting' ? 'Admin replied' : item.status === 'declined' ? 'Not approved' : 'Request sent'}</strong>
+                        <span>#{item.examName}</span>
+                      </div>
                       {item.adminResponse && <p>{item.adminResponse}</p>}
-                      {item.adminResponse && item.status === 'waiting' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setExam(item.examName);
-                            setDetails('');
-                          }}
-                          className="mt-1 text-[10px] font-bold text-secondary underline text-left"
-                        >
-                          Reply to admin note below ↓
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setChatRequest(item)}
+                        className="mt-2 w-full flex items-center justify-center gap-1.5 h-8 rounded-lg bg-surface border border-secondary/30 text-secondary text-[11px] font-semibold hover:bg-secondary-soft/20 transition"
+                      >
+                        <MessageSquare size={12} />
+                        <span>Open Support Chat &amp; Reply</span>
+                        <ChevronRight size={12} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -204,6 +290,15 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
           </section>
         )}
       </Overlay>
+
+      {/* Support Chat Drawer */}
+      {chatRequest && (
+        <CommunityHashtagSupportChat
+          request={chatRequest}
+          onClose={() => setChatRequest(null)}
+          onSuccess={refresh}
+        />
+      )}
     </nav>
   );
 }

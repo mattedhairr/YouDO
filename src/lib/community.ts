@@ -421,3 +421,115 @@ export async function dismissCommunityReport(reportId: string): Promise<boolean>
   const { error } = await supabase.rpc('dismiss_community_report', { target_report: reportId });
   return !error;
 }
+
+export interface UserCommunityReport {
+  id: string;
+  messageId: string;
+  reason: string;
+  status: 'open' | 'actioned' | 'dismissed';
+  createdAt: string;
+  reviewedAt?: string;
+  messageSnippet?: string;
+}
+
+export async function fetchUserCommunityReports(userId?: string): Promise<UserCommunityReport[]> {
+  try {
+    let uid = userId;
+    if (!uid) {
+      const { data: authData } = await supabase.auth.getUser();
+      uid = authData.user?.id;
+    }
+
+    let query = supabase
+      .from('community_reports')
+      .select('id, message_id, reason, status, created_at, reviewed_at');
+
+    if (uid) {
+      query = query.eq('reporter_id', uid);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (error || !data) return [];
+    const reports = data as Record<string, unknown>[];
+    const messageIds = [...new Set(reports.map((r) => String(r.message_id)).filter(Boolean))];
+    const messageMap = new Map<string, string>();
+    if (messageIds.length > 0) {
+      const { data: messages } = await supabase
+        .from('community_messages')
+        .select('id, body')
+        .in('id', messageIds);
+      if (messages) {
+        for (const m of messages as Record<string, unknown>[]) {
+          messageMap.set(String(m.id), String(m.body ?? ''));
+        }
+      }
+    }
+
+    return reports.map((row) => ({
+      id: String(row.id),
+      messageId: String(row.message_id),
+      reason: String(row.reason ?? 'Unhelpful or disrespectful'),
+      status: (row.status as UserCommunityReport['status']) || 'open',
+      createdAt: String(row.created_at),
+      reviewedAt: typeof row.reviewed_at === 'string' ? row.reviewed_at : undefined,
+      messageSnippet: messageMap.get(String(row.message_id)),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export interface AdminHubCounts {
+  reports: number;
+  appeals: number;
+  hashtagRequests: number;
+  chatReplies: number;
+  total: number;
+}
+
+export async function fetchAdminHubCounts(): Promise<AdminHubCounts> {
+  try {
+    const [reportsRes, appealsRes, requestsRes] = await Promise.all([
+      supabase.from('community_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+      supabase.from('community_appeals').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+      supabase.rpc('admin_community_hashtag_requests'),
+    ]);
+    const reports = reportsRes.count ?? 0;
+    const appeals = appealsRes.count ?? 0;
+    const hashtagData = Array.isArray(requestsRes.data) ? requestsRes.data : [];
+    let hashtagRequests = 0;
+    let chatReplies = 0;
+    for (const r of hashtagData) {
+      const row = r as Record<string, unknown> | null;
+      if (!row) continue;
+      const details = typeof row.details === 'string' ? row.details : '';
+      const adminResponse = typeof row.admin_response === 'string' ? row.admin_response : '';
+      if (row.status === 'open') {
+        if (
+          (adminResponse && adminResponse.trim().length > 0) ||
+          details.startsWith('[Reply]') ||
+          details.startsWith('Reply:')
+        ) {
+          chatReplies++;
+        } else {
+          hashtagRequests++;
+        }
+      } else if (row.status === 'waiting') {
+        hashtagRequests++;
+      }
+    }
+    return {
+      reports,
+      appeals,
+      hashtagRequests,
+      chatReplies,
+      total: reports + appeals + hashtagRequests + chatReplies,
+    };
+  } catch {
+    return { reports: 0, appeals: 0, hashtagRequests: 0, chatReplies: 0, total: 0 };
+  }
+}
+

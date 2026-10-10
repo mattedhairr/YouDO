@@ -1,13 +1,15 @@
 import './community.css';
 import '../chat/youDoChat.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
-import { markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext } from '../../lib/community';
+import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, MessageSquare, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
+import { fetchUserCommunityReports, markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext, type UserCommunityReport } from '../../lib/community';
 import { markChatRoomRead } from '../../lib/communityChat';
 import { dismissCommunityNotification } from '../../lib/notifications';
-import type { CommunityHashtagContext } from '../../lib/communityHashtags';
+import { fetchCommunityRooms, type CommunityHashtagContext, type CommunityHashtagRequest } from '../../lib/communityHashtags';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
 import CommunityHashtagBar from './CommunityHashtagBar';
+import CommunityHashtagSupportChat from './CommunityHashtagSupportChat';
+import Overlay from '../Overlay';
 import ChatActionSheet from '../chat/ChatActionSheet';
 import { useChatMessageGestures } from '../chat/useChatMessageGestures';
 import { STORAGE_KEYS } from '../../lib/storageKeys';
@@ -53,6 +55,27 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [newBelow,setNewBelow] = useState(false);
   const [updateOpen,setUpdateOpen] = useState(false);
   const [roomContext,setRoomContext] = useState<CommunityHashtagContext>({hashtags:[],requests:[]});
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [userReports, setUserReports] = useState<UserCommunityReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [selectedChatRequest, setSelectedChatRequest] = useState<CommunityHashtagRequest | null>(null);
+
+  const openReports = useCallback(async () => {
+    setReportsOpen(true);
+    setLoadingReports(true);
+    try {
+      const data = await fetchUserCommunityReports(userId);
+      setUserReports(data);
+    } finally {
+      setLoadingReports(false);
+    }
+  }, [userId]);
+
+  const waitingHashtagRequest = useMemo(
+    () => roomContext.requests.find((r) => r.status === 'waiting'),
+    [roomContext.requests],
+  );
+
   const roomScope=`room:${selectedHashtag??'general'}`;
   const canWriteRoom =
     roomContext.roomsEnabled === true &&
@@ -244,7 +267,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       }else if(!await reportCommunityMessage(selected.id))throw new Error('Could not send the report.');
       if(!mounted.current)return;
       if(kind!=='report'){capturePosition();setMessages(current=>current.filter(m=>m.id!==selected.id));}
-      setSelected(null);setReason('');setError(kind==='report'?'Report sent privately to the moderators.':'');
+      setSelected(null);setReason('');setError(kind==='report'?'Report sent privately to moderators. You can track status in My Reports.':'');
     }catch(e){if(mounted.current)setActionError(e instanceof Error?e.message:'Action could not finish.');}
     finally{if(mounted.current)setActionBusy(false);}
   };
@@ -335,7 +358,68 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         }
       }}
     >
-      <details className="c-guidance"><summary><ShieldCheck size={16}/> A little encouragement goes a long way</summary><p>Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.</p></details>
+      {waitingHashtagRequest && (
+        <aside className="mb-2.5 rounded-2xl border border-warning/35 bg-warning/10 p-3 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-warning/20 text-warning mt-0.5">
+                <MessageSquare size={14} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-warning truncate">
+                  Admin replied to your request · #{waitingHashtagRequest.examName}
+                </p>
+                {waitingHashtagRequest.adminResponse && (
+                  <p className="text-[11.5px] text-content-primary mt-0.5 line-clamp-2">
+                    &ldquo;{waitingHashtagRequest.adminResponse}&rdquo;
+                  </p>
+                )}
+                <p className="text-[10px] text-content-muted mt-1">
+                  The admin is waiting for your reply before approving this room.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedChatRequest(waitingHashtagRequest)}
+              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-secondary text-on-secondary text-[10.5px] font-bold shadow-sm transition active:scale-95 flex items-center gap-1"
+            >
+              <MessageSquare size={12} />
+              <span>Reply</span>
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <details className="c-guidance">
+        <summary className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <ShieldCheck size={16}/>
+            <span className="truncate">A little encouragement goes a long way</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void openReports();
+            }}
+            className="text-[10px] font-bold text-secondary hover:underline px-2 py-0.5 rounded-md bg-secondary-soft/50 border border-secondary/25 mr-1 shrink-0"
+          >
+            My Reports
+          </button>
+        </summary>
+        <p>
+          Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.
+          <button
+            type="button"
+            onClick={() => void openReports()}
+            className="block mt-1.5 text-[10.5px] font-semibold text-secondary hover:underline"
+          >
+            View status of your submitted reports &rarr;
+          </button>
+        </p>
+      </details>
       {context.settings.announcement && <section className={`c-update-event ${context.unread?.updates?'is-new':''} ${updateOpen?'is-open':''}`}>
         <button type="button" aria-expanded={updateOpen} onClick={toggleUpdate}>
           <span className="c-update-icon"><Megaphone size={15}/></span>
@@ -478,6 +562,93 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       onAdminRemove={() => void action('remove')}
       actionBusy={actionBusy}
       actionError={actionError}
+    />
+    <Overlay open={reportsOpen} onClose={() => setReportsOpen(false)} align="bottom">
+      <div className="w-full max-w-[480px] max-h-[85vh] flex flex-col rounded-t-[28px] bg-elevated border-t border-subtle p-5 shadow-2xl text-content-primary">
+        <div className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-border-subtle" />
+        <header className="flex items-center justify-between pb-3 border-b border-subtle">
+          <div>
+            <h3 className="text-sm font-bold text-content-primary">Your Reported Messages</h3>
+            <p className="text-[11px] text-content-muted">Track review status of messages you flagged</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReportsOpen(false)}
+            className="grid size-8 place-items-center rounded-full bg-surface-muted hover:bg-surface-elevated text-content-muted hover:text-content-primary transition"
+            aria-label="Close reports"
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="overflow-y-auto pt-3 pb-2 space-y-3 min-h-[160px]">
+          {loadingReports ? (
+            <div className="py-8 text-center text-xs text-content-muted">Loading your reports…</div>
+          ) : userReports.length === 0 ? (
+            <div className="py-8 text-center text-xs text-content-muted">
+              You haven&apos;t reported any messages yet.
+            </div>
+          ) : (
+            userReports.map((rep) => {
+              const statusBadge =
+                rep.status === 'open' ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider bg-warning/15 text-warning border border-warning/30">
+                    Pending Review
+                  </span>
+                ) : rep.status === 'actioned' ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider bg-success/15 text-success border border-success/30">
+                    Resolved · Action Taken
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider bg-surface-muted text-content-muted border border-subtle">
+                    Resolved · Dismissed
+                  </span>
+                );
+
+              return (
+                <div key={rep.id} className="p-3 rounded-xl bg-surface-muted border border-subtle space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-content-muted font-medium">
+                      Reported {new Date(rep.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {statusBadge}
+                  </div>
+                  {rep.messageSnippet ? (
+                    <blockquote className="text-xs text-content-primary border-l-2 border-secondary/40 pl-2.5 py-0.5 italic line-clamp-2">
+                      &ldquo;{rep.messageSnippet}&rdquo;
+                    </blockquote>
+                  ) : (
+                    <p className="text-[11px] text-content-muted italic">
+                      (Original message removed or expired)
+                    </p>
+                  )}
+                  <div className="text-[10.5px] text-content-muted flex items-center justify-between pt-0.5">
+                    <span>Reason: {rep.reason}</span>
+                    {rep.reviewedAt && (
+                      <span>
+                        Reviewed {new Date(rep.reviewedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </Overlay>
+    <CommunityHashtagSupportChat
+      request={selectedChatRequest}
+      onClose={() => setSelectedChatRequest(null)}
+      onSuccess={async () => {
+        try {
+          const next = await fetchCommunityRooms();
+          setRoomContext(next);
+        } catch {
+          // ignore
+        }
+        await refresh();
+      }}
     />
     </section>;
 }

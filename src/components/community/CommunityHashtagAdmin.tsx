@@ -32,7 +32,6 @@ export default function CommunityHashtagAdmin({
 }: Props) {
   const [open, setOpen] = useState('');
   const [label, setLabel] = useState('');
-  const [reply, setReply] = useState('');
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [confirmReject, setConfirmReject] = useState('');
@@ -60,7 +59,7 @@ export default function CommunityHashtagAdmin({
     if (working) return;
     setWorking(true);
     setError('');
-    const note = customReply !== undefined ? customReply : reply;
+    const note = customReply !== undefined ? customReply : '';
     const approvedTag = customLabel !== undefined ? customLabel : (label || request.examName);
     try {
       await reviewCommunityHashtagRequest(
@@ -72,7 +71,6 @@ export default function CommunityHashtagAdmin({
       setConfirmReject('');
       setOpen('');
       setLabel('');
-      setReply('');
       await onRefresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not review this request.');
@@ -95,7 +93,6 @@ export default function CommunityHashtagAdmin({
                 onClick={() => {
                   setOpen(expanded ? '' : key);
                   setLabel(first.examName.toUpperCase());
-                  setReply('');
                   setError('');
                   setConfirmReject('');
                 }}
@@ -150,10 +147,16 @@ export default function CommunityHashtagAdmin({
                                 className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
                                   item.status === 'waiting'
                                     ? 'bg-warning/15 text-warning border border-warning/25'
+                                    : item.details.startsWith('[Reply]')
+                                    ? 'bg-secondary-soft text-secondary border border-secondary/25'
                                     : 'bg-primary-soft text-primary border border-primary/20'
                                 }`}
                               >
-                                {item.status === 'waiting' ? 'Waiting on user' : 'Awaiting review'}
+                                {item.status === 'waiting'
+                                  ? 'Waiting on user'
+                                  : item.details.startsWith('[Reply]')
+                                  ? 'User replied'
+                                  : 'Awaiting review'}
                               </span>
 
                               {confirmReject === item.id ? (
@@ -190,9 +193,11 @@ export default function CommunityHashtagAdmin({
                           {item.details && (
                             <div className="rounded-lg bg-base/60 border border-subtle/50 px-2.5 py-1.5 text-[11px] text-content-secondary">
                               <span className="font-semibold text-content-primary text-[9.5px] uppercase tracking-wider block mb-0.5">
-                                Context
+                                {item.details.startsWith('[Reply]') ? 'Requester Reply' : 'Context'}
                               </span>
-                              {item.details}
+                              {item.details.startsWith('[Reply]')
+                                ? item.details.replace(/^\[Reply\]\s*/, '')
+                                : item.details}
                             </div>
                           )}
 
@@ -215,12 +220,14 @@ export default function CommunityHashtagAdmin({
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">
                                     Support Chat
                                   </span>
-                                  {item.adminResponse && (
+                                  {(item.adminResponse || item.details.startsWith('[Reply]')) && (
                                     <span className="size-1.5 rounded-full bg-secondary" />
                                   )}
                                 </div>
                                 <p className="truncate text-[11px] text-content-secondary mt-0.5">
-                                  {item.adminResponse
+                                  {item.details.startsWith('[Reply]')
+                                    ? `Requester replied: ${item.details.replace(/^\[Reply\]\s*/, '')}`
+                                    : item.adminResponse
                                     ? `Last reply: ${item.adminResponse}`
                                     : 'Click to open chat & reply…'}
                                 </p>
@@ -251,23 +258,6 @@ export default function CommunityHashtagAdmin({
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10.5px] font-semibold uppercase tracking-wider text-content-muted mb-1">
-                        Private note{' '}
-                        <small className="font-normal text-content-muted">
-                          (required for “Ask to wait”; optional for approval)
-                        </small>
-                      </label>
-                      <textarea
-                        value={reply}
-                        onChange={(e) => setReply(e.target.value)}
-                        maxLength={240}
-                        rows={2}
-                        placeholder="Private message sent to the requester..."
-                        className="w-full resize-none rounded-xl border border-subtle bg-base p-2.5 text-xs text-content-primary placeholder:text-content-muted outline-none focus:border-primary"
-                      />
-                    </div>
-
                     <div className="flex flex-wrap gap-2 pt-1">
                       <button
                         type="button"
@@ -283,11 +273,16 @@ export default function CommunityHashtagAdmin({
 
                       <button
                         type="button"
-                        disabled={busy || working || reply.trim().length < 5}
-                        onClick={() => void act(first, 'wait')}
+                        disabled={busy || working}
+                        onClick={() => {
+                          setChatRequest(first);
+                          setChatReply('');
+                          setChatLabel((label || first.examName).toUpperCase());
+                        }}
                         className="min-h-10 px-4 rounded-xl bg-secondary-soft border border-secondary/25 text-secondary text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-40 transition active:scale-95"
                       >
-                        <span>Ask group to wait</span>
+                        <MessageSquare size={13} />
+                        <span>Support Chat &amp; Notes</span>
                       </button>
                     </div>
                   </div>
@@ -374,9 +369,18 @@ export default function CommunityHashtagAdmin({
                     #{chatRequest.examName}
                   </p>
                   {chatRequest.details ? (
-                    <p className="text-[11.5px] text-content-secondary leading-relaxed mt-1.5 border-t border-subtle/60 pt-1.5">
-                      {chatRequest.details}
-                    </p>
+                    <div className="text-[11.5px] text-content-secondary leading-relaxed mt-1.5 border-t border-subtle/60 pt-1.5">
+                      {chatRequest.details.startsWith('[Reply]') ? (
+                        <>
+                          <span className="text-[9.5px] font-bold uppercase tracking-wider text-secondary block mb-0.5">
+                            Requester Follow-up
+                          </span>
+                          <p>{chatRequest.details.replace(/^\[Reply\]\s*/, '')}</p>
+                        </>
+                      ) : (
+                        <p>{chatRequest.details}</p>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-[10.5px] text-content-muted italic mt-1">
                       No additional details provided.

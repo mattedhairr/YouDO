@@ -16,6 +16,8 @@ import {
   scheduleMorningBriefing,
   sendTestBriefingNotification,
   stringToNotificationId,
+  dispatchAdminNotification,
+  dismissAdminNotification,
   type NotificationPreferences,
 } from './notifications';
 import { STORAGE_KEYS } from './storageKeys';
@@ -482,4 +484,63 @@ describe('notifications library', () => {
       resetBriefingSchedulingGuard();
     });
   });
+
+  describe('admin hub notifications', () => {
+    it('initializes default admin hub preferences correctly', () => {
+      const prefs = getNotificationPreferences();
+      expect(prefs.adminHub).toBeDefined();
+      expect(prefs.adminHub?.enabled).toBe(true);
+      expect(prefs.adminHub?.newHashtagRequests).toBe(true);
+      expect(prefs.adminHub?.reportedMessages).toBe(true);
+      expect(prefs.adminHub?.chatReplies).toBe(true);
+    });
+
+    it('persists and retrieves custom admin hub preferences', () => {
+      const custom: NotificationPreferences = {
+        ...DEFAULT_NOTIFICATION_PREFERENCES,
+        adminHub: {
+          enabled: true,
+          newHashtagRequests: false,
+          reportedMessages: true,
+          chatReplies: false,
+        },
+      };
+      saveNotificationPreferences(custom);
+      const retrieved = getNotificationPreferences();
+      expect(retrieved.adminHub?.newHashtagRequests).toBe(false);
+      expect(retrieved.adminHub?.reportedMessages).toBe(true);
+      expect(retrieved.adminHub?.chatReplies).toBe(false);
+    });
+
+    it('safely invokes dispatchAdminNotification and dismissAdminNotification', async () => {
+      await expect(
+        dispatchAdminNotification({
+          type: 'hashtag_request',
+          title: 'New Hashtag Request',
+          body: '#GATE was requested by a student.',
+          tagId: 'req_123',
+        }),
+      ).resolves.toBeUndefined();
+
+      await expect(
+        dispatchAdminNotification({
+          type: 'message_report',
+          title: 'Reported Message',
+          body: 'A message was flagged for review.',
+        }),
+      ).resolves.toBeUndefined();
+
+      await expect(
+        dispatchAdminNotification({
+          type: 'chat_reply',
+          title: 'Support Reply',
+          body: 'Requester replied with syllabus details.',
+          tagId: 'req_123',
+        }),
+      ).resolves.toBeUndefined();
+
+      await expect(dismissAdminNotification('req_123')).resolves.toBeUndefined();
+    });
+  });
 });
+

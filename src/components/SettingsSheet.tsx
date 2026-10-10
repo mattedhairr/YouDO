@@ -73,6 +73,7 @@ import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
 import { fetchProfile, upsertProfile } from '../lib/profiles';
+import { fetchCommunityContext } from '../lib/community';
 
 interface Props {
   open: boolean;
@@ -204,13 +205,23 @@ export default function SettingsSheet({
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(() => getNotificationPreferences());
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [testNotifStatus, setTestNotifStatus] = useState<'idle' | 'sent' | 'permission_denied' | 'failed'>('idle');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (open) {
       setNotifPrefs(getNotificationPreferences());
       void checkNotificationPermission().then(setNotifPermission);
+      if (user?.id) {
+        void fetchCommunityContext(user.id).then((ctx) => {
+          setIsAdmin(Boolean(ctx.isAdmin));
+        }).catch(() => {
+          setIsAdmin(false);
+        });
+      } else {
+        setIsAdmin(false);
+      }
     }
-  }, [open]);
+  }, [open, user?.id]);
 
   const updateNotifPrefs = (updater: (prev: NotificationPreferences) => NotificationPreferences) => {
     setNotifPrefs((prev) => {
@@ -1691,6 +1702,114 @@ export default function SettingsSheet({
               </div>
             )}
           </div>
+
+          {/* ADMIN HUB NOTIFICATIONS CARD (VISIBLE ONLY TO ADMINS) */}
+          {isAdmin && (
+            <div className={`settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mt-2.5 space-y-3 transition-opacity ${notifPrefs.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-warning/15 flex items-center justify-center text-warning shrink-0 mt-0.5">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-content-primary">Admin Hub Notifications</h3>
+                    <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                      Moderation alerts and room request management
+                    </p>
+                  </div>
+                </div>
+                <Toggle
+                  checked={notifPrefs.adminHub?.enabled ?? true}
+                  onChange={() =>
+                    updateNotifPrefs((p) => {
+                      const current = p.adminHub ?? { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true };
+                      return {
+                        ...p,
+                        adminHub: { ...current, enabled: !current.enabled },
+                      };
+                    })
+                  }
+                  label="Admin hub notifications"
+                />
+              </div>
+
+              {(notifPrefs.adminHub?.enabled ?? true) && (
+                <div className="space-y-3 pt-2 border-t border-subtle">
+                  {/* New Hashtag Requests */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Hash size={13} className="text-secondary" />
+                      <div>
+                        <h4 className="text-[11.5px] font-semibold text-content-primary">New Hashtag Requests</h4>
+                        <p className="text-[10px] text-content-secondary">Alerts when users submit new exam room requests</p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={notifPrefs.adminHub?.newHashtagRequests ?? true}
+                      onChange={() =>
+                        updateNotifPrefs((p) => {
+                          const current = p.adminHub ?? { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true };
+                          return {
+                            ...p,
+                            adminHub: { ...current, newHashtagRequests: !current.newHashtagRequests },
+                          };
+                        })
+                      }
+                      label="New hashtag requests"
+                    />
+                  </div>
+
+                  {/* Reported Messages */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={13} className="text-warning" />
+                      <div>
+                        <h4 className="text-[11.5px] font-semibold text-content-primary">Reported Messages</h4>
+                        <p className="text-[10px] text-content-secondary">Alerts when members flag chat messages for moderation</p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={notifPrefs.adminHub?.reportedMessages ?? true}
+                      onChange={() =>
+                        updateNotifPrefs((p) => {
+                          const current = p.adminHub ?? { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true };
+                          return {
+                            ...p,
+                            adminHub: { ...current, reportedMessages: !current.reportedMessages },
+                          };
+                        })
+                      }
+                      label="Reported messages"
+                    />
+                  </div>
+
+                  {/* Support Chat Replies */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare size={13} className="text-secondary" />
+                      <div>
+                        <h4 className="text-[11.5px] font-semibold text-content-primary">Support Chat Replies</h4>
+                        <p className="text-[10px] text-content-secondary">Alerts when a requester answers your note in Support Chat</p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={notifPrefs.adminHub?.chatReplies ?? true}
+                      onChange={() =>
+                        updateNotifPrefs((p) => {
+                          const current = p.adminHub ?? { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true };
+                          return {
+                            ...p,
+                            adminHub: { ...current, chatReplies: !current.chatReplies },
+                          };
+                        })
+                      }
+                      label="Support chat replies"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ── SECTION 4: APPEARANCE & EXPERIENCE ── */}

@@ -7,6 +7,8 @@ import {
   isCommunityUnavailable,
   parseCommunityActivity,
   parseCommunityContext,
+  fetchUserCommunityReports,
+  fetchAdminHubCounts,
   type CommunityAppeal,
   type CommunityMessage,
 } from './community';
@@ -122,3 +124,24 @@ describe('community appeal cooldown', () => {
     expect(canSubmitCommunityAppeal(undefined)).toBe(true);
   });
 });
+
+describe('user community reports & admin hub queries', () => {
+  it('fetchUserCommunityReports resolves gracefully without throwing in mock environment', async () => {
+    const reports = await fetchUserCommunityReports();
+    expect(Array.isArray(reports)).toBe(true);
+
+    const userReports = await fetchUserCommunityReports('user-123');
+    expect(Array.isArray(userReports)).toBe(true);
+  });
+
+  it('fetchAdminHubCounts resolves with structure and default zeros', async () => {
+    const counts = await fetchAdminHubCounts();
+    expect(counts).toHaveProperty('reports');
+    expect(counts).toHaveProperty('appeals');
+    expect(counts).toHaveProperty('hashtagRequests');
+    expect(counts).toHaveProperty('chatReplies');
+    expect(counts).toHaveProperty('total');
+    expect(typeof counts.total).toBe('number');
+  });
+});
+
