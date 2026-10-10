@@ -199,8 +199,8 @@ export default function HubView({
   if (!user) {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-y-auto">
-          <div key={activeTab} className="hub-screen-transition">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div key={activeTab} className="hub-screen-transition overflow-x-hidden">
             <HubAuthGate
               tab={activeTab}
               isOffline={!isOnline}
@@ -217,8 +217,8 @@ export default function HubView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto">
-        <div key={activeTab} className="hub-screen-transition">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div key={activeTab} className="hub-screen-transition overflow-x-hidden">
           {activeTab === 'social' ? (
             <>
               {showPrivateHubIntro && needsUsernameClaim && (

@@ -1120,7 +1120,7 @@ function AppInner() {
         />
       )}
       <div
-        className="app-frame relative min-h-screen w-full max-w-md mx-auto px-4 pb-28"
+        className="app-frame relative min-h-screen w-full max-w-md mx-auto px-4 pb-28 overflow-x-hidden"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -1201,16 +1201,16 @@ function AppInner() {
         </header>
 
         {/* Main View Area */}
-        <main className={view === 'board' || view === 'calendar' ? 'mt-2' : 'mt-3'}>
+        <main className={`overflow-x-hidden ${view === 'board' || view === 'calendar' ? 'mt-2' : 'mt-3'}`}>
           <div
             key={`${view}-${goalPathIds.join('-')}`}
-            className={
+            className={`w-full overflow-x-hidden ${
               slideDirection === 'right'
                 ? 'slide-in-right'
                 : slideDirection === 'left'
                   ? 'slide-in-left'
                   : 'view-fade'
-            }
+            }`}
           >
             <Suspense fallback={<p role="status" className="py-8 text-center text-content-secondary">Opening {view}…</p>}>
             {view === 'tasks' ? (

@@ -251,7 +251,6 @@ export default function BoardView({
   const [missingTable, setMissingTable] = useState(false);
   const [syncPending, setSyncPending] = useState(false);
   const [evidencePending, setEvidencePending] = useState(false);
-  const [rejectedSessions, setRejectedSessions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [deltas, setDeltas] = useState<Record<string, RankDelta>>({});
   const [showNearby, setShowNearby] = useState(false);
@@ -381,7 +380,6 @@ export default function BoardView({
       setAppreciations({ counts: {}, mine: new Set() });
       setSyncPending(false);
       setEvidencePending(false);
-      setRejectedSessions(0);
       const boardTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       const context = user ? fetchCommunityContext(user.id) : Promise.resolve(EMPTY_COMMUNITY_CONTEXT());
       void context.then(async (next) => {
@@ -412,7 +410,6 @@ export default function BoardView({
           const published = await publishPublicPace();
           if (!cancelled) {
             setEvidencePending(pacePrefs.optedIn && !published.ok);
-            setRejectedSessions(published.rejected ?? 0);
           }
         },
       });
@@ -502,7 +499,7 @@ export default function BoardView({
   const waitingCount = ready ? count - activeCount : 0;
 
   return (
-    <div className="board-workspace pb-4">
+    <div className="board-workspace pb-4 overflow-x-hidden">
       <header className="board-heading px-0.5">
         <div className="board-heading-topline">
           <h2 className="board-heading-eyebrow">
@@ -545,47 +542,49 @@ export default function BoardView({
       {evidencePending && !missingTable && <p role="status" className="px-0.5 text-[11px] text-content-secondary">
         The Board could not process the synced focus yet. Your private Calendar and cloud backup are unchanged.
       </p>}
-      {rejectedSessions > 0 && <details className="px-0.5 text-[11px] text-content-muted">
-        <summary className="cursor-pointer">Focus sync details</summary>
-        <p className="mt-2">
-        {rejectedSessions} {rejectedSessions === 1 ? 'sitting was' : 'sittings were'} excluded from this Board update because the records were duplicate, overlapping, or invalid. Private history is unchanged.
-        </p>
-      </details>}
 
-      {community.available && (community.canJoin || community.isAdmin || community.banned) && <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}><button type="button" aria-label={hasCommunityUnread ? `Community, ${communityUnreadCount} new messages` : 'Community'} onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }} className={`board-community-link ${hasCommunityUnread ? 'has-unread' : ''}`}>
-        <span className="board-community-icon" aria-hidden="true">{community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}</span>
-        <span className="board-community-label">{community.banned ? 'Community access · Request a review' : 'Community'}</span>
-        {hasCommunityUnread ? (
-          <span className="board-unread-pill" aria-hidden="true">
-            <span className="board-unread-pulse" />
-            <span className="board-unread-count">{communityUnreadCount > 99 ? '99+' : communityUnreadCount}</span>
-            <span className="board-unread-text">new</span>
-          </span>
-        ) : (
-          <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Open' : 'Paused'}</span>
-        )}
-      </button>
-      {community.isAdmin && (
-        <button
-          type="button"
-          onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }}
-          className="board-admin-link relative"
-          aria-label={adminCounts.total > 0 ? `Open community admin, ${adminCounts.total} unreviewed items` : 'Open community admin'}
-        >
-          <Gauge size={16} />
-          <span>Admin</span>
-          {adminCounts.total > 0 && (
-            <span
-              className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-black text-black shadow-sm ring-2 ring-elevated animate-pulse"
-              title={`${adminCounts.total} pending admin items`}
-              aria-hidden="true"
+      {community.available && (community.canJoin || community.isAdmin || community.banned) && (
+        <div className={`board-community-actions ${community.isAdmin ? 'with-admin' : ''}`}>
+          <button
+            type="button"
+            aria-label={hasCommunityUnread ? `Community, ${communityUnreadCount} new messages` : 'Community'}
+            onClick={() => { setCommunityStartInAdmin(false); setCommunityOpen(true); }}
+            className={`board-community-link ${hasCommunityUnread ? 'has-unread' : ''}`}
+          >
+            <span className="board-community-icon" aria-hidden="true">{community.banned ? <ShieldCheck size={17} /> : <MessageCircle size={17} />}</span>
+            <span className="board-community-label">{community.banned ? 'Community access · Request a review' : 'Community'}</span>
+            {hasCommunityUnread ? (
+              <span className="board-unread-pill" aria-hidden="true">
+                <span className="board-unread-pulse" />
+                <span className="board-unread-count">{communityUnreadCount > 99 ? '99+' : communityUnreadCount}</span>
+                <span className="board-unread-text">new</span>
+              </span>
+            ) : (
+              <span className="board-room-status">{community.banned ? 'Restricted' : community.settings.roomEnabled ? 'Open' : 'Paused'}</span>
+            )}
+          </button>
+          {community.isAdmin && (
+            <button
+              type="button"
+              onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }}
+              className="board-admin-link relative"
+              aria-label={adminCounts.total > 0 ? `Open community admin, ${adminCounts.total} unreviewed items` : 'Open community admin'}
             >
-              {adminCounts.total > 9 ? '9+' : adminCounts.total}
-            </span>
+              <Gauge size={16} />
+              <span>Admin</span>
+              {adminCounts.total > 0 && (
+                <span
+                  className="absolute top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-black text-black shadow-sm ring-1 ring-elevated animate-pulse"
+                  title={`${adminCounts.total} pending admin items`}
+                  aria-hidden="true"
+                >
+                  {adminCounts.total > 9 ? '9+' : adminCounts.total}
+                </span>
+              )}
+            </button>
           )}
-        </button>
+        </div>
       )}
-    </div>}
 
       {appreciationError && <p role="status" className="text-[11px] text-error">{appreciationError}</p>}
       {missingTable ? (
