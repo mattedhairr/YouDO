@@ -339,4 +339,18 @@ describe('SettingsSheet Tab Navigation System', () => {
     expect(html).toContain('overscroll-x-contain');
     expect(html).toContain('touch-pan-x');
   });
+
+  it('renders clean Community Chat Messages toggle under notifications without @mentions segmented control', () => {
+    const html = renderToStaticMarkup(
+      createElement(SettingsSheet, {
+        ...defaultProps,
+        initialTab: 'notifications',
+      })
+    );
+
+    expect(html).toContain('Community Chat Messages');
+    expect(html).toContain('Alerts for new messages in public chat');
+    expect(html).toContain('Hashtag Community Updates');
+    expect(html).not.toContain('@Mentions Only');
+  });
 });

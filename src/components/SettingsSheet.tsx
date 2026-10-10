@@ -51,7 +51,6 @@ import {
   sendTestBriefingNotification,
   type NotificationPreferences,
   type RoomNotificationMode,
-  type CommunityNotificationMode,
 } from '../lib/notifications';
 import { useReducedEffects } from '../hooks/useReducedEffects';
 import { useAuth } from '../contexts/AuthContext';
@@ -2226,35 +2225,24 @@ export default function SettingsSheet({
 
             {notifPrefs.publicHub.enabled && (
               <div className="space-y-3 pt-2 border-t border-subtle">
-                {/* Community Messages Segmented Control */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div>
-                      <h4 className="text-[11.5px] font-semibold text-content-primary">Community Messages</h4>
-                      <p className="text-[10px] text-content-secondary">Prevent spam from active public community discussions</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <MessageSquare size={13} className="text-secondary shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-[11.5px] font-semibold text-content-primary">Community Chat Messages</h4>
+                      <p className="text-[10px] text-content-secondary">Alerts for new messages in public chat</p>
                     </div>
                   </div>
-                  <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle gap-1">
-                    {(['mentions', 'all', 'off'] as CommunityNotificationMode[]).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() =>
-                          updateNotifPrefs((p) => ({
-                            ...p,
-                            publicHub: { ...p.publicHub, communityMessages: mode },
-                          }))
-                        }
-                        className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition ${
-                          notifPrefs.publicHub.communityMessages === mode
-                            ? 'bg-primary text-on-primary shadow-sm'
-                            : 'text-content-secondary hover:text-content-primary'
-                        }`}
-                      >
-                        {mode === 'mentions' ? '@Mentions Only' : mode === 'all' ? 'All Activity' : 'Muted'}
-                      </button>
-                    ))}
-                  </div>
+                  <Toggle
+                    checked={notifPrefs.publicHub.communityMessages}
+                    onChange={() =>
+                      updateNotifPrefs((p) => ({
+                        ...p,
+                        publicHub: { ...p.publicHub, communityMessages: !p.publicHub.communityMessages },
+                      }))
+                    }
+                    label="Community chat message notifications"
+                  />
                 </div>
 
                 <div className="flex items-center justify-between gap-3">

@@ -573,10 +573,10 @@ export default function BoardView({
             <button
               type="button"
               onClick={() => { setCommunityStartInAdmin(true); setCommunityOpen(true); }}
-              className="board-admin-link"
+              className={`board-admin-link ${adminCounts.total > 0 ? 'has-unread' : ''}`}
               aria-label={adminCounts.total > 0 ? `Open community admin, ${adminCounts.total} unreviewed items` : 'Open community admin'}
             >
-              <Gauge size={16} className="shrink-0" />
+              <Gauge size={15} className="shrink-0" />
               <span>Admin</span>
               {adminCounts.total > 0 && (
                 <span
@@ -830,7 +830,22 @@ export default function BoardView({
           )}
         </div>
       )}
-      {communityOpen && <CommunitySheet key={communityStartInAdmin ? 'admin' : 'room'} open onClose={closeCommunity} userId={user?.id} rows={rows} initialContext={community} startInAdmin={communityStartInAdmin} onOpenBoardSettings={() => { closeCommunity(); onOpenBoardSettings(); }} />}
+      {communityOpen && (
+        <CommunitySheet
+          key={communityStartInAdmin ? 'admin' : 'room'}
+          open
+          onClose={closeCommunity}
+          userId={user?.id}
+          rows={rows}
+          initialContext={community}
+          startInAdmin={communityStartInAdmin}
+          onOpenBoardSettings={() => { closeCommunity(); onOpenBoardSettings(); }}
+          onProfile={onOpenProfile ? (id) => {
+            const targetRow = byId.get(id) ?? rows.find((r) => r.userId === id);
+            if (targetRow) onOpenProfile(id, targetRow, paceWindow);
+          } : undefined}
+        />
+      )}
     </div>
   );
 }

@@ -38,6 +38,7 @@ import { clearChatCache } from '../lib/communityChat';
 import { fetchAdminCommunityHashtags, fetchAdminHashtagRequests, type AdminCommunityHashtag, type CommunityHashtagRequest } from '../lib/communityHashtags';
 import { fetchAdminAppQuotes, type AdminAppQuote } from '../lib/appQuotes';
 import { dismissAdminNotification } from '../lib/notifications';
+import UserProfileSheet from './UserProfileSheet';
 
 interface Props {
   open: boolean;
@@ -47,11 +48,12 @@ interface Props {
   initialContext: CommunityContext;
   startInAdmin?: boolean;
   onOpenBoardSettings: () => void;
+  onProfile?: (id: string) => void;
 }
 
 const timeLabel = (stamp: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(stamp));
 
-export default function CommunitySheet({ open, onClose, userId, rows, initialContext, startInAdmin = false, onOpenBoardSettings }: Props) {
+export default function CommunitySheet({ open, onClose, userId, rows, initialContext, startInAdmin = false, onOpenBoardSettings, onProfile }: Props) {
   const [context, setContext] = useState(initialContext);
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [expiryClock, setExpiryClock] = useState(() => Date.now());
@@ -91,6 +93,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [appealDraft, setAppealDraft] = useState('');
   const [reviewingAppeal, setReviewingAppeal] = useState<string | null>(null);
   const [appealResponse, setAppealResponse] = useState('');
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
+  const handleProfile = onProfile ?? ((id: string) => setSelectedProfileUserId(id));
   const names = useMemo(() => new Map(rows.map((row) => [row.userId, row.displayName])), [rows]);
   const visibleAudit = useMemo(() => {
     let keptLegacySettings = false;
@@ -290,7 +294,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       </main>
       : !context.canJoin && !context.isAdmin ? <div className="m-4 rounded-2xl border border-subtle bg-surface p-6 text-center"><Heart className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Join the Board first</h3><p className="mt-1 text-[11px] text-content-secondary">Only opted-in Board members can react or enter the daily room.</p></div>
       : mode === 'room' && context.chatV2 && userId
-        ? <CommunityChat key={userId} userId={userId} context={context} names={names} onOpenBoardSettings={onOpenBoardSettings} />
+        ? <CommunityChat key={userId} userId={userId} context={context} names={names} onProfile={handleProfile} onOpenBoardSettings={onOpenBoardSettings} />
       : mode === 'room' ? <>
         <main className="community-room-main min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <details className="community-guidelines">
@@ -314,7 +318,15 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             const repliedTo = message.replyToId ? visibleMessages.find((candidate) => candidate.id === message.replyToId) : undefined;
             return <li key={message.id} className={`community-message-row ${mine ? 'is-mine' : 'is-theirs'}`}>
               <article className="community-message-bubble">
-                {!mine && <p className="community-message-author">{names.get(message.authorId) ?? 'Board member'}</p>}
+                {!mine && (
+                  <button
+                    type="button"
+                    className="community-message-author text-left hover:underline"
+                    onClick={() => handleProfile(message.authorId)}
+                  >
+                    {names.get(message.authorId) ?? 'Board member'}
+                  </button>
+                )}
                 {message.replyToId && <div className="community-message-reply">
                   <strong>{repliedTo ? (repliedTo.authorId === userId ? 'You' : names.get(repliedTo.authorId) ?? 'Board member') : 'Earlier message'}</strong>
                   <span>{repliedTo?.body ?? 'This message is no longer available.'}</span>
@@ -474,6 +486,14 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         {status && <p role="status" className="community-status">{status}</p>}
         <div className="community-privacy mt-4 flex items-start gap-2 rounded-[13px] border border-secondary/20 bg-secondary-soft/40 p-3"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><p className="text-[10px] leading-relaxed text-content-secondary">Community only. Private workspaces stay private.</p></div>
       </main>}
+      {selectedProfileUserId && (
+        <UserProfileSheet
+          open={Boolean(selectedProfileUserId)}
+          userId={selectedProfileUserId}
+          boardPreview={rows.find((r) => r.userId === selectedProfileUserId) ?? null}
+          onClose={() => setSelectedProfileUserId(null)}
+        />
+      )}
     </div>
   </Overlay>;
 }

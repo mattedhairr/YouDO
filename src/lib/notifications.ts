@@ -6,7 +6,7 @@ import { isBacklogTask, isOpenBacklogTask, isTaskComplete } from './goalTree';
 import { STORAGE_KEYS } from './storageKeys';
 
 export type RoomNotificationMode = 'all' | 'mentions' | 'off';
-export type CommunityNotificationMode = 'mentions' | 'all' | 'off';
+export type CommunityNotificationMode = boolean;
 
 export interface AdminHubNotificationPreferences {
   enabled: boolean;
@@ -35,7 +35,7 @@ export interface NotificationPreferences {
   };
   publicHub: {
     enabled: boolean;
-    communityMessages: CommunityNotificationMode;
+    communityMessages: boolean;
     hashtagMentions: boolean;
   };
   adminHub?: AdminHubNotificationPreferences;
@@ -63,7 +63,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   },
   publicHub: {
     enabled: true,
-    communityMessages: 'mentions',
+    communityMessages: false,
     hashtagMentions: true,
   },
   adminHub: {
@@ -134,6 +134,12 @@ export function getNotificationPreferences(): NotificationPreferences {
       publicHub: {
         ...DEFAULT_NOTIFICATION_PREFERENCES.publicHub,
         ...(parsed.publicHub ?? {}),
+        communityMessages:
+          typeof parsed.publicHub?.communityMessages === 'boolean'
+            ? parsed.publicHub.communityMessages
+            : parsed.publicHub?.communityMessages === 'all'
+              ? true
+              : false,
       },
       adminHub: {
         ...DEFAULT_NOTIFICATION_PREFERENCES.adminHub!,
@@ -683,15 +689,11 @@ export async function dispatchCommunityNotification(params: {
 }): Promise<void> {
   const prefs = getNotificationPreferences();
   if (!prefs.enabled || !prefs.publicHub.enabled) return;
-  if (prefs.publicHub.communityMessages === 'off') return;
 
-  const isUserMentioned = isMentioned(params.content, params.myUsername);
   const isHashtagMatch =
     Boolean(prefs.publicHub.hashtagMentions && params.hashtag && params.myHashtag && params.hashtag.toLowerCase() === params.myHashtag.toLowerCase());
 
-  if (prefs.publicHub.communityMessages === 'mentions') {
-    if (!isUserMentioned && !isHashtagMatch) return;
-  }
+  if (!prefs.publicHub.communityMessages && !isHashtagMatch) return;
 
   const id = NOTIFICATION_IDS.COMMUNITY;
   const title = params.hashtag ? `#${params.hashtag} Community` : 'Public Community';

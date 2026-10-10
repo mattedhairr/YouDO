@@ -18,6 +18,8 @@ import {
   stringToNotificationId,
   dispatchAdminNotification,
   dismissAdminNotification,
+  dispatchCommunityNotification,
+  dismissCommunityNotification,
   type NotificationPreferences,
 } from './notifications';
 import { STORAGE_KEYS } from './storageKeys';
@@ -88,6 +90,33 @@ describe('notifications library', () => {
       expect(retrieved.enabled).toBe(false);
       expect(retrieved.morningBriefing.time).toBe('04:00');
       expect(retrieved.privateHub.directMessages).toBe(true);
+    });
+
+    it('initializes and migrates public hub preferences cleanly', () => {
+      const prefs = getNotificationPreferences();
+      expect(prefs.publicHub.communityMessages).toBe(false);
+      expect(prefs.publicHub.hashtagMentions).toBe(true);
+
+      // Persist custom preferences
+      saveNotificationPreferences({
+        ...prefs,
+        publicHub: { ...prefs.publicHub, communityMessages: true },
+      });
+      expect(getNotificationPreferences().publicHub.communityMessages).toBe(true);
+
+      // Legacy string 'all' migrates to true
+      localStorage.setItem(
+        STORAGE_KEYS.notificationPrefs,
+        JSON.stringify({ publicHub: { communityMessages: 'all' } }),
+      );
+      expect(getNotificationPreferences().publicHub.communityMessages).toBe(true);
+
+      // Legacy string 'mentions' or 'off' migrates to false
+      localStorage.setItem(
+        STORAGE_KEYS.notificationPrefs,
+        JSON.stringify({ publicHub: { communityMessages: 'mentions' } }),
+      );
+      expect(getNotificationPreferences().publicHub.communityMessages).toBe(false);
     });
   });
 
@@ -540,6 +569,28 @@ describe('notifications library', () => {
       ).resolves.toBeUndefined();
 
       await expect(dismissAdminNotification('req_123')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('community notifications', () => {
+    it('safely dispatches and dismisses community notifications in test environment', async () => {
+      await expect(
+        dispatchCommunityNotification({
+          senderName: 'Friend',
+          content: 'Hello general chat!',
+        }),
+      ).resolves.toBeUndefined();
+
+      await expect(
+        dispatchCommunityNotification({
+          senderName: 'StudyBuddy',
+          content: 'Exam tip!',
+          hashtag: 'gate',
+          myHashtag: 'gate',
+        }),
+      ).resolves.toBeUndefined();
+
+      await expect(dismissCommunityNotification()).resolves.toBeUndefined();
     });
   });
 });
