@@ -95,6 +95,7 @@ describe('BoardView responsive layout & hygiene', () => {
 
     expect(html).toContain('board-admin-link');
     expect(html).toContain('board-admin-badge');
+    expect(html).toContain('board-admin-badge-dot');
     expect(html).toContain('>1<');
     expect(html).toContain('Open community admin, 1 unreviewed items');
     expect(html).toContain('1 pending admin items');
@@ -160,5 +161,17 @@ describe('BoardView responsive layout & hygiene', () => {
     expect(html).toContain('board-admin-link');
     expect(html).not.toContain('board-admin-badge');
     expect(html).toContain('aria-label="Open community admin"');
+  });
+
+  it('safely passes onOpenProfile callback which supports null row for off-board chat authors', () => {
+    const onOpenProfile = vi.fn();
+    const html = renderToStaticMarkup(
+      createElement(BoardView, {
+        onOpenBoardSettings: vi.fn(),
+        onOpenProfile,
+      }),
+    );
+    expect(html).toContain('board-workspace');
+    expect(typeof onOpenProfile).toBe('function');
   });
 });

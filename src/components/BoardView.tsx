@@ -244,7 +244,7 @@ export default function BoardView({
   initialAdminCounts,
 }: {
   onOpenBoardSettings: () => void;
-  onOpenProfile?: (userId: string, row: PaceRow, paceWindow: PaceWindow) => void;
+  onOpenProfile?: (userId: string, row?: PaceRow | null, paceWindow?: PaceWindow) => void;
   initialCommunity?: CommunityContext;
   initialAdminCounts?: AdminHubCounts;
 }) {
@@ -576,7 +576,7 @@ export default function BoardView({
               className={`board-admin-link ${adminCounts.total > 0 ? 'has-unread' : ''}`}
               aria-label={adminCounts.total > 0 ? `Open community admin, ${adminCounts.total} unreviewed items` : 'Open community admin'}
             >
-              <Gauge size={15} className="shrink-0" />
+              <Gauge size={14} className="shrink-0" />
               <span>Admin</span>
               {adminCounts.total > 0 && (
                 <span
@@ -584,7 +584,8 @@ export default function BoardView({
                   title={`${adminCounts.total} pending admin items`}
                   aria-hidden="true"
                 >
-                  {adminCounts.total > 9 ? '9+' : adminCounts.total}
+                  <span className="board-admin-badge-dot" />
+                  <span>{adminCounts.total > 9 ? '9+' : adminCounts.total}</span>
                 </span>
               )}
             </button>
@@ -841,8 +842,8 @@ export default function BoardView({
           startInAdmin={communityStartInAdmin}
           onOpenBoardSettings={() => { closeCommunity(); onOpenBoardSettings(); }}
           onProfile={onOpenProfile ? (id) => {
-            const targetRow = byId.get(id) ?? rows.find((r) => r.userId === id);
-            if (targetRow) onOpenProfile(id, targetRow, paceWindow);
+            const targetRow = byId.get(id) ?? rows.find((r) => r.userId === id) ?? null;
+            onOpenProfile(id, targetRow, paceWindow);
           } : undefined}
         />
       )}

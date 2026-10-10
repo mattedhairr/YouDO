@@ -268,8 +268,8 @@ export default function HubView({
                 onOpenBoardSettings={onOpenBoardSettings}
                 onOpenProfile={(id, row, paceWindow) => {
                   setProfileUserId(id);
-                  setProfileBoardPreview(row);
-                  setProfileBoardWindow(paceWindow);
+                  setProfileBoardPreview(row ?? null);
+                  if (paceWindow) setProfileBoardWindow(paceWindow);
                 }}
               />
             </>

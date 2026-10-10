@@ -321,10 +321,14 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
                 {!mine && (
                   <button
                     type="button"
-                    className="community-message-author text-left hover:underline"
+                    className="community-message-author text-left hover:underline inline-flex items-center gap-1.5"
                     onClick={() => handleProfile(message.authorId)}
+                    title={`View ${(names.get(message.authorId) ?? 'Board member')}'s profile`}
                   >
-                    {names.get(message.authorId) ?? 'Board member'}
+                    <span className="size-3.5 rounded-full bg-primary-soft text-primary text-[8px] font-bold inline-flex items-center justify-center shrink-0 border border-primary/25">
+                      {(names.get(message.authorId) ?? 'B').charAt(0).toUpperCase()}
+                    </span>
+                    <span>{names.get(message.authorId) ?? 'Board member'}</span>
                   </button>
                 )}
                 {message.replyToId && <div className="community-message-reply">

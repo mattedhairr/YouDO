@@ -450,7 +450,19 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           >
             {!mine && (
               <div className="yd-chat-author">
-                <button type="button" className="text-left" onClick={()=>onProfile?.(message.authorId)} disabled={!onProfile}>{authorName}</button>
+                <button
+                  type="button"
+                  className="yd-chat-author-btn"
+                  onClick={() => onProfile?.(message.authorId)}
+                  disabled={!onProfile}
+                  title={`View ${authorName}'s profile`}
+                  aria-label={`View ${authorName}'s profile`}
+                >
+                  <span className="yd-chat-author-avatar" aria-hidden="true">
+                    {authorName.charAt(0).toUpperCase()}
+                  </span>
+                  <span>{authorName}</span>
+                </button>
                 {staff && <span className="yd-chat-admin">Admin</span>}
               </div>
             )}

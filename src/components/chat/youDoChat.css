@@ -125,6 +125,45 @@
   text-decoration: underline;
 }
 
+.yd-chat-author-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--primary);
+  padding: 0;
+  background: none;
+  border: none;
+  min-width: 0;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.yd-chat-author-btn:hover span:not(.yd-chat-author-avatar) {
+  text-decoration: underline;
+}
+
+.yd-chat-author-btn:disabled {
+  cursor: default;
+}
+
+.yd-chat-author-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .yd-chat-row:not(.is-mine) .yd-chat-bubble {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
