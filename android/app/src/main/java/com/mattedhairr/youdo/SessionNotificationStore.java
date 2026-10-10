@@ -5,10 +5,10 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Configuration;
+
 import android.os.Build;
 import android.os.SystemClock;
-import android.widget.RemoteViews;
+
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import java.text.DateFormat;
@@ -128,44 +128,22 @@ final class SessionNotificationStore {
     static void show(Context ctx, boolean paused, String title) {
         ensureChannel(ctx);
         String safeTitle = title == null || title.trim().isEmpty() ? "Focus Session" : title.trim();
-        String statusLabel = paused ? "⏸️  PAUSED" : "⏱️  ACTIVE FOCUS";
-        String hint = paused ? "Tap to open · Resume here" : "Tap to open · Pause here";
         long elapsedMs = elapsedFocusMs(sessionObject(ctx), paused);
         long chronometerBase = SystemClock.elapsedRealtime() - elapsedMs;
 
-        boolean isDarkMode = (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        // In dark mode / dark shade, use crisp high-contrast off-white and warm tones.
-        // In light mode, use refined deep charcoal and muted earth tones.
-        int titleColor = isDarkMode ? 0xFFF3EEE6 : 0xFF1A1815;
-        int secondaryColor = isDarkMode ? 0xFFC5BEB3 : 0xFF4A443B;
-        int hintColor = isDarkMode ? 0xFFA39A8C : 0xFF70675A;
-        int statusColor = paused ? (isDarkMode ? 0xFF9EC49C : 0xFF356138) : (isDarkMode ? 0xFFE0BC82 : 0xFF8A5D19);
-
-        RemoteViews compact = new RemoteViews(ctx.getPackageName(), R.layout.notification_session);
-        bindAction(ctx, compact, paused);
-        compact.setTextViewText(R.id.notif_status, statusLabel);
-        compact.setTextColor(R.id.notif_status, statusColor);
-        compact.setTextViewText(R.id.notif_title, safeTitle);
-        compact.setTextColor(R.id.notif_title, titleColor);
-
-        RemoteViews expanded = new RemoteViews(ctx.getPackageName(), R.layout.notification_session_expanded);
-        bindAction(ctx, expanded, paused);
-        expanded.setTextViewText(R.id.notif_status, statusLabel);
-        expanded.setTextColor(R.id.notif_status, statusColor);
-        expanded.setTextViewText(R.id.notif_title, safeTitle);
-        expanded.setTextColor(R.id.notif_title, titleColor);
-        expanded.setTextViewText(R.id.notif_hint, hint);
-        expanded.setTextColor(R.id.notif_hint, hintColor);
-        expanded.setChronometer(R.id.notif_elapsed, chronometerBase, paused ? "%s elapsed (paused)" : "%s elapsed", !paused);
-        expanded.setTextColor(R.id.notif_elapsed, secondaryColor);
+        android.app.PendingIntent toggleIntent = actionIntent(ctx, paused ? ACTION_RESUME : ACTION_PAUSE);
+        NotificationCompat.Action action = new NotificationCompat.Action.Builder(
+            paused ? R.drawable.ic_notify_play : R.drawable.ic_notify_pause,
+            paused ? "Resume" : "Pause",
+            toggleIntent
+        ).build();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_youdo)
             .setColor(paused ? 0xFF8FA68E : 0xFFC4A574)
             .setColorized(false)
             .setContentTitle(safeTitle)
-            .setContentText(paused ? "⏸️ Paused · Tap to resume" : "⏱️ Focus in progress · Tap to pause")
-            .setSubText(paused ? "Paused" : "Live Focus")
+            .setContentText(paused ? "⏸️ Paused · Tap to resume" : "⏱️ Focus in progress")
             .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
@@ -178,26 +156,13 @@ final class SessionNotificationStore {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppIntent(ctx))
-            .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
-            .setCustomContentView(compact)
-            .setCustomHeadsUpContentView(compact)
-            .setCustomBigContentView(expanded);
+            .addAction(action);
 
         try {
             NotificationManagerCompat.from(ctx).notify(NOTIF_ID, builder.build());
         } catch (SecurityException ignored) {
             /* permission denied */
         }
-    }
-
-    private static void bindAction(Context ctx, RemoteViews views, boolean paused) {
-        views.setInt(
-            R.id.notif_action,
-            "setBackgroundResource",
-            paused ? R.drawable.notif_action_bg_paused : R.drawable.notif_action_bg
-        );
-        views.setImageViewResource(R.id.notif_action, paused ? R.drawable.ic_notify_play : R.drawable.ic_notify_pause);
-        views.setOnClickPendingIntent(R.id.notif_action, actionIntent(ctx, paused ? ACTION_RESUME : ACTION_PAUSE));
     }
 
     private static JSONObject sessionObject(Context ctx) {

@@ -509,7 +509,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     try {
       const payload = empty
         ? { app: 'YouDO', version: APP_VERSION, exportedAt: new Date().toISOString(), updatedAt: Date.now(),
-          tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], deletionLedger: [], streakMeta: null, pacePrefs: null }
+          tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [], deletionLedger: [], streakMeta: { lastSession: null, longestStreak: 0, currentStreak: 0 }, pacePrefs: { optedIn: false, displayName: '', examLabel: '', updatedAt: 0 } }
         : localBackupPayload();
       if (!parseBackupPayload(JSON.stringify(payload))) {
         throw new Error('The device workspace is unreadable. Nothing was uploaded; keep app data intact and retry after recovery.');

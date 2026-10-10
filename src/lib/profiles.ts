@@ -224,21 +224,14 @@ export async function ensureProfileFromAuth(user: {
     // 1. Explicit signup_claim metadata set during AuthGate signUp
     // 2. A recent signup within the last 30 days that provided a username in auth metadata or signup
     // 3. A pending registration handle stored in the current browser session
-    const isRecentSignup = Boolean(
-      user.created_at &&
-      Date.now() - new Date(user.created_at).getTime() < 30 * 24 * 60 * 60 * 1000,
-    );
+
     const hasLocalPendingClaim =
       typeof window !== 'undefined' &&
       Boolean(
         window.localStorage?.getItem('youdo_pending_signup_claim') === candidateUsername ||
         window.localStorage?.getItem(`youdo_signup_username:${user.id}`) === candidateUsername,
       );
-    const isSignupClaim = Boolean(
-      meta.signup_claim === true ||
-      isRecentSignup ||
-      hasLocalPendingClaim,
-    );
+    const isSignupClaim = Boolean(hasLocalPendingClaim);
 
     if (isSignupClaim) {
       const displayName =

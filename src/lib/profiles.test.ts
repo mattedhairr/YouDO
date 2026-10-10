@@ -130,14 +130,9 @@ describe('ensureProfileFromAuth', () => {
     });
 
     expect(res).toEqual({
-      ok: true,
-      needsClaim: false,
-      username: 'tester1',
-    });
-    expect(upsertPayload).toMatchObject({
-      id: '00000000-0000-0000-0000-000000000002',
-      username: 'tester1',
-      display_name: 'Tester One',
+      ok: false,
+      needsClaim: true,
+      username: null,
     });
   });
 
@@ -174,18 +169,14 @@ describe('ensureProfileFromAuth', () => {
     });
 
     expect(res).toEqual({
-      ok: true,
-      needsClaim: false,
-      username: 'recent_user',
-    });
-    expect(upsertPayload).toMatchObject({
-      id: '00000000-0000-0000-0000-000000000003',
-      username: 'recent_user',
-      display_name: 'Recent User',
+      ok: false,
+      needsClaim: true,
+      username: null,
     });
   });
 
   it('requires clean claim when auto-registration fails due to username collision', async () => {
+    localStorage.setItem('youdo_signup_username:00000000-0000-0000-0000-000000000004', 'taken_user');
     vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
@@ -222,6 +213,7 @@ describe('ensureProfileFromAuth', () => {
   });
 
   it('deduplicates concurrent ensureProfileFromAuth calls for the same user', async () => {
+    localStorage.setItem('youdo_signup_username:00000000-0000-0000-0000-000000000005', 'concurrent_user');
     let upsertCount = 0;
     vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
       if (table === 'profiles') {
