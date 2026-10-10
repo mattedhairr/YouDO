@@ -77,10 +77,20 @@ import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspa
 import { fetchProfile, upsertProfile, normalizeUsername, type Profile } from '../lib/profiles';
 import { fetchCommunityContext } from '../lib/community';
 
+export type SettingsTab = 'account' | 'preferences' | 'notifications' | 'board' | 'about';
+
+interface TabItem {
+  id: SettingsTab;
+  label: string;
+  icon: typeof ShieldCheck;
+  badge?: boolean;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   focusSection?: 'public-board';
+  initialTab?: SettingsTab;
   streakBarHours: number;
   onStreakBarHoursChange: (hours: number) => void;
 }
@@ -115,6 +125,7 @@ export default function SettingsSheet({
   open,
   onClose,
   focusSection,
+  initialTab,
   streakBarHours,
   onStreakBarHoursChange,
 }: Props) {
@@ -151,6 +162,10 @@ export default function SettingsSheet({
   const [theme, setTheme] = useTheme();
   const [reducedEffects, setReducedEffects] = useReducedEffects();
   const publicBoardRef = useRef<HTMLElement>(null);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(focusSection === 'public-board' ? 'board' : (initialTab ?? 'account'));
+  const [highlightBoard, setHighlightBoard] = useState(focusSection === 'public-board');
+  const contentRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Partial<Record<SettingsTab, HTMLButtonElement | null>>>({});
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -280,8 +295,10 @@ export default function SettingsSheet({
       setTrashOpen(false);
       setTrashRestoreError(null);
       setStreakBarHelpOpen(false);
+      setHighlightBoard(false);
+      setActiveTab(initialTab ?? 'account');
     }
-  }, [open]);
+  }, [open, initialTab]);
 
   useEffect(() => {
     if (!open || !user || !restoreOpen) return;
@@ -321,12 +338,89 @@ export default function SettingsSheet({
   }, [open, updateCheckKey]);
 
   useEffect(() => {
-    if (!open || focusSection !== 'public-board') return;
-    const frame = window.requestAnimationFrame(() => {
-      publicBoardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    if (!open) {
+      setHighlightBoard(false);
+      return;
+    }
+    if (focusSection === 'public-board') {
+      setActiveTab('board');
+      setHighlightBoard(true);
+      const timer = window.setTimeout(() => setHighlightBoard(false), 2400);
+      const frame = window.requestAnimationFrame(() => {
+        publicBoardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+      return () => {
+        window.clearTimeout(timer);
+        window.cancelAnimationFrame(frame);
+      };
+    }
   }, [open, focusSection]);
+
+  useEffect(() => {
+    if (open && activeTab && !trashOpen) {
+      tabRefs.current[activeTab]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [open, activeTab, trashOpen]);
+
+  const tabs = useMemo<TabItem[]>(() => [
+    {
+      id: 'account',
+      label: 'Account',
+      icon: ShieldCheck,
+      badge: Boolean(cloudSyncConflict),
+    },
+    {
+      id: 'preferences',
+      label: 'Preferences',
+      icon: Sparkles,
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      icon: Bell,
+    },
+    {
+      id: 'board',
+      label: 'Board',
+      icon: TrendingUp,
+    },
+    {
+      id: 'about',
+      label: 'About',
+      icon: Info,
+      badge: Boolean(availableUpdate),
+    },
+  ], [cloudSyncConflict, availableUpdate]);
+
+  const handleTabClick = (tabId: SettingsTab) => {
+    if (tabId === activeTab) return;
+    hapticTick();
+    setActiveTab(tabId);
+    contentRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const handleTabKeyDown = (e: React.KeyboardEvent, index: number) => {
+    let nextIndex: number | null = null;
+    if (e.key === 'ArrowRight') {
+      nextIndex = (index + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft') {
+      nextIndex = (index - 1 + tabs.length) % tabs.length;
+    } else if (e.key === 'Home') {
+      nextIndex = 0;
+    } else if (e.key === 'End') {
+      nextIndex = tabs.length - 1;
+    }
+    if (nextIndex !== null) {
+      e.preventDefault();
+      const nextTab = tabs[nextIndex].id;
+      handleTabClick(nextTab);
+      tabRefs.current[nextTab]?.focus();
+    }
+  };
 
   if (!open) return null;
 
@@ -391,6 +485,52 @@ export default function SettingsSheet({
           {!trashOpen && <p className="mt-0.5 text-[11px] text-content-muted">Your workspace, focus rules and privacy</p>}
         </div>
       </div>
+
+      {/* ── 2. Tab Navigation Strip ── */}
+      {!trashOpen && (
+        <div className="settings-tab-bar shrink-0 px-3 pt-2 pb-2.5 bg-elevated/95 backdrop-blur-md border-b border-subtle">
+          <div
+            role="tablist"
+            aria-label="Settings categories"
+            className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth p-1 bg-surface/90 rounded-2xl border border-subtle/80 shadow-inner"
+          >
+            {tabs.map((tab, idx) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  ref={(el) => { tabRefs.current[tab.id] = el; }}
+                  type="button"
+                  role="tab"
+                  id={`settings-tab-${tab.id}`}
+                  aria-selected={isActive}
+                  aria-controls={`settings-panel-${tab.id}`}
+                  tabIndex={isActive ? 0 : -1}
+                  onKeyDown={(e) => handleTabKeyDown(e, idx)}
+                  onClick={() => handleTabClick(tab.id)}
+                  className={`flex-1 min-w-fit px-3 py-1.5 rounded-xl text-[12px] font-bold tracking-tight whitespace-nowrap transition-all duration-200 flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
+                    isActive
+                      ? 'bg-primary text-on-primary shadow-sm shadow-primary/25 font-bold'
+                      : 'text-content-secondary hover:text-content-primary hover:bg-white/5 font-semibold'
+                  }`}
+                >
+                  <Icon size={13} className={isActive ? 'text-on-primary' : 'text-content-muted'} />
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span
+                      className={`size-1.5 rounded-full ${
+                        tab.id === 'account' ? 'bg-warning animate-pulse' : 'bg-primary animate-pulse'
+                      }`}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {trashOpen ? (
       <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-12">
@@ -459,7 +599,7 @@ export default function SettingsSheet({
         )}
       </div>
       ) : (
-      <div className="settings-content flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-5 pb-12 space-y-5">
+      <div ref={contentRef} className="settings-content flex-1 overflow-y-auto overscroll-contain no-scrollbar px-4 pt-4 pb-12 space-y-5">
         {/* Status Messages */}
         {msg && (
           <div
@@ -476,8 +616,15 @@ export default function SettingsSheet({
           </div>
         )}
 
-        {/* ── SECTION 1: ACCOUNT & SYNC ── */}
-        <section>
+        {/* ── TAB PANEL: ACCOUNT ── */}
+        <div
+          role="tabpanel"
+          id="settings-panel-account"
+          aria-labelledby="settings-tab-account"
+          className={activeTab === 'account' ? 'space-y-5 fade-in' : 'hidden'}
+        >
+          {/* ── SECTION 1: ACCOUNT & SYNC ── */}
+          <section>
           <SectionLabel icon={<ShieldCheck size={13} className="text-secondary" />}>ACCOUNT &amp; SYNC</SectionLabel>
           <div className="settings-card settings-account-card relative rounded-2xl border border-subtle/80 bg-elevated overflow-hidden shadow-xl">
             {user && (
@@ -1447,9 +1594,24 @@ export default function SettingsSheet({
             )}
           </div>
         </section>
+      </div>
 
+      {/* ── TAB PANEL: BOARD ── */}
+      <div
+        role="tabpanel"
+        id="settings-panel-board"
+        aria-labelledby="settings-tab-board"
+        className={activeTab === 'board' ? 'space-y-5 fade-in' : 'hidden'}
+      >
         {/* ── SECTION 2: FOCUS & LEADERBOARD ── */}
-        <section ref={publicBoardRef}>
+        <section
+          ref={publicBoardRef}
+          className={
+            highlightBoard
+              ? 'rounded-2xl ring-2 ring-primary ring-offset-2 ring-offset-base transition-all duration-700'
+              : ''
+          }
+        >
           <SectionLabel icon={<Flame size={13} className="text-primary" />}>FOCUS &amp; LEADERBOARD</SectionLabel>
 
           {/* Daily streak bar card */}
@@ -1620,7 +1782,15 @@ export default function SettingsSheet({
             </details>
           </div>
         </section>
+      </div>
 
+      {/* ── TAB PANEL: NOTIFICATIONS ── */}
+      <div
+        role="tabpanel"
+        id="settings-panel-notifications"
+        aria-labelledby="settings-tab-notifications"
+        className={activeTab === 'notifications' ? 'space-y-5 fade-in' : 'hidden'}
+      >
         {/* ── SECTION 3: NOTIFICATIONS & BRIEFINGS ── */}
         <section>
           <SectionLabel icon={<Bell size={13} className="text-primary" />}>NOTIFICATIONS &amp; BRIEFINGS</SectionLabel>
@@ -2159,7 +2329,15 @@ export default function SettingsSheet({
             </div>
           )}
         </section>
+      </div>
 
+      {/* ── TAB PANEL: PREFERENCES ── */}
+      <div
+        role="tabpanel"
+        id="settings-panel-preferences"
+        aria-labelledby="settings-tab-preferences"
+        className={activeTab === 'preferences' ? 'space-y-5 fade-in' : 'hidden'}
+      >
         {/* ── SECTION 4: APPEARANCE & EXPERIENCE ── */}
         <section>
           <SectionLabel icon={<Sparkles size={13} className="text-secondary" />}>APPEARANCE &amp; EXPERIENCE</SectionLabel>
@@ -2379,7 +2557,15 @@ export default function SettingsSheet({
             </div>
           )}
         </section>
+      </div>
 
+      {/* ── TAB PANEL: ABOUT ── */}
+      <div
+        role="tabpanel"
+        id="settings-panel-about"
+        aria-labelledby="settings-tab-about"
+        className={activeTab === 'about' ? 'space-y-5 fade-in' : 'hidden'}
+      >
         {/* ── SECTION 6: UPDATES & COMMUNITY ── */}
         <section>
           <SectionLabel icon={<Info size={13} className="text-content-muted" />}>UPDATES &amp; COMMUNITY</SectionLabel>
@@ -2492,6 +2678,7 @@ export default function SettingsSheet({
             For a bug, mention what you were doing, what happened and what you expected. Remove personal information from screenshots.
           </p>
         </section>
+      </div>
 
       </div>
       )}
