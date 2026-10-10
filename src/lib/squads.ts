@@ -83,6 +83,17 @@ function squadFromJoinedRow(raw: unknown): Squad | null {
   return raw as Squad;
 }
 
+function isAllowJoinRequestsMissingError(err: { message?: string; details?: string; hint?: string; code?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return Boolean(
+    err.message?.includes('allow_join_requests') ||
+    err.details?.includes('allow_join_requests') ||
+    err.hint?.includes('allow_join_requests') ||
+    err.code === 'PGRST204' ||
+    err.code === '42703',
+  );
+}
+
 export async function createSquad(
   params: CreateSquadParams,
 ): Promise<{ ok: boolean; error?: string; squad?: Squad }>;
@@ -147,11 +158,23 @@ export async function createSquad(
     insertPayload.bar_hours = barHours;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('squads')
     .insert(insertPayload)
     .select()
     .single();
+
+  if (error && isAllowJoinRequestsMissingError(error)) {
+    const fallbackPayload = { ...insertPayload };
+    delete fallbackPayload.allow_join_requests;
+    const retry = await supabase
+      .from('squads')
+      .insert(fallbackPayload)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error || !data) {
     console.error('Failed to create squad:', error);
@@ -193,13 +216,22 @@ export async function updateSquadPrivacy(
   squadId: string,
   privacy: SquadPrivacy,
 ): Promise<boolean> {
-  const { error } = await supabase
+  let { error } = await supabase
     .from('squads')
     .update({
       privacy,
       allow_join_requests: privacy === 'anyone_can_join',
     })
     .eq('id', squadId);
+
+  if (error && isAllowJoinRequestsMissingError(error)) {
+    const retry = await supabase
+      .from('squads')
+      .update({ privacy })
+      .eq('id', squadId);
+    error = retry.error;
+  }
+
   return !error;
 }
 

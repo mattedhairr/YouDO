@@ -68,6 +68,7 @@ export const NOTIFICATION_CHANNELS = {
 
 export const NOTIFICATION_IDS = {
   MORNING_BRIEFING: 1001,
+  TEST_BRIEFING: 9999,
   FRIEND_REQUEST: 2001,
   ROOM_INVITE: 2002,
   COMMUNITY: 3001,
@@ -259,7 +260,7 @@ export function extractBriefingData(tasks: Task[], goals: GoalNode[], streakCoun
 export function buildMorningBriefingContent(
   data: BriefingData,
   prefs = getNotificationPreferences().morningBriefing,
-): { title: string; body: string } {
+): { title: string; body: string; largeBody?: string; summaryText?: string } {
   const parts: string[] = [];
 
   // Goal countdown
@@ -296,15 +297,20 @@ export function buildMorningBriefingContent(
   }
 
   const title = '🌅 Good morning! Daily Focus Briefing';
-  const body = parts.length > 0 ? parts.join(' \n') : 'Ready to conquer today? Open YouDO to review your targets.';
+  const fullText = parts.length > 0 ? parts.join('\n') : 'Ready to conquer today? Open YouDO to review your targets.';
+  const body = fullText;
+  const largeBody = fullText;
+  const summaryText = 'Daily Morning Briefing';
 
-  return { title, body };
+  return { title, body, largeBody, summaryText };
 }
 
 export function calculateNextBriefingTime(timeStr: string, fromDate = new Date()): Date {
   const [hoursStr, minutesStr] = timeStr.split(':');
-  const targetHour = Number(hoursStr) || 4;
-  const targetMinute = Number(minutesStr) || 0;
+  const parsedHour = Number(hoursStr);
+  const parsedMinute = Number(minutesStr);
+  const targetHour = Number.isFinite(parsedHour) && parsedHour >= 0 && parsedHour <= 23 ? parsedHour : 4;
+  const targetMinute = Number.isFinite(parsedMinute) && parsedMinute >= 0 && parsedMinute <= 59 ? parsedMinute : 0;
 
   const next = new Date(fromDate.getTime());
   next.setHours(targetHour, targetMinute, 0, 0);
@@ -317,26 +323,57 @@ export function calculateNextBriefingTime(timeStr: string, fromDate = new Date()
   return next;
 }
 
+let lastScheduledBriefingFingerprint: string | null = null;
+let isSchedulingBriefing = false;
+let pendingBriefingCall: {
+  tasks: Task[];
+  goals: GoalNode[];
+  streakCount: number;
+  streakBest: number;
+  options?: { force?: boolean };
+} | null = null;
+
+export function resetBriefingSchedulingGuard(): void {
+  lastScheduledBriefingFingerprint = null;
+  isSchedulingBriefing = false;
+  pendingBriefingCall = null;
+}
+
 export async function scheduleMorningBriefing(
   tasks: Task[],
   goals: GoalNode[],
   streakCount = 0,
   streakBest = 0,
+  options?: { force?: boolean },
 ): Promise<void> {
   const prefs = getNotificationPreferences();
   if (!prefs.enabled || !prefs.morningBriefing.enabled) {
-    await cancelNotification(NOTIFICATION_IDS.MORNING_BRIEFING);
+    if (lastScheduledBriefingFingerprint !== null) {
+      lastScheduledBriefingFingerprint = null;
+      await cancelNotification(NOTIFICATION_IDS.MORNING_BRIEFING);
+    }
     return;
   }
 
-  await ensureNotificationChannels();
-
   const data = extractBriefingData(tasks, goals, streakCount, streakBest);
-  const { title, body } = buildMorningBriefingContent(data, prefs.morningBriefing);
+  const { title, body, largeBody, summaryText } = buildMorningBriefingContent(data, prefs.morningBriefing);
   const nextAt = calculateNextBriefingTime(prefs.morningBriefing.time);
+  const fingerprint = `${prefs.morningBriefing.time}|${nextAt.getTime()}|${title}|${body}`;
 
-  if (Capacitor.isNativePlatform()) {
-    try {
+  if (!options?.force && lastScheduledBriefingFingerprint === fingerprint) {
+    return;
+  }
+
+  if (isSchedulingBriefing) {
+    pendingBriefingCall = { tasks, goals, streakCount, streakBest, options };
+    return;
+  }
+  isSchedulingBriefing = true;
+
+  try {
+    await ensureNotificationChannels();
+
+    if (Capacitor.isNativePlatform()) {
       await LocalNotifications.cancel({
         notifications: [{ id: NOTIFICATION_IDS.MORNING_BRIEFING }],
       });
@@ -347,6 +384,8 @@ export async function scheduleMorningBriefing(
             id: NOTIFICATION_IDS.MORNING_BRIEFING,
             title,
             body,
+            largeBody,
+            summaryText,
             schedule: {
               at: nextAt,
               allowWhileIdle: true,
@@ -361,10 +400,84 @@ export async function scheduleMorningBriefing(
           },
         ],
       });
-    } catch (err) {
-      console.warn('Failed to schedule native morning briefing:', err);
+    }
+    lastScheduledBriefingFingerprint = fingerprint;
+  } catch (err) {
+    console.warn('Failed to schedule native morning briefing:', err);
+  } finally {
+    isSchedulingBriefing = false;
+    if (pendingBriefingCall) {
+      const nextCall = pendingBriefingCall;
+      pendingBriefingCall = null;
+      void scheduleMorningBriefing(
+        nextCall.tasks,
+        nextCall.goals,
+        nextCall.streakCount,
+        nextCall.streakBest,
+        nextCall.options,
+      );
     }
   }
+}
+
+export async function sendTestBriefingNotification(
+  content?: { title: string; body: string; largeBody?: string; summaryText?: string },
+): Promise<boolean> {
+  const briefingContent = content ?? buildMorningBriefingContent(
+    extractBriefingData([], []),
+  );
+
+  await ensureNotificationChannels();
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.cancel({
+        notifications: [{ id: NOTIFICATION_IDS.TEST_BRIEFING }],
+      });
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: NOTIFICATION_IDS.TEST_BRIEFING,
+            title: briefingContent.title,
+            body: briefingContent.body,
+            largeBody: briefingContent.largeBody || briefingContent.body,
+            summaryText: briefingContent.summaryText || 'Daily Morning Briefing',
+            channelId: NOTIFICATION_CHANNELS.DAILY_BRIEFING,
+            extra: {
+              type: 'morning_briefing_test',
+              route: 'today',
+            },
+          },
+        ],
+      });
+      return true;
+    } catch (err) {
+      console.warn('Failed to dispatch native test briefing notification:', err);
+      return false;
+    }
+  }
+
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg && reg.showNotification) {
+          await reg.showNotification(briefingContent.title, {
+            body: briefingContent.body,
+            icon: '/favicon.ico',
+          });
+          return true;
+        }
+      }
+      new Notification(briefingContent.title, { body: briefingContent.body });
+      return true;
+    } catch (err) {
+      console.warn('Failed to dispatch web test notification:', err);
+      return false;
+    }
+  }
+
+  return false;
 }
 
 export function isMentioned(text: string, username?: string | null): boolean {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ensureProfileFromAuth,
   hasPrivateHubUsername,
   normalizeUsername,
   resolvePrivateHubUsername,
@@ -54,5 +55,19 @@ describe('private hub username resolution', () => {
     expect(hasPrivateHubUsername({ username: 'tester1' }, {})).toBe(true);
     expect(usernameFromAuthMetadata({ username: 'tester2' })).toBe('tester2');
     expect(hasPrivateHubUsername(null, { username: 'tester2' })).toBe(true);
+  });
+});
+
+describe('ensureProfileFromAuth', () => {
+  it('requires clean username claim when user has no profiles row even if auth metadata exists', async () => {
+    const res = await ensureProfileFromAuth({
+      id: '00000000-0000-0000-0000-000000000001',
+      user_metadata: { username: 'stale_user' },
+    });
+    expect(res).toEqual({
+      ok: false,
+      needsClaim: true,
+      username: null,
+    });
   });
 });

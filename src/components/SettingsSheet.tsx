@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
-import { LocalNotifications } from '@capacitor/local-notifications';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -47,6 +46,7 @@ import {
   scheduleMorningBriefing,
   extractBriefingData,
   buildMorningBriefingContent,
+  sendTestBriefingNotification,
   type NotificationPreferences,
   type RoomNotificationMode,
   type CommunityNotificationMode,
@@ -82,10 +82,11 @@ interface Props {
   onStreakBarHoursChange: (hours: number) => void;
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
   return (
-    <h2 className="settings-section-label text-[10px] font-semibold uppercase tracking-[0.16em] text-content-muted mb-2.5 px-1">
-      {children}
+    <h2 className="settings-section-label text-[10px] font-bold uppercase tracking-[0.16em] text-content-muted mb-2.5 px-1 flex items-center gap-1.5">
+      {icon}
+      <span>{children}</span>
     </h2>
   );
 }
@@ -133,7 +134,6 @@ export default function SettingsSheet({
     publishPublicPace,
     tasks,
     goals,
-    streakMeta,
   } = useStore();
   const { user, signOut, verifyAccount, deleteAccount, updateProfile, changeEmail, changePassword } = useAuth();
   const cloudConflictDetails = (() => {
@@ -203,7 +203,7 @@ export default function SettingsSheet({
 
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(() => getNotificationPreferences());
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
-  const [testNotifSent, setTestNotifSent] = useState(false);
+  const [testNotifStatus, setTestNotifStatus] = useState<'idle' | 'sent' | 'permission_denied' | 'failed'>('idle');
 
   useEffect(() => {
     if (open) {
@@ -216,7 +216,7 @@ export default function SettingsSheet({
     setNotifPrefs((prev) => {
       const next = updater(prev);
       saveNotificationPreferences(next);
-      void scheduleMorningBriefing(tasks, goals, streakMeta.barHours);
+      void scheduleMorningBriefing(tasks, goals, streakBarHours, 0, { force: true });
       return next;
     });
   };
@@ -232,33 +232,19 @@ export default function SettingsSheet({
   const handleSendTestNotification = async () => {
     const granted = await requestNotificationPermission();
     setNotifPermission(granted ? 'granted' : 'denied');
-    if (!granted) return;
-
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await LocalNotifications.schedule({
-          notifications: [
-            {
-              id: 9999,
-              title: briefingPreview.title,
-              body: briefingPreview.body,
-              schedule: { at: new Date(Date.now() + 1000) },
-              channelId: 'daily-briefing',
-            },
-          ],
-        });
-      } catch {
-        /* ignore */
-      }
-    } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(briefingPreview.title, { body: briefingPreview.body });
-      } catch {
-        /* ignore */
-      }
+    if (!granted) {
+      setTestNotifStatus('permission_denied');
+      setTimeout(() => setTestNotifStatus('idle'), 3000);
+      return;
     }
-    setTestNotifSent(true);
-    setTimeout(() => setTestNotifSent(false), 3000);
+
+    const success = await sendTestBriefingNotification(briefingPreview);
+    if (success) {
+      setTestNotifStatus('sent');
+    } else {
+      setTestNotifStatus('failed');
+    }
+    setTimeout(() => setTestNotifStatus('idle'), 3000);
   };
 
   useEffect(() => {
@@ -471,7 +457,7 @@ export default function SettingsSheet({
 
         {/* ── SECTION 1: ACCOUNT & SYNC ── */}
         <section>
-          <SectionLabel>ACCOUNT &amp; SYNC</SectionLabel>
+          <SectionLabel icon={<ShieldCheck size={13} className="text-secondary" />}>ACCOUNT &amp; SYNC</SectionLabel>
           <div className="settings-card settings-account-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
             {user && (
               <div className="relative overflow-hidden">
@@ -1099,124 +1085,182 @@ export default function SettingsSheet({
           </div>
         </section>
 
-        <section>
-          <SectionLabel>APP UPDATES</SectionLabel>
-          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
-            <div className="settings-data-row p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-content-primary">
-                    {!updateChecked ? 'Checking for updates' : updateUnavailable ? 'Update status unavailable' : availableUpdate ? 'A newer YouDO is ready' : 'YouDO is up to date'}
-                  </h3>
-                  <p className="mt-0.5 text-[10px] text-content-muted">
-                    {updateUnavailable && updateChecked ? 'Reconnect and check again' : 'GitHub Releases'}
-                  </p>
-                </div>
-                {!availableUpdate && <button type="button" disabled={!updateChecked} onClick={() => setUpdateCheckKey((key) => key + 1)} className="shrink-0 min-h-11 px-2 text-[11px] font-semibold text-primary disabled:opacity-40">Check again</button>}
+        {/* ── SECTION 2: FOCUS & LEADERBOARD ── */}
+        <section ref={publicBoardRef}>
+          <SectionLabel icon={<Flame size={13} className="text-primary" />}>FOCUS &amp; LEADERBOARD</SectionLabel>
+
+          {/* Daily streak bar card */}
+          <div className="settings-card settings-focus-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg mb-2.5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                <Flame size={16} />
               </div>
-              <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-[14px] border border-subtle bg-surface px-3 py-3">
-                <div className="min-w-0">
-                  <p className="text-[8.5px] font-semibold uppercase tracking-[0.15em] text-content-muted">Installed</p>
-                  <p className="mt-1 text-[13px] font-bold tabular-nums text-content-primary">v{APP_VERSION}</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold text-content-primary">Daily streak bar</h3>
+                  <button
+                    type="button"
+                    onClick={() => setStreakBarHelpOpen((v) => !v)}
+                    className={`p-1.5 rounded-lg shrink-0 transition ${
+                      streakBarHelpOpen
+                        ? 'bg-primary-soft text-primary'
+                        : 'text-content-secondary hover:text-content-primary hover:bg-base'
+                    }`}
+                    title="How streaks work"
+                    aria-label="How streaks work"
+                    aria-expanded={streakBarHelpOpen}
+                  >
+                    <Info size={15} />
+                  </button>
                 </div>
-                <div className="flex items-center">
-                  <span className="h-px w-4 bg-border-subtle" />
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-full border ${!updateChecked || updateUnavailable ? 'border-subtle text-content-muted' : availableUpdate ? 'border-primary/25 bg-primary-soft text-primary' : 'border-success/25 bg-success-soft text-success'}`}>
-                    {!updateChecked || updateUnavailable ? <Info size={14} /> : availableUpdate ? <Download size={14} /> : <Check size={14} strokeWidth={2.5} />}
+                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
+                  Minimum focus per day to keep your streak. Syncs with cloud.
+                </p>
+                {streakBarHelpOpen && (
+                  <div className="mt-2.5 bg-base border border-subtle rounded-[12px] p-3 space-y-2 text-[11.5px] text-content-secondary leading-relaxed">
+                    <p>
+                      <span className="font-semibold text-content-primary">Keep it:</span> Hit this much net focus
+                      each day. Paused time does not count.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">Miss a day:</span> You have{' '}
+                      <span className="font-semibold text-content-primary">1 day</span> to restore.
+                    </p>
+                    <p>
+                      Had overdue tasks in Backlog? Finish every task marked{' '}
+                      <span className="text-primary font-semibold">Save streak</span> (frozen backlog plus today’s
+                      scheduled work, including tasks you add today), then hit this bar once.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">No backlog?</span> Hit{' '}
+                      <span className="font-semibold text-content-primary">1.5×</span> this bar once that day (6h bar
+                      → 9h). That restores the streak.
+                    </p>
+                    <p>
+                      <span className="font-semibold text-content-primary">Range:</span> 30 minutes to 10 hours.
+                    </p>
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[11px] font-semibold text-content-muted uppercase tracking-wider">
+                    Hours
                   </span>
-                  <span className="h-px w-4 bg-border-subtle" />
-                </div>
-                <div className="min-w-0 text-right">
-                  <p className="text-[8.5px] font-semibold uppercase tracking-[0.15em] text-content-muted">{availableUpdate ? 'Available' : 'Latest'}</p>
-                  <p className={`mt-1 text-[13px] font-bold tabular-nums ${availableUpdate ? 'text-primary' : 'text-secondary'}`}>
-                    {!updateChecked ? 'Checking…' : updateUnavailable ? 'Unknown' : `v${availableUpdate?.version ?? APP_VERSION}`}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Decrease streak bar"
+                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      disabled={streakBarHours <= MIN_STREAK_BAR_HOURS}
+                      onClick={() => {
+                        hapticTick();
+                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours - 0.5));
+                      }}
+                    >
+                      −
+                    </button>
+                    <span className="tabular-nums text-sm font-semibold text-content-primary w-12 text-center">
+                      {streakBarHours}h
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase streak bar"
+                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
+                      disabled={streakBarHours >= MAX_STREAK_BAR_HOURS}
+                      onClick={() => {
+                        hapticTick();
+                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours + 0.5));
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            {(availableUpdate || !Capacitor.isNativePlatform()) && <div className="px-4 pb-3"><UpdateAction release={availableUpdate} /></div>}
-            {availableUpdate && availableUpdate.highlights.length > 0 && (
-              <div className="border-t border-subtle px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-2.5">What's new</p>
-                <ul className="space-y-2">
-                  {availableUpdate.highlights.map((item, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-[5px] size-1.5 shrink-0 rounded-full bg-primary" />
-                      <span className="text-[11px] leading-relaxed text-content-secondary">{item}</span>
-                    </li>
+          </div>
+
+          {/* Public Board Participation Card */}
+          <div className="settings-card settings-board-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                <TrendingUp size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
+                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
+                  Off by default. Uses your Profile name on the board, plus synced focus, streak, and bar. Turning it off removes your public row.
+                </p>
+              </div>
+              <Toggle checked={pacePrefs.optedIn} label="Public Board participation" onChange={() => {
+                  if (!user) {
+                    setMsg({ text: 'Sign in to join the public board.', error: true });
+                    return;
+                  }
+                  const profileName =
+                    (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+                    editName.trim();
+                  if (!pacePrefs.optedIn && !profileName) {
+                    setMsg({ text: 'Set your name in Profile first.', error: true });
+                    return;
+                  }
+                  hapticTick();
+                  updatePacePrefs({ optedIn: !pacePrefs.optedIn });
+                }} />
+            </div>
+            {user && <CommunityHashtagProfileField
+              boardEnabled={pacePrefs.optedIn}
+              onBeforeChoose={async () => { await publishPublicPace(); }}
+              onContextChange={setHashtagContext}
+            />}
+            {(() => {
+              const preview = paceWindowTotals(Object.values(sessionHistory).flat(), todayISO());
+              const name =
+                (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
+                editName.trim() ||
+                'Your name';
+              return (
+                <div className="rounded-[12px] border border-subtle bg-base p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Device preview · Board updates after sync</p>
+                  <div className="mt-1.5 flex items-baseline justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-content-primary truncate">{name}</p>
+                      {hashtagContext.mine ? (
+                        <p className="text-[11px] text-secondary truncate">#{hashtagContext.mine.label}</p>
+                      ) : null}
+                    </div>
+                    <p className="text-[13px] font-semibold tabular-nums text-content-primary shrink-0">
+                      {formatDuration(preview.todayMs)} today
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+            <details className="group overflow-hidden rounded-[12px] border border-subtle bg-base">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left [&::-webkit-details-marker]:hidden">
+                <div className="min-w-0">
+                  <p className="text-[11.5px] font-semibold text-content-primary">How to cheat the Board</p>
+                  <p className="mt-0.5 text-[10px] text-content-muted">A shortcut to a better number and the same preparation.</p>
+                </div>
+                <ChevronRight size={15} className="shrink-0 text-primary transition-transform group-open:rotate-90" />
+              </summary>
+              <div className="border-t border-subtle px-3 pb-3 pt-2.5">
+                <p className="text-[10.5px] font-semibold text-content-secondary">Congratulations. You found the method:</p>
+                <ol className="mt-2 space-y-1.5 pl-4 text-[10.5px] leading-relaxed text-content-muted">
+                  {PACE_CHEATING_GUIDE.map((method) => (
+                    <li key={method} className="list-decimal pl-1">{method}</li>
                   ))}
-                </ul>
+                </ol>
+                <p className="mt-3 border-t border-subtle pt-3 text-[12px] font-semibold leading-relaxed text-content-primary">
+                  {PACE_HONEST_QUOTE}
+                </p>
               </div>
-            )}
+            </details>
           </div>
         </section>
 
-        {/* ── SECTION 2: APPEARANCE ── */}
+        {/* ── SECTION 3: NOTIFICATIONS & BRIEFINGS ── */}
         <section>
-          <SectionLabel>APPEARANCE</SectionLabel>
-          <div className="settings-card settings-row bg-elevated rounded-2xl border border-subtle p-4 flex items-center justify-between shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-content-primary">Theme</h3>
-                <p className="text-[10.5px] text-content-secondary font-medium">Dark or Light look</p>
-              </div>
-            </div>
-
-            {/* Segmented Switch Control */}
-            <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle shrink-0">
-              <button
-                type="button"
-                onClick={() => setTheme({ darkMode: true })}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  theme.darkMode
-                    ? 'bg-primary text-on-primary'
-                    : 'text-content-secondary hover:text-content-primary'
-                }`}
-              >
-                <Moon size={12} /> Dark
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme({ darkMode: false })}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  !theme.darkMode
-                    ? 'bg-primary text-on-primary'
-                    : 'text-content-secondary hover:text-content-primary'
-                }`}
-              >
-                <Sun size={12} /> Light
-              </button>
-            </div>
-          </div>
-
-          <div className="settings-card settings-row bg-elevated rounded-2xl border border-subtle p-4 flex items-center justify-between shadow-lg mt-2">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <Smartphone size={16} />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-content-primary">Haptic Feedback</h3>
-                <p className="text-[10.5px] text-content-secondary font-medium">Distinct cues for meaningful actions</p>
-              </div>
-            </div>
-
-            <Toggle checked={hapticsEnabled} onChange={toggleHaptics} label="Haptic feedback" />
-          </div>
-          <div className="settings-card settings-row mt-2 flex items-center justify-between gap-3 border border-subtle bg-elevated">
-            <div className="flex items-center gap-3">
-              <div className="grid shrink-0 place-items-center bg-secondary-soft text-secondary"><Flame size={17} /></div>
-              <div><h3 className="text-xs font-semibold text-content-primary">Reduced effects</h3><p className="text-[10.5px] text-content-secondary">Less motion and blur. Same features.</p></div>
-            </div>
-            <Toggle checked={reducedEffects} onChange={() => setReducedEffects(!reducedEffects)} label="Reduced effects" />
-          </div>
-        </section>
-
-        {/* ── SECTION: NOTIFICATIONS ── */}
-        <section>
-          <SectionLabel>NOTIFICATIONS</SectionLabel>
+          <SectionLabel icon={<Bell size={13} className="text-primary" />}>NOTIFICATIONS &amp; BRIEFINGS</SectionLabel>
 
           {/* Master Notification Switch & System Permission Status */}
           <div className="settings-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
@@ -1407,9 +1451,15 @@ export default function SettingsSheet({
                     <button
                       type="button"
                       onClick={handleSendTestNotification}
-                      className="text-[10px] font-semibold text-primary hover:underline"
+                      className="text-[10px] font-semibold text-primary hover:underline transition-colors"
                     >
-                      {testNotifSent ? 'Sent to phone!' : 'Test notification'}
+                      {testNotifStatus === 'sent'
+                        ? 'Sent to phone!'
+                        : testNotifStatus === 'permission_denied'
+                          ? 'Permission required!'
+                          : testNotifStatus === 'failed'
+                            ? 'Could not send'
+                            : 'Test notification'}
                     </button>
                   </div>
                   <div className="pt-1">
@@ -1605,181 +1655,80 @@ export default function SettingsSheet({
           </div>
         </section>
 
+        {/* ── SECTION 4: APPEARANCE & EXPERIENCE ── */}
         <section>
-          <SectionLabel>FOCUS STREAK</SectionLabel>
-          <div className="settings-card settings-focus-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <Flame size={16} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-xs font-semibold text-content-primary">Daily streak bar</h3>
-                  <button
-                    type="button"
-                    onClick={() => setStreakBarHelpOpen((v) => !v)}
-                    className={`p-1.5 rounded-lg shrink-0 transition ${
-                      streakBarHelpOpen
-                        ? 'bg-primary-soft text-primary'
-                        : 'text-content-secondary hover:text-content-primary hover:bg-base'
-                    }`}
-                    title="How streaks work"
-                    aria-label="How streaks work"
-                    aria-expanded={streakBarHelpOpen}
-                  >
-                    <Info size={15} />
-                  </button>
+          <SectionLabel icon={<Sparkles size={13} className="text-secondary" />}>APPEARANCE &amp; EXPERIENCE</SectionLabel>
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
+            <div className="settings-data-row p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                  {theme.darkMode ? <Moon size={16} /> : <Sun size={16} />}
                 </div>
-                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5">
-                  Minimum focus per day to keep your streak. Syncs with cloud.
-                </p>
-                {streakBarHelpOpen && (
-                  <div className="mt-2.5 bg-base border border-subtle rounded-[12px] p-3 space-y-2 text-[11.5px] text-content-secondary leading-relaxed">
-                    <p>
-                      <span className="font-semibold text-content-primary">Keep it:</span> Hit this much net focus
-                      each day. Paused time does not count.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-content-primary">Miss a day:</span> You have{' '}
-                      <span className="font-semibold text-content-primary">1 day</span> to restore.
-                    </p>
-                    <p>
-                      Had overdue tasks in Backlog? Finish every task marked{' '}
-                      <span className="text-primary font-semibold">Save streak</span> (frozen backlog plus today’s
-                      scheduled work, including tasks you add today), then hit this bar once.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-content-primary">No backlog?</span> Hit{' '}
-                      <span className="font-semibold text-content-primary">1.5×</span> this bar once that day (6h bar
-                      → 9h). That restores the streak.
-                    </p>
-                    <p>
-                      <span className="font-semibold text-content-primary">Range:</span> 30 minutes to 10 hours.
-                    </p>
-                  </div>
-                )}
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-[11px] font-semibold text-content-muted uppercase tracking-wider">
-                    Hours
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label="Decrease streak bar"
-                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
-                      disabled={streakBarHours <= MIN_STREAK_BAR_HOURS}
-                      onClick={() => {
-                        hapticTick();
-                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours - 0.5));
-                      }}
-                    >
-                      −
-                    </button>
-                    <span className="tabular-nums text-sm font-semibold text-content-primary w-12 text-center">
-                      {streakBarHours}h
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Increase streak bar"
-                      className="settings-stepper-button rounded-[10px] border border-subtle bg-base text-content-primary text-sm font-semibold disabled:opacity-35"
-                      disabled={streakBarHours >= MAX_STREAK_BAR_HOURS}
-                      onClick={() => {
-                        hapticTick();
-                        onStreakBarHoursChange(clampStreakBarHours(streakBarHours + 0.5));
-                      }}
-                    >
-                      +
-                    </button>
-                  </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-content-primary">Theme</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Dark or Light look</p>
                 </div>
               </div>
+
+              {/* Segmented Switch Control */}
+              <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setTheme({ darkMode: true })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    theme.darkMode
+                      ? 'bg-primary text-on-primary'
+                      : 'text-content-secondary hover:text-content-primary'
+                  }`}
+                >
+                  <Moon size={12} /> Dark
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme({ darkMode: false })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    !theme.darkMode
+                      ? 'bg-primary text-on-primary'
+                      : 'text-content-secondary hover:text-content-primary'
+                  }`}
+                >
+                  <Sun size={12} /> Light
+                </button>
+              </div>
+            </div>
+
+            <div className="settings-data-row p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                  <Smartphone size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-content-primary">Haptic Feedback</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Distinct cues for meaningful actions</p>
+                </div>
+              </div>
+
+              <Toggle checked={hapticsEnabled} onChange={toggleHaptics} label="Haptic feedback" />
+            </div>
+
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-secondary-soft flex items-center justify-center text-secondary shrink-0">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-content-primary">Reduced Effects</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium">Less motion and blur. Same features.</p>
+                </div>
+              </div>
+              <Toggle checked={reducedEffects} onChange={() => setReducedEffects(!reducedEffects)} label="Reduced effects" />
             </div>
           </div>
         </section>
 
-        <section ref={publicBoardRef}>
-          <SectionLabel>PUBLIC BOARD</SectionLabel>
-          <div className="settings-card settings-board-card bg-elevated rounded-2xl border border-subtle p-4 shadow-lg space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                <TrendingUp size={16} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="text-xs font-semibold text-content-primary">Appear on the board</h3>
-                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-relaxed">
-                  Off by default. Uses your Profile name on the board, plus synced focus, streak, and bar. Turning it off removes your public row.
-                </p>
-              </div>
-              <Toggle checked={pacePrefs.optedIn} label="Public Board participation" onChange={() => {
-                  if (!user) {
-                    setMsg({ text: 'Sign in to join the public board.', error: true });
-                    return;
-                  }
-                  const profileName =
-                    (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
-                    editName.trim();
-                  if (!pacePrefs.optedIn && !profileName) {
-                    setMsg({ text: 'Set your name in Profile first.', error: true });
-                    return;
-                  }
-                  hapticTick();
-                  updatePacePrefs({ optedIn: !pacePrefs.optedIn });
-                }} />
-            </div>
-            {user && <CommunityHashtagProfileField
-              boardEnabled={pacePrefs.optedIn}
-              onBeforeChoose={async () => { await publishPublicPace(); }}
-              onContextChange={setHashtagContext}
-            />}
-            {(() => {
-              const preview = paceWindowTotals(Object.values(sessionHistory).flat(), todayISO());
-              const name =
-                (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '') ||
-                editName.trim() ||
-                'Your name';
-              return (
-                <div className="rounded-[12px] border border-subtle bg-base p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">Device preview · Board updates after sync</p>
-                  <div className="mt-1.5 flex items-baseline justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-content-primary truncate">{name}</p>
-                      {hashtagContext.mine ? (
-                        <p className="text-[11px] text-secondary truncate">#{hashtagContext.mine.label}</p>
-                      ) : null}
-                    </div>
-                    <p className="text-[13px] font-semibold tabular-nums text-content-primary shrink-0">
-                      {formatDuration(preview.todayMs)} today
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
-            <details className="group overflow-hidden rounded-[12px] border border-subtle bg-base">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-left [&::-webkit-details-marker]:hidden">
-                <div className="min-w-0">
-                  <p className="text-[11.5px] font-semibold text-content-primary">How to cheat the Board</p>
-                  <p className="mt-0.5 text-[10px] text-content-muted">A shortcut to a better number and the same preparation.</p>
-                </div>
-                <ChevronRight size={15} className="shrink-0 text-primary transition-transform group-open:rotate-90" />
-              </summary>
-              <div className="border-t border-subtle px-3 pb-3 pt-2.5">
-                <p className="text-[10.5px] font-semibold text-content-secondary">Congratulations. You found the method:</p>
-                <ol className="mt-2 space-y-1.5 pl-4 text-[10.5px] leading-relaxed text-content-muted">
-                  {PACE_CHEATING_GUIDE.map((method) => (
-                    <li key={method} className="list-decimal pl-1">{method}</li>
-                  ))}
-                </ol>
-                <p className="mt-3 border-t border-subtle pt-3 text-[12px] font-semibold leading-relaxed text-content-primary">
-                  {PACE_HONEST_QUOTE}
-                </p>
-              </div>
-            </details>
-          </div>
-        </section>
-
-        {/* ── SECTION 3: DATA & STORAGE ── */}
+        {/* ── SECTION 5: DATA & STORAGE ── */}
         <section>
-          <SectionLabel>DATA &amp; STORAGE</SectionLabel>
+          <SectionLabel icon={<History size={13} className="text-primary" />}>DATA &amp; STORAGE</SectionLabel>
           <div className="settings-card settings-data-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
             <button
               type="button"
@@ -1926,8 +1875,74 @@ export default function SettingsSheet({
           )}
         </section>
 
+        {/* ── SECTION 6: UPDATES & COMMUNITY ── */}
         <section>
-          <SectionLabel>COMMUNITY &amp; SUPPORT</SectionLabel>
+          <SectionLabel icon={<Info size={13} className="text-content-muted" />}>UPDATES &amp; COMMUNITY</SectionLabel>
+
+          {/* App updates card */}
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg mb-2.5">
+            <div className="settings-data-row p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">
+                    {!updateChecked ? 'Checking for updates' : updateUnavailable ? 'Update status unavailable' : availableUpdate ? 'A newer YouDO is ready' : 'YouDO is up to date'}
+                  </h3>
+                  <p className="mt-0.5 text-[10px] text-content-muted">
+                    {updateUnavailable && updateChecked ? 'Reconnect and check again' : 'GitHub Releases'}
+                  </p>
+                </div>
+                {!availableUpdate && (
+                  <button
+                    type="button"
+                    disabled={!updateChecked}
+                    onClick={() => setUpdateCheckKey((key) => key + 1)}
+                    className="shrink-0 min-h-11 px-2 text-[11px] font-semibold text-primary disabled:opacity-40"
+                  >
+                    Check again
+                  </button>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-[14px] border border-subtle bg-surface px-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-[8.5px] font-semibold uppercase tracking-[0.15em] text-content-muted">Installed</p>
+                  <p className="mt-1 text-[13px] font-bold tabular-nums text-content-primary">v{APP_VERSION}</p>
+                </div>
+                <div className="flex items-center">
+                  <span className="h-px w-4 bg-border-subtle" />
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-full border ${!updateChecked || updateUnavailable ? 'border-subtle text-content-muted' : availableUpdate ? 'border-primary/25 bg-primary-soft text-primary' : 'border-success/25 bg-success-soft text-success'}`}>
+                    {!updateChecked || updateUnavailable ? <Info size={14} /> : availableUpdate ? <Download size={14} /> : <Check size={14} strokeWidth={2.5} />}
+                  </span>
+                  <span className="h-px w-4 bg-border-subtle" />
+                </div>
+                <div className="min-w-0 text-right">
+                  <p className="text-[8.5px] font-semibold uppercase tracking-[0.15em] text-content-muted">{availableUpdate ? 'Available' : 'Latest'}</p>
+                  <p className={`mt-1 text-[13px] font-bold tabular-nums ${availableUpdate ? 'text-primary' : 'text-secondary'}`}>
+                    {!updateChecked ? 'Checking…' : updateUnavailable ? 'Unknown' : `v${availableUpdate?.version ?? APP_VERSION}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+            {(availableUpdate || !Capacitor.isNativePlatform()) && (
+              <div className="px-4 pb-3">
+                <UpdateAction release={availableUpdate} />
+              </div>
+            )}
+            {availableUpdate && availableUpdate.highlights.length > 0 && (
+              <div className="border-t border-subtle px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-2.5">What's new</p>
+                <ul className="space-y-2">
+                  {availableUpdate.highlights.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="mt-[5px] size-1.5 shrink-0 rounded-full bg-primary" />
+                      <span className="text-[11px] leading-relaxed text-content-secondary">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Telegram links */}
           <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg divide-y divide-white/5">
             <button
               type="button"

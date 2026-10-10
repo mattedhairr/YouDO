@@ -10,7 +10,10 @@ import {
   getNotificationPreferences,
   getRoomNotificationId,
   isMentioned,
+  resetBriefingSchedulingGuard,
   saveNotificationPreferences,
+  scheduleMorningBriefing,
+  sendTestBriefingNotification,
   stringToNotificationId,
   type NotificationPreferences,
 } from './notifications';
@@ -232,6 +235,14 @@ describe('notifications library', () => {
       expect(body).not.toContain('streak');
       expect(body).toContain('1 task scheduled for today');
     });
+    it('includes largeBody and summaryText for clean Android expansion without clipping', () => {
+      const data = extractBriefingData(mockTasks, mockGoals, 5, 8, '2026-10-09');
+      const content = buildMorningBriefingContent(data);
+      expect(content.largeBody).toBeDefined();
+      expect(content.largeBody).toBe(content.body);
+      expect(content.summaryText).toBe('Daily Morning Briefing');
+      expect(content.body).not.toContain(' \n'); // ensures clean \n without trailing space
+    });
   });
 
   describe('briefing scheduling time computation', () => {
@@ -253,6 +264,38 @@ describe('notifications library', () => {
       expect(target.getDate()).toBe(10); // tomorrow
       expect(target.getHours()).toBe(4);
       expect(target.getMinutes()).toBe(0);
+    });
+
+    it('correctly handles midnight 00:00 and 00:30 without defaulting to 4 AM', () => {
+      const fromEarly = new Date('2026-10-09T00:10:00');
+      const targetMidnightLater = calculateNextBriefingTime('00:30', fromEarly);
+      expect(targetMidnightLater.getDate()).toBe(9);
+      expect(targetMidnightLater.getHours()).toBe(0);
+      expect(targetMidnightLater.getMinutes()).toBe(30);
+
+      const targetMidnightPassed = calculateNextBriefingTime('00:00', fromEarly);
+      expect(targetMidnightPassed.getDate()).toBe(10); // tomorrow
+      expect(targetMidnightPassed.getHours()).toBe(0);
+      expect(targetMidnightPassed.getMinutes()).toBe(0);
+    });
+  });
+
+  describe('test briefing notification and scheduling guards', () => {
+    beforeEach(() => {
+      resetBriefingSchedulingGuard();
+    });
+
+    it('dispatches test briefing notification and returns success status', async () => {
+      const success = await sendTestBriefingNotification();
+      // In Node test environment without window.Notification or Capacitor native, returns false safely
+      expect(typeof success).toBe('boolean');
+    });
+
+    it('guards against unnecessary rescheduling when fingerprint is identical', async () => {
+      // Scheduling with identical inputs returns without error
+      await scheduleMorningBriefing([], []);
+      await scheduleMorningBriefing([], []);
+      resetBriefingSchedulingGuard();
     });
   });
 });

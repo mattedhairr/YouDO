@@ -312,6 +312,38 @@ describe('Adversarial Challenge: updateSquadPrivacy', () => {
       allow_join_requests: true,
     });
   });
+
+  it('gracefully retries without allow_join_requests when PostgREST reports column missing from schema cache', async () => {
+    let updateAttempts = 0;
+    let lastPayload: Record<string, unknown> | null = null;
+
+    vi.spyOn(supabase, 'from').mockImplementation(() => {
+      return {
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateAttempts++;
+          lastPayload = payload;
+          return {
+            eq: vi.fn(() => {
+              if (updateAttempts === 1) {
+                return Promise.resolve({
+                  error: {
+                    message: "Could not find the 'allow_join_requests' column of 'squads' in the schema cache",
+                    code: 'PGRST204',
+                  },
+                });
+              }
+              return Promise.resolve({ error: null });
+            }),
+          };
+        }),
+      } as unknown as ReturnType<typeof supabase.from>;
+    });
+
+    const res = await updateSquadPrivacy('sq-200', 'invite_only');
+    expect(res).toBe(true);
+    expect(updateAttempts).toBe(2);
+    expect(lastPayload).toEqual({ privacy: 'invite_only' });
+  });
 });
 
 describe('Adversarial Challenge: inviteUserToSquadByUsername', () => {

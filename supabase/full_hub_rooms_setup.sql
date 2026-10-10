@@ -69,6 +69,9 @@ alter table public.squads
   add column if not exists privacy text not null default 'anyone_can_join'
   check (privacy in ('anyone_can_join', 'invite_only'));
 
+alter table public.squads
+  add column if not exists allow_join_requests boolean not null default true;
+
 alter table public.squads alter column bar_hours drop not null;
 alter table public.squads alter column bar_hours set default null;
 

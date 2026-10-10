@@ -278,48 +278,50 @@ function StudioTreeNode({
           </div>
         </div>
 
-        {/* Main Content Area (Single Line) */}
-        <div className="flex items-center flex-1 min-w-0 gap-2">
-          
-          {/* Title */}
-          <span
-            className={`text-sm truncate select-none shrink ${
-              isGoal ? 'font-semibold text-content-primary' : 'font-medium text-content-primary'
-            }`}
-          >
-            {node.title}
-          </span>
-
-          {/* Semantic Badges */}
-          {isBranch && (
-            <span className="text-[11px] sm:text-[12px] text-content-muted font-medium whitespace-nowrap shrink-0">
-              {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
-            </span>
-          )}
-          {isTask && (
-            <button
-              type="button"
-              title="Edit checklist steps"
-              className="text-[11px] sm:text-[12px] text-content-muted hover:text-secondary font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
-              onClick={(e) => {
-                e.stopPropagation();
-                openModal('bulk_step_diff', [node.id]);
-              }}
+        {/* Main Content Area */}
+        <div className="flex flex-col justify-center flex-1 min-w-0 py-0.5">
+          {/* Title Row */}
+          <div className="flex items-center min-w-0">
+            <span
+              className={`text-sm select-none break-words line-clamp-2 sm:line-clamp-1 min-w-0 flex-1 ${
+                isGoal ? 'font-semibold text-content-primary' : 'font-medium text-content-primary'
+              }`}
+              title={node.title}
             >
-              {doneCount}/{stepCount} steps
-            </button>
-          )}
+              {node.title}
+            </span>
+          </div>
 
-          {/* Dates & Focus (Aligned to Right) */}
-          {(node.startDate || node.endDate || isActiveSession) && (
-            <div className="flex items-center gap-2 shrink-0 ml-auto">
+          {/* Metadata Row */}
+          {(isBranch || isTask || node.startDate || node.endDate || isActiveSession) && (
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-content-muted mt-0.5">
+              {/* Semantic Badges */}
+              {isBranch && (
+                <span className="font-medium whitespace-nowrap">
+                  {node.children.length} {node.children.length === 1 ? 'item' : 'items'}
+                </span>
+              )}
+              {isTask && (
+                <button
+                  type="button"
+                  title="Edit checklist steps"
+                  className="hover:text-secondary font-medium transition-colors whitespace-nowrap flex items-center gap-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openModal('bulk_step_diff', [node.id]);
+                  }}
+                >
+                  {doneCount}/{stepCount} steps
+                </button>
+              )}
+
               {/* Date Badge */}
               {(node.startDate || node.endDate) && (
                 <button
                   type="button"
                   title={`Click to edit dates (${[node.startDate, node.endDate].filter(Boolean).join(' → ')})`}
                   aria-label={`Dates: ${[node.startDate, node.endDate].filter(Boolean).join(' → ')}`}
-                  className="text-[10px] sm:text-[11px] text-content-muted hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap opacity-90"
+                  className="hover:text-content-primary transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap opacity-90"
                   onClick={(e) => {
                     e.stopPropagation();
                     openModal('date_picker', [node.id]);
@@ -345,7 +347,7 @@ function StudioTreeNode({
         </div>
 
         {/* Right-aligned Hover Actions */}
-        <div className="ml-auto shrink-0 pl-2">
+        <div className="ml-auto shrink-0 pl-1 self-center">
           <div className="opacity-0 hidden sm:flex group-hover:opacity-100 group-focus-within:opacity-100 items-center gap-1 transition-opacity">
             {isLeaf && (
               <button

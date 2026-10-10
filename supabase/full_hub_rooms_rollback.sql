@@ -120,4 +120,11 @@ exception
   when others then null;
 end $$;
 
+-- ============================================================================
+-- 5. Strip Stale 'username' from auth.users raw_user_meta_data
+-- ============================================================================
+update auth.users
+set raw_user_meta_data = raw_user_meta_data - 'username'
+where raw_user_meta_data ? 'username';
+
 commit;

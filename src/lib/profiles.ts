@@ -179,29 +179,9 @@ export async function ensureProfileFromAuth(user: {
     return { ok: true, needsClaim: false, username: profileUsername };
   }
 
-  if (!metaUsername) {
-    return { ok: false, needsClaim: true, username: null };
-  }
-
-  const displayName =
-    typeof meta.full_name === 'string' && meta.full_name.trim()
-      ? meta.full_name.trim()
-      : metaUsername;
-  const avatarUrl = typeof meta.avatar_url === 'string' ? meta.avatar_url : undefined;
-  const result = await upsertProfile({
-    id: user.id,
-    username: metaUsername,
-    display_name: displayName,
-    bio: existing?.bio ?? '',
-    stats_private: existing?.stats_private ?? false,
-    ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
-  });
-  return {
-    ok: result.ok,
-    needsClaim: !result.ok,
-    username: result.ok ? metaUsername : null,
-    error: result.error,
-  };
+  // If no profiles row exists, do not revive stale metadata into the database;
+  // require a clean username claim.
+  return { ok: false, needsClaim: true, username: null };
 }
 
 export async function upsertProfile(profile: Partial<Profile> & { id: string }): Promise<{ ok: boolean; error?: string }> {
