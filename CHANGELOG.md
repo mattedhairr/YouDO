@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.2.0] - 2026-10-27 - Smooth Sync and an In-App Installer
+
+- **Sync combines both devices by itself** — When your phone and another device both changed, YouDO now compares each with the copy they last agreed on and takes both sets of changes, instead of stopping with "Cannot safely combine". **Combine copies** always works too.
+- **Your progress is never lost** — A step ticked on any device stays ticked, card progress keeps the higher count, sittings from both devices are kept, and anything deleted on one device but changed on the other is kept. If the same detail was edited on both, the newer edit wins and you are told which item; both earlier copies are saved in Restore points first.
+- **A real in-app installer** — Updates download in a glass install sheet with a true progress ring (MB of MB, speed and time left), an official-build check, then Install now. You can keep using YouDO while it downloads. The real progress shows from this version's next update onwards.
+- **Safer accounts** — Profiles can no longer be read without signing in, and only the admin can grant the Founding Backer badge. Releases are now the signed release build.
+- **Android APK** — versionName **8.2.0**, versionCode **83**. Installs over v8.1.2 (82).
+
+---
+
 ## [v8.1.2] - 2026-10-20 - Tidier Task Card and Settings
 
 - **A tidier focus card** — The Ambient button sits in the card's Focus strip, the pause button no longer pushes the title away from its path, and the ambient tip appears once as a small pop-up instead of inside the card.

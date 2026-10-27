@@ -87,6 +87,17 @@ export async function freezeLiveBackupForVisit(userId: string, force = false): P
 
 const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
 
+/**
+ * Keep a copy as a restore point on purpose (for example this device's copy
+ * before two copies are combined). It appears in Cloud Restore Points.
+ */
+export async function saveSafetyCopy(userId: string, backupData: string): Promise<boolean> {
+  const { error } = await supabase.from('user_backup_snapshots').insert({ user_id: userId, backup_data: backupData });
+  if (error) return false;
+  await pruneVisitSnapshots(userId);
+  return true;
+}
+
 export async function upsertLiveBackup(
   userId: string,
   jsonStr: string,

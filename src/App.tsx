@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, startTransition } from 'react';
 import { AlertTriangle, Calendar, FileText, Flame, ListChecks, Plus, Clock, Cloud } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -35,6 +35,7 @@ import { useTheme } from './hooks/useTheme';
 import { useClockIntegrity } from './hooks/useClockIntegrity';
 import { checkDeviceClock, clearClockIncident } from './lib/deviceClock';
 import UpdateNotice from './components/UpdateNotice';
+import { nativeUpdateState, subscribeNativeUpdate } from './lib/nativeUpdate';
 import { useCommunityActivity } from './hooks/useCommunityActivity';
 import { useHubAttention } from './hooks/useHubAttention';
 import { useIsCommunityAdmin } from './hooks/useIsCommunityAdmin';
@@ -59,6 +60,15 @@ const SettingsSheet = lazy(() => import('./components/SettingsSheet'));
 const AdminHubSheet = lazy(() => import('./components/AdminHubSheet'));
 // Only shown during a session; keeps its font and sound picker out of the first load.
 const HelpCenterSheet = lazy(() => import('./components/HelpCenterSheet'));
+const UpdateInstaller = lazy(() => import('./components/UpdateInstaller'));
+
+/** Loads the installer sheet only once it is first opened; its own component follows the download. */
+function UpdateInstallerHost() {
+  const { sheetOpen, release } = useSyncExternalStore(subscribeNativeUpdate, nativeUpdateState);
+  const [mounted, setMounted] = useState(false);
+  if (sheetOpen && release && !mounted) setMounted(true);
+  return mounted ? <Suspense fallback={null}><UpdateInstaller /></Suspense> : null;
+}
 const AmbientScreen = lazy(() => import('./components/AmbientScreen').then((m) => ({ default: m.AmbientScreen })));
 
 const pickQuote = (quotes: AppQuote[]): AppQuote | null => quotes.length
@@ -2185,6 +2195,7 @@ function AppInner() {
           clockBlocked
         )}
       />
+      <UpdateInstallerHost />
     </div>
   );
 }

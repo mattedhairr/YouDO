@@ -998,7 +998,7 @@ export default function SettingsSheet({
                             const res = await syncToCloud();
                             setMsg(
                               res.ok
-                                ? { text: '✓ Cloud backup synced.' }
+                                ? { text: `✓ ${res.notice ?? 'Cloud backup synced.'}` }
                                 : { text: `✗ ${res.error || 'Failed to sync.'}`, error: true },
                             );
                           } finally {
@@ -1095,7 +1095,7 @@ export default function SettingsSheet({
                             const result = await syncToCloud({ conflictStrategy: 'merge' });
                             setMsg(
                               result.ok
-                                ? { text: '✓ Device and cloud branches combined safely.' }
+                                ? { text: `✓ ${result.notice ?? 'Combined changes from both devices.'}` }
                                 : { text: `✗ ${result.error || 'Could not combine copies.'}`, error: true },
                             );
                           }}

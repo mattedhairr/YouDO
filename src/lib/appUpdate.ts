@@ -12,7 +12,8 @@ export interface AppRelease {
   url: string;
   highlights: string[];
   publishedAt: string;
-  apk?: { url: string; sha256: string };
+  /** `size` in bytes, when the release lists it (shown in the installer). */
+  apk?: { url: string; sha256: string; size?: number };
 }
 
 interface ReleaseResponse {
@@ -30,14 +31,18 @@ export function releaseApk(assets: unknown): AppRelease['apk'] {
   if (!Array.isArray(assets)) return undefined;
   for (const asset of assets) {
     if (!asset || typeof asset !== 'object') continue;
-    const { browser_download_url: url, digest, name } = asset;
+    const { browser_download_url: url, digest, name, size } = asset;
     if (typeof name !== 'string' || !name.toLowerCase().endsWith('.apk')
       || typeof url !== 'string' || typeof digest !== 'string' || !/^sha256:[a-f0-9]{64}$/i.test(digest)) continue;
     try {
       const parsed = new URL(url);
       if (parsed.protocol === 'https:' && parsed.hostname === 'github.com' && !parsed.port && !parsed.username && !parsed.password
         && parsed.pathname.startsWith('/mattedhairr/YouDO/releases/download/') && parsed.pathname.endsWith('.apk')) {
-        return { url, sha256: digest.slice(7).toLowerCase() };
+        return {
+          url,
+          sha256: digest.slice(7).toLowerCase(),
+          ...(typeof size === 'number' && Number.isFinite(size) && size > 0 ? { size } : {}),
+        };
       }
     } catch { /* Ignore malformed release assets. */ }
   }

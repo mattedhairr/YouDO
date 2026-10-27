@@ -1,14 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppRelease } from './appUpdate';
 
-const plugin = vi.hoisted(() => ({ prepareUpdate: vi.fn(), installUpdate: vi.fn(), openInstallSettings: vi.fn() }));
+const handlers = vi.hoisted(() => new Map<string, (event: Record<string, unknown>) => void>());
+const plugin = vi.hoisted(() => ({ prepareUpdate: vi.fn(), installUpdate: vi.fn(), openInstallSettings: vi.fn(), addListener: vi.fn() }));
 vi.mock('@capacitor/core', () => ({
   registerPlugin: () => plugin,
   Capacitor: { getPlatform: () => 'android', isPluginAvailable: () => true },
 }));
 const release: AppRelease = { version: '9.0.0', name: 'YouDO', url: 'https://github.com/mattedhairr/YouDO/releases/tag/v9.0.0', highlights: [], publishedAt: '',
   apk: { url: 'https://github.com/mattedhairr/YouDO/releases/download/v9.0.0/YouDO.apk', sha256: 'a'.repeat(64) } };
-beforeEach(() => { vi.resetModules(); vi.resetAllMocks(); });
+beforeEach(() => {
+  vi.resetModules();
+  vi.resetAllMocks();
+  handlers.clear();
+  plugin.addListener.mockImplementation(async (event: string, handler: (event: Record<string, unknown>) => void) => {
+    handlers.set(event, handler);
+    return { remove: async () => {} };
+  });
+});
 
 describe('Android update flow', () => {
   it('requires download verification and permission before invoking the installer', async () => {
@@ -50,5 +59,21 @@ describe('Android update flow', () => {
     plugin.installUpdate.mockRejectedValue(new Error('APK no longer matches'));
     await updater.installAppUpdate();
     expect(updater.nativeUpdateState()).toMatchObject({ phase: 'idle', error: 'APK no longer matches' });
+  });
+  it('reports the real bytes downloaded, then the file check', async () => {
+    const updater = await import('./nativeUpdate');
+    let finish: (value: { ready: boolean; installAllowed: boolean }) => void = () => {};
+    plugin.prepareUpdate.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const pending = updater.downloadAppUpdate({ ...release, apk: { ...release.apk!, size: 1000 } });
+    expect(updater.nativeUpdateState()).toMatchObject({ phase: 'downloading', received: 0, total: 1000 });
+    handlers.get('downloadProgress')!({ version: '9.0.0', received: 420, total: 1000 });
+    expect(updater.nativeUpdateState()).toMatchObject({ received: 420, total: 1000 });
+    handlers.get('downloadProgress')!({ version: '8.0.0', received: 999, total: 1000 });
+    expect(updater.nativeUpdateState().received).toBe(420);
+    handlers.get('downloadChecking')!({ version: '9.0.0' });
+    expect(updater.nativeUpdateState().phase).toBe('checking');
+    finish({ ready: true, installAllowed: true });
+    await pending;
+    expect(updater.nativeUpdateState().phase).toBe('ready');
   });
 });

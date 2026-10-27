@@ -1,0 +1,5 @@
+v8.2.0: Smooth sync and an in-app installer
+- Sync combines changes from two devices by itself; ticks, progress and sittings are never lost.
+- Combine copies always works; both earlier copies are kept in Restore points.
+- Updates download in a new glass install sheet with a real progress ring.
+- Safer accounts: profiles need sign-in to read.
