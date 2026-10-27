@@ -181,6 +181,7 @@ Use YouDO without an account (**Continue offline**), or sign in for cloud backup
 
 - **Local-first workspace:** your phone saves each change immediately; the signed-in cloud copy provides backup and multi-device continuity.
 - **Offline continuity:** after signing in, keep working through temporary network loss. YouDO retries when connectivity returns, and **Sync now** remains available before signing out or changing phones.
+- **Two devices, one workspace:** when two devices both changed, sync compares each with the copy they last agreed on and combines both sets of changes. Ticks, card progress and sittings are never lost; if the same detail changed on both, the newer edit wins, and both earlier copies are kept in Restore points.
 - **Explicit migration:** existing device data is never merged into an account without asking first.
 - **Safe sign-out:** YouDO refuses to clear the phone workspace when unsynced changes cannot reach the cloud.
 - **Account deletion:** permanently remove the Auth user, cloud backups, restore points, and Board profile.
@@ -200,7 +201,7 @@ Use YouDO without an account (**Continue offline**), or sign in for cloud backup
 
 v6 establishes YouDO's permanent Android signing identity. Because the private key used for the published v5 APK is no longer available, moving from v5 or an older differently signed build requires one clean reinstall: sync or export your workspace, uninstall the old app, install v6, then sign in and restore. Releases after v6 use the same protected signing key and a higher Android `versionCode`, so they can install over v6 normally.
 
-Only the latest GitHub Release is supported. From v6 onward, YouDO periodically checks for a newer stable release and shows a dismissible notice with brief highlights; updates are always opened from the official GitHub Release page and are never installed silently.
+Only the latest GitHub Release is supported. YouDO periodically checks for a newer stable release and shows a dismissible notice with brief highlights. On Android the update downloads inside the app from the official GitHub Release, with real progress, and is checked against YouDO's signing key before Android asks you to install it; nothing is ever installed silently.
 
 ## More from YouDO
 
