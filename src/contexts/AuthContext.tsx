@@ -6,6 +6,7 @@ import {
   fetchVisitSnapshotData,
   listVisitSnapshots,
   resetVisitSnapshotFreeze,
+  saveSafetyCopy,
   upsertLiveBackup,
   deleteLiveBackup,
   type VisitSnapshotMeta,
@@ -52,6 +53,8 @@ interface AuthContextType {
   fetchLiveBackupInfo: (expectedUserId?: string) => Promise<{ backupData: string; updatedAt: string; revision: number } | null>;
   listVisitSnapshots: () => Promise<VisitSnapshotMeta[]>;
   fetchVisitSnapshot: (snapshotId: string) => Promise<string | null>;
+  /** Save a copy as a cloud restore point (e.g. this device before a combine). */
+  saveSafetyCopy: (backupData: unknown, expectedUserId: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -73,6 +76,7 @@ const AuthContext = createContext<AuthContextType>({
   fetchLiveBackupInfo: async () => null,
   listVisitSnapshots: async () => [],
   fetchVisitSnapshot: async () => null,
+  saveSafetyCopy: async () => false,
 });
 
 // Supabase may finish processing a redirect before React effects subscribe.
@@ -415,6 +419,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return fetchVisitSnapshotData(userId, snapshotId);
   };
 
+  const saveSafetyCopyForUser = async (backupData: unknown, expectedUserId: string) => {
+    const userId = await currentUserId();
+    if (!userId || userId !== expectedUserId) return false;
+    return saveSafetyCopy(userId, JSON.stringify(backupData));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -436,6 +446,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchLiveBackupInfo,
         listVisitSnapshots: listVisitSnapshotsForUser,
         fetchVisitSnapshot,
+        saveSafetyCopy: saveSafetyCopyForUser,
       }}
     >
       {children}
