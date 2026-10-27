@@ -33,6 +33,14 @@ public class YouDoAppUpdatePlugin extends Plugin {
     private volatile String preparedVersion;
     private volatile String preparedDigest;
 
+    private void reportProgress(String version, long received, long total) {
+        JSObject progress = new JSObject();
+        progress.put("version", version);
+        progress.put("received", received);
+        progress.put("total", total);
+        notifyListeners("downloadProgress", progress);
+    }
+
     private File apkFile() { return new File(getContext().getCacheDir(), "youdo-updates/update.apk"); }
     private boolean installAllowed() {
         return Build.VERSION.SDK_INT < 26 || getContext().getPackageManager().canRequestPackageInstalls();
@@ -106,6 +114,8 @@ public class YouDoAppUpdatePlugin extends Plugin {
         String source = call.getString("url", "");
         String digest = call.getString("sha256", "");
         String version = call.getString("version", "");
+        // The release's own file size, for progress when the server sends no length.
+        Double sizeHint = call.getDouble("size", 0.0);
         if (!digest.matches("[a-fA-F0-9]{64}") || !version.matches("[0-9]+\\.[0-9]+\\.[0-9]+")) {
             call.reject("Invalid update metadata."); return;
         }
@@ -138,18 +148,28 @@ public class YouDoAppUpdatePlugin extends Plugin {
                         if (status != 200) throw new Exception("Download unavailable. Please try again later.");
                         long maximum = 100L * 1024 * 1024;
                         if (connection.getContentLengthLong() > maximum) throw new Exception("Update download is too large.");
+                        long length = connection.getContentLengthLong();
+                        if (length <= 0 && sizeHint != null && sizeHint > 0) length = sizeHint.longValue();
                         try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(partial)) {
                             byte[] buffer = new byte[32768]; long total = 0; int count;
+                            long lastReport = 0;
+                            reportProgress(version, 0, length);
                             while ((count = input.read(buffer)) != -1) {
                                 total += count;
                                 if (total > maximum || SystemClock.elapsedRealtime() > deadline) throw new Exception("Download interrupted. Please try again.");
                                 output.write(buffer, 0, count);
+                                // Real bytes for the in-app progress ring, a few times a second.
+                                long now = SystemClock.elapsedRealtime();
+                                if (now - lastReport >= 120) { lastReport = now; reportProgress(version, total, length); }
                             }
                             output.getFD().sync();
+                            reportProgress(version, total, length);
                         }
                         break;
                     }
                 } finally { if (connection != null) connection.disconnect(); }
+                JSObject checking = new JSObject(); checking.put("version", version);
+                notifyListeners("downloadChecking", checking);
                 verify(partial, version, digest);
                 if (destination.exists() && !destination.delete()) throw new Exception("Could not replace the previous download.");
                 if (!partial.renameTo(destination)) throw new Exception("Could not save the update.");
