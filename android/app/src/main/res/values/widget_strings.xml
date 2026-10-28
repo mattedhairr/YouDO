@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_up_next_label">Up next</string>
+    <string name="widget_up_next_description">Today\'s tasks one at a time. Start a session, or move a task up or down.</string>
+    <string name="widget_progress_label">Goal progress</string>
+    <string name="widget_progress_description">Your streak, one goal\'s progress and the days left.</string>
+    <string name="widget_room_label">Room</string>
+    <string name="widget_room_description">A room\'s members, and who is focusing right now.</string>
+    <string name="widget_header">YOUDO · UP NEXT</string>
+    <string name="widget_days">DAYS</string>
+</resources>

@@ -1,5 +1,6 @@
 package com.mattedhairr.youdo;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,6 +24,7 @@ public class YouDoActivity extends BridgeActivity {
         registerPlugin(YouDoAppUpdatePlugin.class);
         registerPlugin(YouDoAppIconPlugin.class);
         registerPlugin(YouDoFocusSoundPlugin.class);
+        registerPlugin(YouDoWidgetsPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Keep Android system bars and the software keyboard outside the WebView.
@@ -47,6 +49,17 @@ public class YouDoActivity extends BridgeActivity {
                 ViewCompat.requestApplyInsets(webViewParent);
             }
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        // BridgeActivity also calls this with the launch intent on a cold start.
+        String stopTask = intent == null ? null : intent.getStringExtra(HomeWidgets.EXTRA_STOP_TASK);
+        if (stopTask != null) {
+            HomeWidgetStore.queueStop(this, stopTask);
+            intent.removeExtra(HomeWidgets.EXTRA_STOP_TASK);
+        }
+        super.onNewIntent(intent);
     }
 
     @Override

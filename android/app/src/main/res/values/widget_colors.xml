@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widgets, light phones. Frosted glass: a see-through tint and a
+     bright edge (Android gives app widgets no blur). Dark values live in values-night. -->
+<resources>
+    <color name="widget_glass">#8CFFFFFF</color>
+    <color name="widget_glass_card">#73FFFFFF</color>
+    <color name="widget_edge">#D9FFFFFF</color>
+    <color name="widget_shine">#33FFFFFF</color>
+    <color name="widget_text">#1A1612</color>
+    <color name="widget_text2">#9E1A1612</color>
+    <color name="widget_text3">#611A1612</color>
+    <color name="widget_accent">#8C6A3A</color>
+    <color name="widget_tick">#3F7A4C</color>
+    <color name="widget_live">#17A04C</color>
+    <color name="widget_track">#1F1A1612</color>
+    <color name="widget_stop">#E5484D</color>
+</resources>

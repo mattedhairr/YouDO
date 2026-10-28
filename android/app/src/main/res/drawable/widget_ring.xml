@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Determinate ring for a horizontal-style ProgressBar; starts at 12 o'clock. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape android:shape="ring" android:innerRadiusRatio="2.35" android:thicknessRatio="16" android:useLevel="false">
+            <solid android:color="@color/widget_track" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <rotate android:fromDegrees="270" android:toDegrees="270" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="ring" android:innerRadiusRatio="2.35" android:thicknessRatio="16" android:useLevel="true">
+                <solid android:color="@color/widget_accent" />
+            </shape>
+        </rotate>
+    </item>
+</layer-list>

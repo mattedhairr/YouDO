@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="18dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="10dp"
+    android:paddingBottom="6dp">
+    <LinearLayout
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <TextView android:id="@+id/room_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="2" android:textColor="@color/widget_text" android:textSize="14.5sp" android:textStyle="bold" />
+        <TextView android:id="@+id/room_live" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="@color/widget_live" android:textSize="11sp" android:textStyle="bold" />
+    </LinearLayout>
+    <LinearLayout
+        android:id="@+id/room_members"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:id="@+id/room_slot0"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ImageView android:id="@+id/room_ring0" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_live_ring" android:visibility="gone" />
+                <ImageView android:id="@+id/room_avatar0" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial0" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:gravity="center" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold" />
+            </FrameLayout>
+            <Chronometer android:id="@+id/room_time0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="@color/widget_live" android:textSize="9.5sp" android:textStyle="bold" android:visibility="gone" />
+            <TextView android:id="@+id/room_away0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="away" android:textColor="@color/widget_text3" android:textSize="9.5sp" android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/room_slot1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ImageView android:id="@+id/room_ring1" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_live_ring" android:visibility="gone" />
+                <ImageView android:id="@+id/room_avatar1" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial1" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:gravity="center" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold" />
+            </FrameLayout>
+            <Chronometer android:id="@+id/room_time1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="@color/widget_live" android:textSize="9.5sp" android:textStyle="bold" android:visibility="gone" />
+            <TextView android:id="@+id/room_away1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="away" android:textColor="@color/widget_text3" android:textSize="9.5sp" android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/room_slot2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ImageView android:id="@+id/room_ring2" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_live_ring" android:visibility="gone" />
+                <ImageView android:id="@+id/room_avatar2" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial2" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:gravity="center" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold" />
+            </FrameLayout>
+            <Chronometer android:id="@+id/room_time2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="@color/widget_live" android:textSize="9.5sp" android:textStyle="bold" android:visibility="gone" />
+            <TextView android:id="@+id/room_away2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="away" android:textColor="@color/widget_text3" android:textSize="9.5sp" android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/room_slot3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ImageView android:id="@+id/room_ring3" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_live_ring" android:visibility="gone" />
+                <ImageView android:id="@+id/room_avatar3" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial3" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center" android:gravity="center" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold" />
+            </FrameLayout>
+            <Chronometer android:id="@+id/room_time3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="@color/widget_live" android:textSize="9.5sp" android:textStyle="bold" android:visibility="gone" />
+            <TextView android:id="@+id/room_away3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="away" android:textColor="@color/widget_text3" android:textSize="9.5sp" android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

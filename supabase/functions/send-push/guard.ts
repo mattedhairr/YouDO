@@ -20,6 +20,8 @@ export interface PushRequest {
   body: string;
   data: Record<string, string>;
   channel: PushChannel;
+  /** Data only, nothing shown: wakes the app to refresh a home-screen widget. */
+  silent: boolean;
 }
 
 /**
@@ -73,6 +75,7 @@ export function parsePushRequest(raw: unknown): { ok: true; request: PushRequest
       body: clip(body, MAX_BODY_LENGTH),
       data,
       channel,
+      silent: data.silent === 'true',
     },
   };
 }

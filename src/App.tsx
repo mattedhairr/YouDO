@@ -41,6 +41,7 @@ import { useHubAttention } from './hooks/useHubAttention';
 import { useIsCommunityAdmin } from './hooks/useIsCommunityAdmin';
 import { useFocusStatusShare } from './hooks/useFocusStatusShare';
 import { useFocusSoundSession } from './hooks/useFocusSoundSession';
+import { useHomeWidgets } from './hooks/useHomeWidgets';
 import { ADMIN_QUEUE_EVENT, useAdminHubCounts } from './hooks/useAdminHubCounts';
 import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
@@ -882,6 +883,19 @@ function AppInner() {
     const { meta } = reconcileStreakMeta(streakReconcileInput);
     if (JSON.stringify(meta) !== JSON.stringify(streakMeta)) setStreakMeta(meta);
   }, [setStreakMeta, streakReconcileInput, streakMeta]);
+
+  useHomeWidgets({
+    todayTasks,
+    goals,
+    streakDays: streakStatus.current,
+    userId: activityUser?.id ?? null,
+    activeTaskId: activeSession?.taskId ?? null,
+    reorder,
+    onStopRequested: (taskId) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) setStopDialogTask(task);
+    },
+  });
 
   useEffect(() => {
     void publishPublicPace();
