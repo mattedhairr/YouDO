@@ -4,15 +4,18 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
-import android.widget.RemoteViews;
 import org.json.JSONObject;
 
-/** Up next (4×2): today's open cards one at a time, or the running session. */
+/** Up next (4×2): today's Scheduled or Backlog cards one at a time, or the running session. */
 public class UpNextWidget extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] widgetIds) {
         for (int id : widgetIds) HomeWidgets.render(context, manager, UpNextWidget.class, id);
-        HomeWidgets.notifyCards(manager, widgetIds);
+    }
+
+    @Override
+    public void onDeleted(Context context, int[] widgetIds) {
+        HomeWidgetStore.forget(context, widgetIds);
     }
 
     @Override
@@ -20,23 +23,17 @@ public class UpNextWidget extends AppWidgetProvider {
         super.onReceive(context, intent);
         if (intent == null || !HomeWidgets.ACTION_CARD.equals(intent.getAction())) return;
         String action = intent.getStringExtra(HomeWidgets.EXTRA_ACTION);
-        String taskId = intent.getStringExtra(HomeWidgets.EXTRA_TASK);
-        if (action == null || taskId == null) return;
+        int widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
+        if (action == null || widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return;
 
-        if ("up".equals(action) || "down".equals(action)) {
-            if (!HomeWidgetStore.moveFromWidget(context, taskId, "up".equals(action))) return;
-            AppWidgetManager manager = AppWidgetManager.getInstance(context);
-            HomeWidgets.refresh(context, UpNextWidget.class);
-            // Keep the moved card in front, at its new place in the stack.
-            int widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
-            int index = HomeWidgetStore.indexOfTask(HomeWidgetStore.snapshot(context), taskId);
-            if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID && index >= 0) {
-                RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_up_next);
-                views.setDisplayedChild(R.id.widget_stack, index);
-                manager.partiallyUpdateAppWidget(widgetId, views);
-            }
+        if ("next".equals(action) || "prev".equals(action)) {
+            HomeWidgets.step(context, widgetId, "next".equals(action));
+        } else if (HomeWidgets.TAB_SCHEDULED.equals(action) || HomeWidgets.TAB_BACKLOG.equals(action)) {
+            HomeWidgetStore.setPlace(context, widgetId, action, 0);
+            HomeWidgets.render(context, AppWidgetManager.getInstance(context), UpNextWidget.class, widgetId);
         } else if ("start".equals(action)) {
-            JSONObject card = HomeWidgetStore.find(HomeWidgetStore.snapshot(context), "today", taskId);
+            String taskId = intent.getStringExtra(HomeWidgets.EXTRA_TASK);
+            JSONObject card = HomeWidgets.findTask(HomeWidgetStore.snapshot(context), taskId);
             // Saving the session redraws Up next as the timer (HomeWidgets.onSessionChanged).
             if (card != null && SessionNotificationStore.startFromWidget(context, taskId, card.optString("title"))) {
                 FocusStatusPoster.post(context, SessionNotificationStore.sessionObject(context), goAsync());

@@ -8,8 +8,8 @@ import { msUntilEndOfLocalISODate } from './dates';
 /*
  * Android home-screen widgets (Up next, Progress, Room). The widgets cannot run
  * this app's code, so the app hands Android a small snapshot whenever something
- * they show changes. Taps on a widget that change app data (moving a card up or
- * down, Stop) are queued natively and applied here when the app is next open.
+ * they show changes. Stop on the widget is queued natively and handled here when
+ * the app is next open.
  * Start, Pause and Resume run natively through the session notification's store.
  */
 
@@ -17,10 +17,12 @@ export interface WidgetTask {
   id: string;
   title: string;
   path: string;
-  /** 1-based place in today's open list. */
+  /** 1-based place in its list. */
   rank: number;
   done: number;
   total: number;
+  /** Backlog only: the local yyyy-mm-dd it was due. */
+  due: string | null;
 }
 
 export interface WidgetGoal {
@@ -60,6 +62,8 @@ export interface WidgetStreakSave {
 export interface WidgetSnapshot {
   v: 1;
   today: WidgetTask[];
+  /** Open overdue tasks, oldest first, as the Backlog tab lists them. */
+  backlog: WidgetTask[];
   streak: { days: number; save: WidgetStreakSave | null };
   /** The app's accent for light and dark phones. */
   accent: { light: string; dark: string };
@@ -68,9 +72,7 @@ export interface WidgetSnapshot {
   rooms: WidgetRoom[] | null;
 }
 
-export type WidgetAction =
-  | { type: 'move'; taskId: string; dir: 'up' | 'down' }
-  | { type: 'stop'; taskId: string };
+export type WidgetAction = { type: 'stop'; taskId: string };
 
 const MAX_TASKS = 30;
 const MAX_TEXT = 120;
@@ -123,6 +125,24 @@ export function widgetTodayTasks(todayTasks: Task[], goals: GoalNode[]): WidgetT
       rank: index + 1,
       done: Math.min(task.progress, task.steps.length),
       total: task.steps.length,
+      due: null,
+    }));
+}
+
+/** Open backlog cards, oldest due date first, as the Backlog tab shows them. */
+export function widgetBacklogTasks(backlogTasks: Task[], goals: GoalNode[]): WidgetTask[] {
+  return backlogTasks
+    .filter((task) => !isTaskComplete(task) && !!task.targetDate)
+    .sort((a, b) => (a.targetDate ?? '').localeCompare(b.targetDate ?? '') || a.order - b.order)
+    .slice(0, MAX_TASKS)
+    .map((task, index) => ({
+      id: task.id,
+      title: clip(task.title) || 'Untitled',
+      path: taskPath(goals, task),
+      rank: index + 1,
+      done: Math.min(task.progress, task.steps.length),
+      total: task.steps.length,
+      due: (task.targetDate ?? '').slice(0, 10),
     }));
 }
 
@@ -182,33 +202,14 @@ export function widgetRooms(
   }));
 }
 
-/**
- * Turns queued widget moves into app reorders. Each move swaps a card with its
- * neighbour among today's open cards; later moves see the earlier swaps, just as
- * the widget showed them. Moves past either end, or of finished cards, are dropped.
- */
-export function planWidgetMoves(todayTasks: Task[], moves: { taskId: string; dir: 'up' | 'down' }[]): [string, string][] {
-  const ids = todayTasks.filter((task) => !isTaskComplete(task)).sort((a, b) => a.order - b.order).map((task) => task.id);
-  const plan: [string, string][] = [];
-  for (const move of moves) {
-    const from = ids.indexOf(move.taskId);
-    const to = move.dir === 'up' ? from - 1 : from + 1;
-    if (from < 0 || to < 0 || to >= ids.length) continue;
-    plan.push([move.taskId, ids[to]]);
-    [ids[from], ids[to]] = [ids[to], ids[from]];
-  }
-  return plan;
-}
-
 export function parseWidgetActions(raw: unknown): WidgetAction[] {
   if (!Array.isArray(raw)) return [];
   const out: WidgetAction[] = [];
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
-    const { type, taskId, dir } = item as Record<string, unknown>;
+    const { type, taskId } = item as Record<string, unknown>;
     if (typeof taskId !== 'string' || !taskId) continue;
-    if (type === 'move' && (dir === 'up' || dir === 'down')) out.push({ type, taskId, dir });
-    else if (type === 'stop') out.push({ type, taskId });
+    if (type === 'stop') out.push({ type, taskId });
   }
   return out;
 }
@@ -254,6 +255,7 @@ let lastPublished = '';
 /** Sends the widgets a new snapshot when what they show has changed. */
 export async function syncWidgets(
   todayTasks: Task[],
+  backlogTasks: Task[],
   goals: GoalNode[],
   streak: Parameters<typeof widgetStreak>[0],
   accent: string | undefined,
@@ -262,6 +264,7 @@ export async function syncWidgets(
   const snapshot: WidgetSnapshot = {
     v: 1,
     today: widgetTodayTasks(todayTasks, goals),
+    backlog: widgetBacklogTasks(backlogTasks, goals),
     streak: widgetStreak(streak),
     accent: widgetAccent(accent),
     goals: widgetGoals(goals),
@@ -273,12 +276,9 @@ export async function syncWidgets(
   await publishWidgetSnapshot(snapshot);
 }
 
-/** Applies the moves tapped on the widget; returns the card whose Stop was tapped last. */
-export async function drainWidgetActions(todayTasks: Task[], reorder: (fromId: string, toId: string) => void): Promise<string | null> {
-  const actions = await takeWidgetActions();
-  const moves = actions.flatMap((action) => (action.type === 'move' ? [action] : []));
-  for (const [from, to] of planWidgetMoves(todayTasks, moves)) reorder(from, to);
-  return actions.filter((action) => action.type === 'stop').pop()?.taskId ?? null;
+/** The card whose Stop was tapped last on the widget, if any. */
+export async function drainWidgetActions(): Promise<string | null> {
+  return (await takeWidgetActions()).pop()?.taskId ?? null;
 }
 
 /**

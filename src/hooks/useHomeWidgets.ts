@@ -11,6 +11,7 @@ const widgets = () => import('../lib/homeWidgets');
 
 interface Options {
   todayTasks: Task[];
+  backlogTasks: Task[];
   goals: GoalNode[];
   streak: Parameters<typeof widgetStreak>[0];
   accent: string | undefined;
@@ -18,14 +19,13 @@ interface Options {
   /** False while sign-in is still being restored, so a key is not forgotten by mistake. */
   authReady: boolean;
   activeTaskId: string | null;
-  reorder: (fromId: string, toId: string) => void;
   /** Stop on the widget: open the stop sheet for this card's session. */
   onStopRequested: (taskId: string) => void;
 }
 
 /** Keeps the Android home-screen widgets in step with the app (see lib/homeWidgets). */
 export function useHomeWidgets({
-  todayTasks, goals, streak, accent, userId, authReady, activeTaskId, reorder, onStopRequested,
+  todayTasks, backlogTasks, goals, streak, accent, userId, authReady, activeTaskId, onStopRequested,
 }: Options) {
   const supported = Capacitor.getPlatform() === 'android';
   const [rooms, setRooms] = useState<WidgetRoom[] | null>(null);
@@ -34,14 +34,12 @@ export function useHomeWidgets({
   useEffect(() => {
     if (!supported) return;
     const timer = setTimeout(() => {
-      void widgets().then((w) => w.syncWidgets(todayTasks, goals, streak, accent, rooms));
+      void widgets().then((w) => w.syncWidgets(todayTasks, backlogTasks, goals, streak, accent, rooms));
     }, 400);
     return () => clearTimeout(timer);
-  }, [supported, todayTasks, goals, streak, accent, rooms]);
+  }, [supported, todayTasks, backlogTasks, goals, streak, accent, rooms]);
 
-  // Taps made on the widget while the app was closed or in the background.
-  const latest = useRef({ todayTasks, reorder });
-  latest.current = { todayTasks, reorder };
+  // A Stop tapped on the widget while the app was closed or in the background.
   useEffect(() => {
     if (!supported) return;
     let busy = false;
@@ -49,7 +47,7 @@ export function useHomeWidgets({
       if (busy || document.visibilityState !== 'visible') return;
       busy = true;
       try {
-        const stop = await (await widgets()).drainWidgetActions(latest.current.todayTasks, latest.current.reorder);
+        const stop = await (await widgets()).drainWidgetActions();
         if (stop) setPendingStop(stop);
       } finally {
         busy = false;

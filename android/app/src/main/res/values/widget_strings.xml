@@ -7,6 +7,5 @@
     <string name="widget_progress_description">Your streak, one goal\'s progress and the days left.</string>
     <string name="widget_room_label">Room</string>
     <string name="widget_room_description">A room\'s members, and who is focusing right now.</string>
-    <string name="widget_header">YOUDO · UP NEXT</string>
     <string name="widget_days">DAYS</string>
 </resources>

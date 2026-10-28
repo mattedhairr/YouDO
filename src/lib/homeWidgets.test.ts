@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalNode, Task } from '../types';
-import { avatarColor, parseWidgetActions, planWidgetMoves, widgetAccent, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
+import { avatarColor, parseWidgetActions, widgetAccent, widgetBacklogTasks, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
 
 const task = (id: string, order: number, extra: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: '', priority: 'medium', targetDate: '2026-10-28', deadline: null,
@@ -23,22 +23,14 @@ describe('widgetTodayTasks', () => {
   });
 });
 
-describe('planWidgetMoves', () => {
-  const today = [task('a', 0), task('b', 1), task('c', 2), task('done', 3, { progress: 2 })];
-
-  it('swaps a card with its open neighbour', () => {
-    expect(planWidgetMoves(today, [{ taskId: 'b', dir: 'up' }])).toEqual([['b', 'a']]);
-    expect(planWidgetMoves(today, [{ taskId: 'b', dir: 'down' }])).toEqual([['b', 'c']]);
-  });
-
-  it('lets later taps see earlier ones, as the widget showed them', () => {
-    expect(planWidgetMoves(today, [{ taskId: 'c', dir: 'up' }, { taskId: 'c', dir: 'up' }])).toEqual([['c', 'b'], ['c', 'a']]);
-  });
-
-  it('drops moves past either end, of finished cards and of unknown ones', () => {
-    expect(planWidgetMoves(today, [
-      { taskId: 'a', dir: 'up' }, { taskId: 'c', dir: 'down' }, { taskId: 'done', dir: 'up' }, { taskId: 'x', dir: 'up' },
-    ])).toEqual([]);
+describe('widgetBacklogTasks', () => {
+  it('lists open overdue cards oldest first, with the date they were due', () => {
+    const cards = widgetBacklogTasks([
+      task('late', 0, { targetDate: '2026-10-27' }),
+      task('later', 1, { targetDate: '2026-10-25' }),
+      task('fixed', 2, { targetDate: '2026-10-24', progress: 2 }),
+    ], []);
+    expect(cards.map((card) => [card.id, card.due, card.rank])).toEqual([['later', '2026-10-25', 1], ['late', '2026-10-27', 2]]);
   });
 });
 
@@ -95,11 +87,10 @@ describe('widgetAccent', () => {
 });
 
 describe('parseWidgetActions', () => {
-  it('keeps only well-formed moves and stops', () => {
+  it('keeps only well-formed stops', () => {
     expect(parseWidgetActions([
-      { type: 'move', taskId: 'a', dir: 'up' }, { type: 'move', taskId: 'a', dir: 'left' },
-      { type: 'stop', taskId: 'b' }, { type: 'start', taskId: 'c' }, null, 'x',
-    ])).toEqual([{ type: 'move', taskId: 'a', dir: 'up' }, { type: 'stop', taskId: 'b' }]);
+      { type: 'move', taskId: 'a', dir: 'up' }, { type: 'stop', taskId: 'b' }, { type: 'stop' }, { type: 'start', taskId: 'c' }, null, 'x',
+    ])).toEqual([{ type: 'stop', taskId: 'b' }]);
     expect(parseWidgetActions(undefined)).toEqual([]);
   });
 });

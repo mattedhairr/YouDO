@@ -17,6 +17,8 @@ final class HomeWidgetStore {
     private static final String KEY_SNAPSHOT = "snapshot";
     private static final String KEY_ACTIONS = "actions";
     private static final String KEY_CHOICE = "choice_";
+    private static final String KEY_TAB = "tab_";
+    private static final String KEY_INDEX = "index_";
     private static final String KEY_WIDGET_KEY = "widget_key";
     private static final String KEY_WIDGET_USER = "widget_user";
     private static final String KEY_API_URL = "api_url";
@@ -39,23 +41,13 @@ final class HomeWidgetStore {
         }
     }
 
-    /**
-     * The app's new snapshot. Rooms the app has not loaded keep the last ones,
-     * and card moves it has not applied yet stay as the widget showed them.
-     */
+    /** The app's new snapshot. Rooms the app has not loaded keep the last ones. */
     static synchronized void saveSnapshot(Context ctx, String json) throws Exception {
         JSONObject incoming = new JSONObject(json);
         if (incoming.isNull("rooms")) {
             JSONObject current = snapshot(ctx);
             JSONArray rooms = current != null ? current.optJSONArray("rooms") : null;
             incoming.put("rooms", rooms != null ? rooms : new JSONArray());
-        }
-        JSONArray pending = actions(ctx);
-        for (int i = 0; i < pending.length(); i++) {
-            JSONObject action = pending.optJSONObject(i);
-            if (action != null && "move".equals(action.optString("type"))) {
-                move(incoming, action.optString("taskId"), "up".equals(action.optString("dir")));
-            }
         }
         prefs(ctx).edit().putString(KEY_SNAPSHOT, incoming.toString()).apply();
     }
@@ -68,51 +60,6 @@ final class HomeWidgetStore {
             if (item != null && id.equals(item.optString("id"))) return item;
         }
         return null;
-    }
-
-    static int indexOfTask(JSONObject snapshot, String taskId) {
-        JSONArray today = snapshot == null ? null : snapshot.optJSONArray("today");
-        if (today == null) return -1;
-        for (int i = 0; i < today.length(); i++) {
-            JSONObject card = today.optJSONObject(i);
-            if (card != null && taskId.equals(card.optString("id"))) return i;
-        }
-        return -1;
-    }
-
-    /** Swaps a card with its neighbour, as planWidgetMoves does in the app. */
-    private static boolean move(JSONObject snapshot, String taskId, boolean up) {
-        JSONArray today = snapshot.optJSONArray("today");
-        int from = indexOfTask(snapshot, taskId);
-        int to = up ? from - 1 : from + 1;
-        if (today == null || from < 0 || to < 0 || to >= today.length()) return false;
-        try {
-            JSONObject a = today.getJSONObject(from);
-            JSONObject b = today.getJSONObject(to);
-            int rank = a.optInt("rank");
-            a.put("rank", b.optInt("rank"));
-            b.put("rank", rank);
-            today.put(from, b);
-            today.put(to, a);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /** ▲ or ▼ on a card: shown at once, applied by the app when it next opens. */
-    static synchronized boolean moveFromWidget(Context ctx, String taskId, boolean up) {
-        JSONObject snapshot = snapshot(ctx);
-        if (snapshot == null || taskId == null || !move(snapshot, taskId, up)) return false;
-        try {
-            JSONObject action = new JSONObject().put("type", "move").put("taskId", taskId).put("dir", up ? "up" : "down");
-            return prefs(ctx).edit()
-                .putString(KEY_SNAPSHOT, snapshot.toString())
-                .putString(KEY_ACTIONS, queued(ctx, action).toString())
-                .commit();
-        } catch (Exception e) {
-            return false;
-        }
     }
 
     /** Stop on the widget opens the app, which then shows the stop sheet. */
@@ -232,9 +179,22 @@ final class HomeWidgetStore {
         prefs(ctx).edit().putString(KEY_CHOICE + widgetId, id).commit();
     }
 
+    /** Up next: which tab ("scheduled" or "backlog") and card a widget is on. */
+    static String tab(Context ctx, int widgetId) {
+        return prefs(ctx).getString(KEY_TAB + widgetId, "scheduled");
+    }
+
+    static int index(Context ctx, int widgetId) {
+        return prefs(ctx).getInt(KEY_INDEX + widgetId, 0);
+    }
+
+    static void setPlace(Context ctx, int widgetId, String tab, int index) {
+        prefs(ctx).edit().putString(KEY_TAB + widgetId, tab).putInt(KEY_INDEX + widgetId, index).commit();
+    }
+
     static void forget(Context ctx, int[] widgetIds) {
         SharedPreferences.Editor editor = prefs(ctx).edit();
-        for (int id : widgetIds) editor.remove(KEY_CHOICE + id);
+        for (int id : widgetIds) editor.remove(KEY_CHOICE + id).remove(KEY_TAB + id).remove(KEY_INDEX + id);
         editor.apply();
     }
 }

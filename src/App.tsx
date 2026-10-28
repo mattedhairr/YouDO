@@ -886,13 +886,13 @@ function AppInner() {
 
   useHomeWidgets({
     todayTasks,
+    backlogTasks,
     goals,
     streak: streakStatus,
     accent,
     userId: activityUser?.id ?? null,
     authReady: !authLoading,
     activeTaskId: activeSession?.taskId ?? null,
-    reorder,
     onStopRequested: (taskId) => {
       const task = tasks.find((t) => t.id === taskId);
       if (task) setStopDialogTask(task);

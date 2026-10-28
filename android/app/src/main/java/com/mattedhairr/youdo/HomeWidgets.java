@@ -8,9 +8,13 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.SystemClock;
+import android.text.SpannableStringBuilder;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.RemoteViews;
 import androidx.annotation.ColorRes;
@@ -28,6 +32,9 @@ final class HomeWidgets {
     static final String EXTRA_ACTION = "widget_action";
     static final String EXTRA_TASK = "widget_task";
     static final String EXTRA_STOP_TASK = "youdo_widget_stop";
+    /** Up next's tabs, as in Today. */
+    static final String TAB_SCHEDULED = "scheduled";
+    static final String TAB_BACKLOG = "backlog";
 
     /** A room-mate's dot goes out after this, in case the push that ended it was missed. */
     private static final long LIVE_MAX_MS = 4 * 60 * 60 * 1000L;
@@ -43,8 +50,6 @@ final class HomeWidgets {
     private static final int[] AWAY = { R.id.room_away0, R.id.room_away1, R.id.room_away2, R.id.room_away3 };
 
     private static String lastSessionKey;
-    /** What Up next last drew: redrawing an unchanged stack resets it, so only changes redraw it. */
-    private static String lastUpNextKey;
 
     private HomeWidgets() {}
 
@@ -58,13 +63,7 @@ final class HomeWidgets {
         AppWidgetManager manager = AppWidgetManager.getInstance(ctx);
         int[] ids = manager.getAppWidgetIds(new ComponentName(ctx, provider));
         if (ids == null || ids.length == 0) return;
-        if (provider == UpNextWidget.class) {
-            String key = upNextKey(ctx);
-            if (key.equals(lastUpNextKey)) return;
-            lastUpNextKey = key;
-        }
         for (int id : ids) render(ctx, manager, provider, id);
-        if (provider == UpNextWidget.class) notifyCards(manager, ids);
     }
 
     static void render(Context ctx, AppWidgetManager manager, Class<?> provider, int widgetId) {
@@ -73,11 +72,6 @@ final class HomeWidgets {
         else if (provider == ProgressWidget.class) views = progress(ctx, widgetId);
         else views = room(ctx, widgetId);
         manager.updateAppWidget(widgetId, views);
-    }
-
-    /** Before Android 12 the cards come from UpNextWidgetService, which must be told to reload. */
-    static void notifyCards(AppWidgetManager manager, int[] ids) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_stack);
     }
 
     static int count(Context ctx, Class<?> provider) {
@@ -96,13 +90,6 @@ final class HomeWidgets {
     private static String sessionKey(JSONObject session) {
         return session == null ? "" : session.optString("taskId") + "|" + session.optLong("startTime")
             + "|" + session.optBoolean("isPaused") + "|" + session.optLong("pausedDuration");
-    }
-
-    private static String upNextKey(Context ctx) {
-        JSONObject snapshot = HomeWidgetStore.snapshot(ctx);
-        if (snapshot == null) return "-|" + sessionKey(SessionNotificationStore.sessionObject(ctx));
-        return snapshot.optJSONArray("today") + "|" + snapshot.optJSONObject("accent") + "|"
-            + sessionKey(SessionNotificationStore.sessionObject(ctx));
     }
 
     /* ---------- accent and colours ---------- */
@@ -148,74 +135,123 @@ final class HomeWidgets {
         if (session != null) return sessionViews(ctx, snapshot, session);
 
         RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_up_next);
-        JSONArray today = snapshot == null ? null : snapshot.optJSONArray("today");
-        int open = today == null ? 0 : today.length();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // The cards travel with the update itself, so the stack never waits on a service for them.
-            int[] accent = accent(snapshot);
-            RemoteViews.RemoteCollectionItems.Builder items = new RemoteViews.RemoteCollectionItems.Builder()
-                .setHasStableIds(true)
-                .setViewTypeCount(1);
-            for (int i = 0; i < open; i++) items.addItem(cardId(today.optJSONObject(i)), card(ctx, today, i, accent));
-            views.setRemoteAdapter(R.id.widget_stack, items.build());
-        } else {
-            Intent service = new Intent(ctx, UpNextWidgetService.class);
-            service.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
-            service.setData(Uri.parse(service.toUri(Intent.URI_INTENT_SCHEME)));
-            views.setRemoteAdapter(R.id.widget_stack, service);
-        }
-        views.setEmptyView(R.id.widget_stack, R.id.widget_empty);
+        boolean backlog = TAB_BACKLOG.equals(HomeWidgetStore.tab(ctx, widgetId));
+        JSONArray scheduled = list(snapshot, "today");
+        JSONArray overdue = list(snapshot, "backlog");
+        JSONArray cards = backlog ? overdue : scheduled;
+        int count = cards.length();
+        int index = Math.max(0, Math.min(HomeWidgetStore.index(ctx, widgetId), count - 1));
+        tabs(ctx, views, widgetId, backlog, scheduled.length(), overdue.length());
 
-        views.setTextViewText(R.id.widget_count, open == 0 ? "" : open + " open");
-        views.setTextViewText(R.id.widget_empty, snapshot == null ? "Open YouDO once to fill this widget." : "All done for today.");
-
-        Intent card = new Intent(ctx, UpNextWidget.class).setAction(ACTION_CARD);
-        card.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-        views.setPendingIntentTemplate(R.id.widget_stack, PendingIntent.getBroadcast(ctx, 36100 + widgetId, card, flags));
-        views.setOnClickPendingIntent(R.id.widget_header, openApp(ctx));
+        // Every card sits in the flipper; ‹ › show another (step), which slides in.
+        int[] accent = accent(snapshot);
+        views.removeAllViews(R.id.widget_flipper);
+        for (int i = 0; i < count; i++) views.addView(R.id.widget_flipper, card(ctx, widgetId, cards.optJSONObject(i), accent));
+        if (count > 0) views.setDisplayedChild(R.id.widget_flipper, index);
+        views.setViewVisibility(R.id.widget_flipper, count == 0 ? View.GONE : View.VISIBLE);
+        views.setViewVisibility(R.id.widget_empty, count == 0 ? View.VISIBLE : View.GONE);
+        views.setTextViewText(R.id.widget_empty, snapshot == null ? "Open YouDO once to fill this widget."
+            : backlog ? "Nothing overdue. Keep the streak." : "Nothing scheduled for today.");
         views.setOnClickPendingIntent(R.id.widget_empty, openApp(ctx));
+
+        views.setTextViewText(R.id.nav_pos, count == 0 ? "" : (index + 1) + " / " + count);
+        views.setViewVisibility(R.id.nav_prev, count > 1 ? View.VISIBLE : View.INVISIBLE);
+        views.setViewVisibility(R.id.nav_next, count > 1 ? View.VISIBLE : View.INVISIBLE);
+        views.setOnClickPendingIntent(R.id.nav_prev, upNextAction(ctx, widgetId, "prev", null));
+        views.setOnClickPendingIntent(R.id.nav_next, upNextAction(ctx, widgetId, "next", null));
         return views;
     }
 
-    /** A card keeps its id when it moves, so the stack can follow it. */
-    static long cardId(JSONObject card) {
-        return card == null ? 0 : card.optString("id").hashCode();
+    /** ‹ or ›: the next or previous card slides in, looping round at either end. */
+    static void step(Context ctx, int widgetId, boolean forward) {
+        if (SessionNotificationStore.sessionObject(ctx) != null) return;
+        String tab = HomeWidgetStore.tab(ctx, widgetId);
+        int count = list(HomeWidgetStore.snapshot(ctx), TAB_BACKLOG.equals(tab) ? "backlog" : "today").length();
+        if (count < 2) return;
+        int current = Math.max(0, Math.min(HomeWidgetStore.index(ctx, widgetId), count - 1));
+        int index = Math.floorMod(current + (forward ? 1 : -1), count);
+        HomeWidgetStore.setPlace(ctx, widgetId, tab, index);
+        RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_up_next);
+        views.setDisplayedChild(R.id.widget_flipper, index);
+        views.setTextViewText(R.id.nav_pos, (index + 1) + " / " + count);
+        AppWidgetManager.getInstance(ctx).partiallyUpdateAppWidget(widgetId, views);
     }
 
-    /** One card of the stack (Android 12+ inline items and UpNextWidgetService both use it). */
-    static RemoteViews card(Context ctx, JSONArray cards, int position, int[] accent) {
+    private static void tabs(Context ctx, RemoteViews views, int widgetId, boolean backlog, int scheduled, int overdue) {
+        views.setTextViewText(R.id.tab_scheduled, tabLabel(ctx, "Scheduled", scheduled, false));
+        views.setTextViewText(R.id.tab_backlog, tabLabel(ctx, "Backlog", overdue, true));
+        views.setInt(R.id.tab_scheduled, "setBackgroundResource", backlog ? 0 : R.drawable.widget_tab_on);
+        views.setInt(R.id.tab_backlog, "setBackgroundResource", backlog ? R.drawable.widget_tab_on : 0);
+        color(ctx, views, R.id.tab_scheduled, "setTextColor", backlog ? R.color.widget_text2 : R.color.widget_tab_on_text);
+        color(ctx, views, R.id.tab_backlog, "setTextColor", backlog ? R.color.widget_tab_on_text : R.color.widget_text2);
+        views.setOnClickPendingIntent(R.id.tab_scheduled, upNextAction(ctx, widgetId, TAB_SCHEDULED, null));
+        views.setOnClickPendingIntent(R.id.tab_backlog, upNextAction(ctx, widgetId, TAB_BACKLOG, null));
+    }
+
+    /** "Scheduled  2"; the backlog count is red, as in Today. */
+    private static CharSequence tabLabel(Context ctx, String name, int count, boolean overdue) {
+        SpannableStringBuilder text = new SpannableStringBuilder(name);
+        if (count == 0) return text;
+        int start = text.length() + 2;
+        text.append("  ").append(String.valueOf(count));
+        if (overdue) text.setSpan(new ForegroundColorSpan(ContextCompat.getColor(ctx, R.color.widget_overdue)), start, text.length(), 0);
+        return text;
+    }
+
+    private static RemoteViews card(Context ctx, int widgetId, JSONObject card, int[] accent) {
         RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_up_next_card);
-        JSONObject card = cards.optJSONObject(position);
         if (card == null) return views;
-        String id = card.optString("id");
         int done = card.optInt("done");
         int total = card.optInt("total");
         views.setTextViewText(R.id.card_title, card.optString("title"));
-        views.setTextViewText(R.id.card_path, card.optString("path"));
-        views.setTextViewText(R.id.card_rank, "#" + card.optInt("rank"));
+        views.setTextViewText(R.id.card_path, cardPath(ctx, card));
         views.setTextViewText(R.id.card_steps, total > 0 ? done + " of " + total + " steps" : "No steps");
         views.setProgressBar(R.id.card_bar, 100, total > 0 ? Math.min(100, done * 100 / total) : 0, false);
-        tint(ctx, views, R.id.card_rank, "setTextColor", accent);
         tint(ctx, views, R.id.card_start_bg, "setColorFilter", accent);
         tintProgress(views, R.id.card_bar, accent);
-        views.setViewVisibility(R.id.card_up, position == 0 ? View.INVISIBLE : View.VISIBLE);
-        views.setViewVisibility(R.id.card_down, position == cards.length() - 1 ? View.INVISIBLE : View.VISIBLE);
-        views.setOnClickFillInIntent(R.id.card_up, tap("up", id));
-        views.setOnClickFillInIntent(R.id.card_down, tap("down", id));
-        views.setOnClickFillInIntent(R.id.card_start, tap("start", id));
+        views.setOnClickPendingIntent(R.id.card_start, upNextAction(ctx, widgetId, "start", card.optString("id")));
+        views.setOnClickPendingIntent(R.id.card_root, openApp(ctx));
         return views;
     }
 
-    private static Intent tap(String action, String taskId) {
-        return new Intent().putExtra(EXTRA_ACTION, action).putExtra(EXTRA_TASK, taskId);
+    /** The card's goal path; a backlog card leads with the day it was due, in red. */
+    private static CharSequence cardPath(Context ctx, JSONObject card) {
+        String path = card.optString("path");
+        Calendar due = card.isNull("due") ? null : localDate(card.optString("due"));
+        if (due == null) return path;
+        SpannableStringBuilder text = new SpannableStringBuilder("Due " + new SimpleDateFormat("MMM d", Locale.getDefault()).format(due.getTime()));
+        text.setSpan(new ForegroundColorSpan(ContextCompat.getColor(ctx, R.color.widget_overdue)), 0, text.length(), 0);
+        text.setSpan(new StyleSpan(Typeface.BOLD), 0, text.length(), 0);
+        if (!path.isEmpty()) text.append(" · ").append(path);
+        return text;
+    }
+
+    private static JSONArray list(JSONObject snapshot, String key) {
+        JSONArray items = snapshot == null ? null : snapshot.optJSONArray(key);
+        return items != null ? items : new JSONArray();
+    }
+
+    /** A Scheduled or Backlog card by task id. */
+    static JSONObject findTask(JSONObject snapshot, String taskId) {
+        JSONObject card = HomeWidgetStore.find(snapshot, "today", taskId);
+        return card != null ? card : HomeWidgetStore.find(snapshot, "backlog", taskId);
+    }
+
+    /** A tap on Up next, back to UpNextWidget. Each tab, arrow and card gets its own. */
+    private static PendingIntent upNextAction(Context ctx, int widgetId, String action, String taskId) {
+        Intent intent = new Intent(ctx, UpNextWidget.class).setAction(ACTION_CARD);
+        intent.setData(Uri.parse("youdo-widget://up-next/" + widgetId + "/" + action + (taskId == null ? "" : "/" + Uri.encode(taskId))));
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
+        intent.putExtra(EXTRA_ACTION, action);
+        if (taskId != null) intent.putExtra(EXTRA_TASK, taskId);
+        return PendingIntent.getBroadcast(ctx, 36100 + widgetId, intent, immutable());
     }
 
     private static RemoteViews sessionViews(Context ctx, JSONObject snapshot, JSONObject session) {
         RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_up_next_session);
         boolean paused = session.optBoolean("isPaused", false);
         String taskId = session.optString("taskId");
-        JSONObject card = HomeWidgetStore.find(snapshot, "today", taskId);
+        JSONObject card = findTask(snapshot, taskId);
         int[] accent = accent(snapshot);
 
         long focused = SessionNotificationStore.elapsedFocusMs(session, paused);
@@ -227,7 +263,7 @@ final class HomeWidgets {
 
         String since = session.optString("wallClockStart", "");
         String meta = since.isEmpty() ? "" : "since " + since;
-        if (card != null) meta += (meta.isEmpty() ? "" : " · ") + "#" + card.optInt("rank") + " today";
+        if (card != null) meta += (meta.isEmpty() ? "" : " · ") + (card.isNull("due") ? "#" + card.optInt("rank") + " today" : "from the backlog");
         views.setTextViewText(R.id.session_meta, meta);
 
         int done = card == null ? 0 : card.optInt("done");
