@@ -8,7 +8,7 @@ import { initPushNotifications } from './lib/pushNotifications';
 import { syncPushPreferences } from './lib/pushPreferences';
 import { OPEN_APP_UPDATES_EVENT } from './lib/boardUpdate';
 import { settingsBackStep } from './lib/settingsBack';
-import { PHONE_LANDSCAPE_QUERY, ambientAutoOpenEnabled } from './lib/ambient';
+import { ambientAutoOpenEnabled, phoneIsSideways } from './lib/ambient';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { formatDDMMYYYY, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
@@ -505,14 +505,23 @@ function AppInner() {
 
   // StandBy-style: turning the phone sideways during a session opens the ambient clock.
   const hasActiveSession = !!activeSession;
+  // Only the moment the phone actually rotates into landscape counts; the
+  // keyboard opening (which shortens the viewport) never does.
   useEffect(() => {
-    if (!hasActiveSession || typeof window.matchMedia !== 'function') return;
-    const sideways = window.matchMedia(PHONE_LANDSCAPE_QUERY);
-    const onChange = (event: MediaQueryListEvent) => {
-      if (event.matches && ambientAutoOpenEnabled()) setShowAmbient(true);
+    if (!hasActiveSession) return;
+    let wasSideways = phoneIsSideways();
+    const onRotate = () => {
+      const sideways = phoneIsSideways();
+      if (sideways && !wasSideways && ambientAutoOpenEnabled()) setShowAmbient(true);
+      wasSideways = sideways;
     };
-    sideways.addEventListener('change', onChange);
-    return () => sideways.removeEventListener('change', onChange);
+    const orientation = window.screen.orientation;
+    if (orientation?.addEventListener) {
+      orientation.addEventListener('change', onRotate);
+      return () => orientation.removeEventListener('change', onRotate);
+    }
+    window.addEventListener('orientationchange', onRotate);
+    return () => window.removeEventListener('orientationchange', onRotate);
   }, [hasActiveSession]);
 
   const openBoardSettings = () => {
