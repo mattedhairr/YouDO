@@ -192,7 +192,7 @@ function AppInner() {
     heartbeatSession,
   } = useSessionStore();
 
-  const [{ darkMode }] = useTheme();
+  const [{ darkMode, accent }] = useTheme();
   const [{ legacyStyle }] = useUiPrefs();
   const { user: activityUser, loading: authLoading } = useAuth();
   const { pacePrefs: activityPrefs } = useStore();
@@ -887,7 +887,8 @@ function AppInner() {
   useHomeWidgets({
     todayTasks,
     goals,
-    streakDays: streakStatus.current,
+    streak: streakStatus,
+    accent,
     userId: activityUser?.id ?? null,
     authReady: !authLoading,
     activeTaskId: activeSession?.taskId ?? null,

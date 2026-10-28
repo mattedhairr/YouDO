@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/card_root"
     android:layout_width="match_parent"
-    android:layout_height="124dp"
+    android:layout_height="match_parent"
     android:background="@drawable/widget_card_bg"
     android:gravity="center_vertical"
     android:orientation="horizontal"
@@ -50,13 +50,14 @@
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
-    <ImageView
+    <!-- The circle is tinted with the app accent (HomeWidgets.tint). -->
+    <FrameLayout
         android:id="@+id/card_start"
         android:layout_width="56dp"
         android:layout_height="56dp"
         android:layout_marginStart="12dp"
-        android:background="@drawable/widget_play_bg"
-        android:contentDescription="Start focus"
-        android:padding="16dp"
-        android:src="@drawable/ic_widget_play" />
+        android:contentDescription="Start focus">
+        <ImageView android:id="@+id/card_start_bg" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_avatar" />
+        <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:padding="16dp" android:src="@drawable/ic_widget_play" />
+    </FrameLayout>
 </LinearLayout>

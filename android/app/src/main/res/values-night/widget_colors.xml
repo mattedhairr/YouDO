@@ -12,4 +12,7 @@
     <color name="widget_live">#3EE07A</color>
     <color name="widget_track">#24FFFFFF</color>
     <color name="widget_stop">#E5484D</color>
+    <color name="widget_card_solid">#26231F</color>
+    <color name="widget_card_shadow">#66000000</color>
+    <color name="widget_save">#F0A640</color>
 </resources>

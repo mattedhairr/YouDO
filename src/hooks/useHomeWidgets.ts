@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { GoalNode, Task } from '../types';
-import type { WidgetRoom } from '../lib/homeWidgets';
+import type { WidgetRoom, widgetStreak } from '../lib/homeWidgets';
 
 /** Rooms change rarely; refetching on every app switch would waste requests. */
 const ROOM_REFRESH_MS = 60_000;
@@ -12,7 +12,8 @@ const widgets = () => import('../lib/homeWidgets');
 interface Options {
   todayTasks: Task[];
   goals: GoalNode[];
-  streakDays: number;
+  streak: Parameters<typeof widgetStreak>[0];
+  accent: string | undefined;
   userId: string | null;
   /** False while sign-in is still being restored, so a key is not forgotten by mistake. */
   authReady: boolean;
@@ -24,7 +25,7 @@ interface Options {
 
 /** Keeps the Android home-screen widgets in step with the app (see lib/homeWidgets). */
 export function useHomeWidgets({
-  todayTasks, goals, streakDays, userId, authReady, activeTaskId, reorder, onStopRequested,
+  todayTasks, goals, streak, accent, userId, authReady, activeTaskId, reorder, onStopRequested,
 }: Options) {
   const supported = Capacitor.getPlatform() === 'android';
   const [rooms, setRooms] = useState<WidgetRoom[] | null>(null);
@@ -33,10 +34,10 @@ export function useHomeWidgets({
   useEffect(() => {
     if (!supported) return;
     const timer = setTimeout(() => {
-      void widgets().then((w) => w.syncWidgets(todayTasks, goals, streakDays, rooms));
+      void widgets().then((w) => w.syncWidgets(todayTasks, goals, streak, accent, rooms));
     }, 400);
     return () => clearTimeout(timer);
-  }, [supported, todayTasks, goals, streakDays, rooms]);
+  }, [supported, todayTasks, goals, streak, accent, rooms]);
 
   // Taps made on the widget while the app was closed or in the background.
   const latest = useRef({ todayTasks, reorder });
@@ -78,9 +79,11 @@ export function useHomeWidgets({
     let last = 0;
     const load = async () => {
       if (Date.now() - last < ROOM_REFRESH_MS) return;
-      last = Date.now();
       const next = await (await widgets()).loadWidgetRooms(userId);
-      if (next && !cancelled) setRooms(next);
+      // Only a real fetch waits: a Room widget added a moment ago loads on return.
+      if (!next) return;
+      last = Date.now();
+      if (!cancelled) setRooms(next);
     };
     void load();
     // Leaving the app is when the home screen, and so the widget, comes back.

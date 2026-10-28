@@ -15,9 +15,9 @@
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="vertical">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="🔥" android:textSize="14sp" />
+        <TextView android:id="@+id/progress_flame" android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="🔥" android:textSize="14sp" />
         <TextView android:id="@+id/progress_streak" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-black" android:includeFontPadding="false" android:textColor="@color/widget_text" android:textSize="22sp" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.1" android:text="@string/widget_days" android:textColor="@color/widget_text2" android:textSize="8.5sp" android:textStyle="bold" />
+        <TextView android:id="@+id/progress_streak_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.1" android:singleLine="true" android:text="@string/widget_days" android:textColor="@color/widget_text2" android:textSize="8.5sp" android:textStyle="bold" />
     </LinearLayout>
     <LinearLayout
         android:layout_width="0dp"

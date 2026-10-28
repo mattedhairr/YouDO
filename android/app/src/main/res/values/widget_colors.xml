@@ -14,4 +14,9 @@
     <color name="widget_live">#17A04C</color>
     <color name="widget_track">#1F1A1612</color>
     <color name="widget_stop">#E5484D</color>
+    <!-- Up next cards are solid, so the card behind never shows through. -->
+    <color name="widget_card_solid">#FBF8F3</color>
+    <color name="widget_card_shadow">#24000000</color>
+    <!-- A broken streak that can still be restored. -->
+    <color name="widget_save">#B7741A</color>
 </resources>

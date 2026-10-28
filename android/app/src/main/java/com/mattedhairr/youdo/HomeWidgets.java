@@ -5,12 +5,15 @@ import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.SystemClock;
 import android.view.View;
 import android.widget.RemoteViews;
+import androidx.annotation.ColorRes;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import java.text.SimpleDateFormat;
@@ -28,15 +31,20 @@ final class HomeWidgets {
 
     /** A room-mate's dot goes out after this, in case the push that ended it was missed. */
     private static final long LIVE_MAX_MS = 4 * 60 * 60 * 1000L;
+    /** YouDO's sand {light, dark}, until the app has sent its accent. */
+    private static final int[] DEFAULT_ACCENT = { 0xFF8C6A3A, 0xFFC9A46E };
 
     private static final int[] SLOT = { R.id.room_slot0, R.id.room_slot1, R.id.room_slot2, R.id.room_slot3 };
     private static final int[] RING = { R.id.room_ring0, R.id.room_ring1, R.id.room_ring2, R.id.room_ring3 };
     private static final int[] AVATAR = { R.id.room_avatar0, R.id.room_avatar1, R.id.room_avatar2, R.id.room_avatar3 };
     private static final int[] INITIAL = { R.id.room_initial0, R.id.room_initial1, R.id.room_initial2, R.id.room_initial3 };
+    private static final int[] MEMBER = { R.id.room_member0, R.id.room_member1, R.id.room_member2, R.id.room_member3 };
     private static final int[] TIME = { R.id.room_time0, R.id.room_time1, R.id.room_time2, R.id.room_time3 };
     private static final int[] AWAY = { R.id.room_away0, R.id.room_away1, R.id.room_away2, R.id.room_away3 };
 
     private static String lastSessionKey;
+    /** What Up next last drew: redrawing an unchanged stack resets it, so only changes redraw it. */
+    private static String lastUpNextKey;
 
     private HomeWidgets() {}
 
@@ -50,8 +58,13 @@ final class HomeWidgets {
         AppWidgetManager manager = AppWidgetManager.getInstance(ctx);
         int[] ids = manager.getAppWidgetIds(new ComponentName(ctx, provider));
         if (ids == null || ids.length == 0) return;
+        if (provider == UpNextWidget.class) {
+            String key = upNextKey(ctx);
+            if (key.equals(lastUpNextKey)) return;
+            lastUpNextKey = key;
+        }
         for (int id : ids) render(ctx, manager, provider, id);
-        if (provider == UpNextWidget.class) manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_stack);
+        if (provider == UpNextWidget.class) notifyCards(manager, ids);
     }
 
     static void render(Context ctx, AppWidgetManager manager, Class<?> provider, int widgetId) {
@@ -62,6 +75,11 @@ final class HomeWidgets {
         manager.updateAppWidget(widgetId, views);
     }
 
+    /** Before Android 12 the cards come from UpNextWidgetService, which must be told to reload. */
+    static void notifyCards(AppWidgetManager manager, int[] ids) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_stack);
+    }
+
     static int count(Context ctx, Class<?> provider) {
         int[] ids = AppWidgetManager.getInstance(ctx).getAppWidgetIds(new ComponentName(ctx, provider));
         return ids == null ? 0 : ids.length;
@@ -69,12 +87,57 @@ final class HomeWidgets {
 
     /** Start, pause, resume or stop: Up next switches between its card stack and its timer. */
     static void onSessionChanged(Context ctx) {
-        JSONObject session = SessionNotificationStore.sessionObject(ctx);
-        String key = session == null ? "" : session.optString("taskId") + "|" + session.optLong("startTime")
-            + "|" + session.optBoolean("isPaused") + "|" + session.optLong("pausedDuration");
+        String key = sessionKey(SessionNotificationStore.sessionObject(ctx));
         if (key.equals(lastSessionKey)) return;
         lastSessionKey = key;
         refresh(ctx, UpNextWidget.class);
+    }
+
+    private static String sessionKey(JSONObject session) {
+        return session == null ? "" : session.optString("taskId") + "|" + session.optLong("startTime")
+            + "|" + session.optBoolean("isPaused") + "|" + session.optLong("pausedDuration");
+    }
+
+    private static String upNextKey(Context ctx) {
+        JSONObject snapshot = HomeWidgetStore.snapshot(ctx);
+        if (snapshot == null) return "-|" + sessionKey(SessionNotificationStore.sessionObject(ctx));
+        return snapshot.optJSONArray("today") + "|" + snapshot.optJSONObject("accent") + "|"
+            + sessionKey(SessionNotificationStore.sessionObject(ctx));
+    }
+
+    /* ---------- accent and colours ---------- */
+
+    /** The app's accent as {light, dark}. */
+    static int[] accent(JSONObject snapshot) {
+        JSONObject accent = snapshot == null ? null : snapshot.optJSONObject("accent");
+        if (accent == null) return DEFAULT_ACCENT;
+        return new int[] {
+            parseColor(accent.optString("light"), DEFAULT_ACCENT[0]),
+            parseColor(accent.optString("dark"), DEFAULT_ACCENT[1]),
+        };
+    }
+
+    /** A colour pair that follows the phone's light or dark mode (live on Android 12+). */
+    static void tint(Context ctx, RemoteViews views, int viewId, String method, int[] pair) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) views.setColorInt(viewId, method, pair[0], pair[1]);
+        else views.setInt(viewId, method, isNight(ctx) ? pair[1] : pair[0]);
+    }
+
+    /** Progress bars take a tint on Android 12+ only; older phones keep the drawable's colour. */
+    static void tintProgress(RemoteViews views, int viewId, int[] pair) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            views.setColorStateList(viewId, "setProgressTintList", ColorStateList.valueOf(pair[0]), ColorStateList.valueOf(pair[1]));
+        }
+    }
+
+    /** A widget colour resource, resolved for the phone's light or dark mode. */
+    private static void color(Context ctx, RemoteViews views, int viewId, String method, @ColorRes int res) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) views.setColor(viewId, method, res);
+        else views.setInt(viewId, method, ContextCompat.getColor(ctx, res));
+    }
+
+    private static boolean isNight(Context ctx) {
+        return (ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
     }
 
     /* ---------- Up next ---------- */
@@ -85,14 +148,24 @@ final class HomeWidgets {
         if (session != null) return sessionViews(ctx, snapshot, session);
 
         RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_up_next);
-        Intent service = new Intent(ctx, UpNextWidgetService.class);
-        service.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
-        service.setData(Uri.parse(service.toUri(Intent.URI_INTENT_SCHEME)));
-        views.setRemoteAdapter(R.id.widget_stack, service);
-        views.setEmptyView(R.id.widget_stack, R.id.widget_empty);
-
         JSONArray today = snapshot == null ? null : snapshot.optJSONArray("today");
         int open = today == null ? 0 : today.length();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // The cards travel with the update itself, so the stack never waits on a service for them.
+            int[] accent = accent(snapshot);
+            RemoteViews.RemoteCollectionItems.Builder items = new RemoteViews.RemoteCollectionItems.Builder()
+                .setHasStableIds(true)
+                .setViewTypeCount(1);
+            for (int i = 0; i < open; i++) items.addItem(cardId(today.optJSONObject(i)), card(ctx, today, i, accent));
+            views.setRemoteAdapter(R.id.widget_stack, items.build());
+        } else {
+            Intent service = new Intent(ctx, UpNextWidgetService.class);
+            service.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
+            service.setData(Uri.parse(service.toUri(Intent.URI_INTENT_SCHEME)));
+            views.setRemoteAdapter(R.id.widget_stack, service);
+        }
+        views.setEmptyView(R.id.widget_stack, R.id.widget_empty);
+
         views.setTextViewText(R.id.widget_count, open == 0 ? "" : open + " open");
         views.setTextViewText(R.id.widget_empty, snapshot == null ? "Open YouDO once to fill this widget." : "All done for today.");
 
@@ -105,16 +178,51 @@ final class HomeWidgets {
         return views;
     }
 
+    /** A card keeps its id when it moves, so the stack can follow it. */
+    static long cardId(JSONObject card) {
+        return card == null ? 0 : card.optString("id").hashCode();
+    }
+
+    /** One card of the stack (Android 12+ inline items and UpNextWidgetService both use it). */
+    static RemoteViews card(Context ctx, JSONArray cards, int position, int[] accent) {
+        RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_up_next_card);
+        JSONObject card = cards.optJSONObject(position);
+        if (card == null) return views;
+        String id = card.optString("id");
+        int done = card.optInt("done");
+        int total = card.optInt("total");
+        views.setTextViewText(R.id.card_title, card.optString("title"));
+        views.setTextViewText(R.id.card_path, card.optString("path"));
+        views.setTextViewText(R.id.card_rank, "#" + card.optInt("rank"));
+        views.setTextViewText(R.id.card_steps, total > 0 ? done + " of " + total + " steps" : "No steps");
+        views.setProgressBar(R.id.card_bar, 100, total > 0 ? Math.min(100, done * 100 / total) : 0, false);
+        tint(ctx, views, R.id.card_rank, "setTextColor", accent);
+        tint(ctx, views, R.id.card_start_bg, "setColorFilter", accent);
+        tintProgress(views, R.id.card_bar, accent);
+        views.setViewVisibility(R.id.card_up, position == 0 ? View.INVISIBLE : View.VISIBLE);
+        views.setViewVisibility(R.id.card_down, position == cards.length() - 1 ? View.INVISIBLE : View.VISIBLE);
+        views.setOnClickFillInIntent(R.id.card_up, tap("up", id));
+        views.setOnClickFillInIntent(R.id.card_down, tap("down", id));
+        views.setOnClickFillInIntent(R.id.card_start, tap("start", id));
+        return views;
+    }
+
+    private static Intent tap(String action, String taskId) {
+        return new Intent().putExtra(EXTRA_ACTION, action).putExtra(EXTRA_TASK, taskId);
+    }
+
     private static RemoteViews sessionViews(Context ctx, JSONObject snapshot, JSONObject session) {
         RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_up_next_session);
         boolean paused = session.optBoolean("isPaused", false);
         String taskId = session.optString("taskId");
         JSONObject card = HomeWidgetStore.find(snapshot, "today", taskId);
+        int[] accent = accent(snapshot);
 
         long focused = SessionNotificationStore.elapsedFocusMs(session, paused);
         views.setChronometer(R.id.session_timer, SystemClock.elapsedRealtime() - focused, null, !paused);
         views.setTextViewText(R.id.session_state, paused ? "❚❚  PAUSED" : "●  FOCUSING");
-        views.setTextColor(R.id.session_state, ContextCompat.getColor(ctx, paused ? R.color.widget_accent : R.color.widget_live));
+        if (paused) tint(ctx, views, R.id.session_state, "setTextColor", accent);
+        else color(ctx, views, R.id.session_state, "setTextColor", R.color.widget_live);
         views.setTextViewText(R.id.session_title, SessionNotificationStore.title(ctx));
 
         String since = session.optString("wallClockStart", "");
@@ -125,6 +233,7 @@ final class HomeWidgets {
         int done = card == null ? 0 : card.optInt("done");
         int total = card == null ? 0 : card.optInt("total");
         views.setProgressBar(R.id.session_ring, 100, total > 0 ? Math.min(100, done * 100 / total) : 0, false);
+        tintProgress(views, R.id.session_ring, accent);
         views.setTextViewText(R.id.session_ring_label, total > 0 ? done + " of " + total + " steps" : "focus");
 
         views.setImageViewResource(R.id.session_toggle, paused ? R.drawable.ic_widget_resume : R.drawable.ic_widget_pause);
@@ -141,8 +250,8 @@ final class HomeWidgets {
     private static RemoteViews progress(Context ctx, int widgetId) {
         RemoteViews views = new RemoteViews(ctx.getPackageName(), R.layout.widget_progress);
         JSONObject snapshot = HomeWidgetStore.snapshot(ctx);
-        JSONObject streak = snapshot == null ? null : snapshot.optJSONObject("streak");
-        views.setTextViewText(R.id.progress_streak, String.valueOf(streak == null ? 0 : streak.optInt("days")));
+        streak(ctx, views, snapshot == null ? null : snapshot.optJSONObject("streak"));
+        tint(ctx, views, R.id.progress_days, "setTextColor", accent(snapshot));
 
         String goalId = HomeWidgetStore.choice(ctx, widgetId);
         JSONObject goal = HomeWidgetStore.find(snapshot, "goals", goalId);
@@ -183,6 +292,30 @@ final class HomeWidgets {
         return views;
     }
 
+    /**
+     * The streak, or a broken one that can still be restored: its old length in
+     * amber with a faded flame and the time left ("SAVE · 14h"). The widget's
+     * half-hourly update moves the countdown and drops it when the window ends.
+     */
+    private static void streak(Context ctx, RemoteViews views, JSONObject streak) {
+        JSONObject save = streak == null ? null : streak.optJSONObject("save");
+        long left = save == null ? 0 : save.optLong("endsAt") - System.currentTimeMillis();
+        if (left > 0) {
+            long minutes = left / 60_000;
+            views.setTextViewText(R.id.progress_streak, String.valueOf(save.optInt("days")));
+            views.setTextViewText(R.id.progress_streak_label, "SAVE · " + (minutes >= 60 ? minutes / 60 + "h" : Math.max(1, minutes) + "m"));
+            color(ctx, views, R.id.progress_streak, "setTextColor", R.color.widget_save);
+            color(ctx, views, R.id.progress_streak_label, "setTextColor", R.color.widget_save);
+            views.setTextColor(R.id.progress_flame, 0x66FFFFFF);
+            return;
+        }
+        views.setTextViewText(R.id.progress_streak, String.valueOf(streak == null ? 0 : streak.optInt("days")));
+        views.setTextViewText(R.id.progress_streak_label, ctx.getString(R.string.widget_days));
+        color(ctx, views, R.id.progress_streak, "setTextColor", R.color.widget_text);
+        color(ctx, views, R.id.progress_streak_label, "setTextColor", R.color.widget_text2);
+        views.setTextColor(R.id.progress_flame, 0xFFFFFFFF);
+    }
+
     private static Calendar localDate(String iso) {
         try {
             String[] parts = iso.split("-");
@@ -212,33 +345,39 @@ final class HomeWidgets {
         JSONObject room = HomeWidgetStore.find(snapshot, "rooms", roomId);
         if (room == null) {
             JSONArray rooms = snapshot == null ? null : snapshot.optJSONArray("rooms");
-            boolean none = rooms == null || rooms.length() == 0;
-            views.setTextViewText(R.id.room_name, none ? "Open YouDO to load your rooms" : roomId == null ? "Tap to choose a room" : "Room left · tap to choose");
-            views.setTextViewText(R.id.room_live, "");
-            views.setViewVisibility(R.id.room_members, View.GONE);
-            views.setOnClickPendingIntent(R.id.widget_root, configure(ctx, widgetId));
+            boolean noRooms = rooms == null || rooms.length() == 0;
+            views.setTextViewText(R.id.room_message, rooms == null ? "Open YouDO to load your rooms"
+                : rooms.length() == 0 ? "No rooms yet · create one in YouDO"
+                : roomId == null ? "Tap to choose a room" : "Room left · tap to choose");
+            views.setViewVisibility(R.id.room_content, View.GONE);
+            views.setViewVisibility(R.id.room_message, View.VISIBLE);
+            views.setOnClickPendingIntent(R.id.widget_root, noRooms ? openApp(ctx) : configure(ctx, widgetId));
             return views;
         }
 
-        views.setViewVisibility(R.id.room_members, View.VISIBLE);
+        views.setViewVisibility(R.id.room_message, View.GONE);
+        views.setViewVisibility(R.id.room_content, View.VISIBLE);
         views.setTextViewText(R.id.room_name, room.optString("name"));
         JSONArray members = room.optJSONArray("members");
         long now = System.currentTimeMillis();
         int live = 0;
+        int shown = 0;
         for (int i = 0; i < SLOT.length; i++) {
             JSONObject member = members == null ? null : members.optJSONObject(i);
             if (member == null) {
                 views.setViewVisibility(SLOT[i], View.GONE);
                 continue;
             }
+            shown++;
             views.setViewVisibility(SLOT[i], View.VISIBLE);
             String state = member.optString("state", "idle");
             long startedAt = member.isNull("startedAt") ? 0 : member.optLong("startedAt");
             boolean inSession = !"idle".equals(state) && startedAt > 0 && now - startedAt < LIVE_MAX_MS;
             boolean paused = "paused".equals(state);
-            int color = parseColor(member.optString("color"));
+            int color = parseColor(member.optString("color"), 0xFF8A68C8);
 
             views.setTextViewText(INITIAL[i], member.optString("initial", "?"));
+            views.setTextViewText(MEMBER[i], member.optString("name", member.optString("initial", "?")));
             views.setInt(AVATAR[i], "setColorFilter", inSession ? color : ColorUtils.blendARGB(color, 0xFF8E8E93, 0.65f));
             views.setViewVisibility(RING[i], inSession ? View.VISIBLE : View.GONE);
             views.setViewVisibility(TIME[i], inSession ? View.VISIBLE : View.GONE);
@@ -248,20 +387,22 @@ final class HomeWidgets {
                 // While paused the clock stops where the pause began (its last update).
                 long end = paused ? Math.max(startedAt, member.optLong("updatedAt", now)) : now;
                 long focused = Math.max(0, end - startedAt - Math.max(0, member.optLong("pausedMs")));
-                views.setChronometer(TIME[i], SystemClock.elapsedRealtime() - focused, null, !paused);
+                views.setChronometer(TIME[i], SystemClock.elapsedRealtime() - focused, "● %s", !paused);
             }
         }
-        views.setTextViewText(R.id.room_live, live == 0 ? "Nobody focusing" : "●  " + live + " live");
-        views.setTextColor(R.id.room_live, ContextCompat.getColor(ctx, live == 0 ? R.color.widget_text3 : R.color.widget_live));
+        // A room with space left asks for a friend in it.
+        views.setViewVisibility(R.id.room_invite, shown < SLOT.length ? View.VISIBLE : View.GONE);
+        views.setTextViewText(R.id.room_live, live == 0 ? "nobody focusing" : "●  " + live + " focusing");
+        color(ctx, views, R.id.room_live, "setTextColor", live == 0 ? R.color.widget_text3 : R.color.widget_live);
         views.setOnClickPendingIntent(R.id.widget_root, openApp(ctx));
         return views;
     }
 
-    private static int parseColor(String hex) {
+    private static int parseColor(String hex, int fallback) {
         try {
             return Color.parseColor(hex);
         } catch (Exception e) {
-            return 0xFF8A68C8;
+            return fallback;
         }
     }
 

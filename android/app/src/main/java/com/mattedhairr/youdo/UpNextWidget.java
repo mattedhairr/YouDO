@@ -12,7 +12,7 @@ public class UpNextWidget extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] widgetIds) {
         for (int id : widgetIds) HomeWidgets.render(context, manager, UpNextWidget.class, id);
-        manager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_stack);
+        HomeWidgets.notifyCards(manager, widgetIds);
     }
 
     @Override

@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <corners android:radius="22dp" />
-    <solid android:color="@color/widget_glass_card" />
-    <stroke android:width="1dp" android:color="@color/widget_edge" />
-</shape>
+<!-- A solid card with a soft shadow under it: in the Up next stack only its top edge shows behind the front card. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:top="3dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="22dp" />
+            <solid android:color="@color/widget_card_shadow" />
+        </shape>
+    </item>
+    <item android:bottom="3dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="22dp" />
+            <solid android:color="@color/widget_card_solid" />
+            <stroke android:width="1dp" android:color="@color/widget_edge" />
+        </shape>
+    </item>
+</layer-list>

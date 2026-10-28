@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalNode, Task } from '../types';
-import { avatarColor, parseWidgetActions, planWidgetMoves, widgetGoals, widgetRooms, widgetTodayTasks } from './homeWidgets';
+import { avatarColor, parseWidgetActions, planWidgetMoves, widgetAccent, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
 
 const task = (id: string, order: number, extra: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: '', priority: 'medium', targetDate: '2026-10-28', deadline: null,
@@ -63,6 +63,34 @@ describe('widgetRooms', () => {
     expect(rooms[0].members[0]).toMatchObject({ initial: 'A', state: 'focusing', startedAt: Date.parse('2026-10-28T09:00:00.000Z') });
     expect(rooms[0].members[1]).toMatchObject({ initial: 'B', state: 'idle', startedAt: null });
     expect(rooms[0].members[0].color).toBe(avatarColor('u0'));
+  });
+
+  it('names members by first name, and the signed-in member as You', () => {
+    const rooms = widgetRooms([{
+      id: 'r1', name: 'Room', members: [{ id: 'u0', name: 'Asha Rao' }, { id: 'u1', name: 'Bartholomew-Longname' }],
+    }], {}, 'u1');
+    expect(rooms[0].members.map((member) => member.name)).toEqual(['Asha', 'You']);
+    expect(widgetRooms([{ id: 'r', name: 'R', members: [{ id: 'x', name: 'Bartholomew-Longname' }] }], {})[0].members[0].name).toBe('Bartholomew-');
+  });
+});
+
+describe('widgetStreak', () => {
+  const revive = { active: true, windowEnds: '2026-10-28', previousStreak: 12 };
+  it('keeps a broken streak that can still be restored, until the end of its window', () => {
+    const now = new Date(2026, 9, 28, 10, 0).getTime();
+    expect(widgetStreak({ current: 0, revive }, now)).toEqual({ days: 0, save: { days: 12, endsAt: new Date(2026, 9, 29).getTime() } });
+  });
+  it('has nothing to save once the window is gone or there was no streak', () => {
+    expect(widgetStreak({ current: 3, revive: null }).save).toBeNull();
+    expect(widgetStreak({ current: 0, revive: { ...revive, active: false } }).save).toBeNull();
+    expect(widgetStreak({ current: 0, revive: { ...revive, previousStreak: 0 } }).save).toBeNull();
+  });
+});
+
+describe('widgetAccent', () => {
+  it('sends the chosen accent for light and dark phones', () => {
+    expect(widgetAccent('slate')).toEqual({ light: '#4A6A93', dark: '#8DA6C9' });
+    expect(widgetAccent(undefined)).toEqual({ light: '#8C6A3A', dark: '#C9A46E' });
   });
 });
 

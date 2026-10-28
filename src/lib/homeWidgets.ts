@@ -2,6 +2,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { GoalNode, Task } from '../types';
 import type { FocusState, FocusStatus } from './focusStatus';
 import { isTaskComplete, pathTitles, rollupPct } from './goalTree';
+import { ACCENT_SWATCHES, resolveAccent } from './accentColors';
+import { msUntilEndOfLocalISODate } from './dates';
 
 /*
  * Android home-screen widgets (Up next, Progress, Room). The widgets cannot run
@@ -33,6 +35,8 @@ export interface WidgetGoal {
 
 export interface WidgetMember {
   id: string;
+  /** First name, or "You" for the signed-in member. */
+  name: string;
   initial: string;
   color: string;
   state: FocusState;
@@ -47,10 +51,18 @@ export interface WidgetRoom {
   members: WidgetMember[];
 }
 
+/** A broken streak that can still be restored, until `endsAt` (epoch ms). */
+export interface WidgetStreakSave {
+  days: number;
+  endsAt: number;
+}
+
 export interface WidgetSnapshot {
   v: 1;
   today: WidgetTask[];
-  streak: { days: number };
+  streak: { days: number; save: WidgetStreakSave | null };
+  /** The app's accent for light and dark phones. */
+  accent: { light: string; dark: string };
   goals: WidgetGoal[];
   /** null while the rooms are not loaded: Android keeps the ones it has. */
   rooms: WidgetRoom[] | null;
@@ -128,17 +140,37 @@ export function widgetGoals(goals: GoalNode[]): WidgetGoal[] {
   });
 }
 
+/** The streak shown on Progress, keeping one that can still be restored. */
+export function widgetStreak(
+  streak: { current: number; revive: { active: boolean; windowEnds: string; previousStreak: number } | null },
+  now = Date.now(),
+): WidgetSnapshot['streak'] {
+  const revive = streak.revive;
+  const save = revive?.active && revive.previousStreak > 0 && revive.windowEnds
+    ? { days: revive.previousStreak, endsAt: now + msUntilEndOfLocalISODate(revive.windowEnds, now) }
+    : null;
+  return { days: streak.current, save };
+}
+
+export function widgetAccent(accent: string | undefined): WidgetSnapshot['accent'] {
+  const swatch = ACCENT_SWATCHES[resolveAccent({ accent })];
+  return { light: swatch.light, dark: swatch.dark };
+}
+
 export function widgetRooms(
   rooms: { id: string; name: string; members: { id: string; name: string }[] }[],
   statuses: Record<string, FocusStatus>,
+  selfId: string | null = null,
 ): WidgetRoom[] {
   return rooms.map((room) => ({
     id: room.id,
     name: clip(room.name) || 'Room',
     members: room.members.slice(0, 4).map((member) => {
       const status = statuses[member.id];
+      const first = member.name.trim().split(/\s+/)[0] ?? '';
       return {
         id: member.id,
+        name: member.id === selfId ? 'You' : first.slice(0, 12) || '?',
         initial: (member.name.trim()[0] ?? '?').toUpperCase(),
         color: avatarColor(member.id),
         state: status?.state ?? 'idle',
@@ -220,11 +252,18 @@ export async function roomWidgetCount(): Promise<number> {
 let lastPublished = '';
 
 /** Sends the widgets a new snapshot when what they show has changed. */
-export async function syncWidgets(todayTasks: Task[], goals: GoalNode[], streakDays: number, rooms: WidgetRoom[] | null): Promise<void> {
+export async function syncWidgets(
+  todayTasks: Task[],
+  goals: GoalNode[],
+  streak: Parameters<typeof widgetStreak>[0],
+  accent: string | undefined,
+  rooms: WidgetRoom[] | null,
+): Promise<void> {
   const snapshot: WidgetSnapshot = {
     v: 1,
     today: widgetTodayTasks(todayTasks, goals),
-    streak: { days: streakDays },
+    streak: widgetStreak(streak),
+    accent: widgetAccent(accent),
     goals: widgetGoals(goals),
     rooms,
   };
@@ -267,5 +306,5 @@ export async function loadWidgetRooms(userId: string): Promise<WidgetRoom[] | nu
     id: summary.squad.id,
     name: summary.squad.name,
     members: summary.members.map((member) => ({ id: member.id, name: member.display_name || member.username || '?' })),
-  })), statuses);
+  })), statuses, userId);
 }
