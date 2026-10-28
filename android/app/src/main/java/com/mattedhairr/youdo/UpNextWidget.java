@@ -38,7 +38,9 @@ public class UpNextWidget extends AppWidgetProvider {
         } else if ("start".equals(action)) {
             JSONObject card = HomeWidgetStore.find(HomeWidgetStore.snapshot(context), "today", taskId);
             // Saving the session redraws Up next as the timer (HomeWidgets.onSessionChanged).
-            if (card != null) SessionNotificationStore.startFromWidget(context, taskId, card.optString("title"));
+            if (card != null && SessionNotificationStore.startFromWidget(context, taskId, card.optString("title"))) {
+                FocusStatusPoster.post(context, SessionNotificationStore.sessionObject(context), goAsync());
+            }
         }
     }
 }

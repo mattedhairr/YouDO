@@ -14,6 +14,8 @@ interface Options {
   goals: GoalNode[];
   streakDays: number;
   userId: string | null;
+  /** False while sign-in is still being restored, so a key is not forgotten by mistake. */
+  authReady: boolean;
   activeTaskId: string | null;
   reorder: (fromId: string, toId: string) => void;
   /** Stop on the widget: open the stop sheet for this card's session. */
@@ -22,7 +24,7 @@ interface Options {
 
 /** Keeps the Android home-screen widgets in step with the app (see lib/homeWidgets). */
 export function useHomeWidgets({
-  todayTasks, goals, streakDays, userId, activeTaskId, reorder, onStopRequested,
+  todayTasks, goals, streakDays, userId, authReady, activeTaskId, reorder, onStopRequested,
 }: Options) {
   const supported = Capacitor.getPlatform() === 'android';
   const [rooms, setRooms] = useState<WidgetRoom[] | null>(null);
@@ -66,9 +68,12 @@ export function useHomeWidgets({
     stopRef.current(pendingStop);
   }, [pendingStop, activeTaskId]);
 
-  // Room members and who is focusing, only while a Room widget is placed.
+  // The widget key for this account, then room members and who is focusing
+  // (only while a Room widget is placed).
   useEffect(() => {
-    if (!supported || !userId) return;
+    if (!supported || !authReady) return;
+    void widgets().then((w) => w.syncWidgetKey(userId));
+    if (!userId) return;
     let cancelled = false;
     let last = 0;
     const load = async () => {
@@ -84,5 +89,5 @@ export function useHomeWidgets({
       cancelled = true;
       document.removeEventListener('visibilitychange', load);
     };
-  }, [supported, userId]);
+  }, [supported, authReady, userId]);
 }

@@ -2,6 +2,8 @@ package com.mattedhairr.youdo;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Base64;
+import java.security.SecureRandom;
 import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -15,6 +17,10 @@ final class HomeWidgetStore {
     private static final String KEY_SNAPSHOT = "snapshot";
     private static final String KEY_ACTIONS = "actions";
     private static final String KEY_CHOICE = "choice_";
+    private static final String KEY_WIDGET_KEY = "widget_key";
+    private static final String KEY_WIDGET_USER = "widget_user";
+    private static final String KEY_API_URL = "api_url";
+    private static final String KEY_API_ANON = "api_anon";
     private static final int MAX_ACTIONS = 100;
 
     private HomeWidgetStore() {}
@@ -179,6 +185,42 @@ final class HomeWidgetStore {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    /**
+     * This phone's widget key for the signed-in account: kept for the same
+     * account, replaced for another, dropped when signed out. Returns
+     * {key, previousKey}; the app registers the one and forgets the other.
+     */
+    static synchronized String[] widgetKey(Context ctx, String userId, String url, String anonKey) {
+        SharedPreferences prefs = prefs(ctx);
+        String key = prefs.getString(KEY_WIDGET_KEY, null);
+        String owner = prefs.getString(KEY_WIDGET_USER, null);
+        SharedPreferences.Editor editor = prefs.edit();
+        if (url != null && anonKey != null) editor.putString(KEY_API_URL, url).putString(KEY_API_ANON, anonKey);
+        String previous = null;
+        if (key != null && (userId == null || !userId.equals(owner))) {
+            previous = key;
+            key = null;
+            editor.remove(KEY_WIDGET_KEY).remove(KEY_WIDGET_USER);
+        }
+        if (userId != null && key == null) {
+            byte[] bytes = new byte[32];
+            new SecureRandom().nextBytes(bytes);
+            key = Base64.encodeToString(bytes, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+            editor.putString(KEY_WIDGET_KEY, key).putString(KEY_WIDGET_USER, userId);
+        }
+        editor.commit();
+        return new String[] { key, previous };
+    }
+
+    /** {url, anonKey, widgetKey} for FocusStatusPoster, or null when signed out. */
+    static String[] api(Context ctx) {
+        SharedPreferences prefs = prefs(ctx);
+        String url = prefs.getString(KEY_API_URL, null);
+        String anon = prefs.getString(KEY_API_ANON, null);
+        String key = prefs.getString(KEY_WIDGET_KEY, null);
+        return url == null || anon == null || key == null ? null : new String[] { url, anon, key };
     }
 
     /** The goal (Progress) or room (Room) a widget shows. */

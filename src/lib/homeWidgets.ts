@@ -185,6 +185,7 @@ interface YouDoWidgetsPlugin {
   update(options: { snapshot: string }): Promise<void>;
   takeActions(): Promise<{ actions?: unknown }>;
   status(): Promise<{ roomWidgets?: number }>;
+  widgetKey(options: { userId: string | null; url: string; anonKey: string }): Promise<{ key?: string; previousKey?: string }>;
 }
 
 const YouDoWidgets = registerPlugin<YouDoWidgetsPlugin>('YouDoWidgets', {
@@ -192,6 +193,7 @@ const YouDoWidgets = registerPlugin<YouDoWidgetsPlugin>('YouDoWidgets', {
     async update() {},
     async takeActions() { return {}; },
     async status() { return {}; },
+    async widgetKey() { return {}; },
   }) as YouDoWidgetsPlugin,
 });
 
@@ -238,6 +240,20 @@ export async function drainWidgetActions(todayTasks: Task[], reorder: (fromId: s
   const moves = actions.flatMap((action) => (action.type === 'move' ? [action] : []));
   for (const [from, to] of planWidgetMoves(todayTasks, moves)) reorder(from, to);
   return actions.filter((action) => action.type === 'stop').pop()?.taskId ?? null;
+}
+
+/**
+ * Gives this phone's widgets a key for the signed-in account (hub_widget_push.sql),
+ * so a session started on the widget lights the starter's room dot with YouDO
+ * closed. Signing out or switching accounts forgets the old key.
+ */
+export async function syncWidgetKey(userId: string | null): Promise<void> {
+  try {
+    const { supabase, supabaseUrl, supabaseAnonKey } = await import('./supabase');
+    const { key, previousKey } = await YouDoWidgets.widgetKey({ userId, url: supabaseUrl, anonKey: supabaseAnonKey });
+    if (previousKey) await supabase.rpc('forget_widget_key', { widget_key: previousKey });
+    if (key) await supabase.rpc('register_widget_key', { widget_key: key });
+  } catch { /* without a key the dot waits until the app opens */ }
 }
 
 /** The rooms for Room widgets, or null when none is placed. */

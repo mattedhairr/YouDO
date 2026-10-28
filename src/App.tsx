@@ -194,7 +194,7 @@ function AppInner() {
 
   const [{ darkMode }] = useTheme();
   const [{ legacyStyle }] = useUiPrefs();
-  const { user: activityUser } = useAuth();
+  const { user: activityUser, loading: authLoading } = useAuth();
   const { pacePrefs: activityPrefs } = useStore();
   useCommunityActivity(activityUser?.id, activityPrefs.optedIn);
   const isCommunityAdmin = useIsCommunityAdmin(activityUser?.id);
@@ -889,6 +889,7 @@ function AppInner() {
     goals,
     streakDays: streakStatus.current,
     userId: activityUser?.id ?? null,
+    authReady: !authLoading,
     activeTaskId: activeSession?.taskId ?? null,
     reorder,
     onStopRequested: (taskId) => {

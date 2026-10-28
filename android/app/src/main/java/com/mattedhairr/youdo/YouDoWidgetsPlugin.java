@@ -38,6 +38,15 @@ public class YouDoWidgetsPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void widgetKey(PluginCall call) {
+        String[] keys = HomeWidgetStore.widgetKey(getContext(), call.getString("userId"), call.getString("url"), call.getString("anonKey"));
+        JSObject result = new JSObject();
+        if (keys[0] != null) result.put("key", keys[0]);
+        if (keys[1] != null) result.put("previousKey", keys[1]);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void status(PluginCall call) {
         JSObject result = new JSObject();
         result.put("roomWidgets", HomeWidgets.count(getContext(), RoomWidget.class));
