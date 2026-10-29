@@ -287,7 +287,7 @@ final class HomeWidgets {
         }
         JSONObject card = cards.optJSONObject(index);
         fillCard(ctx, views, card, accent);
-        views.setViewVisibility(R.id.day_nav, n > 1 ? View.VISIBLE : View.GONE);
+        arrows(ctx, views, n > 1);
         views.setOnClickPendingIntent(R.id.day_prev, dayAction(ctx, widgetId, "prev", null));
         views.setOnClickPendingIntent(R.id.day_next_btn, dayAction(ctx, widgetId, "next", null));
         views.setViewVisibility(R.id.day_play, View.VISIBLE);
@@ -345,6 +345,14 @@ final class HomeWidgets {
         views.setOnClickPendingIntent(R.id.day_card, openTarget(ctx, "task", card.optString("id")));
     }
 
+    /** ‹ and › beside the card; without them the card keeps its usual margin. */
+    private static void arrows(Context ctx, RemoteViews views, boolean show) {
+        views.setViewVisibility(R.id.day_prev, show ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.day_next_btn, show ? View.VISIBLE : View.GONE);
+        float dp = ctx.getResources().getDisplayMetrics().density;
+        views.setViewPadding(R.id.day_strip, Math.round((show ? 2 : 14) * dp), Math.round(9 * dp), Math.round(9 * dp), Math.round(9 * dp));
+    }
+
     private static void emptyCard(Context ctx, RemoteViews views, String text) {
         views.setViewVisibility(R.id.day_due, View.GONE);
         views.setViewVisibility(R.id.day_origin, View.GONE);
@@ -353,7 +361,7 @@ final class HomeWidgets {
         views.setTextViewText(R.id.day_card_title, text);
         views.setViewVisibility(R.id.day_next_dot, View.GONE);
         views.setTextViewText(R.id.day_next, "Open YouDO to plan");
-        views.setViewVisibility(R.id.day_nav, View.GONE);
+        arrows(ctx, views, false);
         views.setViewVisibility(R.id.day_play, View.GONE);
         views.setOnClickPendingIntent(R.id.day_card, openApp(ctx));
     }
@@ -448,7 +456,7 @@ final class HomeWidgets {
         views.setTextViewText(R.id.day_card_title, next.isEmpty() ? title : next);
         views.setViewVisibility(R.id.day_next_dot, View.GONE);
         views.setTextViewText(R.id.day_next, next.isEmpty() ? "since " + since : title);
-        views.setViewVisibility(R.id.day_nav, View.GONE);
+        arrows(ctx, views, false);
         views.setViewVisibility(R.id.day_play, View.GONE);
         views.setViewVisibility(R.id.day_pause, View.VISIBLE);
         views.setViewVisibility(R.id.day_stop, View.VISIBLE);

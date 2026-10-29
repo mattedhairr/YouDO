@@ -63,10 +63,12 @@
         android:background="@drawable/widget_box_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
+        android:paddingStart="2dp"
         android:paddingTop="9dp"
         android:paddingEnd="9dp"
         android:paddingBottom="9dp">
+        <!-- ‹ and › frame the card: plain arrows, each a full-height tap target. -->
+        <ImageView android:id="@+id/day_prev" android:layout_width="30dp" android:layout_height="match_parent" android:layout_marginEnd="2dp" android:contentDescription="Previous task" android:scaleType="center" android:src="@drawable/ic_widget_chevron_left" />
         <LinearLayout
             android:id="@+id/day_card"
             android:layout_width="0dp"
@@ -90,15 +92,7 @@
                 <TextView android:id="@+id/day_next" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11.5sp" />
             </LinearLayout>
         </LinearLayout>
-        <LinearLayout
-            android:id="@+id/day_nav"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:orientation="vertical">
-            <TextView android:id="@+id/day_prev" android:layout_width="38dp" android:layout_height="30dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Previous task" android:gravity="center" android:includeFontPadding="false" android:text="‹" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
-            <TextView android:id="@+id/day_next_btn" android:layout_width="38dp" android:layout_height="30dp" android:layout_marginTop="5dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Next task" android:gravity="center" android:includeFontPadding="false" android:text="›" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
-        </LinearLayout>
+        <ImageView android:id="@+id/day_next_btn" android:layout_width="30dp" android:layout_height="match_parent" android:layout_marginStart="2dp" android:contentDescription="Next task" android:scaleType="center" android:src="@drawable/ic_widget_chevron_right" />
         <FrameLayout
             android:id="@+id/day_play"
             android:layout_width="46dp"
