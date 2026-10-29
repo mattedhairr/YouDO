@@ -320,7 +320,7 @@ export async function takeWidgetActions(): Promise<WidgetAction[]> {
   try { return parseWidgetActions((await YouDoWidgets.takeActions()).actions); } catch { return []; }
 }
 
-/** Room data is fetched only while a Room widget is on the home screen. */
+/** Who is focusing in your rooms is fetched only while a Room widget is on the home screen. */
 export async function roomWidgetCount(): Promise<number> {
   if (!widgetsSupported()) return 0;
   try { return (await YouDoWidgets.status()).roomWidgets ?? 0; } catch { return 0; }
@@ -392,9 +392,13 @@ export async function syncWidgetKey(userId: string | null): Promise<void> {
   } catch { /* without a key the dot waits until the app opens */ }
 }
 
-/** The rooms for Room widgets, or null when none is placed. */
-export async function loadWidgetRooms(userId: string): Promise<WidgetRoom[] | null> {
-  if ((await roomWidgetCount()) === 0) return null;
+/**
+ * The rooms for Room widgets, or null when they could not be loaded. The list
+ * is kept even with no Room widget placed, so adding one can pick a room at
+ * once; who is focusing and today's totals (live) are fetched only for a
+ * placed widget.
+ */
+export async function loadWidgetRooms(userId: string, live: boolean): Promise<WidgetRoom[] | null> {
   const [{ fetchMyRoomSummaries }, { fetchFocusStatuses }, { fetchRoomPaceRows }, { fetchPaceRowsForUserIds }] = await Promise.all([
     import('./squads'), import('./focusStatus'), import('./roomFocus'), import('./paceCloud'),
   ]);
@@ -404,10 +408,10 @@ export async function loadWidgetRooms(userId: string): Promise<WidgetRoom[] | nu
   if (failed) return null;
   const ids = [...new Set(summaries.flatMap((summary) => summary.members.map((member) => member.id)))];
   // Each member's focus today, as the room shows it (the Public Board's totals on an older server).
-  const [statuses, ...roomRows] = await Promise.all([
+  const [statuses, ...roomRows] = live ? await Promise.all([
     fetchFocusStatuses(ids),
     ...summaries.map((summary) => fetchRoomPaceRows(summary.squad.id)),
-  ]);
+  ]) : [{}];
   const todayMs = new Map<string, number>();
   if (roomRows.some((rows) => rows === null)) {
     for (const row of await fetchPaceRowsForUserIds(ids)) todayMs.set(row.userId, row.todayMs);

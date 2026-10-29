@@ -93,11 +93,12 @@ final class ArcPainter {
 
     /**
      * The outer line: today's focus toward the daily bar (focus is the share,
-     * 1 or more once it is reached), filled in amber with a flame at its tip.
-     * The rest of the track stays dotted; a reached bar glows end to end.
+     * 1 or more once it is reached), filled in amber with a flame at its tip
+     * once there is any. It runs far enough out that the flame never covers
+     * the task knob. The rest stays dotted; a reached bar glows end to end.
      */
     private static void focusTrack(Canvas canvas, float[] f, float focus, Palette palette) {
-        float rt = f[2] + 11 * SCALE;
+        float rt = f[2] + 16 * SCALE;
         RectF box = new RectF(f[0] - rt, f[1] - rt, f[0] + rt, f[1] + rt);
         Paint track = stroke(palette.dim, 1.5f);
         track.setPathEffect(new DashPathEffect(new float[] { 2 * SCALE, 5 * SCALE }, 0));
@@ -108,12 +109,13 @@ final class ArcPainter {
             if (hit) canvas.drawArc(box, 180, sweep, false, glow(stroke(FLAME, 5), 4, 150));
             canvas.drawArc(box, 180, sweep, false, stroke(FLAME, 3));
         }
+        if (sweep <= 0) return;
         float[] at = point(f, rt, 180 + sweep);
-        canvas.drawCircle(at[0], at[1], (hit ? 13 : 10) * SCALE, glow(fill(FLAME), 5, 120));
+        canvas.drawCircle(at[0], at[1], (hit ? 10 : 7) * SCALE, glow(fill(FLAME), 4, 110));
         Paint flame = new Paint(Paint.ANTI_ALIAS_FLAG);
-        flame.setTextSize((hit ? 16 : 13) * SCALE);
+        flame.setTextSize((hit ? 14 : 11) * SCALE);
         flame.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("🔥", at[0], at[1] + (hit ? 6 : 4.5f) * SCALE, flame);
+        canvas.drawText("🔥", at[0], at[1] + (hit ? 5 : 4) * SCALE, flame);
     }
 
     /**
@@ -125,7 +127,7 @@ final class ArcPainter {
     static Bitmap dayArc(int widthDp, int heightDp, int[] segments, float nowFill, float focus, Palette palette) {
         Bitmap bitmap = bitmap(widthDp, heightDp);
         Canvas canvas = new Canvas(bitmap);
-        float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), 16 * SCALE);
+        float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), 21 * SCALE);
         focusTrack(canvas, f, focus, palette);
         RectF box = new RectF(f[0] - f[2], f[1] - f[2], f[0] + f[2], f[1] + f[2]);
         int n = segments.length;

@@ -228,7 +228,8 @@ final class HomeWidgets {
         int[] segments = segments(backlog, backlog ? 0 : done, n, index);
         long[] focusToday = focusToday(snapshot, 0);
         views.setImageViewBitmap(R.id.day_arc, ArcPainter.dayArc(arc[0], arc[1], segments, -1, share(focusToday), palette));
-        views.setTextViewText(R.id.day_title, backlog ? "TODAY · BACKLOG" : "TODAY");
+        String where = n > 0 ? " · " + (index + 1) + " OF " + n : "";
+        views.setTextViewText(R.id.day_title, (backlog ? "TODAY · BACKLOG" : "TODAY") + where);
         color(ctx, views, R.id.day_title, "setTextColor", R.color.widget_text2);
 
         views.setViewVisibility(R.id.day_big, View.VISIBLE);
@@ -260,7 +261,7 @@ final class HomeWidgets {
             return null;
         }
         JSONObject card = cards.optJSONObject(index);
-        fillCard(ctx, views, card, accent, (index + 1) + " of " + n);
+        fillCard(ctx, views, card, accent);
         views.setViewVisibility(R.id.day_nav, n > 1 ? View.VISIBLE : View.GONE);
         views.setOnClickPendingIntent(R.id.day_prev, dayAction(ctx, widgetId, "prev", null));
         views.setOnClickPendingIntent(R.id.day_next_btn, dayAction(ctx, widgetId, "next", null));
@@ -283,15 +284,24 @@ final class HomeWidgets {
         return segments;
     }
 
-    /** The strip's card: due day, place and goal path, title, and the next step to do. */
-    private static void fillCard(Context ctx, RemoteViews views, JSONObject card, int[] accent, String place) {
+    /** The strip's card: due day, goal path as on Today's cards, title, and the next step to do. */
+    private static void fillCard(Context ctx, RemoteViews views, JSONObject card, int[] accent) {
         Calendar due = card.isNull("due") ? null : localDate(card.optString("due"));
         views.setViewVisibility(R.id.day_due, due == null ? View.GONE : View.VISIBLE);
         if (due != null) views.setTextViewText(R.id.day_due, "Due " + new SimpleDateFormat("MMM d", Locale.getDefault()).format(due.getTime()));
-        String origin = card.isNull("origin") ? "Quick task" : card.optString("origin");
-        views.setTextViewText(R.id.day_eyebrow, origin.isEmpty() ? place : place + " · " + origin);
-        tint(ctx, views, R.id.day_eyebrow, "setTextColor", accent);
+        // Two goal levels in a chip, the rest under the title; or "Quick task".
+        boolean quick = card.isNull("origin");
+        String origin = quick ? "" : card.optString("origin");
+        views.setViewVisibility(R.id.day_origin, origin.isEmpty() ? View.GONE : View.VISIBLE);
+        views.setTextViewText(R.id.day_origin_text, origin);
+        tint(ctx, views, R.id.day_origin_text, "setTextColor", accent);
+        tint(ctx, views, R.id.day_origin_icon, "setColorFilter", accent);
+        views.setTextViewText(R.id.day_eyebrow, quick ? "Quick task" : "");
+        color(ctx, views, R.id.day_eyebrow, "setTextColor", R.color.widget_text2);
         views.setTextViewText(R.id.day_card_title, card.optString("title"));
+        String path = card.optString("context");
+        views.setTextViewText(R.id.day_path, path);
+        views.setViewVisibility(R.id.day_path, path.isEmpty() ? View.GONE : View.VISIBLE);
         int done = card.optInt("done");
         int total = card.optInt("total");
         boolean open = total > 0 && done < total && !card.isNull("next");
@@ -303,6 +313,8 @@ final class HomeWidgets {
 
     private static void emptyCard(Context ctx, RemoteViews views, String text) {
         views.setViewVisibility(R.id.day_due, View.GONE);
+        views.setViewVisibility(R.id.day_origin, View.GONE);
+        views.setViewVisibility(R.id.day_path, View.GONE);
         views.setTextViewText(R.id.day_eyebrow, "");
         views.setTextViewText(R.id.day_card_title, text);
         views.setViewVisibility(R.id.day_next_dot, View.GONE);
@@ -392,6 +404,8 @@ final class HomeWidgets {
         views.setViewVisibility(R.id.day_strip, View.VISIBLE);
         views.setViewVisibility(R.id.day_stats, View.GONE);
         views.setViewVisibility(R.id.day_due, View.GONE);
+        views.setViewVisibility(R.id.day_origin, View.GONE);
+        views.setViewVisibility(R.id.day_path, View.GONE);
         views.setTextViewText(R.id.day_eyebrow, "NOW");
         color(ctx, views, R.id.day_eyebrow, "setTextColor", R.color.widget_live);
         views.setTextViewText(R.id.day_card_title, next.isEmpty() ? title : next);

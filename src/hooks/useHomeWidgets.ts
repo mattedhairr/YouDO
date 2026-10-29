@@ -5,6 +5,8 @@ import type { WidgetRoom, WidgetTarget, widgetStreak } from '../lib/homeWidgets'
 
 /** Rooms change rarely; refetching on every app switch would waste requests. */
 const ROOM_REFRESH_MS = 60_000;
+/** Without a Room widget only the list of rooms is kept, so it is fetched less often. */
+const ROOM_LIST_REFRESH_MS = 10 * 60_000;
 
 const widgets = () => import('../lib/homeWidgets');
 
@@ -97,20 +99,25 @@ export function useHomeWidgets({
     stopRef.current(pendingStop);
   }, [pendingStop, activeTaskId]);
 
-  // The widget key for this account, then room members and who is focusing
-  // (only while a Room widget is placed).
+  // The widget key for this account, then your rooms; who is focusing only
+  // while a Room widget is placed.
   useEffect(() => {
     if (!supported || !authReady) return;
     void widgets().then((w) => w.syncWidgetKey(userId));
     if (!userId) return;
     let cancelled = false;
     let last = 0;
+    let lastLive = false;
     const load = async () => {
-      if (Date.now() - last < ROOM_REFRESH_MS) return;
-      const next = await (await widgets()).loadWidgetRooms(userId);
-      // Only a real fetch waits: a Room widget added a moment ago loads on return.
+      const w = await widgets();
+      const live = (await w.roomWidgetCount()) > 0;
+      // A Room widget placed since the last fetch is filled in at once.
+      if (live === lastLive && Date.now() - last < (live ? ROOM_REFRESH_MS : ROOM_LIST_REFRESH_MS)) return;
+      const next = await w.loadWidgetRooms(userId, live);
+      // A failed fetch is tried again on the next return.
       if (!next) return;
       last = Date.now();
+      lastLive = live;
       if (!cancelled) setRooms(next);
     };
     void load();
