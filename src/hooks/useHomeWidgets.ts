@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import type { GoalNode, Task } from '../types';
+import type { GoalNode, Task, TaskSession } from '../types';
 import type { WidgetRoom, WidgetTarget, widgetStreak } from '../lib/homeWidgets';
 
 /** Rooms change rarely; refetching on every app switch would waste requests. */
@@ -11,6 +11,10 @@ const widgets = () => import('../lib/homeWidgets');
 interface Options {
   todayTasks: Task[];
   backlogTasks: Task[];
+  tasks: Task[];
+  /** Net focus by local day, and the sessions behind it. */
+  focusByDate: Map<string, number>;
+  sessionHistory: Record<string, TaskSession[]>;
   goals: GoalNode[];
   streak: Parameters<typeof widgetStreak>[0];
   userId: string | null;
@@ -46,7 +50,7 @@ function usePageAccent(): string | undefined {
 
 /** Keeps the Android home-screen widgets in step with the app (see lib/homeWidgets). */
 export function useHomeWidgets({
-  todayTasks, backlogTasks, goals, streak, userId, authReady, activeTaskId, onStopRequested, onOpenRequested,
+  todayTasks, backlogTasks, tasks, focusByDate, sessionHistory, goals, streak, userId, authReady, activeTaskId, onStopRequested, onOpenRequested,
 }: Options) {
   const supported = Capacitor.getPlatform() === 'android';
   const accent = usePageAccent();
@@ -58,10 +62,13 @@ export function useHomeWidgets({
   useEffect(() => {
     if (!supported) return;
     const timer = setTimeout(() => {
-      void widgets().then((w) => w.syncWidgets(todayTasks, backlogTasks, goals, streak, accent, rooms));
+      void widgets().then((w) => w.syncWidgets({
+        todayTasks, backlogTasks, tasks, goals, streak, accent, rooms, focusByDate, userId,
+        sessions: Object.values(sessionHistory).flat(),
+      }));
     }, 400);
     return () => clearTimeout(timer);
-  }, [supported, todayTasks, backlogTasks, goals, streak, accent, rooms]);
+  }, [supported, todayTasks, backlogTasks, tasks, goals, streak, accent, rooms, focusByDate, sessionHistory, userId]);
 
   // A Stop tapped on the widget while the app was closed or in the background.
   useEffect(() => {

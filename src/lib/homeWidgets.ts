@@ -1,9 +1,10 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import type { GoalNode, Task } from '../types';
+import type { GoalNode, Task, TaskSession } from '../types';
 import type { FocusState, FocusStatus } from './focusStatus';
 import { isTaskComplete, pathTitles, rollupPct } from './goalTree';
 import { ACCENT_SWATCHES, resolveAccent } from './accentColors';
-import { msUntilEndOfLocalISODate } from './dates';
+import { msUntilEndOfLocalISODate, shiftLocalISO, todayISO } from './dates';
+import { daysUntil, goalPace } from './goalPace';
 
 /*
  * Android home-screen widgets (Up next, Progress, Room). The widgets cannot run
@@ -23,6 +24,8 @@ export interface WidgetTask {
    */
   origin: string | null;
   context: string;
+  /** The goal the card belongs to (the goal chip follows it), or null. */
+  goal: string | null;
   /** 1-based place in its list. */
   rank: number;
   done: number;
@@ -41,6 +44,16 @@ export interface WidgetGoal {
   deadline: string | null;
   stepsDone: number;
   stepsTotal: number;
+  /**
+   * The honest pace (goalPace.ts): steps left (paceOpen) by paceEnd, for the
+   * dated stage in progress (stage) or, with stage null, the whole goal as
+   * planned so far. paceEnd is null when there is no date to pace against.
+   */
+  stage: string | null;
+  paceEnd: string | null;
+  paceOpen: number;
+  /** Steps done on this goal in the last 7 days: the pace you actually keep. */
+  recent: number;
 }
 
 export interface WidgetMember {
@@ -54,6 +67,8 @@ export interface WidgetMember {
   startedAt: number | null;
   pausedMs: number;
   updatedAt: number;
+  /** Their focus today, as the room shows it. */
+  todayMs: number;
 }
 
 export interface WidgetRoom {
@@ -61,6 +76,8 @@ export interface WidgetRoom {
   name: string;
   /** The room's emoji, as on its tile in the app. */
   icon: string;
+  /** The room's daily focus bar, in hours. */
+  barHours: number;
   members: WidgetMember[];
 }
 
@@ -68,6 +85,8 @@ export interface WidgetRoom {
 export interface WidgetStreakSave {
   days: number;
   endsAt: number;
+  /** What restoring it still takes, e.g. "finish 3 tasks and hit your focus bar". */
+  hint: string;
 }
 
 export interface WidgetSnapshot {
@@ -75,6 +94,10 @@ export interface WidgetSnapshot {
   today: WidgetTask[];
   /** Open overdue tasks, oldest first, as the Backlog tab lists them. */
   backlog: WidgetTask[];
+  /** Today's scheduled cards already finished (the arc's lit segments). */
+  todayDone: number;
+  /** Focus today, and the daily average over the last 30 days. */
+  focus: { todayMs: number; avgMs: number };
   streak: { days: number; save: WidgetStreakSave | null };
   /** The app's accent for light and dark phones. */
   accent: { light: string; dark: string };
@@ -102,14 +125,14 @@ const clip = (text: string) => {
 /** The step the card's progress has reached, if any is left. */
 const nextStep = (task: Task) => (task.progress < task.steps.length ? clip(task.steps[task.progress]) || null : null);
 
-function taskOrigin(goals: GoalNode[], task: Task): Pick<WidgetTask, 'origin' | 'context'> {
-  if (!task.goalNodeId) return { origin: null, context: '' };
+function taskOrigin(goals: GoalNode[], task: Task): Pick<WidgetTask, 'origin' | 'context' | 'goal'> {
+  if (!task.goalNodeId) return { origin: null, context: '', goal: null };
   for (const root of goals) {
     // The card already shows the task itself, so only its parents.
     const parents = pathTitles(root, task.goalNodeId).slice(0, -1);
-    if (parents.length) return { origin: clip(parents.slice(0, 2).join(' • ')), context: clip(parents.slice(2).join(' / ')) };
+    if (parents.length) return { origin: clip(parents.slice(0, 2).join(' • ')), context: clip(parents.slice(2).join(' / ')), goal: root.id };
   }
-  return { origin: '', context: '' };
+  return { origin: '', context: '', goal: null };
 }
 
 function stepCounts(node: GoalNode): { done: number; total: number } {
@@ -167,30 +190,95 @@ export function widgetBacklogTasks(backlogTasks: Task[], goals: GoalNode[]): Wid
     }));
 }
 
-export function widgetGoals(goals: GoalNode[]): WidgetGoal[] {
+const openSteps = (node: GoalNode) => {
+  const counts = stepCounts(node);
+  return counts.total - counts.done;
+};
+
+export function widgetGoals(goals: GoalNode[], today = todayISO(), recent: Map<string, number> = new Map()): WidgetGoal[] {
   return goals.map((goal) => {
     const counts = stepCounts(goal);
+    const deadline = goal.endDate && /^\d{4}-\d{2}-\d{2}/.test(goal.endDate) ? goal.endDate.slice(0, 10) : null;
+    const pace = goalPace(goal, deadline ?? undefined, openSteps, today);
     return {
       id: goal.id,
       title: clip(goal.title) || 'Untitled goal',
       pct: rollupPct(goal),
-      deadline: goal.endDate && /^\d{4}-\d{2}-\d{2}/.test(goal.endDate) ? goal.endDate.slice(0, 10) : null,
+      deadline,
       stepsDone: counts.done,
       stepsTotal: counts.total,
+      stage: pace?.stage ? clip(pace.stage.title) : null,
+      paceEnd: pace ? (pace.stage?.endDate ?? deadline ?? '').slice(0, 10) || null : null,
+      paceOpen: pace?.open ?? 0,
+      recent: recent.get(goal.id) ?? 0,
     };
   });
 }
 
+/** Steps done on each goal in the last 7 days, from the sessions that ticked them. */
+export function recentGoalSteps(goals: GoalNode[], tasks: Task[], sessions: TaskSession[], now = Date.now()): Map<string, number> {
+  const goalOfNode = new Map<string, string>();
+  const walk = (node: GoalNode, goalId: string) => {
+    goalOfNode.set(node.id, goalId);
+    node.children.forEach((child) => walk(child, goalId));
+  };
+  goals.forEach((goal) => walk(goal, goal.id));
+  const goalOfTask = new Map<string, string>();
+  for (const task of tasks) {
+    const goalId = task.goalNodeId ? goalOfNode.get(task.goalNodeId) : undefined;
+    if (goalId) goalOfTask.set(task.id, goalId);
+  }
+  const since = now - 7 * 86_400_000;
+  const steps = new Map<string, number>();
+  for (const session of sessions) {
+    const goalId = goalOfTask.get(session.taskId);
+    if (!goalId || session.endTime < since || !session.completedStepIndices?.length) continue;
+    steps.set(goalId, (steps.get(goalId) ?? 0) + session.completedStepIndices.length);
+  }
+  return steps;
+}
+
+/** Focus today, and the daily average over the 30 days before it (or since focus began, if later). */
+export function widgetFocus(byDate: Map<string, number>, today = todayISO()): WidgetSnapshot['focus'] {
+  let total = 0;
+  let since: string | null = null;
+  for (let back = 30; back >= 1; back--) {
+    const day = shiftLocalISO(today, -back);
+    const ms = byDate.get(day) ?? 0;
+    if (ms > 0 && !since) since = day;
+    if (since) total += ms;
+  }
+  const days = since ? -daysUntil(since, today) : 0;
+  return { todayMs: byDate.get(today) ?? 0, avgMs: days ? Math.round(total / days) : 0 };
+}
+
 /** The streak shown on Progress, keeping one that can still be restored. */
 export function widgetStreak(
-  streak: { current: number; revive: { active: boolean; windowEnds: string; previousStreak: number } | null },
+  streak: {
+    current: number;
+    revive: {
+      active: boolean;
+      windowEnds: string;
+      previousStreak: number;
+      mode?: 'backlog' | 'challenge';
+      remainingTasks?: number;
+      remainingScheduled?: number;
+      challengeBarHours?: number | null;
+    } | null;
+  },
   now = Date.now(),
 ): WidgetSnapshot['streak'] {
   const revive = streak.revive;
-  const save = revive?.active && revive.previousStreak > 0 && revive.windowEnds
-    ? { days: revive.previousStreak, endsAt: now + msUntilEndOfLocalISODate(revive.windowEnds, now) }
-    : null;
-  return { days: streak.current, save };
+  if (!revive?.active || revive.previousStreak <= 0 || !revive.windowEnds) return { days: streak.current, save: null };
+  // As focusTrends.ts restores it: a focus challenge, or every saved task done plus a day at the focus bar.
+  const left = (revive.remainingTasks ?? 0) + (revive.remainingScheduled ?? 0);
+  const hint = revive.mode === 'challenge' && revive.challengeBarHours
+    ? `focus ${revive.challengeBarHours}h in a day`
+    : left > 0 ? `finish ${left} task${left === 1 ? '' : 's'} and hit your focus bar` : 'hit your focus bar';
+  return {
+    days: streak.current,
+    save: { days: revive.previousStreak, endsAt: now + msUntilEndOfLocalISODate(revive.windowEnds, now), hint },
+  };
 }
 
 export function widgetAccent(accent: string | undefined): WidgetSnapshot['accent'] {
@@ -202,7 +290,13 @@ export function widgetAccent(accent: string | undefined): WidgetSnapshot['accent
 const avatarGlyph = (avatar?: string | null) => (avatar && !/^https?:\/\//i.test(avatar) ? avatar.trim() || null : null);
 
 export function widgetRooms(
-  rooms: { id: string; name: string; icon?: string; members: { id: string; name: string; avatar?: string | null }[] }[],
+  rooms: {
+    id: string;
+    name: string;
+    icon?: string;
+    barHours?: number | null;
+    members: { id: string; name: string; avatar?: string | null; todayMs?: number }[];
+  }[],
   statuses: Record<string, FocusStatus>,
   selfId: string | null = null,
 ): WidgetRoom[] {
@@ -210,6 +304,7 @@ export function widgetRooms(
     id: room.id,
     name: clip(room.name) || 'Room',
     icon: room.icon?.trim() || '🔥',
+    barHours: room.barHours && room.barHours > 0 ? room.barHours : 4,
     members: room.members.slice(0, 4).map((member) => {
       const status = statuses[member.id];
       const first = member.name.trim().split(/\s+/)[0] ?? '';
@@ -222,6 +317,7 @@ export function widgetRooms(
         startedAt: status?.startedAt ? Date.parse(status.startedAt) : null,
         pausedMs: status?.pausedMs ?? 0,
         updatedAt: status ? Date.parse(status.updatedAt) : 0,
+        todayMs: Math.max(0, member.todayMs ?? 0),
       };
     }),
   }));
@@ -278,22 +374,36 @@ export async function roomWidgetCount(): Promise<number> {
 let lastPublished = '';
 
 /** Sends the widgets a new snapshot when what they show has changed. */
-export async function syncWidgets(
-  todayTasks: Task[],
-  backlogTasks: Task[],
-  goals: GoalNode[],
-  streak: Parameters<typeof widgetStreak>[0],
-  accent: string | undefined,
-  rooms: WidgetRoom[] | null,
-): Promise<void> {
+export interface WidgetSources {
+  todayTasks: Task[];
+  backlogTasks: Task[];
+  tasks: Task[];
+  goals: GoalNode[];
+  streak: Parameters<typeof widgetStreak>[0];
+  accent: string | undefined;
+  rooms: WidgetRoom[] | null;
+  /** Net focus by local day (App's streak input). */
+  focusByDate: Map<string, number>;
+  sessions: TaskSession[];
+  userId: string | null;
+}
+
+export async function syncWidgets(src: WidgetSources): Promise<void> {
+  const focus = widgetFocus(src.focusByDate);
   const snapshot: WidgetSnapshot = {
     v: 1,
-    today: widgetTodayTasks(todayTasks, goals),
-    backlog: widgetBacklogTasks(backlogTasks, goals),
-    streak: widgetStreak(streak),
-    accent: widgetAccent(accent),
-    goals: widgetGoals(goals),
-    rooms,
+    today: widgetTodayTasks(src.todayTasks, src.goals),
+    backlog: widgetBacklogTasks(src.backlogTasks, src.goals),
+    todayDone: src.todayTasks.filter(isTaskComplete).length,
+    focus,
+    streak: widgetStreak(src.streak),
+    accent: widgetAccent(src.accent),
+    goals: widgetGoals(src.goals, todayISO(), recentGoalSteps(src.goals, src.tasks, src.sessions)),
+    // Your own focus today is known here before the room's copy syncs.
+    rooms: src.rooms && src.rooms.map((room) => ({
+      ...room,
+      members: room.members.map((member) => (member.id === src.userId ? { ...member, todayMs: Math.max(member.todayMs, focus.todayMs) } : member)),
+    })),
   };
   const json = JSON.stringify(snapshot);
   if (json === lastPublished) return;
@@ -329,14 +439,31 @@ export async function syncWidgetKey(userId: string | null): Promise<void> {
 /** The rooms for Room widgets, or null when none is placed. */
 export async function loadWidgetRooms(userId: string): Promise<WidgetRoom[] | null> {
   if ((await roomWidgetCount()) === 0) return null;
-  const [{ fetchMyRoomSummaries }, { fetchFocusStatuses }] = await Promise.all([import('./squads'), import('./focusStatus')]);
+  const [{ fetchMyRoomSummaries }, { fetchFocusStatuses }, { fetchRoomPaceRows }, { fetchPaceRowsForUserIds }] = await Promise.all([
+    import('./squads'), import('./focusStatus'), import('./roomFocus'), import('./paceCloud'),
+  ]);
   const summaries = await fetchMyRoomSummaries(userId);
   const ids = [...new Set(summaries.flatMap((summary) => summary.members.map((member) => member.id)))];
-  const statuses = await fetchFocusStatuses(ids);
+  // Each member's focus today, as the room shows it (the Public Board's totals on an older server).
+  const [statuses, ...roomRows] = await Promise.all([
+    fetchFocusStatuses(ids),
+    ...summaries.map((summary) => fetchRoomPaceRows(summary.squad.id)),
+  ]);
+  const todayMs = new Map<string, number>();
+  if (roomRows.some((rows) => rows === null)) {
+    for (const row of await fetchPaceRowsForUserIds(ids)) todayMs.set(row.userId, row.todayMs);
+  }
+  for (const rows of roomRows) for (const row of Object.values(rows ?? {})) todayMs.set(row.userId, row.todayMs);
   return widgetRooms(summaries.map((summary) => ({
     id: summary.squad.id,
     name: summary.squad.name,
     icon: summary.squad.description,
-    members: summary.members.map((member) => ({ id: member.id, name: member.display_name || member.username || '?', avatar: member.avatar_url })),
+    barHours: summary.squad.bar_hours,
+    members: summary.members.map((member) => ({
+      id: member.id,
+      name: member.display_name || member.username || '?',
+      avatar: member.avatar_url,
+      todayMs: todayMs.get(member.id) ?? 0,
+    })),
   })), statuses, userId);
 }

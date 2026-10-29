@@ -2,10 +2,7 @@
 <resources>
     <!-- Invisible: launchers that print a label under widgets then leave Up next unlabelled, like the others. -->
     <string name="widget_up_next_label">​</string>
-    <string name="widget_up_next_description">Today\'s tasks one at a time. Start a session, or move a task up or down.</string>
-    <string name="widget_progress_label">Goal progress</string>
-    <string name="widget_progress_description">Your streak, one goal\'s progress and the days left.</string>
+    <string name="widget_up_next_description">Your day as one arc: today\'s tasks, the backlog and your goal, with the time of day.</string>
     <string name="widget_room_label">Room</string>
     <string name="widget_room_description">A room\'s members, and who is focusing right now.</string>
-    <string name="widget_days">DAYS</string>
 </resources>

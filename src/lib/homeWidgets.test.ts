@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalNode, Task } from '../types';
-import { avatarColor, parseWidgetActions, widgetAccent, widgetBacklogTasks, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
+import { avatarColor, parseWidgetActions, recentGoalSteps, widgetAccent, widgetBacklogTasks, widgetFocus, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
 
 const task = (id: string, order: number, extra: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: '', priority: 'medium', targetDate: '2026-10-28', deadline: null,
@@ -21,7 +21,8 @@ describe('widgetTodayTasks', () => {
     // As Today's cards: two levels as the eyebrow, the rest under the title.
     expect(cards[1]).toMatchObject({ origin: 'Novel • Part one', context: 'Ch 1 / Scene', done: 1, total: 2, next: 'b' });
     expect(widgetTodayTasks([task('x', 0, { steps: [] })], [])[0].next).toBeNull();
-    expect(cards[0]).toMatchObject({ origin: null, context: '' });
+    expect(cards[0]).toMatchObject({ origin: null, context: '', goal: null });
+    expect(cards[1].goal).toBe('Novel');
   });
 });
 
@@ -44,6 +45,42 @@ describe('widgetGoals', () => {
     });
     expect(widgetGoals([goal])[0]).toMatchObject({ deadline: '2026-12-15', stepsDone: 3, stepsTotal: 4 });
     expect(widgetGoals([{ ...goal, endDate: 'soon' }])[0].deadline).toBeNull();
+  });
+
+  it('paces only planned work: the dated stage in progress, else the goal as planned so far', () => {
+    const staged = node('GATE', {
+      kind: 'goal', endDate: '2026-12-31',
+      children: [
+        node('Phase 3', { startDate: '2026-10-20', endDate: '2026-11-15', children: [node('a', { steps: ['x', 'y'], stepDone: [true, false] }), node('b', { steps: ['z'] })] }),
+        node('Phase 4', { startDate: '2026-11-16', endDate: '2026-12-10', children: [node('c')] }),
+      ],
+    });
+    expect(widgetGoals([staged], '2026-10-29', new Map([['GATE', 9]]))[0]).toMatchObject({ stage: 'Phase 3', paceEnd: '2026-11-15', paceOpen: 2, recent: 9 });
+    const undated = node('Spanish', { kind: 'goal', endDate: '2026-11-30', children: [node('a', { steps: ['x', 'y'] })] });
+    expect(widgetGoals([undated], '2026-10-29')[0]).toMatchObject({ stage: null, paceEnd: '2026-11-30', paceOpen: 2, recent: 0 });
+    expect(widgetGoals([node('Someday', { kind: 'goal', children: [node('a')] })], '2026-10-29')[0].paceEnd).toBeNull();
+  });
+});
+
+describe('recentGoalSteps', () => {
+  it('counts the steps ticked on each goal in the last 7 days', () => {
+    const goals = [node('G', { kind: 'goal', children: [node('n1')] })];
+    const tasks = [task('t1', 0, { goalNodeId: 'n1' }), task('loose', 1)];
+    const now = Date.parse('2026-10-29T12:00:00Z');
+    const session = (taskId: string, daysAgo: number, steps: number[]) => ({
+      taskId, startTime: 0, endTime: now - daysAgo * 86_400_000, netFocusMs: 0, completedStepIndices: steps,
+    }) as unknown as import('../types').TaskSession;
+    const steps = recentGoalSteps(goals, tasks, [session('t1', 1, [0, 1]), session('t1', 9, [2]), session('loose', 1, [0])], now);
+    expect(steps.get('G')).toBe(2);
+  });
+});
+
+describe('widgetFocus', () => {
+  it('averages the days since focus began, up to the last 30, without today', () => {
+    const byDate = new Map([['2026-10-29', 600_000], ['2026-10-27', 3_600_000], ['2026-10-28', 0]]);
+    // Focus began on the 27th: two days (27th, 28th) before today.
+    expect(widgetFocus(byDate, '2026-10-29')).toEqual({ todayMs: 600_000, avgMs: 1_800_000 });
+    expect(widgetFocus(new Map(), '2026-10-29')).toEqual({ todayMs: 0, avgMs: 0 });
   });
 });
 
@@ -84,7 +121,11 @@ describe('widgetStreak', () => {
   const revive = { active: true, windowEnds: '2026-10-28', previousStreak: 12 };
   it('keeps a broken streak that can still be restored, until the end of its window', () => {
     const now = new Date(2026, 9, 28, 10, 0).getTime();
-    expect(widgetStreak({ current: 0, revive }, now)).toEqual({ days: 0, save: { days: 12, endsAt: new Date(2026, 9, 29).getTime() } });
+    expect(widgetStreak({ current: 0, revive }, now)).toEqual({ days: 0, save: { days: 12, endsAt: new Date(2026, 9, 29).getTime(), hint: 'hit your focus bar' } });
+  });
+  it('says what restoring still takes', () => {
+    expect(widgetStreak({ current: 0, revive: { ...revive, mode: 'backlog', remainingTasks: 2, remainingScheduled: 1 } }).save?.hint).toBe('finish 3 tasks and hit your focus bar');
+    expect(widgetStreak({ current: 0, revive: { ...revive, mode: 'challenge', challengeBarHours: 8 } }).save?.hint).toBe('focus 8h in a day');
   });
   it('has nothing to save once the window is gone or there was no streak', () => {
     expect(widgetStreak({ current: 3, revive: null }).save).toBeNull();

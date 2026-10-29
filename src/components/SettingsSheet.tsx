@@ -56,13 +56,12 @@ import {
   checkNotificationPermission,
   requestNotificationPermission,
   refreshMorningBriefing,
-  extractBriefingData,
-  buildMorningBriefingContent,
   calculateNextBriefingTime,
   sendTestBriefingNotification,
   type NotificationPreferences,
   type RoomNotificationMode,
 } from '../lib/notifications';
+import { buildMorningBriefingContent, extractBriefingData } from '../lib/morningBriefing';
 import { useReducedEffects } from '../hooks/useReducedEffects';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';

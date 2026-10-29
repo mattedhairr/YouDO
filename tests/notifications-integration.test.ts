@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  buildMorningBriefingContent,
   dismissCommunityNotification,
   dismissDmNotification,
   dismissFriendRequestNotification,
@@ -11,7 +10,6 @@ import {
   dispatchFriendRequestNotification,
   dispatchRoomInviteNotification,
   dispatchRoomNotification,
-  extractBriefingData,
   getDmNotificationId,
   getNotificationPreferences,
   getRoomNotificationId,
@@ -22,6 +20,7 @@ import {
 } from '../src/lib/notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import type { GoalNode, Task } from '../src/types';
+import { buildMorningBriefingContent, extractBriefingData } from '../src/lib/morningBriefing';
 
 vi.mock('@capacitor/local-notifications', () => ({
   LocalNotifications: {
