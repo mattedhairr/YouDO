@@ -214,10 +214,12 @@ final class HomeWidgets {
         JSONObject front;
         if (session != null) {
             front = focusView(ctx, views, snapshot, session, scheduled, overdue, done, accent, palette, arc);
+            fitSub(ctx, views, arc);
         } else if (TAB_GOAL.equals(tab) && goals.length() > 0) {
             front = goalView(ctx, views, widgetId, snapshot, goals, palette, arc);
         } else {
             if (TAB_GOAL.equals(tab)) tab = TAB_SCHEDULED;
+            fitSub(ctx, views, arc);
             front = taskView(ctx, views, widgetId, snapshot, TAB_BACKLOG.equals(tab) ? overdue : scheduled, done,
                 TAB_BACKLOG.equals(tab), accent, palette, arc);
         }
@@ -268,7 +270,7 @@ final class HomeWidgets {
             big.append("/").append(String.valueOf(done + n));
             views.setTextViewText(R.id.day_big, big);
             color(ctx, views, R.id.day_big, "setTextColor", R.color.widget_text);
-            views.setTextViewText(R.id.day_sub, done + n == 0 ? "nothing scheduled today" : "tasks done · " + focusLine(focusToday));
+            views.setTextViewText(R.id.day_sub, done + n == 0 ? "nothing scheduled today" : "tasks done\n" + focusLine(focusToday));
         }
         views.setOnClickPendingIntent(R.id.day_arc_area, openApp(ctx));
 
@@ -302,6 +304,15 @@ final class HomeWidgets {
             else segments[i] = backlog ? ArcPainter.LATE : ArcPainter.OPEN;
         }
         return segments;
+    }
+
+    /**
+     * The line under the count or timer stays between the ends of the arc,
+     * clear of the knob that can sit at its start, wrapping if it must.
+     */
+    private static void fitSub(Context ctx, RemoteViews views, int[] arc) {
+        float widthDp = Math.max(90, 2 * (ArcPainter.dayArcRadiusDp(arc[0], arc[1]) - 8 - 6));
+        views.setInt(R.id.day_sub, "setMaxWidth", Math.round(widthDp * ctx.getResources().getDisplayMetrics().density));
     }
 
     /** The strip's card: due day, goal path as on Today's cards, title, and the next step to do. */
@@ -417,7 +428,7 @@ final class HomeWidgets {
         views.setViewVisibility(R.id.day_timer, View.VISIBLE);
         views.setChronometer(R.id.day_timer, SystemClock.elapsedRealtime() - focused, null, !paused);
         String title = SessionNotificationStore.title(ctx);
-        views.setTextViewText(R.id.day_sub, title + " · " + focusLine(focusToday));
+        views.setTextViewText(R.id.day_sub, title + "\n" + focusLine(focusToday));
 
         // The strip: the step being worked on, with pause or resume and stop.
         String next = card == null || card.isNull("next") ? "" : card.optString("next");

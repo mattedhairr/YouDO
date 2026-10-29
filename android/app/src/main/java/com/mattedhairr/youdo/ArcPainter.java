@@ -127,7 +127,7 @@ final class ArcPainter {
     static Bitmap dayArc(int widthDp, int heightDp, int[] segments, float nowFill, float focus, Palette palette) {
         Bitmap bitmap = bitmap(widthDp, heightDp);
         Canvas canvas = new Canvas(bitmap);
-        float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), 21 * SCALE);
+        float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), DAY_OUTSET * SCALE);
         focusTrack(canvas, f, focus, palette);
         RectF box = new RectF(f[0] - f[2], f[1] - f[2], f[0] + f[2], f[1] + f[2]);
         int n = segments.length;
@@ -158,6 +158,14 @@ final class ArcPainter {
         }
         if (marker != null) knob(canvas, marker, palette.knob, markerColor);
         return bitmap;
+    }
+
+    /** Room left outside Day Arc for the focus line and its flame. */
+    private static final float DAY_OUTSET = 21;
+
+    /** Day Arc's radius in dp, as dayArc draws it at this size. */
+    static float dayArcRadiusDp(int widthDp, int heightDp) {
+        return frame(Math.round(widthDp * SCALE), Math.round(heightDp * SCALE), DAY_OUTSET * SCALE)[2] / SCALE;
     }
 
     /** The goal gauge: the share of the goal done, along the arc, glowing. */
