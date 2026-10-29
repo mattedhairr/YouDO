@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { GoalNode, Task } from '../types';
-import type { WidgetRoom, widgetStreak } from '../lib/homeWidgets';
+import type { WidgetRoom, WidgetTarget, widgetStreak } from '../lib/homeWidgets';
 
 /** Rooms change rarely; refetching on every app switch would waste requests. */
 const ROOM_REFRESH_MS = 60_000;
 
-// Loaded after the first screen: the widget code is not needed to show the app.
 const widgets = () => import('../lib/homeWidgets');
 
 interface Options {
@@ -14,20 +13,45 @@ interface Options {
   backlogTasks: Task[];
   goals: GoalNode[];
   streak: Parameters<typeof widgetStreak>[0];
-  accent: string | undefined;
   userId: string | null;
   /** False while sign-in is still being restored, so a key is not forgotten by mistake. */
   authReady: boolean;
   activeTaskId: string | null;
   /** Stop on the widget: open the stop sheet for this card's session. */
   onStopRequested: (taskId: string) => void;
+  /** A widget was tapped: show that task, goal or room. */
+  onOpenRequested: (target: WidgetTarget) => void;
+}
+
+/**
+ * Rendered by App through React.lazy, so none of the widget code is in the
+ * first load (its JS budget is tight).
+ */
+export default function HomeWidgets(options: Options) {
+  useHomeWidgets(options);
+  return null;
+}
+
+/** The accent Settings puts on the page; App's own copy only updates when the app reloads. */
+function usePageAccent(): string | undefined {
+  const [accent, setAccent] = useState(() => document.documentElement.dataset.accent);
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => setAccent(root.dataset.accent));
+    observer.observe(root, { attributes: true, attributeFilter: ['data-accent'] });
+    return () => observer.disconnect();
+  }, []);
+  return accent;
 }
 
 /** Keeps the Android home-screen widgets in step with the app (see lib/homeWidgets). */
 export function useHomeWidgets({
-  todayTasks, backlogTasks, goals, streak, accent, userId, authReady, activeTaskId, onStopRequested,
+  todayTasks, backlogTasks, goals, streak, userId, authReady, activeTaskId, onStopRequested, onOpenRequested,
 }: Options) {
   const supported = Capacitor.getPlatform() === 'android';
+  const accent = usePageAccent();
+  const openRef = useRef(onOpenRequested);
+  openRef.current = onOpenRequested;
   const [rooms, setRooms] = useState<WidgetRoom[] | null>(null);
   const [pendingStop, setPendingStop] = useState<string | null>(null);
 
@@ -47,7 +71,8 @@ export function useHomeWidgets({
       if (busy || document.visibilityState !== 'visible') return;
       busy = true;
       try {
-        const stop = await (await widgets()).drainWidgetActions();
+        const { stop, open } = await (await widgets()).drainWidgetActions();
+        if (open) openRef.current(open);
         if (stop) setPendingStop(stop);
       } finally {
         busy = false;

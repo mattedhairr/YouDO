@@ -23,7 +23,7 @@ import { fetchDmInboxPreviews, type DmInboxPreview } from '../lib/messages';
 import { subscribePrivateHubInbox } from '../lib/privateHubSync';
 import { HubAvatar, HubAvatarStack, HubEmpty, HubSection } from './hub/HubParts';
 import { formatHubTime } from './hub/hubTime';
-import { OPEN_DM_EVENT, takePendingDm } from './hub/openDm';
+import { OPEN_DM_EVENT, OPEN_ROOM_EVENT, takePendingDm, takePendingRoom } from './hub/openDm';
 
 /**
  * The Private Hub (DMs, rooms, friends, notifications), shown when the Admin Hub
@@ -199,6 +199,18 @@ export default function PrivateHubView({
     window.addEventListener(OPEN_DM_EVENT, onRequest);
     return () => window.removeEventListener(OPEN_DM_EVENT, onRequest);
   }, [loadingProfile, needsUsernameClaim, openDmWith]);
+
+  // A Room widget tap: open that room once the hub is ready.
+  useEffect(() => {
+    if (loadingProfile || needsUsernameClaim) return;
+    const openPending = () => {
+      const roomId = takePendingRoom();
+      if (roomId) setOpenRoomId(roomId);
+    };
+    openPending();
+    window.addEventListener(OPEN_ROOM_EVENT, openPending);
+    return () => window.removeEventListener(OPEN_ROOM_EVENT, openPending);
+  }, [loadingProfile, needsUsernameClaim]);
 
   if (!user) return null;
 

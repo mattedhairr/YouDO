@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_glass">#75121016</color>
-    <color name="widget_glass_card">#17FFFFFF</color>
-    <color name="widget_edge">#29FFFFFF</color>
+    <color name="widget_glass">#BA141317</color>
+    <color name="widget_glass_card">#1FFFFFFF</color>
+    <color name="widget_edge">#33FFFFFF</color>
     <color name="widget_shine">#1FFFFFFF</color>
     <color name="widget_text">#FFFFFF</color>
-    <color name="widget_text2">#A8FFFFFF</color>
-    <color name="widget_text3">#61FFFFFF</color>
+    <color name="widget_text2">#D6FFFFFF</color>
+    <color name="widget_text3">#94FFFFFF</color>
     <color name="widget_accent">#E2BD84</color>
     <color name="widget_tick">#9FD0A8</color>
     <color name="widget_live">#3EE07A</color>
-    <color name="widget_track">#24FFFFFF</color>
+    <color name="widget_track">#2EFFFFFF</color>
     <color name="widget_stop">#E5484D</color>
     <color name="widget_save">#F0A640</color>
     <color name="widget_tab_on_text">#141316</color>

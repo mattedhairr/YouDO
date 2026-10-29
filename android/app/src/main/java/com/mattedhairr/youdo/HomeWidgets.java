@@ -32,6 +32,8 @@ final class HomeWidgets {
     static final String EXTRA_ACTION = "widget_action";
     static final String EXTRA_TASK = "widget_task";
     static final String EXTRA_STOP_TASK = "youdo_widget_stop";
+    /** Where a tap should land in the app: "task:<id>", "goal:<id>" or "room:<id>". */
+    static final String EXTRA_OPEN = "youdo_widget_open";
     /** Up next's tabs, as in Today. */
     static final String TAB_SCHEDULED = "scheduled";
     static final String TAB_BACKLOG = "backlog";
@@ -204,19 +206,29 @@ final class HomeWidgets {
         int done = card.optInt("done");
         int total = card.optInt("total");
         views.setTextViewText(R.id.card_title, card.optString("title"));
-        views.setTextViewText(R.id.card_path, cardPath(ctx, card));
+        // As on Today's cards: two goal levels in a chip, or "Quick task".
+        boolean quick = card.isNull("origin");
+        String origin = quick ? "" : card.optString("origin");
+        views.setViewVisibility(R.id.card_quick, quick ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.card_origin, origin.isEmpty() ? View.GONE : View.VISIBLE);
+        views.setTextViewText(R.id.card_origin_text, origin);
+        tint(ctx, views, R.id.card_origin_text, "setTextColor", accent);
+        tint(ctx, views, R.id.card_origin_icon, "setColorFilter", accent);
+        CharSequence path = cardPath(ctx, card);
+        views.setTextViewText(R.id.card_path, path);
+        views.setViewVisibility(R.id.card_path, path.length() == 0 ? View.GONE : View.VISIBLE);
         views.setTextViewText(R.id.card_steps, total > 0 ? done + " of " + total + " steps" : "No steps");
         views.setProgressBar(R.id.card_bar, 100, total > 0 ? Math.min(100, done * 100 / total) : 0, false);
         tint(ctx, views, R.id.card_start_bg, "setColorFilter", accent);
         tintProgress(views, R.id.card_bar, accent);
         views.setOnClickPendingIntent(R.id.card_start, upNextAction(ctx, widgetId, "start", card.optString("id")));
-        views.setOnClickPendingIntent(R.id.card_root, openApp(ctx));
+        views.setOnClickPendingIntent(R.id.card_root, openTarget(ctx, "task", card.optString("id")));
         return views;
     }
 
-    /** The card's goal path; a backlog card leads with the day it was due, in red. */
+    /** The rest of the goal path under the title; a backlog card leads with the day it was due, in red. */
     private static CharSequence cardPath(Context ctx, JSONObject card) {
-        String path = card.optString("path");
+        String path = card.optString("context");
         Calendar due = card.isNull("due") ? null : localDate(card.optString("due"));
         if (due == null) return path;
         SpannableStringBuilder text = new SpannableStringBuilder("Due " + new SimpleDateFormat("MMM d", Locale.getDefault()).format(due.getTime()));
@@ -277,7 +289,7 @@ final class HomeWidgets {
         views.setOnClickPendingIntent(R.id.session_toggle, SessionNotificationStore.actionIntent(ctx,
             paused ? SessionNotificationStore.ACTION_RESUME : SessionNotificationStore.ACTION_PAUSE));
         views.setOnClickPendingIntent(R.id.session_stop, stopIntent(ctx, taskId));
-        views.setOnClickPendingIntent(R.id.widget_root, openApp(ctx));
+        views.setOnClickPendingIntent(R.id.widget_root, openTarget(ctx, "task", taskId));
         return views;
     }
 
@@ -324,7 +336,7 @@ final class HomeWidgets {
             views.setTextViewText(R.id.progress_sub_left, left == 0 ? "All steps done" : left + (left == 1 ? " step left" : " steps left"));
             views.setTextViewText(R.id.progress_sub_right, "no deadline");
         }
-        views.setOnClickPendingIntent(R.id.widget_root, openApp(ctx));
+        views.setOnClickPendingIntent(R.id.widget_root, openTarget(ctx, "goal", goalId));
         return views;
     }
 
@@ -430,7 +442,7 @@ final class HomeWidgets {
         views.setViewVisibility(R.id.room_invite, shown < SLOT.length ? View.VISIBLE : View.GONE);
         views.setTextViewText(R.id.room_live, live == 0 ? "nobody focusing" : "●  " + live + " focusing");
         color(ctx, views, R.id.room_live, "setTextColor", live == 0 ? R.color.widget_text3 : R.color.widget_live);
-        views.setOnClickPendingIntent(R.id.widget_root, openApp(ctx));
+        views.setOnClickPendingIntent(R.id.widget_root, openTarget(ctx, "room", roomId));
         return views;
     }
 
@@ -452,6 +464,17 @@ final class HomeWidgets {
         Intent intent = new Intent(ctx, YouDoActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(ctx, 36001, intent, immutable());
+    }
+
+    /** Opens YouDO on a task, goal or room (YouDoActivity hands it to the app). */
+    private static PendingIntent openTarget(Context ctx, String kind, String id) {
+        if (id == null || id.isEmpty()) return openApp(ctx);
+        Intent intent = new Intent(ctx, YouDoActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        // Its own data, so each target keeps its own PendingIntent.
+        intent.setData(Uri.parse("youdo-widget://open/" + kind + "/" + Uri.encode(id)));
+        intent.putExtra(EXTRA_OPEN, kind + ":" + id);
+        return PendingIntent.getActivity(ctx, 36003, intent, immutable());
     }
 
     private static PendingIntent stopIntent(Context ctx, String taskId) {

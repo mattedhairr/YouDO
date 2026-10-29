@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { ensureNotificationChannels, getNotificationPreferences, scheduleMorningBriefing } from './lib/notifications';
 import { initPushNotifications } from './lib/pushNotifications';
+import { requestOpenRoom } from './components/hub/openDm';
 import { syncPushPreferences } from './lib/pushPreferences';
 import { OPEN_APP_UPDATES_EVENT } from './lib/boardUpdate';
 import { settingsBackStep } from './lib/settingsBack';
@@ -41,7 +42,6 @@ import { useHubAttention } from './hooks/useHubAttention';
 import { useIsCommunityAdmin } from './hooks/useIsCommunityAdmin';
 import { useFocusStatusShare } from './hooks/useFocusStatusShare';
 import { useFocusSoundSession } from './hooks/useFocusSoundSession';
-import { useHomeWidgets } from './hooks/useHomeWidgets';
 import { ADMIN_QUEUE_EVENT, useAdminHubCounts } from './hooks/useAdminHubCounts';
 import { useAuth } from './contexts/AuthContext';
 import { closeTopOverlay } from './lib/overlayNavigation';
@@ -62,6 +62,8 @@ const AdminHubSheet = lazy(() => import('./components/AdminHubSheet'));
 // Only shown during a session; keeps its font and sound picker out of the first load.
 const HelpCenterSheet = lazy(() => import('./components/HelpCenterSheet'));
 const UpdateInstaller = lazy(() => import('./components/UpdateInstaller'));
+// Android home-screen widgets: none of their code is needed for the first screen.
+const HomeWidgets = lazy(() => import('./hooks/useHomeWidgets'));
 
 /** Loads the installer sheet only once it is first opened; its own component follows the download. */
 function UpdateInstallerHost() {
@@ -192,7 +194,7 @@ function AppInner() {
     heartbeatSession,
   } = useSessionStore();
 
-  const [{ darkMode, accent }] = useTheme();
+  const [{ darkMode }] = useTheme();
   const [{ legacyStyle }] = useUiPrefs();
   const { user: activityUser, loading: authLoading } = useAuth();
   const { pacePrefs: activityPrefs } = useStore();
@@ -884,20 +886,6 @@ function AppInner() {
     if (JSON.stringify(meta) !== JSON.stringify(streakMeta)) setStreakMeta(meta);
   }, [setStreakMeta, streakReconcileInput, streakMeta]);
 
-  useHomeWidgets({
-    todayTasks,
-    backlogTasks,
-    goals,
-    streak: streakStatus,
-    accent,
-    userId: activityUser?.id ?? null,
-    authReady: !authLoading,
-    activeTaskId: activeSession?.taskId ?? null,
-    onStopRequested: (taskId) => {
-      const task = tasks.find((t) => t.id === taskId);
-      if (task) setStopDialogTask(task);
-    },
-  });
 
   useEffect(() => {
     void publishPublicPace();
@@ -1273,6 +1261,33 @@ function AppInner() {
 
   return (
     <div className="min-h-screen">
+      {Capacitor.getPlatform() === 'android' && <Suspense fallback={null}><HomeWidgets
+        todayTasks={todayTasks}
+        backlogTasks={backlogTasks}
+        goals={goals}
+        streak={streakStatus}
+        userId={activityUser?.id ?? null}
+        authReady={!authLoading}
+        activeTaskId={activeSession?.taskId ?? null}
+        onStopRequested={(taskId) => {
+          const task = tasks.find((t) => t.id === taskId);
+          if (task) setStopDialogTask(task);
+        }}
+        onOpenRequested={({ kind, id }) => {
+          if (kind === 'room') {
+            openHubFromNotification('private');
+            requestOpenRoom(id);
+          } else if (kind === 'goal') {
+            jumpToGoalTask(id);
+          } else {
+            const task = tasks.find((t) => t.id === id);
+            if (!task) return;
+            setActiveCategoryFilter('all');
+            setTodaySubTab(isBacklogTask(task) ? 'backlog' : 'today');
+            handleNavigateTab('tasks');
+          }
+        }}
+      /></Suspense>}
       {(workspaceStorageError || sessionStorageError) && <div role="alert" className="fixed left-4 right-4 top-[max(1rem,var(--safe-area-top))] z-[10000] mx-auto max-w-md rounded-2xl border border-error/40 bg-surface p-4 text-sm text-content-primary shadow-elevated">
         <p className="mb-1 font-semibold text-error">{workspaceStorageError ? 'Workspace change could not be saved' : 'Timer change could not be saved'}</p>
         <p>{workspaceStorageError || sessionStorageError}</p>

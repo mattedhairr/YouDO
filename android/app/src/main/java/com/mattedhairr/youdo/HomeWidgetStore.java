@@ -62,6 +62,18 @@ final class HomeWidgetStore {
         return null;
     }
 
+    /** A widget tap that opened the app: it shows that task, goal or room ("kind:id"). */
+    static synchronized void queueOpen(Context ctx, String target) {
+        int colon = target == null ? -1 : target.indexOf(':');
+        if (colon <= 0) return;
+        try {
+            JSONObject action = new JSONObject().put("type", "open").put("kind", target.substring(0, colon)).put("id", target.substring(colon + 1));
+            prefs(ctx).edit().putString(KEY_ACTIONS, queued(ctx, action).toString()).commit();
+        } catch (Exception ignored) {
+            /* the app opens where it was */
+        }
+    }
+
     /** Stop on the widget opens the app, which then shows the stop sheet. */
     static synchronized void queueStop(Context ctx, String taskId) {
         try {

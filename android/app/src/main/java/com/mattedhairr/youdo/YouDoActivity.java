@@ -111,6 +111,11 @@ public class YouDoActivity extends BridgeActivity {
             HomeWidgetStore.queueStop(this, stopTask);
             intent.removeExtra(HomeWidgets.EXTRA_STOP_TASK);
         }
+        String open = intent == null ? null : intent.getStringExtra(HomeWidgets.EXTRA_OPEN);
+        if (open != null) {
+            HomeWidgetStore.queueOpen(this, open);
+            intent.removeExtra(HomeWidgets.EXTRA_OPEN);
+        }
         super.onNewIntent(intent);
     }
 

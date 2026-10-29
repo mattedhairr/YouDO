@@ -1,42 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One Up next card, inside the widget's ViewFlipper. -->
+<!-- One Up next card, inside the widget's ViewFlipper. Its path reads as on
+     Today's cards: two goal levels in a chip, the rest under the title. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/card_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
-    <TextView android:id="@+id/card_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
-    <TextView android:id="@+id/card_path" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11.5sp" />
-    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="8dp">
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical">
         <LinearLayout
-            android:layout_width="0dp"
+            android:id="@+id/card_origin"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-            <TextView android:id="@+id/card_steps" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
-            <ProgressBar
-                android:id="@+id/card_bar"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="5dp"
-                android:layout_marginTop="6dp"
-                android:max="100"
-                android:progressDrawable="@drawable/widget_bar" />
+            android:background="@drawable/widget_pill_bg"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="7dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="2dp">
+            <ImageView android:id="@+id/card_origin_icon" android:layout_width="11dp" android:layout_height="11dp" android:src="@drawable/ic_widget_link" />
+            <TextView android:id="@+id/card_origin_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="5dp" android:ellipsize="end" android:singleLine="true" android:textSize="10.5sp" android:textStyle="bold" />
         </LinearLayout>
-        <!-- The circle is tinted with the app accent (HomeWidgets.tint). -->
-        <FrameLayout
-            android:id="@+id/card_start"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
-            android:layout_marginStart="16dp"
-            android:contentDescription="Start focus">
-            <ImageView android:id="@+id/card_start_bg" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_avatar" />
-            <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:padding="15dp" android:src="@drawable/ic_widget_play" />
-        </FrameLayout>
+        <TextView android:id="@+id/card_quick" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="Quick task" android:textColor="@color/widget_text2" android:textSize="11.5sp" android:textStyle="bold" android:visibility="gone" />
+        <TextView android:id="@+id/card_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="19sp" android:textStyle="bold" />
+        <TextView android:id="@+id/card_path" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="12sp" />
+        <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+        <TextView android:id="@+id/card_steps" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+        <ProgressBar
+            android:id="@+id/card_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="5dp"
+            android:layout_marginTop="5dp"
+            android:max="100"
+            android:progressDrawable="@drawable/widget_bar" />
     </LinearLayout>
+    <!-- The circle is tinted with the app accent (HomeWidgets.tint). -->
+    <FrameLayout
+        android:id="@+id/card_start"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_marginStart="18dp"
+        android:contentDescription="Start focus">
+        <ImageView android:id="@+id/card_start_bg" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_avatar" />
+        <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:padding="16dp" android:src="@drawable/ic_widget_play" />
+    </FrameLayout>
 </LinearLayout>

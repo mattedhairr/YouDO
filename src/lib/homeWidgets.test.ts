@@ -11,15 +11,16 @@ const node = (id: string, extra: Partial<GoalNode> = {}): GoalNode => ({ id, kin
 
 describe('widgetTodayTasks', () => {
   it('lists open cards in Today order with their rank, path and steps', () => {
-    const goals = [node('Novel', { kind: 'goal', children: [node('Part one', { children: [node('n1')] })] })];
+    const goals = [node('Novel', { kind: 'goal', children: [node('Part one', { children: [node('Ch 1', { children: [node('Scene', { children: [node('n1')] })] })] })] })];
     const cards = widgetTodayTasks([
       task('b', 5, { goalNodeId: 'n1', progress: 1 }),
       task('done', 1, { progress: 2 }),
       task('a', 2),
     ], goals);
     expect(cards.map((card) => [card.id, card.rank])).toEqual([['a', 1], ['b', 2]]);
-    expect(cards[1]).toMatchObject({ path: 'Novel › Part one', done: 1, total: 2 });
-    expect(cards[0].path).toBe('Quick task');
+    // As Today's cards: two levels as the eyebrow, the rest under the title.
+    expect(cards[1]).toMatchObject({ origin: 'Novel • Part one', context: 'Ch 1 / Scene', done: 1, total: 2 });
+    expect(cards[0]).toMatchObject({ origin: null, context: '' });
   });
 });
 
@@ -87,10 +88,11 @@ describe('widgetAccent', () => {
 });
 
 describe('parseWidgetActions', () => {
-  it('keeps only well-formed stops', () => {
+  it('keeps only well-formed stops and places to open', () => {
     expect(parseWidgetActions([
       { type: 'move', taskId: 'a', dir: 'up' }, { type: 'stop', taskId: 'b' }, { type: 'stop' }, { type: 'start', taskId: 'c' }, null, 'x',
-    ])).toEqual([{ type: 'stop', taskId: 'b' }]);
+      { type: 'open', kind: 'room', id: 'r1' }, { type: 'open', kind: 'board', id: 'x' }, { type: 'open', kind: 'goal' },
+    ])).toEqual([{ type: 'stop', taskId: 'b' }, { type: 'open', kind: 'room', id: 'r1' }]);
     expect(parseWidgetActions(undefined)).toEqual([]);
   });
 });

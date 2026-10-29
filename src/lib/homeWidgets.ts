@@ -16,7 +16,13 @@ import { msUntilEndOfLocalISODate } from './dates';
 export interface WidgetTask {
   id: string;
   title: string;
-  path: string;
+  /**
+   * Where the card lives, as Today's cards show it: the first two goal levels
+   * (the eyebrow) and the rest of the path (under the title). origin is null
+   * for a quick task.
+   */
+  origin: string | null;
+  context: string;
   /** 1-based place in its list. */
   rank: number;
   done: number;
@@ -72,7 +78,12 @@ export interface WidgetSnapshot {
   rooms: WidgetRoom[] | null;
 }
 
-export type WidgetAction = { type: 'stop'; taskId: string };
+/** Where a widget tap should land in the app. */
+export type WidgetTarget = { kind: 'task' | 'goal' | 'room'; id: string };
+
+export type WidgetAction =
+  | { type: 'stop'; taskId: string }
+  | ({ type: 'open' } & WidgetTarget);
 
 const MAX_TASKS = 30;
 const MAX_TEXT = 120;
@@ -83,14 +94,14 @@ const clip = (text: string) => {
   return clean.length > MAX_TEXT ? `${clean.slice(0, MAX_TEXT - 1)}…` : clean;
 };
 
-function taskPath(goals: GoalNode[], task: Task): string {
-  if (!task.goalNodeId) return 'Quick task';
+function taskOrigin(goals: GoalNode[], task: Task): Pick<WidgetTask, 'origin' | 'context'> {
+  if (!task.goalNodeId) return { origin: null, context: '' };
   for (const root of goals) {
-    const titles = pathTitles(root, task.goalNodeId);
     // The card already shows the task itself, so only its parents.
-    if (titles.length) return clip(titles.slice(0, -1).join(' › ') || titles[0]);
+    const parents = pathTitles(root, task.goalNodeId).slice(0, -1);
+    if (parents.length) return { origin: clip(parents.slice(0, 2).join(' • ')), context: clip(parents.slice(2).join(' / ')) };
   }
-  return '';
+  return { origin: '', context: '' };
 }
 
 function stepCounts(node: GoalNode): { done: number; total: number } {
@@ -121,7 +132,7 @@ export function widgetTodayTasks(todayTasks: Task[], goals: GoalNode[]): WidgetT
     .map((task, index) => ({
       id: task.id,
       title: clip(task.title) || 'Untitled',
-      path: taskPath(goals, task),
+      ...taskOrigin(goals, task),
       rank: index + 1,
       done: Math.min(task.progress, task.steps.length),
       total: task.steps.length,
@@ -138,7 +149,7 @@ export function widgetBacklogTasks(backlogTasks: Task[], goals: GoalNode[]): Wid
     .map((task, index) => ({
       id: task.id,
       title: clip(task.title) || 'Untitled',
-      path: taskPath(goals, task),
+      ...taskOrigin(goals, task),
       rank: index + 1,
       done: Math.min(task.progress, task.steps.length),
       total: task.steps.length,
@@ -207,9 +218,9 @@ export function parseWidgetActions(raw: unknown): WidgetAction[] {
   const out: WidgetAction[] = [];
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
-    const { type, taskId } = item as Record<string, unknown>;
-    if (typeof taskId !== 'string' || !taskId) continue;
-    if (type === 'stop') out.push({ type, taskId });
+    const { type, taskId, kind, id } = item as Record<string, unknown>;
+    if (type === 'stop' && typeof taskId === 'string' && taskId) out.push({ type, taskId });
+    else if (type === 'open' && (kind === 'task' || kind === 'goal' || kind === 'room') && typeof id === 'string' && id) out.push({ type, kind, id });
   }
   return out;
 }
@@ -276,9 +287,15 @@ export async function syncWidgets(
   await publishWidgetSnapshot(snapshot);
 }
 
-/** The card whose Stop was tapped last on the widget, if any. */
-export async function drainWidgetActions(): Promise<string | null> {
-  return (await takeWidgetActions()).pop()?.taskId ?? null;
+/** The last Stop and the last place to open, tapped on the widgets since the app last looked. */
+export async function drainWidgetActions(): Promise<{ stop: string | null; open: WidgetTarget | null }> {
+  let stop: string | null = null;
+  let open: WidgetTarget | null = null;
+  for (const action of await takeWidgetActions()) {
+    if (action.type === 'stop') stop = action.taskId;
+    else open = { kind: action.kind, id: action.id };
+  }
+  return { stop, open };
 }
 
 /**
