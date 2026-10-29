@@ -226,14 +226,13 @@ final class HomeWidgets {
         int n = cards.length();
         int index = clamp(HomeWidgetStore.index(ctx, widgetId), n);
         int[] segments = segments(backlog, backlog ? 0 : done, n, index);
-        views.setImageViewBitmap(R.id.day_arc, ArcPainter.dayArc(arc[0], arc[1], segments, -1, dayFraction(), palette));
+        long[] focusToday = focusToday(snapshot, 0);
+        views.setImageViewBitmap(R.id.day_arc, ArcPainter.dayArc(arc[0], arc[1], segments, -1, share(focusToday), palette));
         views.setTextViewText(R.id.day_title, backlog ? "TODAY · BACKLOG" : "TODAY");
         color(ctx, views, R.id.day_title, "setTextColor", R.color.widget_text2);
 
         views.setViewVisibility(R.id.day_big, View.VISIBLE);
         views.setViewVisibility(R.id.day_timer, View.GONE);
-        JSONObject focus = snapshot == null ? null : snapshot.optJSONObject("focus");
-        long focusedToday = focus == null ? 0 : focus.optLong("todayMs");
         if (backlog) {
             views.setTextViewText(R.id.day_big, bold(String.valueOf(n)));
             color(ctx, views, R.id.day_big, "setTextColor", n > 0 ? R.color.widget_overdue : R.color.widget_text);
@@ -248,8 +247,7 @@ final class HomeWidgets {
             big.append("/").append(String.valueOf(done + n));
             views.setTextViewText(R.id.day_big, big);
             color(ctx, views, R.id.day_big, "setTextColor", R.color.widget_text);
-            views.setTextViewText(R.id.day_sub, done + n == 0 ? "nothing scheduled today"
-                : "tasks done" + (focusedToday > 0 ? " · " + duration(focusedToday) + " focused" : ""));
+            views.setTextViewText(R.id.day_sub, done + n == 0 ? "nothing scheduled today" : "tasks done · " + focusLine(focusToday));
         }
         views.setOnClickPendingIntent(R.id.day_arc_area, openApp(ctx));
 
@@ -369,8 +367,10 @@ final class HomeWidgets {
         int stepsDone = card == null ? 0 : card.optInt("done");
         int steps = card == null ? 0 : card.optInt("total");
         int[] segments = segments(backlog, backlog ? 0 : done, cards.length(), index);
+        long focused = SessionNotificationStore.elapsedFocusMs(session, paused);
+        long[] focusToday = focusToday(snapshot, focused);
         views.setImageViewBitmap(R.id.day_arc, ArcPainter.dayArc(arc[0], arc[1], segments,
-            steps > 0 ? stepsDone / (float) steps : 0f, dayFraction(), palette));
+            steps > 0 ? stepsDone / (float) steps : 0f, share(focusToday), palette));
 
         views.setTextViewText(R.id.day_title, paused ? "❚❚ PAUSED" : "● FOCUSING");
         if (paused) tint(ctx, views, R.id.day_title, "setTextColor", accent);
@@ -381,12 +381,11 @@ final class HomeWidgets {
             color(ctx, views, R.id.day_badge, "setTextColor", R.color.widget_text3);
         }
 
-        long focused = SessionNotificationStore.elapsedFocusMs(session, paused);
         views.setViewVisibility(R.id.day_big, View.GONE);
         views.setViewVisibility(R.id.day_timer, View.VISIBLE);
         views.setChronometer(R.id.day_timer, SystemClock.elapsedRealtime() - focused, null, !paused);
         String title = SessionNotificationStore.title(ctx);
-        views.setTextViewText(R.id.day_sub, title + (steps > 0 ? " · " + stepsDone + " of " + steps + " steps" : ""));
+        views.setTextViewText(R.id.day_sub, title + " · " + focusLine(focusToday));
 
         // The strip: the step being worked on, with pause or resume and stop.
         String next = card == null || card.isNull("next") ? "" : card.optString("next");
@@ -468,11 +467,28 @@ final class HomeWidgets {
         render(ctx, AppWidgetManager.getInstance(ctx), UpNextWidget.class, widgetId);
     }
 
-    /** How far through the waking day it is, 6:00 to midnight, for the sun on the arc. */
-    private static float dayFraction() {
-        Calendar now = Calendar.getInstance();
-        int minutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE) - 6 * 60;
-        return Math.max(0f, Math.min(1f, minutes / (18f * 60)));
+    /**
+     * Today's focus and the daily bar, {focusMs, barMs}: what the app last sent,
+     * plus the session in progress (inProgressMs), which it has not counted yet.
+     */
+    private static long[] focusToday(JSONObject snapshot, long inProgressMs) {
+        JSONObject focus = snapshot == null ? null : snapshot.optJSONObject("focus");
+        long today = focus == null ? 0 : focus.optLong("todayMs");
+        long bar = focus == null ? 0 : focus.optLong("barMs");
+        return new long[] { Math.max(0, today) + Math.max(0, inProgressMs), bar > 0 ? bar : 4 * 3_600_000L };
+    }
+
+    /** The outer line's share of the bar. */
+    private static float share(long[] focus) {
+        return focus[0] / (float) focus[1];
+    }
+
+    /** "1h 40m of 4h focus", or "4h 12m · focus bar hit 🔥". */
+    private static String focusLine(long[] focus) {
+        if (focus[0] >= focus[1]) return duration(focus[0]) + " · focus bar hit 🔥";
+        long barMinutes = focus[1] / 60_000;
+        String bar = barMinutes % 60 == 0 ? barMinutes / 60 + "h" : duration(focus[1]);
+        return duration(focus[0]) + " of " + bar + " focus";
     }
 
     private static SpannableStringBuilder bold(String text) {

@@ -5,6 +5,7 @@ import { isTaskComplete, pathTitles, rollupPct } from './goalTree';
 import { ACCENT_SWATCHES, resolveAccent } from './accentColors';
 import { msUntilEndOfLocalISODate, shiftLocalISO, todayISO } from './dates';
 import { daysUntil } from './goalPace';
+import { streakBarMs } from './focusTrends';
 
 /*
  * Android home-screen widgets (Up next, Progress, Room). The widgets cannot run
@@ -86,8 +87,8 @@ export interface WidgetSnapshot {
   backlog: WidgetTask[];
   /** Today's scheduled cards already finished (the arc's lit segments). */
   todayDone: number;
-  /** Focus today, and the daily average over the last 30 days. */
-  focus: { todayMs: number; avgMs: number };
+  /** Focus today, the daily average over the last 30 days, and the daily bar the streak asks for. */
+  focus: { todayMs: number; avgMs: number; barMs: number };
   streak: { days: number; save: WidgetStreakSave | null };
   /** The app's accent for light and dark phones. */
   accent: { light: string; dark: string };
@@ -195,7 +196,7 @@ export function widgetGoals(goals: GoalNode[]): WidgetGoal[] {
 }
 
 /** Focus today, and the daily average over the 30 days before it (or since focus began, if later). */
-export function widgetFocus(byDate: Map<string, number>, today = todayISO()): WidgetSnapshot['focus'] {
+export function widgetFocus(byDate: Map<string, number>, barHours: number, today = todayISO()): WidgetSnapshot['focus'] {
   let total = 0;
   let since: string | null = null;
   for (let back = 30; back >= 1; back--) {
@@ -205,7 +206,7 @@ export function widgetFocus(byDate: Map<string, number>, today = todayISO()): Wi
     if (since) total += ms;
   }
   const days = since ? -daysUntil(since, today) : 0;
-  return { todayMs: byDate.get(today) ?? 0, avgMs: days ? Math.round(total / days) : 0 };
+  return { todayMs: byDate.get(today) ?? 0, avgMs: days ? Math.round(total / days) : 0, barMs: streakBarMs(barHours) };
 }
 
 /** The streak shown on Progress, keeping one that can still be restored. */
@@ -337,13 +338,14 @@ export interface WidgetSources {
   streak: Parameters<typeof widgetStreak>[0];
   accent: string | undefined;
   rooms: WidgetRoom[] | null;
-  /** Net focus by local day (App's streak input). */
+  /** Net focus by local day (App's streak input), and the daily bar in hours. */
   focusByDate: Map<string, number>;
+  barHours: number;
   userId: string | null;
 }
 
 export async function syncWidgets(src: WidgetSources): Promise<void> {
-  const focus = widgetFocus(src.focusByDate);
+  const focus = widgetFocus(src.focusByDate, src.barHours);
   const snapshot: WidgetSnapshot = {
     v: 1,
     today: widgetTodayTasks(src.todayTasks, src.goals),

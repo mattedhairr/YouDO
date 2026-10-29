@@ -1265,6 +1265,7 @@ function AppInner() {
         todayTasks={todayTasks}
         backlogTasks={backlogTasks}
         focusByDate={streakByDate}
+        barHours={streakMeta.barHours}
         goals={goals}
         streak={streakStatus}
         userId={activityUser?.id ?? null}

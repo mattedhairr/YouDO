@@ -53,8 +53,8 @@ describe('widgetFocus', () => {
   it('averages the days since focus began, up to the last 30, without today', () => {
     const byDate = new Map([['2026-10-29', 600_000], ['2026-10-27', 3_600_000], ['2026-10-28', 0]]);
     // Focus began on the 27th: two days (27th, 28th) before today.
-    expect(widgetFocus(byDate, '2026-10-29')).toEqual({ todayMs: 600_000, avgMs: 1_800_000 });
-    expect(widgetFocus(new Map(), '2026-10-29')).toEqual({ todayMs: 0, avgMs: 0 });
+    expect(widgetFocus(byDate, 4, '2026-10-29')).toEqual({ todayMs: 600_000, avgMs: 1_800_000, barMs: 4 * 3_600_000 });
+    expect(widgetFocus(new Map(), 4, '2026-10-29')).toMatchObject({ todayMs: 0, avgMs: 0 });
   });
 });
 

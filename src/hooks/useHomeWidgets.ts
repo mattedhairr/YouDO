@@ -11,8 +11,9 @@ const widgets = () => import('../lib/homeWidgets');
 interface Options {
   todayTasks: Task[];
   backlogTasks: Task[];
-  /** Net focus by local day (the 30-day focus average). */
+  /** Net focus by local day (today's and the 30-day average), and the daily bar in hours. */
   focusByDate: Map<string, number>;
+  barHours: number;
   goals: GoalNode[];
   streak: Parameters<typeof widgetStreak>[0];
   userId: string | null;
@@ -48,7 +49,7 @@ function usePageAccent(): string | undefined {
 
 /** Keeps the Android home-screen widgets in step with the app (see lib/homeWidgets). */
 export function useHomeWidgets({
-  todayTasks, backlogTasks, focusByDate, goals, streak, userId, authReady, activeTaskId, onStopRequested, onOpenRequested,
+  todayTasks, backlogTasks, focusByDate, barHours, goals, streak, userId, authReady, activeTaskId, onStopRequested, onOpenRequested,
 }: Options) {
   const supported = Capacitor.getPlatform() === 'android';
   const accent = usePageAccent();
@@ -61,11 +62,11 @@ export function useHomeWidgets({
     if (!supported) return;
     const timer = setTimeout(() => {
       void widgets().then((w) => w.syncWidgets({
-        todayTasks, backlogTasks, goals, streak, accent, rooms, focusByDate, userId,
+        todayTasks, backlogTasks, goals, streak, accent, rooms, focusByDate, barHours, userId,
       }));
     }, 400);
     return () => clearTimeout(timer);
-  }, [supported, todayTasks, backlogTasks, goals, streak, accent, rooms, focusByDate, userId]);
+  }, [supported, todayTasks, backlogTasks, goals, streak, accent, rooms, focusByDate, barHours, userId]);
 
   // A Stop tapped on the widget while the app was closed or in the background.
   useEffect(() => {

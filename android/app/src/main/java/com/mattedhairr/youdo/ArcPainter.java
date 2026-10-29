@@ -24,7 +24,8 @@ final class ArcPainter {
     static final int LATE_NOW = 4;
 
     private static final float SCALE = 1.5f;
-    private static final int SUN = 0xFFFFCF6B;
+    /** The flame's amber: the outer line, today's focus. */
+    private static final int FLAME = 0xFFFFA94D;
 
     private ArcPainter() {}
 
@@ -90,28 +91,42 @@ final class ArcPainter {
         canvas.drawCircle(at[0], at[1], 3.5f * SCALE, fill(centre));
     }
 
-    /** The dotted time-of-day track around the arc, with the sun where the day is (sun in 0..1, or below 0 for none). */
-    private static void dayTrack(Canvas canvas, float[] f, float sun, Palette palette) {
+    /**
+     * The outer line: today's focus toward the daily bar (focus is the share,
+     * 1 or more once it is reached), filled in amber with a flame at its tip.
+     * The rest of the track stays dotted; a reached bar glows end to end.
+     */
+    private static void focusTrack(Canvas canvas, float[] f, float focus, Palette palette) {
         float rt = f[2] + 11 * SCALE;
+        RectF box = new RectF(f[0] - rt, f[1] - rt, f[0] + rt, f[1] + rt);
         Paint track = stroke(palette.dim, 1.5f);
         track.setPathEffect(new DashPathEffect(new float[] { 2 * SCALE, 5 * SCALE }, 0));
-        canvas.drawArc(new RectF(f[0] - rt, f[1] - rt, f[0] + rt, f[1] + rt), 180, 180, false, track);
-        if (sun < 0) return;
-        float[] at = point(f, rt, 180 + 180 * Math.min(1f, sun));
-        canvas.drawCircle(at[0], at[1], 9 * SCALE, glow(fill(SUN), 4, 110));
-        canvas.drawCircle(at[0], at[1], 4.5f * SCALE, fill(SUN));
+        canvas.drawArc(box, 180, 180, false, track);
+        boolean hit = focus >= 1;
+        float sweep = 180 * Math.max(0f, Math.min(1f, focus));
+        if (sweep > 0) {
+            if (hit) canvas.drawArc(box, 180, sweep, false, glow(stroke(FLAME, 5), 4, 150));
+            canvas.drawArc(box, 180, sweep, false, stroke(FLAME, 3));
+        }
+        float[] at = point(f, rt, 180 + sweep);
+        canvas.drawCircle(at[0], at[1], (hit ? 13 : 10) * SCALE, glow(fill(FLAME), 5, 120));
+        Paint flame = new Paint(Paint.ANTI_ALIAS_FLAG);
+        flame.setTextSize((hit ? 16 : 13) * SCALE);
+        flame.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("🔥", at[0], at[1] + (hit ? 6 : 4.5f) * SCALE, flame);
     }
 
     /**
-     * Day Arc: one segment per task (OPEN, DONE, NOW, LATE or LATE_NOW). While
+     * Day Arc: one segment per task (OPEN, DONE, NOW, LATE or LATE_NOW), inside
+     * the line of today's focus toward the bar (focus, the share). While
      * focusing, nowFill (0..1) fills the current segment in green as its steps
      * are done; it is below 0 otherwise.
      */
-    static Bitmap dayArc(int widthDp, int heightDp, int[] segments, float nowFill, float sun, Palette palette) {
+    static Bitmap dayArc(int widthDp, int heightDp, int[] segments, float nowFill, float focus, Palette palette) {
         Bitmap bitmap = bitmap(widthDp, heightDp);
         Canvas canvas = new Canvas(bitmap);
-        float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), 13 * SCALE);
-        dayTrack(canvas, f, sun, palette);
+        float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), 16 * SCALE);
+        focusTrack(canvas, f, focus, palette);
         RectF box = new RectF(f[0] - f[2], f[1] - f[2], f[0] + f[2], f[1] + f[2]);
         int n = segments.length;
         if (n == 0) {
