@@ -29,13 +29,14 @@ final class ArcPainter {
     static final int FLAME = 0xFFFFA94D;
     private static final int NEEDLE = 0xFFFF6A3D;
     private static final int FUEL = 0xFF7CC4FF;
-    /** Narrower than this, the dials step aside and the arc takes the width. */
+    /** Narrower or lower than this, the dials step aside and the arc takes the room. */
     private static final int DIALS_MIN_WIDTH_DP = 290;
-    private static final float DIAL_R = 25;
+    private static final int DIALS_MIN_HEIGHT_DP = 92;
+    private static final float DIAL_R = 29;
     /** From each side to a dial's centre. */
     private static final float DIAL_X = 36;
     /** The room each side keeps for its dial, from the edge to the arc. */
-    private static final float DIAL_SIDE = 78;
+    private static final float DIAL_SIDE = 86;
 
     private ArcPainter() {}
 
@@ -46,19 +47,22 @@ final class ArcPainter {
         final int knob;
         final int late;
         final int live;
+        /** The dials' second line of text. */
+        final int text2;
 
-        Palette(int accent, int dim, int knob, int late, int live) {
+        Palette(int accent, int dim, int knob, int late, int live, int text2) {
             this.accent = accent;
             this.dim = dim;
             this.knob = knob;
             this.late = late;
             this.live = live;
+            this.text2 = text2;
         }
     }
 
-    /** Whether a box this wide shows the two dials beside the arc. */
-    static boolean hasDials(int widthDp) {
-        return widthDp >= DIALS_MIN_WIDTH_DP;
+    /** Whether a box this size shows the two dials beside the arc. */
+    static boolean hasDials(int widthDp, int heightDp) {
+        return widthDp >= DIALS_MIN_WIDTH_DP && heightDp >= DIALS_MIN_HEIGHT_DP;
     }
 
     /**
@@ -74,7 +78,7 @@ final class ArcPainter {
 
     /** The arc's radius in dp at this size, as dayArc and gauge draw it. */
     static float dayArcRadiusDp(int widthDp, int heightDp) {
-        return frame(Math.round(widthDp * SCALE), Math.round(heightDp * SCALE), hasDials(widthDp))[2] / SCALE;
+        return frame(Math.round(widthDp * SCALE), Math.round(heightDp * SCALE), hasDials(widthDp, heightDp))[2] / SCALE;
     }
 
     private static Paint stroke(int color, float widthDp) {
@@ -154,15 +158,17 @@ final class ArcPainter {
     }
 
     /**
-     * The two dials, level with the top of the arc: on the left today's focus
-     * toward the bar (focus, its share; 1 or more once reached), ending at a
-     * flame that glows with the dial once the bar is hit; on the right what is
-     * left of the day (dayLeft, 1 at 6:00 to 0 at midnight), red in its last
-     * two hours.
+     * The two dials in the upper corners, a little above the top of the arc:
+     * on the left today's focus toward the bar (focus, its share; 1 or more
+     * once reached), ending at a flame that glows with the dial once the bar
+     * is hit; on the right what is left of the day (dayLeft, 1 at 6:00 to 0 at
+     * midnight), red in its last two hours. Under each, its reading
+     * (readings: focus, its label, the day left, its label), drawn here so it
+     * stays centred under its dial however the launcher scales the picture.
      */
-    private static void dials(Canvas canvas, float[] f, int w, float focus, float dayLeft, Palette palette) {
+    private static void dials(Canvas canvas, float[] f, int w, int h, float focus, float dayLeft, String[] readings, Palette palette) {
         float r = DIAL_R * SCALE;
-        float cy = f[1] - f[2] + (DIAL_R + 6) * SCALE;
+        float cy = Math.max((DIAL_R + 4) * SCALE, Math.min(f[1] - f[2] + 14 * SCALE, h - 58 * SCALE));
         int tick = ColorUtils.blendARGB(palette.dim, palette.knob, 0.35f);
         float start = 150;
         float sweep = 240;
@@ -197,6 +203,21 @@ final class ArcPainter {
         canvas.drawText("E", empty[0], empty[1] + 3.5f * SCALE, label(low ? palette.late : tick, 9));
         canvas.drawText("F", full[0], full[1] + 3.5f * SCALE, label(tick, 9));
         needle(canvas, cx, cy, r, at, palette);
+
+        if (readings == null) return;
+        reading(canvas, DIAL_X * SCALE, cy, w, readings[0], readings[1], hit ? FLAME : palette.knob, palette);
+        reading(canvas, w - DIAL_X * SCALE, cy, w, readings[2], readings[3], low ? palette.late : palette.knob, palette);
+    }
+
+    /** A dial's reading, centred under it, kept inside the picture when it is wide. */
+    private static void reading(Canvas canvas, float cx, float cy, int w, String value, String key, int color, Palette palette) {
+        Paint top = label(color, 13.5f);
+        Paint under = label(palette.text2, 10);
+        float half = Math.max(top.measureText(value), under.measureText(key)) / 2 + SCALE;
+        float x = Math.max(half, Math.min(w - half, cx));
+        float baseline = cy + (DIAL_R + 12) * SCALE;
+        canvas.drawText(value, x, baseline, top);
+        canvas.drawText(key, x, baseline + 14 * SCALE, under);
     }
 
     /**
@@ -206,12 +227,13 @@ final class ArcPainter {
      * 0 otherwise. The gaps allow for the pills' round ends so they never
      * touch; with too many to fit, the pills turn square.
      */
-    static Bitmap dayArc(int widthDp, int heightDp, int[] segments, float nowFill, float focus, float dayLeft, Palette palette) {
+    static Bitmap dayArc(int widthDp, int heightDp, int[] segments, float nowFill, float focus, float dayLeft,
+                         String[] readings, Palette palette) {
         Bitmap bitmap = bitmap(widthDp, heightDp);
         Canvas canvas = new Canvas(bitmap);
-        boolean withDials = hasDials(widthDp);
+        boolean withDials = hasDials(widthDp, heightDp);
         float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), withDials);
-        if (withDials) dials(canvas, f, bitmap.getWidth(), focus, dayLeft, palette);
+        if (withDials) dials(canvas, f, bitmap.getWidth(), bitmap.getHeight(), focus, dayLeft, readings, palette);
         RectF box = new RectF(f[0] - f[2], f[1] - f[2], f[0] + f[2], f[1] + f[2]);
         int n = segments.length;
         if (n == 0) {
@@ -258,12 +280,12 @@ final class ArcPainter {
     }
 
     /** The goal gauge: the share of the goal done, along the arc, glowing; the dials beside it. */
-    static Bitmap gauge(int widthDp, int heightDp, float pct, float focus, float dayLeft, Palette palette) {
+    static Bitmap gauge(int widthDp, int heightDp, float pct, float focus, float dayLeft, String[] readings, Palette palette) {
         Bitmap bitmap = bitmap(widthDp, heightDp);
         Canvas canvas = new Canvas(bitmap);
-        boolean withDials = hasDials(widthDp);
+        boolean withDials = hasDials(widthDp, heightDp);
         float[] f = frame(bitmap.getWidth(), bitmap.getHeight(), withDials);
-        if (withDials) dials(canvas, f, bitmap.getWidth(), focus, dayLeft, palette);
+        if (withDials) dials(canvas, f, bitmap.getWidth(), bitmap.getHeight(), focus, dayLeft, readings, palette);
         RectF box = new RectF(f[0] - f[2], f[1] - f[2], f[0] + f[2], f[1] + f[2]);
         canvas.drawArc(box, 180, 180, false, stroke(palette.dim, 9));
         float sweep = 180 * Math.max(0f, Math.min(1f, pct));
