@@ -1,10 +1,10 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import type { GoalNode, Task, TaskSession } from '../types';
+import type { GoalNode, Task } from '../types';
 import type { FocusState, FocusStatus } from './focusStatus';
 import { isTaskComplete, pathTitles, rollupPct } from './goalTree';
 import { ACCENT_SWATCHES, resolveAccent } from './accentColors';
 import { msUntilEndOfLocalISODate, shiftLocalISO, todayISO } from './dates';
-import { daysUntil, goalPace } from './goalPace';
+import { daysUntil } from './goalPace';
 
 /*
  * Android home-screen widgets (Up next, Progress, Room). The widgets cannot run
@@ -44,16 +44,6 @@ export interface WidgetGoal {
   deadline: string | null;
   stepsDone: number;
   stepsTotal: number;
-  /**
-   * The honest pace (goalPace.ts): steps left (paceOpen) by paceEnd, for the
-   * dated stage in progress (stage) or, with stage null, the whole goal as
-   * planned so far. paceEnd is null when there is no date to pace against.
-   */
-  stage: string | null;
-  paceEnd: string | null;
-  paceOpen: number;
-  /** Steps done on this goal in the last 7 days: the pace you actually keep. */
-  recent: number;
 }
 
 export interface WidgetMember {
@@ -190,52 +180,18 @@ export function widgetBacklogTasks(backlogTasks: Task[], goals: GoalNode[]): Wid
     }));
 }
 
-const openSteps = (node: GoalNode) => {
-  const counts = stepCounts(node);
-  return counts.total - counts.done;
-};
-
-export function widgetGoals(goals: GoalNode[], today = todayISO(), recent: Map<string, number> = new Map()): WidgetGoal[] {
+export function widgetGoals(goals: GoalNode[]): WidgetGoal[] {
   return goals.map((goal) => {
     const counts = stepCounts(goal);
-    const deadline = goal.endDate && /^\d{4}-\d{2}-\d{2}/.test(goal.endDate) ? goal.endDate.slice(0, 10) : null;
-    const pace = goalPace(goal, deadline ?? undefined, openSteps, today);
     return {
       id: goal.id,
       title: clip(goal.title) || 'Untitled goal',
       pct: rollupPct(goal),
-      deadline,
+      deadline: goal.endDate && /^\d{4}-\d{2}-\d{2}/.test(goal.endDate) ? goal.endDate.slice(0, 10) : null,
       stepsDone: counts.done,
       stepsTotal: counts.total,
-      stage: pace?.stage ? clip(pace.stage.title) : null,
-      paceEnd: pace ? (pace.stage?.endDate ?? deadline ?? '').slice(0, 10) || null : null,
-      paceOpen: pace?.open ?? 0,
-      recent: recent.get(goal.id) ?? 0,
     };
   });
-}
-
-/** Steps done on each goal in the last 7 days, from the sessions that ticked them. */
-export function recentGoalSteps(goals: GoalNode[], tasks: Task[], sessions: TaskSession[], now = Date.now()): Map<string, number> {
-  const goalOfNode = new Map<string, string>();
-  const walk = (node: GoalNode, goalId: string) => {
-    goalOfNode.set(node.id, goalId);
-    node.children.forEach((child) => walk(child, goalId));
-  };
-  goals.forEach((goal) => walk(goal, goal.id));
-  const goalOfTask = new Map<string, string>();
-  for (const task of tasks) {
-    const goalId = task.goalNodeId ? goalOfNode.get(task.goalNodeId) : undefined;
-    if (goalId) goalOfTask.set(task.id, goalId);
-  }
-  const since = now - 7 * 86_400_000;
-  const steps = new Map<string, number>();
-  for (const session of sessions) {
-    const goalId = goalOfTask.get(session.taskId);
-    if (!goalId || session.endTime < since || !session.completedStepIndices?.length) continue;
-    steps.set(goalId, (steps.get(goalId) ?? 0) + session.completedStepIndices.length);
-  }
-  return steps;
 }
 
 /** Focus today, and the daily average over the 30 days before it (or since focus began, if later). */
@@ -377,14 +333,12 @@ let lastPublished = '';
 export interface WidgetSources {
   todayTasks: Task[];
   backlogTasks: Task[];
-  tasks: Task[];
   goals: GoalNode[];
   streak: Parameters<typeof widgetStreak>[0];
   accent: string | undefined;
   rooms: WidgetRoom[] | null;
   /** Net focus by local day (App's streak input). */
   focusByDate: Map<string, number>;
-  sessions: TaskSession[];
   userId: string | null;
 }
 
@@ -398,7 +352,7 @@ export async function syncWidgets(src: WidgetSources): Promise<void> {
     focus,
     streak: widgetStreak(src.streak),
     accent: widgetAccent(src.accent),
-    goals: widgetGoals(src.goals, todayISO(), recentGoalSteps(src.goals, src.tasks, src.sessions)),
+    goals: widgetGoals(src.goals),
     // Your own focus today is known here before the room's copy syncs.
     rooms: src.rooms && src.rooms.map((room) => ({
       ...room,

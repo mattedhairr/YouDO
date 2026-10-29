@@ -1264,9 +1264,7 @@ function AppInner() {
       {Capacitor.getPlatform() === 'android' && <Suspense fallback={null}><HomeWidgets
         todayTasks={todayTasks}
         backlogTasks={backlogTasks}
-        tasks={tasks}
         focusByDate={streakByDate}
-        sessionHistory={sessionHistory}
         goals={goals}
         streak={streakStatus}
         userId={activityUser?.id ?? null}

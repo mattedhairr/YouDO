@@ -89,8 +89,8 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:orientation="vertical">
-            <TextView android:id="@+id/day_prev" android:layout_width="26dp" android:layout_height="22dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Previous task" android:gravity="center" android:includeFontPadding="false" android:text="‹" android:textColor="@color/widget_text2" android:textSize="14sp" android:textStyle="bold" />
-            <TextView android:id="@+id/day_next_btn" android:layout_width="26dp" android:layout_height="22dp" android:layout_marginTop="4dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Next task" android:gravity="center" android:includeFontPadding="false" android:text="›" android:textColor="@color/widget_text2" android:textSize="14sp" android:textStyle="bold" />
+            <TextView android:id="@+id/day_prev" android:layout_width="38dp" android:layout_height="30dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Previous task" android:gravity="center" android:includeFontPadding="false" android:text="‹" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/day_next_btn" android:layout_width="38dp" android:layout_height="30dp" android:layout_marginTop="5dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Next task" android:gravity="center" android:includeFontPadding="false" android:text="›" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
         </LinearLayout>
         <FrameLayout
             android:id="@+id/day_play"
@@ -105,7 +105,7 @@
         <ImageView android:id="@+id/day_stop" android:layout_width="40dp" android:layout_height="40dp" android:layout_marginStart="8dp" android:background="@drawable/widget_stop_bg" android:contentDescription="Stop" android:padding="13dp" android:src="@drawable/ic_widget_stop" android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Goal: the honest pace, the pace you keep and your focus. -->
+    <!-- Goal: your focus today and over the last 30 days. -->
     <LinearLayout
         android:id="@+id/day_stats"
         android:layout_width="match_parent"
@@ -114,21 +114,21 @@
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:visibility="gone">
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:orientation="vertical" android:paddingStart="10dp" android:paddingTop="7dp" android:paddingEnd="8dp" android:paddingBottom="7dp">
-            <TextView android:id="@+id/day_stat1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
-            <TextView android:id="@+id/day_stat1_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="2" android:textColor="@color/widget_text3" android:textSize="9sp" android:textStyle="bold" />
+        <!-- Your focus: today, and the daily average over the last 30 days. -->
+        <LinearLayout android:id="@+id/day_focus_box" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="14dp" android:paddingEnd="12dp">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/day_stat_today" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="focused today" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <FrameLayout android:layout_width="1dp" android:layout_height="34dp" android:layout_marginStart="10dp" android:layout_marginEnd="12dp" android:background="@color/widget_edge" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/day_stat1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="a day · last 30 days" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:orientation="vertical" android:paddingStart="10dp" android:paddingTop="7dp" android:paddingEnd="8dp" android:paddingBottom="7dp">
-            <TextView android:id="@+id/day_stat2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
-            <TextView android:id="@+id/day_stat2_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="2" android:textColor="@color/widget_text3" android:textSize="9sp" android:textStyle="bold" />
-        </LinearLayout>
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:orientation="vertical" android:paddingStart="10dp" android:paddingTop="7dp" android:paddingEnd="8dp" android:paddingBottom="7dp">
-            <TextView android:id="@+id/day_stat3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
-            <TextView android:id="@+id/day_stat3_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="2" android:textColor="@color/widget_text3" android:textSize="9sp" android:textStyle="bold" />
-        </LinearLayout>
-        <LinearLayout android:id="@+id/day_goal_nav" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:orientation="vertical">
-            <TextView android:id="@+id/day_goal_prev" android:layout_width="26dp" android:layout_height="22dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Previous goal" android:gravity="center" android:includeFontPadding="false" android:text="‹" android:textColor="@color/widget_text2" android:textSize="14sp" android:textStyle="bold" />
-            <TextView android:id="@+id/day_goal_next" android:layout_width="26dp" android:layout_height="22dp" android:layout_marginTop="4dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Next goal" android:gravity="center" android:includeFontPadding="false" android:text="›" android:textColor="@color/widget_text2" android:textSize="14sp" android:textStyle="bold" />
+        <LinearLayout android:id="@+id/day_goal_nav" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:orientation="vertical">
+            <TextView android:id="@+id/day_goal_prev" android:layout_width="38dp" android:layout_height="30dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Previous goal" android:gravity="center" android:includeFontPadding="false" android:text="‹" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/day_goal_next" android:layout_width="38dp" android:layout_height="30dp" android:layout_marginTop="5dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Next goal" android:gravity="center" android:includeFontPadding="false" android:text="›" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
@@ -140,6 +140,6 @@
         android:orientation="horizontal">
         <TextView android:id="@+id/chip_scheduled" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:ellipsize="end" android:gravity="center" android:paddingTop="6dp" android:paddingBottom="6dp" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
         <TextView android:id="@+id/chip_backlog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:ellipsize="end" android:gravity="center" android:paddingTop="6dp" android:paddingBottom="6dp" android:singleLine="true" android:textColor="@color/widget_overdue" android:textSize="11sp" android:textStyle="bold" />
-        <TextView android:id="@+id/chip_goal" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1.3" android:background="@drawable/widget_box_bg" android:ellipsize="end" android:gravity="center" android:paddingStart="6dp" android:paddingTop="6dp" android:paddingEnd="6dp" android:paddingBottom="6dp" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
+        <TextView android:id="@+id/chip_goal" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:ellipsize="end" android:gravity="center" android:paddingTop="6dp" android:paddingBottom="6dp" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

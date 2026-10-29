@@ -161,7 +161,7 @@ final class HomeWidgets {
         ArcPainter.Palette palette = palette(ctx, accent);
         // The arc gets what the header, card and chips leave of the widget.
         int[] size = size(ctx, widgetId, 330, 260);
-        int[] arc = { size[0] - 30, Math.max(60, size[1] - 26 - 16 - 2 - 72 - 38) };
+        int[] arc = { size[0] - 30, Math.max(60, size[1] - 26 - 16 - 2 - 84 - 38) };
         String tab = HomeWidgetStore.tab(ctx, widgetId);
 
         streakBadge(ctx, views, snapshot);
@@ -288,7 +288,7 @@ final class HomeWidgets {
         views.setOnClickPendingIntent(R.id.day_card, openApp(ctx));
     }
 
-    /** Goal: the gauge, days left, and the honest pace (goalPace.ts) next to the pace you keep. */
+    /** Goal: the gauge, days left, and your focus today and over the last 30 days. */
     private static JSONObject goalView(Context ctx, RemoteViews views, int widgetId, JSONObject snapshot, JSONArray goals,
                                        ArcPainter.Palette palette, int[] arc) {
         int n = goals.length();
@@ -314,26 +314,10 @@ final class HomeWidgets {
             views.setTextViewText(R.id.day_sub, title + " · no deadline");
         }
 
-        // The pace for what is planned: the dated stage in progress, else the goal as planned so far.
-        Calendar paceEnd = goal.isNull("paceEnd") ? null : localDate(goal.optString("paceEnd"));
-        int paceOpen = goal.optInt("paceOpen");
-        String stage = goal.isNull("stage") ? null : goal.optString("stage");
-        if (paceEnd == null) {
-            views.setTextViewText(R.id.day_stat1, "—");
-            views.setTextViewText(R.id.day_stat1_label, "NO DEADLINE TO PACE");
-        } else {
-            long daysLeft = Math.max(1, daysFromToday(paceEnd));
-            views.setTextViewText(R.id.day_stat1, paceOpen == 0 ? "0" : rate(paceOpen / (double) daysLeft));
-            views.setTextViewText(R.id.day_stat1_label, stage != null
-                ? "A DAY · " + stage.toUpperCase(Locale.getDefault()) + " · " + daysLeft + "D"
-                : "A DAY · AS PLANNED SO FAR");
-        }
-        views.setTextViewText(R.id.day_stat2, rate(goal.optInt("recent") / 7.0));
-        views.setTextViewText(R.id.day_stat2_label, "YOUR PACE · 7 DAYS");
+        // Only your focus here: a pace for the goal needs a fully planned goal to be honest.
         JSONObject focus = snapshot == null ? null : snapshot.optJSONObject("focus");
-        views.setTextViewText(R.id.day_stat3, duration(focus == null ? 0 : focus.optLong("avgMs")));
-        views.setTextViewText(R.id.day_stat3_label, "AVG FOCUS · 30 DAYS");
-        color(ctx, views, R.id.day_stat1, "setTextColor", R.color.widget_text);
+        views.setTextViewText(R.id.day_stat_today, duration(focus == null ? 0 : focus.optLong("todayMs")));
+        views.setTextViewText(R.id.day_stat1, duration(focus == null ? 0 : focus.optLong("avgMs")));
 
         views.setViewVisibility(R.id.day_strip, View.GONE);
         views.setViewVisibility(R.id.day_stats, View.VISIBLE);
@@ -409,14 +393,15 @@ final class HomeWidgets {
         views.setTextViewText(R.id.chip_scheduled, "Scheduled " + done + "/" + (done + scheduled.length()));
         views.setTextViewText(R.id.chip_backlog, overdue.length() == 0 ? "No backlog" : overdue.length() + " overdue");
 
-        // The goal chip follows the card in front; in the goal view, the goal shown.
+        // "Goal 42%" with one goal, "2 goals" with more (‹ › go through them). It opens on
+        // the goal of the card in front, or the one shown.
         JSONObject goal = null;
         if (front != null && front.has("pct")) goal = front;
         else if (front != null && !front.isNull("goal")) goal = HomeWidgetStore.find(snapshotOf(ctx), "goals", front.optString("goal"));
         if (goal == null) goal = goals.optJSONObject(0);
         views.setViewVisibility(R.id.chip_goal, goal == null ? View.GONE : View.VISIBLE);
         if (goal != null) {
-            views.setTextViewText(R.id.chip_goal, goal.optString("title") + " · " + goal.optInt("pct") + "%");
+            views.setTextViewText(R.id.chip_goal, goals.length() > 1 ? goals.length() + " goals" : "Goal " + goal.optInt("pct") + "%");
             views.setOnClickPendingIntent(R.id.chip_goal, dayAction(ctx, widgetId, TAB_GOAL, goal.optString("id")));
         }
 
@@ -480,14 +465,6 @@ final class HomeWidgets {
     private static String timeLeft(long ms) {
         long minutes = ms / 60_000;
         return minutes >= 60 ? minutes / 60 + "h" : Math.max(1, minutes) + "m";
-    }
-
-    /** A per-day rate: "12", "3.5" or "0.2". */
-    private static String rate(double perDay) {
-        if (perDay <= 0) return "0";
-        if (perDay >= 10) return String.valueOf(Math.round(perDay));
-        String text = String.format(Locale.US, "%.1f", Math.max(0.1, perDay));
-        return text.endsWith(".0") ? text.substring(0, text.length() - 2) : text;
     }
 
     private static int clamp(int index, int count) {

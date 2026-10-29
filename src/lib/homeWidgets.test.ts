@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalNode, Task } from '../types';
-import { avatarColor, parseWidgetActions, recentGoalSteps, widgetAccent, widgetBacklogTasks, widgetFocus, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
+import { avatarColor, parseWidgetActions, widgetAccent, widgetBacklogTasks, widgetFocus, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
 
 const task = (id: string, order: number, extra: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: '', priority: 'medium', targetDate: '2026-10-28', deadline: null,
@@ -47,32 +47,6 @@ describe('widgetGoals', () => {
     expect(widgetGoals([{ ...goal, endDate: 'soon' }])[0].deadline).toBeNull();
   });
 
-  it('paces only planned work: the dated stage in progress, else the goal as planned so far', () => {
-    const staged = node('GATE', {
-      kind: 'goal', endDate: '2026-12-31',
-      children: [
-        node('Phase 3', { startDate: '2026-10-20', endDate: '2026-11-15', children: [node('a', { steps: ['x', 'y'], stepDone: [true, false] }), node('b', { steps: ['z'] })] }),
-        node('Phase 4', { startDate: '2026-11-16', endDate: '2026-12-10', children: [node('c')] }),
-      ],
-    });
-    expect(widgetGoals([staged], '2026-10-29', new Map([['GATE', 9]]))[0]).toMatchObject({ stage: 'Phase 3', paceEnd: '2026-11-15', paceOpen: 2, recent: 9 });
-    const undated = node('Spanish', { kind: 'goal', endDate: '2026-11-30', children: [node('a', { steps: ['x', 'y'] })] });
-    expect(widgetGoals([undated], '2026-10-29')[0]).toMatchObject({ stage: null, paceEnd: '2026-11-30', paceOpen: 2, recent: 0 });
-    expect(widgetGoals([node('Someday', { kind: 'goal', children: [node('a')] })], '2026-10-29')[0].paceEnd).toBeNull();
-  });
-});
-
-describe('recentGoalSteps', () => {
-  it('counts the steps ticked on each goal in the last 7 days', () => {
-    const goals = [node('G', { kind: 'goal', children: [node('n1')] })];
-    const tasks = [task('t1', 0, { goalNodeId: 'n1' }), task('loose', 1)];
-    const now = Date.parse('2026-10-29T12:00:00Z');
-    const session = (taskId: string, daysAgo: number, steps: number[]) => ({
-      taskId, startTime: 0, endTime: now - daysAgo * 86_400_000, netFocusMs: 0, completedStepIndices: steps,
-    }) as unknown as import('../types').TaskSession;
-    const steps = recentGoalSteps(goals, tasks, [session('t1', 1, [0, 1]), session('t1', 9, [2]), session('loose', 1, [0])], now);
-    expect(steps.get('G')).toBe(2);
-  });
 });
 
 describe('widgetFocus', () => {
