@@ -106,7 +106,7 @@
         <ImageView android:id="@+id/day_stop" android:layout_width="40dp" android:layout_height="40dp" android:layout_marginStart="8dp" android:background="@drawable/widget_stop_bg" android:contentDescription="Stop" android:padding="13dp" android:src="@drawable/ic_widget_stop" android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Goal: your focus today and over the last 30 days. -->
+    <!-- Goal: your focus today, over the last 30 days and on the best of them. -->
     <LinearLayout
         android:id="@+id/day_stats"
         android:layout_width="match_parent"
@@ -115,16 +115,21 @@
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:visibility="gone">
-        <!-- Your focus: today, and the daily average over the last 30 days. -->
-        <LinearLayout android:id="@+id/day_focus_box" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="14dp" android:paddingEnd="12dp">
+        <!-- Your focus: today, the daily average over the last 30 days, and the best of them. -->
+        <LinearLayout android:id="@+id/day_focus_box" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="12dp" android:paddingEnd="8dp">
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                <TextView android:id="@+id/day_stat_today" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="focused today" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+                <TextView android:id="@+id/day_stat_today" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:id="@+id/day_stat_today_key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="today" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
             </LinearLayout>
-            <FrameLayout android:layout_width="1dp" android:layout_height="34dp" android:layout_marginStart="10dp" android:layout_marginEnd="12dp" android:background="@color/widget_edge" />
+            <FrameLayout android:layout_width="1dp" android:layout_height="34dp" android:layout_marginStart="8dp" android:layout_marginEnd="10dp" android:background="@color/widget_edge" />
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                <TextView android:id="@+id/day_stat1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="a day · last 30 days" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+                <TextView android:id="@+id/day_stat1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="daily avg · 30d" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <FrameLayout android:layout_width="1dp" android:layout_height="34dp" android:layout_marginStart="8dp" android:layout_marginEnd="10dp" android:background="@color/widget_edge" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/day_stat_best" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:id="@+id/day_stat_best_key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="best day" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
         <LinearLayout android:id="@+id/day_goal_nav" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:orientation="vertical">

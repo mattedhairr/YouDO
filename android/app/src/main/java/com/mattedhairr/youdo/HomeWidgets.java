@@ -366,7 +366,7 @@ final class HomeWidgets {
         views.setOnClickPendingIntent(R.id.day_card, openApp(ctx));
     }
 
-    /** Goal: the gauge, days left, and your focus today and over the last 30 days. */
+    /** Goal: the gauge, days left, and your focus today, over the last 30 days and on the best of them. */
     private static JSONObject goalView(Context ctx, RemoteViews views, int widgetId, JSONObject snapshot, JSONArray goals,
                                        ArcPainter.Palette palette, int[] arc) {
         int n = goals.length();
@@ -396,8 +396,18 @@ final class HomeWidgets {
 
         // Only your focus here: a pace for the goal needs a fully planned goal to be honest.
         JSONObject focus = snapshot == null ? null : snapshot.optJSONObject("focus");
-        views.setTextViewText(R.id.day_stat_today, duration(focus == null ? 0 : focus.optLong("todayMs")));
+        long todayMs = focus == null ? 0 : focus.optLong("todayMs");
+        long bestMs = focus == null ? 0 : focus.optLong("bestMs");
+        Calendar bestDay = focus == null || focus.isNull("bestDate") ? null : localDate(focus.optString("bestDate"));
+        // Past the best of the last 30 days: today's number turns amber.
+        boolean newBest = bestDay != null && todayMs > bestMs;
+        views.setTextViewText(R.id.day_stat_today, duration(todayMs));
+        views.setTextColor(R.id.day_stat_today, newBest ? ArcPainter.FLAME : ContextCompat.getColor(ctx, R.color.widget_text));
+        views.setTextViewText(R.id.day_stat_today_key, newBest ? "today · new best" : "today");
         views.setTextViewText(R.id.day_stat1, duration(focus == null ? 0 : focus.optLong("avgMs")));
+        views.setTextViewText(R.id.day_stat_best, duration(bestMs));
+        views.setTextViewText(R.id.day_stat_best_key, bestDay == null ? "best day"
+            : "best · " + new SimpleDateFormat("MMM d", Locale.getDefault()).format(bestDay.getTime()));
 
         views.setViewVisibility(R.id.day_strip, View.GONE);
         views.setViewVisibility(R.id.day_stats, View.VISIBLE);

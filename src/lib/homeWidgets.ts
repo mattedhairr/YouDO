@@ -87,8 +87,11 @@ export interface WidgetSnapshot {
   backlog: WidgetTask[];
   /** Today's scheduled cards already finished (the arc's lit segments). */
   todayDone: number;
-  /** Focus today, the daily average over the last 30 days, and the daily bar the streak asks for. */
-  focus: { todayMs: number; avgMs: number; barMs: number };
+  /**
+   * Focus today, the daily average over the last 30 days, the best of those
+   * days (bestDate null when none had focus), and the daily bar the streak asks for.
+   */
+  focus: { todayMs: number; avgMs: number; bestMs: number; bestDate: string | null; barMs: number };
   streak: { days: number; save: WidgetStreakSave | null };
   /** The app's accent for light and dark phones. */
   accent: { light: string; dark: string };
@@ -195,18 +198,33 @@ export function widgetGoals(goals: GoalNode[]): WidgetGoal[] {
   });
 }
 
-/** Focus today, and the daily average over the 30 days before it (or since focus began, if later). */
+/**
+ * Focus today, the daily average over the 30 days before it (or since focus
+ * began, if later), and the best of those days (the latest one on a tie).
+ */
 export function widgetFocus(byDate: Map<string, number>, barHours: number, today = todayISO()): WidgetSnapshot['focus'] {
   let total = 0;
   let since: string | null = null;
+  let bestMs = 0;
+  let bestDate: string | null = null;
   for (let back = 30; back >= 1; back--) {
     const day = shiftLocalISO(today, -back);
     const ms = byDate.get(day) ?? 0;
     if (ms > 0 && !since) since = day;
     if (since) total += ms;
+    if (ms > 0 && ms >= bestMs) {
+      bestMs = ms;
+      bestDate = day;
+    }
   }
   const days = since ? -daysUntil(since, today) : 0;
-  return { todayMs: byDate.get(today) ?? 0, avgMs: days ? Math.round(total / days) : 0, barMs: streakBarMs(barHours) };
+  return {
+    todayMs: byDate.get(today) ?? 0,
+    avgMs: days ? Math.round(total / days) : 0,
+    bestMs,
+    bestDate,
+    barMs: streakBarMs(barHours),
+  };
 }
 
 /** The streak shown on Progress, keeping one that can still be restored. */

@@ -53,8 +53,20 @@ describe('widgetFocus', () => {
   it('averages the days since focus began, up to the last 30, without today', () => {
     const byDate = new Map([['2026-10-29', 600_000], ['2026-10-27', 3_600_000], ['2026-10-28', 0]]);
     // Focus began on the 27th: two days (27th, 28th) before today.
-    expect(widgetFocus(byDate, 4, '2026-10-29')).toEqual({ todayMs: 600_000, avgMs: 1_800_000, barMs: 4 * 3_600_000 });
-    expect(widgetFocus(new Map(), 4, '2026-10-29')).toMatchObject({ todayMs: 0, avgMs: 0 });
+    expect(widgetFocus(byDate, 4, '2026-10-29')).toEqual({
+      todayMs: 600_000, avgMs: 1_800_000, bestMs: 3_600_000, bestDate: '2026-10-27', barMs: 4 * 3_600_000,
+    });
+    expect(widgetFocus(new Map(), 4, '2026-10-29')).toMatchObject({ todayMs: 0, avgMs: 0, bestMs: 0, bestDate: null });
+  });
+
+  it('finds the best of the 30 days before today, the latest on a tie', () => {
+    const byDate = new Map([
+      ['2026-09-28', 9_000_000], // 31 days back: outside
+      ['2026-10-10', 7_200_000],
+      ['2026-10-20', 7_200_000],
+      ['2026-10-29', 9_000_000], // today is not counted
+    ]);
+    expect(widgetFocus(byDate, 4, '2026-10-29')).toMatchObject({ bestMs: 7_200_000, bestDate: '2026-10-20' });
   });
 });
 
