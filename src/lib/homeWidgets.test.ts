@@ -19,7 +19,8 @@ describe('widgetTodayTasks', () => {
     ], goals);
     expect(cards.map((card) => [card.id, card.rank])).toEqual([['a', 1], ['b', 2]]);
     // As Today's cards: two levels as the eyebrow, the rest under the title.
-    expect(cards[1]).toMatchObject({ origin: 'Novel • Part one', context: 'Ch 1 / Scene', done: 1, total: 2 });
+    expect(cards[1]).toMatchObject({ origin: 'Novel • Part one', context: 'Ch 1 / Scene', done: 1, total: 2, next: 'b' });
+    expect(widgetTodayTasks([task('x', 0, { steps: [] })], [])[0].next).toBeNull();
     expect(cards[0]).toMatchObject({ origin: null, context: '' });
   });
 });

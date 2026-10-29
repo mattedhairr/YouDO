@@ -27,6 +27,8 @@ export interface WidgetTask {
   rank: number;
   done: number;
   total: number;
+  /** The next step to do, or null when there are none left. */
+  next: string | null;
   /** Backlog only: the local yyyy-mm-dd it was due. */
   due: string | null;
 }
@@ -94,6 +96,9 @@ const clip = (text: string) => {
   return clean.length > MAX_TEXT ? `${clean.slice(0, MAX_TEXT - 1)}…` : clean;
 };
 
+/** The step the card's progress has reached, if any is left. */
+const nextStep = (task: Task) => (task.progress < task.steps.length ? clip(task.steps[task.progress]) || null : null);
+
 function taskOrigin(goals: GoalNode[], task: Task): Pick<WidgetTask, 'origin' | 'context'> {
   if (!task.goalNodeId) return { origin: null, context: '' };
   for (const root of goals) {
@@ -136,6 +141,7 @@ export function widgetTodayTasks(todayTasks: Task[], goals: GoalNode[]): WidgetT
       rank: index + 1,
       done: Math.min(task.progress, task.steps.length),
       total: task.steps.length,
+      next: nextStep(task),
       due: null,
     }));
 }
@@ -153,6 +159,7 @@ export function widgetBacklogTasks(backlogTasks: Task[], goals: GoalNode[]): Wid
       rank: index + 1,
       done: Math.min(task.progress, task.steps.length),
       total: task.steps.length,
+      next: nextStep(task),
       due: (task.targetDate ?? '').slice(0, 10),
     }));
 }

@@ -217,10 +217,15 @@ final class HomeWidgets {
         CharSequence path = cardPath(ctx, card);
         views.setTextViewText(R.id.card_path, path);
         views.setViewVisibility(R.id.card_path, path.length() == 0 ? View.GONE : View.VISIBLE);
-        views.setTextViewText(R.id.card_steps, total > 0 ? done + " of " + total + " steps" : "No steps");
-        views.setProgressBar(R.id.card_bar, 100, total > 0 ? Math.min(100, done * 100 / total) : 0, false);
+        // The next step to do and which one it is; the ring around ▶ fills as steps are done.
+        boolean open = total > 0 && done < total && !card.isNull("next");
+        views.setViewVisibility(R.id.card_next_dot, open ? View.VISIBLE : View.GONE);
+        views.setTextViewText(R.id.card_next_text, open ? card.optString("next") : total == 0 ? "No steps" : "All steps done");
+        color(ctx, views, R.id.card_next_text, "setTextColor", open ? R.color.widget_text : R.color.widget_text2);
+        views.setTextViewText(R.id.card_steps, open ? (done + 1) + " of " + total : "");
+        views.setProgressBar(R.id.card_ring, 100, total > 0 ? Math.min(100, done * 100 / total) : 0, false);
         tint(ctx, views, R.id.card_start_bg, "setColorFilter", accent);
-        tintProgress(views, R.id.card_bar, accent);
+        tintProgress(views, R.id.card_ring, accent);
         views.setOnClickPendingIntent(R.id.card_start, upNextAction(ctx, widgetId, "start", card.optString("id")));
         views.setOnClickPendingIntent(R.id.card_root, openTarget(ctx, "task", card.optString("id")));
         return views;
@@ -283,6 +288,9 @@ final class HomeWidgets {
         views.setProgressBar(R.id.session_ring, 100, total > 0 ? Math.min(100, done * 100 / total) : 0, false);
         tintProgress(views, R.id.session_ring, accent);
         views.setTextViewText(R.id.session_ring_label, total > 0 ? done + " of " + total + " steps" : "focus");
+        String next = card == null || card.isNull("next") ? "" : card.optString("next");
+        views.setViewVisibility(R.id.session_next, next.isEmpty() ? View.GONE : View.VISIBLE);
+        views.setTextViewText(R.id.session_next_text, next);
 
         views.setImageViewResource(R.id.session_toggle, paused ? R.drawable.ic_widget_resume : R.drawable.ic_widget_pause);
         views.setContentDescription(R.id.session_toggle, paused ? "Resume focus" : "Pause focus");

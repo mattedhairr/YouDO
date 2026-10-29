@@ -22,14 +22,21 @@
             android:layout_height="match_parent"
             android:gravity="center"
             android:orientation="vertical">
+            <!-- Sized to fit inside the ring, from 24:18 to 1:30:00 and beyond (Android 8+). -->
             <Chronometer
                 android:id="@+id/session_timer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="84dp"
+                android:layout_height="34dp"
+                android:autoSizeMaxTextSize="26sp"
+                android:autoSizeMinTextSize="12sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
                 android:fontFamily="sans-serif-light"
+                android:gravity="center"
                 android:includeFontPadding="false"
+                android:maxLines="1"
                 android:textColor="@color/widget_text"
-                android:textSize="26sp" />
+                android:textSize="20sp" />
             <TextView android:id="@+id/session_ring_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="@color/widget_text2" android:textSize="10sp" android:textStyle="bold" />
         </LinearLayout>
     </FrameLayout>
@@ -40,15 +47,25 @@
         android:layout_weight="1"
         android:orientation="vertical">
         <TextView android:id="@+id/session_state" android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.14" android:textColor="@color/widget_live" android:textSize="10.5sp" android:textStyle="bold" />
-        <TextView android:id="@+id/session_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:ellipsize="end" android:maxLines="2" android:textColor="@color/widget_text" android:textSize="17sp" android:textStyle="bold" />
+        <TextView android:id="@+id/session_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="17sp" android:textStyle="bold" />
         <TextView android:id="@+id/session_meta" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11.5sp" />
+        <LinearLayout
+            android:id="@+id/session_next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_marginEnd="6dp" android:src="@drawable/widget_step_circle" />
+            <TextView android:id="@+id/session_next_text" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="12sp" />
+        </LinearLayout>
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:orientation="horizontal">
-            <ImageView android:id="@+id/session_toggle" android:layout_width="46dp" android:layout_height="46dp" android:background="@drawable/widget_round_bg" android:contentDescription="Pause or resume" android:padding="13dp" android:src="@drawable/ic_widget_pause" />
-            <ImageView android:id="@+id/session_stop" android:layout_width="46dp" android:layout_height="46dp" android:layout_marginStart="10dp" android:background="@drawable/widget_stop_bg" android:contentDescription="Stop" android:padding="14dp" android:src="@drawable/ic_widget_stop" />
+            <ImageView android:id="@+id/session_toggle" android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/widget_round_bg" android:contentDescription="Pause or resume" android:padding="13dp" android:src="@drawable/ic_widget_pause" />
+            <ImageView android:id="@+id/session_stop" android:layout_width="44dp" android:layout_height="44dp" android:layout_marginStart="10dp" android:background="@drawable/widget_stop_bg" android:contentDescription="Stop" android:padding="14dp" android:src="@drawable/ic_widget_stop" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
