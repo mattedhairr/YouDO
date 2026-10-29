@@ -18,3 +18,19 @@ export function takePendingDm(): string | null {
   pendingUserId = null;
   return id;
 }
+
+/** "Open this room" from outside the Private Hub (a Room widget tap), handed over the same way. */
+export const OPEN_ROOM_EVENT = 'youdo-open-room';
+
+let pendingRoomId: string | null = null;
+
+export function requestOpenRoom(roomId: string): void {
+  pendingRoomId = roomId;
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(OPEN_ROOM_EVENT, { detail: roomId }));
+}
+
+export function takePendingRoom(): string | null {
+  const id = pendingRoomId;
+  pendingRoomId = null;
+  return id;
+}

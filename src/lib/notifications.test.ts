@@ -1,13 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GoalNode, Task } from '../types';
+import { buildMorningBriefingContent, extractBriefingData, getDaysRemaining, getGoalEndDate } from './morningBriefing';
 import {
-  buildMorningBriefingContent,
   calculateNextBriefingTime,
   DEFAULT_NOTIFICATION_PREFERENCES,
-  extractBriefingData,
-  getDaysRemaining,
   getDmNotificationId,
-  getGoalEndDate,
   getNotificationPreferences,
   getRoomNotificationId,
   isMentioned,
@@ -261,15 +258,25 @@ describe('notifications library', () => {
       expect(body).toContain('5-day streak · 4 more days to beat your best (8)');
     });
 
-    it('names the pace that finishes the goal on time', () => {
+    it('names a pace only for what is planned so far', () => {
       const base = { todayTasksCount: 0, openBacklogCount: 0, activeGoals: [], streakCount: 0, streakBest: 0 };
       const goal = { id: 'g', title: 'GATE', daysLeft: 10, pct: 34 };
       const line = (openTasks: number) =>
         buildMorningBriefingContent({ ...base, activeGoals: [{ ...goal, openTasks }] }).body;
-      expect(line(25)).toContain('📈 34% done · about 3 tasks a day keeps you on track');
-      expect(line(10)).toContain('📈 34% done · a task a day keeps you on track');
-      expect(line(3)).toContain('📈 34% done · a task every 3 days keeps you on track');
+      expect(line(25)).toContain("📈 34% done · about 3 tasks a day for what's planned so far");
+      expect(line(10)).toContain("📈 34% done · a task a day for what's planned so far");
+      expect(line(3)).toContain("📈 34% done · a task every 3 days for what's planned so far");
       expect(line(0).split('\n')).toContain('📈 34% done');
+    });
+
+    it('paces the dated stage in progress when the goal has one', () => {
+      const base = { todayTasksCount: 0, openBacklogCount: 0, activeGoals: [], streakCount: 0, streakBest: 0 };
+      const goal = { id: 'g', title: 'GATE', daysLeft: 63, pct: 42, openTasks: 30 };
+      const body = (stage: { title: string; daysLeft: number; openTasks: number }) =>
+        buildMorningBriefingContent({ ...base, activeGoals: [{ ...goal, stage }] }).body;
+      expect(body({ title: 'Phase - 3', daysLeft: 17, openTasks: 34 })).toContain('📈 42% done · Phase - 3 ends in 17 days · about 2 tasks a day keeps it on track');
+      expect(body({ title: 'Phase - 3', daysLeft: 0, openTasks: 3 })).toContain('Phase - 3 ends today · about 3 tasks a day keeps it on track');
+      expect(body({ title: 'Phase - 3', daysLeft: 5, openTasks: 0 })).toContain('📈 42% done · Phase - 3 ends in 5 days');
     });
 
     it('cheers a record streak and invites a new one', () => {
@@ -358,7 +365,8 @@ describe('notifications library', () => {
 
       const content = buildMorningBriefingContent(data);
       expect(content.title).toBe('🎯 20 days to Main UPSC Exam');
-      expect(content.body).not.toContain('Sub-chapter 1 Milestone');
+      // The child is no goal of its own; it only sets the pace, as the stage in progress.
+      expect(content.body).toContain('Sub-chapter 1 Milestone ends in 5 days');
       expect(content.body).not.toContain('Deep child task');
     });
 

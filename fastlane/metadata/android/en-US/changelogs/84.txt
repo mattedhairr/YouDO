@@ -1,0 +1,6 @@
+v8.3.0: Home-screen widgets and a new guide
+- Dashboard widget: today's cards on an arc, start and pause focus, a focus dial and a day-left gauge.
+- Room widget: see who in your room is focusing, live.
+- Widgets update every minute while you focus and follow your accent.
+- A new full-screen guide with animated steps.
+- Ambient opens only on a real rotation.

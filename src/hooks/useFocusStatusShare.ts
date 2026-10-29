@@ -6,8 +6,10 @@ import { focusShareFromSession, focusShareKey, setFocusStatus } from '../lib/foc
  * Shares "focusing / paused / idle" with room-mates when a session starts,
  * pauses, resumes or stops — not on every heartbeat. A failed write is
  * retried on the next change or when the app comes back to the foreground.
+ * Nothing is shared until ready: a session started from the widget is picked
+ * up after launch, and an "idle" sent before then would end it for the room.
  */
-export function useFocusStatusShare(userId: string | undefined, session: ActiveSession | null | undefined) {
+export function useFocusStatusShare(userId: string | undefined, session: ActiveSession | null | undefined, ready = true) {
   const sent = useRef<string | null>(null);
   const share = focusShareFromSession(session);
   const key = focusShareKey(share);
@@ -17,7 +19,7 @@ export function useFocusStatusShare(userId: string | undefined, session: ActiveS
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || sent.current === key) return;
+    if (!userId || !ready || sent.current === key) return;
     let cancelled = false;
     void setFocusStatus(share).then((ok) => {
       if (!cancelled && ok) sent.current = key;
@@ -27,10 +29,10 @@ export function useFocusStatusShare(userId: string | undefined, session: ActiveS
     };
     // `share` is derived from `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, key]);
+  }, [userId, key, ready]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !ready) return;
     const retry = () => {
       if (document.visibilityState !== 'visible' || sent.current === key) return;
       void setFocusStatus(share).then((ok) => {
@@ -40,5 +42,5 @@ export function useFocusStatusShare(userId: string | undefined, session: ActiveS
     document.addEventListener('visibilitychange', retry);
     return () => document.removeEventListener('visibilitychange', retry);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, key]);
+  }, [userId, key, ready]);
 }

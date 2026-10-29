@@ -1404,6 +1404,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [activeSessionRef, setActiveSession]);
 
+  // A session started from the home-screen widget while the app sat in the
+  // background: Android holds it, so pick it up when the app comes back.
+  useEffect(() => {
+    if (!nativeSessionReady) return;
+    const adoptWidgetSession = () => {
+      if (document.visibilityState !== 'visible' || activeSessionRef.current) return;
+      void pullNativeSession().then(({ ok, session }) => {
+        if (!ok || !session || activeSessionRef.current) return;
+        if (nativeSessionIsFinished(session, sessionHistoryRef.current)) return;
+        try { if (wasSessionDiscarded(session)) return; } catch { return; }
+        const task = tasksRef.current.find((t) => t.id === session.taskId);
+        if (!task || isTaskComplete(task)) return;
+        setActiveSession(session);
+      });
+    };
+    document.addEventListener('visibilitychange', adoptWidgetSession);
+    return () => document.removeEventListener('visibilitychange', adoptWidgetSession);
+  }, [nativeSessionReady, activeSessionRef, setActiveSession]);
+
   const sessionTaskTitle = activeSession
     ? tasks.find((t) => t.id === activeSession.taskId)?.title
     : undefined;

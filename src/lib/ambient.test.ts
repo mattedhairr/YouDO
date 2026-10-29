@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DRIFT_RANGE, ambientAutoOpenEnabled, ambientClockDriftRange, ambientDigits, ambientDrift, formatAmbientTimer, ambientTipSeen, markAmbientTipSeen, setAmbientAutoOpen } from './ambient';
+import { DRIFT_RANGE, ambientAutoOpenEnabled, ambientClockDriftRange, phoneIsSideways, ambientDigits, ambientDrift, formatAmbientTimer, ambientTipSeen, markAmbientTipSeen, setAmbientAutoOpen } from './ambient';
 
 const store = new Map<string, string>();
 vi.stubGlobal('localStorage', {
@@ -49,5 +49,19 @@ describe('ambientClockDriftRange', () => {
 
   it('keeps a wider drift inside its range', () => {
     for (let i = 1; i <= 60; i++) expect(Math.hypot(ambientDrift(i, 28).x, ambientDrift(i, 28).y)).toBeLessThanOrEqual(29);
+  });
+});
+
+describe('phoneIsSideways', () => {
+  it('uses the real rotation, so the keyboard shortening the screen never counts', () => {
+    // Upright phone with the keyboard open: the screen itself is still portrait.
+    expect(phoneIsSideways({ width: 412, height: 915, orientation: { type: 'portrait-primary' } }, true)).toBe(false);
+    expect(phoneIsSideways({ width: 915, height: 412, orientation: { type: 'landscape-primary' } }, true)).toBe(true);
+  });
+
+  it('falls back to the screen size without the orientation API, and ignores laptops', () => {
+    expect(phoneIsSideways({ width: 915, height: 412 }, true)).toBe(true);
+    expect(phoneIsSideways({ width: 412, height: 915 }, true)).toBe(false);
+    expect(phoneIsSideways({ width: 1920, height: 1080, orientation: { type: 'landscape-primary' } }, false)).toBe(false);
   });
 });

@@ -46,8 +46,18 @@ describe('send-push payload', () => {
         body: 'Admin replied',
         data: { type: 'hashtag_reply', channel: 'private-hub', count: '2' },
         channel: 'private-hub',
+        silent: false,
       },
     });
+  });
+
+  it('marks data-only widget refreshes as silent', () => {
+    const parsed = parsePushRequest({ userIds: [USER], title: 'YouDO', data: { type: 'focus_status', silent: 'true' } });
+    expect(parsed.ok && parsed.request.silent).toBe(true);
+    const shown = parsePushRequest({ userIds: [USER], title: 'YouDO', data: { silent: true } });
+    expect(shown.ok && shown.request.silent).toBe(true);
+    const normal = parsePushRequest({ userIds: [USER], title: 'YouDO', data: { silent: 'yes' } });
+    expect(normal.ok && normal.request.silent).toBe(false);
   });
 
   it('accepts a single userId and defaults unknown channels to public-hub', () => {

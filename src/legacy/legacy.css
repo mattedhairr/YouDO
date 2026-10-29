@@ -1492,8 +1492,9 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
 }
 
 .settings-row > div:first-child > div:first-child,
-.settings-focus-card > div > div:first-child,
-.settings-board-card > div:first-child > div:first-child {
+/* Only the icon tiles: a broader match squeezed the focus sound list into a 40px column. */
+.settings-card div.w-9.h-9.rounded-xl,
+.settings-card div.size-9.rounded-xl {
   width: 40px;
   height: 40px;
   border-radius: 12px;

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Room (4x2): the room in the middle, its members in the corners with a ring
+     for today's focus against the room's bar, joined by lines (ArcPainter)
+     that light up for whoever is focusing. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg">
+    <ImageView android:id="@+id/room_canvas" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitXY" />
+    <RelativeLayout
+        android:id="@+id/room_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp">
+        <TextView android:id="@+id/room_kicker" android:layout_width="wrap_content" android:layout_height="14dp" android:layout_alignParentStart="true" android:layout_alignParentTop="true" android:letterSpacing="0.14" android:text="ROOM" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+        <TextView android:id="@+id/room_bar" android:layout_width="wrap_content" android:layout_height="14dp" android:layout_alignParentEnd="true" android:layout_alignParentTop="true" android:textColor="@color/widget_text3" android:textSize="10.5sp" android:textStyle="bold" />
+        <TextView android:id="@+id/room_together" android:layout_width="wrap_content" android:layout_height="14dp" android:layout_alignParentBottom="true" android:layout_alignParentStart="true" android:textColor="@color/widget_text3" android:textSize="10.5sp" android:textStyle="bold" />
+        <TextView android:id="@+id/room_hit" android:layout_width="wrap_content" android:layout_height="14dp" android:layout_alignParentBottom="true" android:layout_alignParentEnd="true" android:textColor="@color/widget_text3" android:textSize="10.5sp" android:textStyle="bold" />
+        <LinearLayout
+            android:id="@+id/room_slot0"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/room_kicker"
+            android:layout_alignParentStart="true"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ProgressBar android:id="@+id/room_ring0" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:max="100" android:progressDrawable="@drawable/widget_ring" />
+                <ImageView android:id="@+id/room_avatar0" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial0" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:gravity="center" android:includeFontPadding="false" android:textColor="#FFFFFF" android:textSize="17sp" android:textStyle="bold" />
+            </FrameLayout>
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:gravity="start" android:orientation="vertical">
+                <TextView android:id="@+id/room_member0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:ellipsize="end" android:maxWidth="62dp" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="12.5sp" android:textStyle="bold" />
+                <Chronometer android:id="@+id/room_time0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_live" android:textSize="10sp" android:textStyle="bold" android:visibility="gone" />
+                <TextView android:id="@+id/room_away0" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text3" android:textSize="10sp" android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/room_slot1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/room_kicker"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="7dp" android:gravity="end" android:orientation="vertical">
+                <TextView android:id="@+id/room_member1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:ellipsize="end" android:maxWidth="62dp" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="12.5sp" android:textStyle="bold" />
+                <Chronometer android:id="@+id/room_time1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_live" android:textSize="10sp" android:textStyle="bold" android:visibility="gone" />
+                <TextView android:id="@+id/room_away1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text3" android:textSize="10sp" android:textStyle="bold" />
+            </LinearLayout>
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ProgressBar android:id="@+id/room_ring1" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:max="100" android:progressDrawable="@drawable/widget_ring" />
+                <ImageView android:id="@+id/room_avatar1" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial1" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:gravity="center" android:includeFontPadding="false" android:textColor="#FFFFFF" android:textSize="17sp" android:textStyle="bold" />
+            </FrameLayout>
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/room_slot2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@id/room_together"
+            android:layout_alignParentStart="true"
+            android:layout_marginBottom="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ProgressBar android:id="@+id/room_ring2" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:max="100" android:progressDrawable="@drawable/widget_ring" />
+                <ImageView android:id="@+id/room_avatar2" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial2" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:gravity="center" android:includeFontPadding="false" android:textColor="#FFFFFF" android:textSize="17sp" android:textStyle="bold" />
+            </FrameLayout>
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:gravity="start" android:orientation="vertical">
+                <TextView android:id="@+id/room_member2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:ellipsize="end" android:maxWidth="62dp" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="12.5sp" android:textStyle="bold" />
+                <Chronometer android:id="@+id/room_time2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_live" android:textSize="10sp" android:textStyle="bold" android:visibility="gone" />
+                <TextView android:id="@+id/room_away2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text3" android:textSize="10sp" android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/room_slot3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@id/room_together"
+            android:layout_alignParentEnd="true"
+            android:layout_marginBottom="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="7dp" android:gravity="end" android:orientation="vertical">
+                <TextView android:id="@+id/room_member3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:ellipsize="end" android:maxWidth="62dp" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="12.5sp" android:textStyle="bold" />
+                <Chronometer android:id="@+id/room_time3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_live" android:textSize="10sp" android:textStyle="bold" android:visibility="gone" />
+                <TextView android:id="@+id/room_away3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text3" android:textSize="10sp" android:textStyle="bold" />
+            </LinearLayout>
+            <FrameLayout android:layout_width="48dp" android:layout_height="48dp">
+                <ProgressBar android:id="@+id/room_ring3" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:max="100" android:progressDrawable="@drawable/widget_ring" />
+                <ImageView android:id="@+id/room_avatar3" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:src="@drawable/widget_avatar" />
+                <TextView android:id="@+id/room_initial3" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center" android:gravity="center" android:includeFontPadding="false" android:textColor="#FFFFFF" android:textSize="17sp" android:textStyle="bold" />
+            </FrameLayout>
+        </LinearLayout>
+        <!-- The room, as its tile in the app. -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+            <TextView android:id="@+id/room_icon" android:layout_width="50dp" android:layout_height="50dp" android:background="@drawable/widget_box_bg" android:gravity="center" android:includeFontPadding="false" android:textSize="24sp" />
+            <TextView android:id="@+id/room_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:ellipsize="end" android:maxWidth="96dp" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="14sp" android:textStyle="bold" />
+            <TextView android:id="@+id/room_live" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_live" android:textSize="10.5sp" android:textStyle="bold" />
+        </LinearLayout>
+    </RelativeLayout>
+    <!-- No room to show yet: one line across the whole widget. -->
+    <TextView
+        android:id="@+id/room_message"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:maxLines="2"
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:textColor="@color/widget_text"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+</FrameLayout>

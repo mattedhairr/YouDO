@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Day Arc (4x3): the day as one arc (ArcPainter), with Scheduled, Backlog and
+     Goal views picked by the chips at the bottom (HomeWidgets.dayArc). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingTop="13dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="13dp">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/day_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:letterSpacing="0.14" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+        <TextView android:id="@+id/day_badge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- The arc, with the count, timer or days left in its middle. -->
+    <FrameLayout
+        android:id="@+id/day_arc_area"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="2dp"
+        android:layout_weight="1">
+        <ImageView android:id="@+id/day_arc" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitCenter" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+            <TextView android:id="@+id/day_big" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-light" android:includeFontPadding="false" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="34sp" />
+            <Chronometer
+                android:id="@+id/day_timer"
+                android:layout_width="150dp"
+                android:layout_height="40dp"
+                android:autoSizeMaxTextSize="34sp"
+                android:autoSizeMinTextSize="14sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:fontFamily="sans-serif-light"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="@color/widget_text"
+                android:textSize="28sp"
+                android:visibility="gone" />
+            <TextView android:id="@+id/day_sub" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:ellipsize="end" android:gravity="center" android:maxLines="2" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Scheduled / Backlog: the card in front. -->
+    <LinearLayout
+        android:id="@+id/day_strip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/widget_box_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="2dp"
+        android:paddingTop="9dp"
+        android:paddingEnd="9dp"
+        android:paddingBottom="9dp">
+        <!-- ‹ and › frame the card: plain arrows, each a full-height tap target. -->
+        <ImageView android:id="@+id/day_prev" android:layout_width="30dp" android:layout_height="match_parent" android:layout_marginEnd="2dp" android:contentDescription="Previous task" android:scaleType="center" android:src="@drawable/ic_widget_chevron_left" />
+        <LinearLayout
+            android:id="@+id/day_card"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+                <TextView android:id="@+id/day_due" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="6dp" android:background="@drawable/widget_due_bg" android:paddingStart="7dp" android:paddingTop="1dp" android:paddingEnd="7dp" android:paddingBottom="1dp" android:singleLine="true" android:textColor="@color/widget_overdue" android:textSize="10sp" android:textStyle="bold" android:visibility="gone" />
+                <!-- Where the task lives, as on Today's cards: two goal levels in a chip. -->
+                <LinearLayout android:id="@+id/day_origin" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/widget_pill_bg" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="7dp" android:paddingTop="2dp" android:paddingEnd="8dp" android:paddingBottom="2dp" android:visibility="gone">
+                    <ImageView android:id="@+id/day_origin_icon" android:layout_width="11dp" android:layout_height="11dp" android:src="@drawable/ic_widget_link" />
+                    <TextView android:id="@+id/day_origin_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="5dp" android:ellipsize="end" android:maxWidth="190dp" android:singleLine="true" android:textSize="10.5sp" android:textStyle="bold" />
+                </LinearLayout>
+                <TextView android:id="@+id/day_eyebrow" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:letterSpacing="0.04" android:singleLine="true" android:textSize="10sp" android:textStyle="bold" />
+            </LinearLayout>
+            <TextView android:id="@+id/day_card_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="16sp" android:textStyle="bold" />
+            <!-- The rest of the path, under the title. -->
+            <TextView android:id="@+id/day_path" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11.5sp" android:visibility="gone" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <ImageView android:id="@+id/day_next_dot" android:layout_width="11dp" android:layout_height="11dp" android:layout_marginEnd="6dp" android:src="@drawable/widget_step_circle" />
+                <TextView android:id="@+id/day_next" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11.5sp" />
+            </LinearLayout>
+        </LinearLayout>
+        <ImageView android:id="@+id/day_next_btn" android:layout_width="30dp" android:layout_height="match_parent" android:layout_marginStart="2dp" android:contentDescription="Next task" android:scaleType="center" android:src="@drawable/ic_widget_chevron_right" />
+        <FrameLayout
+            android:id="@+id/day_play"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="Start focus">
+            <ImageView android:id="@+id/day_play_bg" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_avatar" />
+            <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:padding="14dp" android:src="@drawable/ic_widget_play" />
+        </FrameLayout>
+        <ImageView android:id="@+id/day_pause" android:layout_width="40dp" android:layout_height="40dp" android:layout_marginStart="8dp" android:background="@drawable/widget_round_bg" android:contentDescription="Pause or resume" android:padding="12dp" android:src="@drawable/ic_widget_pause" android:visibility="gone" />
+        <ImageView android:id="@+id/day_stop" android:layout_width="40dp" android:layout_height="40dp" android:layout_marginStart="8dp" android:background="@drawable/widget_stop_bg" android:contentDescription="Stop" android:padding="13dp" android:src="@drawable/ic_widget_stop" android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Goal: your focus today, over the last 30 days and on the best of them. -->
+    <LinearLayout
+        android:id="@+id/day_stats"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+        <!-- Your focus: today, the daily average over the last 30 days, and the best of them. -->
+        <LinearLayout android:id="@+id/day_focus_box" android:layout_width="0dp" android:layout_height="64dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="12dp" android:paddingEnd="8dp">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/day_stat_today" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:id="@+id/day_stat_today_key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="today" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <FrameLayout android:layout_width="1dp" android:layout_height="34dp" android:layout_marginStart="8dp" android:layout_marginEnd="10dp" android:background="@color/widget_edge" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/day_stat1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="daily avg · 30d" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+            <FrameLayout android:layout_width="1dp" android:layout_height="34dp" android:layout_marginStart="8dp" android:layout_marginEnd="10dp" android:background="@color/widget_edge" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/day_stat_best" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:id="@+id/day_stat_best_key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:text="best day" android:textColor="@color/widget_text2" android:textSize="10.5sp" android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/day_goal_nav" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:orientation="vertical">
+            <TextView android:id="@+id/day_goal_prev" android:layout_width="38dp" android:layout_height="30dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Previous goal" android:gravity="center" android:includeFontPadding="false" android:text="‹" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/day_goal_next" android:layout_width="38dp" android:layout_height="30dp" android:layout_marginTop="5dp" android:background="@drawable/widget_pill_bg" android:contentDescription="Next goal" android:gravity="center" android:includeFontPadding="false" android:text="›" android:textColor="@color/widget_text" android:textSize="20sp" android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- The views: Scheduled, Backlog, and the goal of the card in front. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+        <TextView android:id="@+id/chip_scheduled" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:ellipsize="end" android:gravity="center" android:paddingTop="6dp" android:paddingBottom="6dp" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
+        <TextView android:id="@+id/chip_backlog" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:ellipsize="end" android:gravity="center" android:paddingTop="6dp" android:paddingBottom="6dp" android:singleLine="true" android:textColor="@color/widget_overdue" android:textSize="11sp" android:textStyle="bold" />
+        <TextView android:id="@+id/chip_goal" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/widget_box_bg" android:ellipsize="end" android:gravity="center" android:paddingTop="6dp" android:paddingBottom="6dp" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

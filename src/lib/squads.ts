@@ -506,14 +506,18 @@ export interface RoomSummary {
 /** Matches the limit enforced by hub_room_membership.sql. */
 export const ROOM_MEMBER_LIMIT = 4;
 
-export async function fetchMyRoomSummaries(userId: string): Promise<RoomSummary[]> {
+/** onError: told when the rooms could not be loaded (the list is then empty, not "no rooms"). */
+export async function fetchMyRoomSummaries(userId: string, onError?: () => void): Promise<RoomSummary[]> {
   const { data: mine, error } = await supabase
     .from('squad_members')
     .select('squad_id, role, squads(*)')
     .eq('user_id', userId)
     .eq('status', 'accepted');
   if (error || !mine?.length) {
-    if (error) console.error('fetchMyRoomSummaries error:', error);
+    if (error) {
+      console.error('fetchMyRoomSummaries error:', error);
+      onError?.();
+    }
     return [];
   }
 

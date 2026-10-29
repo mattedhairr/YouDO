@@ -17,5 +17,7 @@ public class SessionNotificationReceiver extends BroadcastReceiver {
 
         JSONObject session = SessionNotificationStore.applyAction(context, mapped);
         YouDoSessionNotificationPlugin.emitSession(session);
+        // Room-mates see the pause or resume even while YouDO is closed.
+        if (session != null) FocusStatusPoster.post(context, session, goAsync());
     }
 }

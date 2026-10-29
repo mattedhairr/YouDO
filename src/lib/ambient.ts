@@ -59,8 +59,20 @@ export function setAmbientAutoOpen(enabled: boolean): void {
   }
 }
 
-/** A phone turned sideways: landscape and short, on a touch screen (not a laptop window). */
-export const PHONE_LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 520px) and (pointer: coarse)';
+/**
+ * A phone turned sideways, by the device's real rotation. The viewport is not
+ * used: an on-screen keyboard shortens it, so typing a note looked "sideways"
+ * and kept reopening the ambient clock. Touch screens only (not a laptop window).
+ */
+export function phoneIsSideways(
+  screenInfo: { width: number; height: number; orientation?: { type?: string } } = window.screen,
+  coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches,
+): boolean {
+  if (!coarsePointer) return false;
+  const type = screenInfo.orientation?.type;
+  const landscape = type ? type.startsWith('landscape') : screenInfo.width > screenInfo.height;
+  return landscape && Math.min(screenInfo.width, screenInfo.height) <= 520;
+}
 
 export function ambientTipSeen(): boolean {
   try {

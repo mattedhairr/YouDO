@@ -5,10 +5,11 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { ensureNotificationChannels, getNotificationPreferences, scheduleMorningBriefing } from './lib/notifications';
 import { initPushNotifications } from './lib/pushNotifications';
+import { requestOpenRoom } from './components/hub/openDm';
 import { syncPushPreferences } from './lib/pushPreferences';
 import { OPEN_APP_UPDATES_EVENT } from './lib/boardUpdate';
 import { settingsBackStep } from './lib/settingsBack';
-import { PHONE_LANDSCAPE_QUERY, ambientAutoOpenEnabled } from './lib/ambient';
+import { ambientAutoOpenEnabled, phoneIsSideways } from './lib/ambient';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
 import { formatDDMMYYYY, hasGoalExecutionState, isBacklogTask, isGoalEndpoint, isOpenBacklogTask, isTaskComplete, isToday, pathNodes, pathTitles, todayISO, useStore, useSessionStore, findGoal } from './store';
@@ -61,6 +62,8 @@ const AdminHubSheet = lazy(() => import('./components/AdminHubSheet'));
 // Only shown during a session; keeps its font and sound picker out of the first load.
 const HelpCenterSheet = lazy(() => import('./components/HelpCenterSheet'));
 const UpdateInstaller = lazy(() => import('./components/UpdateInstaller'));
+// Android home-screen widgets: none of their code is needed for the first screen.
+const HomeWidgets = lazy(() => import('./hooks/useHomeWidgets'));
 
 /** Loads the installer sheet only once it is first opened; its own component follows the download. */
 function UpdateInstallerHost() {
@@ -193,12 +196,12 @@ function AppInner() {
 
   const [{ darkMode }] = useTheme();
   const [{ legacyStyle }] = useUiPrefs();
-  const { user: activityUser } = useAuth();
+  const { user: activityUser, loading: authLoading } = useAuth();
   const { pacePrefs: activityPrefs } = useStore();
   useCommunityActivity(activityUser?.id, activityPrefs.optedIn);
   const isCommunityAdmin = useIsCommunityAdmin(activityUser?.id);
   // Room-mates see when you are focusing (never what on).
-  useFocusStatusShare(activityUser?.id, activeSession);
+  useFocusStatusShare(activityUser?.id, activeSession, nativeSessionReady);
   useFocusSoundSession(activeSession);
   const {
     privatePending: hubPrivatePending,
@@ -505,14 +508,23 @@ function AppInner() {
 
   // StandBy-style: turning the phone sideways during a session opens the ambient clock.
   const hasActiveSession = !!activeSession;
+  // Only the moment the phone actually rotates into landscape counts; the
+  // keyboard opening (which shortens the viewport) never does.
   useEffect(() => {
-    if (!hasActiveSession || typeof window.matchMedia !== 'function') return;
-    const sideways = window.matchMedia(PHONE_LANDSCAPE_QUERY);
-    const onChange = (event: MediaQueryListEvent) => {
-      if (event.matches && ambientAutoOpenEnabled()) setShowAmbient(true);
+    if (!hasActiveSession) return;
+    let wasSideways = phoneIsSideways();
+    const onRotate = () => {
+      const sideways = phoneIsSideways();
+      if (sideways && !wasSideways && ambientAutoOpenEnabled()) setShowAmbient(true);
+      wasSideways = sideways;
     };
-    sideways.addEventListener('change', onChange);
-    return () => sideways.removeEventListener('change', onChange);
+    const orientation = window.screen.orientation;
+    if (orientation?.addEventListener) {
+      orientation.addEventListener('change', onRotate);
+      return () => orientation.removeEventListener('change', onRotate);
+    }
+    window.addEventListener('orientationchange', onRotate);
+    return () => window.removeEventListener('orientationchange', onRotate);
   }, [hasActiveSession]);
 
   const openBoardSettings = () => {
@@ -873,6 +885,7 @@ function AppInner() {
     const { meta } = reconcileStreakMeta(streakReconcileInput);
     if (JSON.stringify(meta) !== JSON.stringify(streakMeta)) setStreakMeta(meta);
   }, [setStreakMeta, streakReconcileInput, streakMeta]);
+
 
   useEffect(() => {
     void publishPublicPace();
@@ -1248,6 +1261,35 @@ function AppInner() {
 
   return (
     <div className="min-h-screen">
+      {Capacitor.getPlatform() === 'android' && <Suspense fallback={null}><HomeWidgets
+        todayTasks={todayTasks}
+        backlogTasks={backlogTasks}
+        focusByDate={streakByDate}
+        barHours={streakMeta.barHours}
+        goals={goals}
+        streak={streakStatus}
+        userId={activityUser?.id ?? null}
+        authReady={!authLoading}
+        activeTaskId={activeSession?.taskId ?? null}
+        onStopRequested={(taskId) => {
+          const task = tasks.find((t) => t.id === taskId);
+          if (task) setStopDialogTask(task);
+        }}
+        onOpenRequested={({ kind, id }) => {
+          if (kind === 'room') {
+            openHubFromNotification('private');
+            requestOpenRoom(id);
+          } else if (kind === 'goal') {
+            jumpToGoalTask(id);
+          } else {
+            const task = tasks.find((t) => t.id === id);
+            if (!task) return;
+            setActiveCategoryFilter('all');
+            setTodaySubTab(isBacklogTask(task) ? 'backlog' : 'today');
+            handleNavigateTab('tasks');
+          }
+        }}
+      /></Suspense>}
       {(workspaceStorageError || sessionStorageError) && <div role="alert" className="fixed left-4 right-4 top-[max(1rem,var(--safe-area-top))] z-[10000] mx-auto max-w-md rounded-2xl border border-error/40 bg-surface p-4 text-sm text-content-primary shadow-elevated">
         <p className="mb-1 font-semibold text-error">{workspaceStorageError ? 'Workspace change could not be saved' : 'Timer change could not be saved'}</p>
         <p>{workspaceStorageError || sessionStorageError}</p>

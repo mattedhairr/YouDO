@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { Calendar, Check, Cloud, GripVertical, Link2, Pause, Sparkles, Target, TrendingUp, User, X, Zap } from 'lucide-react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { ArrowRight, Calendar, Check, ChevronLeft, Cloud, Pause, ShieldCheck, Smartphone, Sparkles, Target, TrendingUp, User, X, Zap } from 'lucide-react';
 import Overlay from './Overlay';
+import './helpCenter.css';
 
 const HOW_IT_WORKS_TABS = [
   {
@@ -15,7 +16,7 @@ const HOW_IT_WORKS_TABS = [
     ],
     notFor: 'Do not build your whole syllabus here. Build that in Goals, then schedule pieces onto a date.',
     after: 'If a day ends and a card is not done, YouDO moves it to Backlog by itself. Calendar still shows the original date and the stats.',
-    mock: 'today' as const,
+    mock: 'list' as const,
   },
   {
     icon: Target,
@@ -134,95 +135,35 @@ const USER_GUIDE_STEPS = [
   },
 ];
 
-function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] | (typeof HOW_IT_WORKS_TABS)[number]['mock'] }) {
+/** Tips shown before "more tips". */
+const TIPS_SHOWN = 3;
+
+type SceneKind = (typeof USER_GUIDE_STEPS)[number]['mock'] | (typeof HOW_IT_WORKS_TABS)[number]['mock'];
+
+/** Animation delay, in seconds, for one piece of a scene. */
+const at = (seconds: number) => ({ '--d': `${seconds}s` }) as CSSProperties;
+
+/**
+ * A small scene of the app at work. It plays once each time it becomes live
+ * (its step is showing); otherwise it rests on its last frame.
+ */
+function Scene({ kind, live }: { kind: SceneKind; live: boolean }) {
+  return (
+    <div className={`hc-stage${live ? ' is-live' : ''}`} aria-hidden>
+      <SceneBody kind={kind} />
+    </div>
+  );
+}
+
+function SceneBody({ kind }: { kind: SceneKind }) {
   if (kind === 'goals') {
     return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2" aria-hidden>
-        {['Target exam', 'Foundation', 'Core subject', 'Chapter notes'].map((label, i) => (
-          <div key={label} className="flex items-center gap-2" style={{ paddingLeft: i * 14 }}>
-            <div className={`size-1.5 rounded-full ${i === 2 ? 'bg-primary' : 'bg-border'}`} />
-            <div className={`h-7 flex-1 rounded-[8px] border border-subtle px-2.5 flex items-center text-[11px] font-medium ${i === 2 ? 'bg-primary-soft text-primary' : 'bg-elevated text-content-secondary'}`}>
-              {label}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  if (kind === 'today') {
-    return (
-      <div className="overflow-hidden relative rounded-[12px] border bg-surface shadow-card border-primary" aria-hidden>
-        <div className="bg-primary-soft border-b border-subtle px-3 py-1.5 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-primary" />
-          <span className="text-[11px] font-mono font-semibold text-primary">Focus · 12:40</span>
-        </div>
-        <div className="flex items-start gap-2 px-3 pt-3 pb-2.5">
-          <GripVertical size={14} className="mt-1 text-content-muted shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="inline-flex items-center gap-1 text-[10px] font-semibold bg-base border border-subtle rounded-lg px-2 py-0.5 mb-1.5">
-              <Link2 size={10} className="text-primary shrink-0" />
-              <span className="text-primary">Target exam</span>
-              <span className="text-content-muted">•</span>
-              <span className="text-primary">Foundation</span>
-            </div>
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2 min-w-0">
-                <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                <h3 className="text-[14px] font-semibold text-content-primary leading-snug">Essay draft</h3>
-              </div>
-              <div className="size-7 rounded-full bg-primary-soft text-primary grid place-items-center shrink-0">
-                <Pause size={12} className="fill-current" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-center gap-1 text-[11px] text-content-secondary font-medium ml-3.5">
-              <Calendar size={11} className="text-content-muted" /> Today
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (kind === 'plan') {
-    return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3" aria-hidden>
-        <div className="grid grid-cols-7 gap-1 grid-fixed">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-            <div key={`${d}-${i}`} className="text-center text-[9px] font-semibold text-content-muted py-0.5">{d}</div>
-          ))}
-          {Array.from({ length: 7 }, (_, i) => (
-            <div
-              key={i}
-              className={`h-8 rounded-[8px] grid place-items-center text-[11px] font-semibold tabular-nums ${
-                i === 3 ? 'bg-primary text-on-primary' : 'bg-elevated text-content-secondary border border-subtle'
-              }`}
-            >
-              {12 + i}
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-content-secondary">15th selected — scheduled, done, and stats for that day.</p>
-      </div>
-    );
-  }
-  if (kind === 'board') {
-    return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-2" aria-hidden>
-        <div className="flex gap-1">
-          {['Today', 'Week', 'Month'].map((d, i) => (
-            <div
-              key={d}
-              className={`flex-1 h-7 rounded-[8px] grid place-items-center text-[10px] font-semibold ${
-                i === 0 ? 'bg-primary-soft text-primary' : 'text-content-muted'
-              }`}
-            >
-              {d}
-            </div>
-          ))}
-        </div>
-        {['Asha · 3h 10m', 'Rohan · 2h 40m'].map((line, i) => (
-          <div key={line} className="flex items-center justify-between rounded-[10px] border border-subtle bg-elevated px-2.5 py-2">
-            <span className="text-[11px] font-medium text-content-primary">{i + 1}. {line.split(' · ')[0]}</span>
-            <span className="text-[11px] font-semibold tabular-nums text-content-secondary">{line.split(' · ')[1]}</span>
+      <div className="hc-tree">
+        {['Learn Spanish', 'Unit 3 · Past tense', 'Irregular verbs', 'Drill 20 verbs'].map((label, i) => (
+          <div key={label} className={`hc-node hc-in${i === 3 ? ' is-leaf' : ''}`} style={{ ...at(0.1 + i * 0.35), marginLeft: i * 22 }}>
+            <i />
+            {label}
+            {i === 3 && <b className="hc-tag hc-in" style={at(1.5)}>TASK</b>}
           </div>
         ))}
       </div>
@@ -230,48 +171,96 @@ function GuideMock({ kind }: { kind: (typeof USER_GUIDE_STEPS)[number]['mock'] |
   }
   if (kind === 'schedule') {
     return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3" aria-hidden>
-        <div className="text-[11px] font-semibold text-content-primary mb-2">Schedule · pick a date</div>
-        <div className="flex gap-1.5">
-          {['Today', '16', '17', '18'].map((d, i) => (
-            <div
-              key={d}
-              className={`flex-1 h-9 rounded-[10px] grid place-items-center text-[11px] font-semibold ${
-                i === 2 ? 'bg-primary text-on-primary' : 'bg-elevated border border-subtle text-content-secondary'
-              }`}
-            >
-              {d}
+      <div className="hc-schedule">
+        <div className="hc-node is-leaf hc-fly"><i />Drill 20 verbs</div>
+        <div className="hc-days">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, i) => (
+            <div key={d} className={`hc-day${i === 2 ? ' is-picked' : ''}`}>
+              <span>{d}</span>
+              <b>{15 + i}</b>
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-content-secondary">17th is not today — it will remain in Calendar until then.</p>
       </div>
     );
   }
   if (kind === 'steps') {
     return (
-      <div className="rounded-[12px] border border-subtle bg-base p-3 space-y-1.5" aria-hidden>
-        {['Read chapter', 'Make notes', 'Revise', 'MCQs'].map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div className={`size-4 rounded border grid place-items-center ${i < 2 ? 'bg-primary border-primary' : 'border-subtle bg-elevated'}`}>
-              {i < 2 && <Check size={10} className="text-on-primary" />}
-            </div>
-            <span className={`text-[12px] ${i < 2 ? 'text-content-primary font-medium' : 'text-content-muted'}`}>{s}</span>
-            <span className="ml-auto text-[10px] text-content-muted">{i < 2 ? 'This date' : 'Later'}</span>
+      <div className="hc-steps">
+        {['Read the chapter', 'Make notes', 'Revise', 'Practice questions'].map((s, i) => (
+          <div key={s} className={`hc-step${i < 2 ? ' is-taken' : ' is-later'}`} style={at(0.3 + i * 0.3)}>
+            <span className="hc-box"><Check size={11} strokeWidth={3} /></span>
+            <span className="hc-step-name">{s}</span>
+            <em>{i < 2 ? 'This date' : 'Later'}</em>
           </div>
         ))}
       </div>
     );
   }
+  if (kind === 'today') {
+    return (
+      <div className="hc-focus">
+        <svg className="hc-ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" className="hc-ring-track" />
+          <circle cx="60" cy="60" r="52" className="hc-ring-fill" pathLength={100} />
+        </svg>
+        <div className="hc-time">12<span>:</span>40<small>FOCUS</small></div>
+        <div className="hc-card hc-in" style={at(0.4)}>
+          <div><b>Drill 20 verbs</b><em>Learn Spanish · Unit 3</em></div>
+          <span><Pause size={12} className="fill-current" /></span>
+        </div>
+      </div>
+    );
+  }
+  if (kind === 'plan') {
+    return (
+      <div className="hc-week">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+          <div key={`${d}-${i}`} className={`hc-cell${i === 3 ? ' is-picked' : ''}`}>
+            <span>{d}</span>
+            <b>{12 + i}</b>
+            {i < 3 && <i className="hc-dot hc-in" style={at(0.3 + i * 0.15)} />}
+          </div>
+        ))}
+        <p className="hc-in" style={at(1)}>15th: scheduled, done, and that day’s stats.</p>
+      </div>
+    );
+  }
+  if (kind === 'board') {
+    return (
+      <div className="hc-board">
+        <div className="hc-periods"><b>Today</b><span>Week</span><span>Month</span></div>
+        {[['Asha', '3h 10m'], ['Rohan', '2h 40m'], ['You', '2h 05m']].map(([name, time], i) => (
+          <div key={name} className={`hc-rank hc-in${i === 2 ? ' is-you' : ''}`} style={at(0.2 + i * 0.25)}>
+            <span>{i + 1}</span>
+            <b>{name}</b>
+            <em>{time}</em>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (kind === 'sync') {
+    return (
+      <div className="hc-sync">
+        <span className="hc-end"><Smartphone size={26} /></span>
+        <span className="hc-wire">
+          {[0, 1, 2].map((i) => <i key={i} style={at(i * 0.5)} />)}
+        </span>
+        <span className="hc-end"><Cloud size={26} /></span>
+        <span className="hc-shield hc-in" style={at(1.2)}><ShieldCheck size={18} /> Both copies kept safe</span>
+      </div>
+    );
+  }
+  // list: today's cards.
   return (
-    <div className="rounded-[12px] border border-subtle bg-base p-3 flex items-center gap-3" aria-hidden>
-      <div className="size-10 rounded-[12px] bg-primary-soft grid place-items-center text-primary">
-        <Cloud size={18} />
-      </div>
-      <div>
-        <div className="text-[12px] font-semibold text-content-primary">This phone ↔ your cloud copy</div>
-        <div className="text-[11px] text-content-secondary mt-0.5">Local first. Conflicts pause before overwrite.</div>
-      </div>
+    <div className="hc-today">
+      {['Read chapter 4', 'Drill 20 verbs', 'Write 5 sentences'].map((t, i) => (
+        <div key={t} className={`hc-tc hc-in${i === 0 ? ' is-done' : i === 1 ? ' is-now' : ''}`} style={at(0.15 + i * 0.2)}>
+          <i>{i === 0 && <Check size={11} strokeWidth={3} />}</i>
+          {t}
+        </div>
+      ))}
     </div>
   );
 }
@@ -282,195 +271,176 @@ interface Props {
 }
 
 export default function HelpCenterSheet({ open, onClose }: Props) {
-  const [tab, setTab] = useState<'guide' | 'info'>('guide');
-  const [howTab, setHowTab] = useState(HOW_IT_WORKS_TABS[0].name);
+  const [tab, setTab] = useState<'guide' | 'tabs'>('guide');
+  const [step, setStep] = useState(0);
+  const [allTips, setAllTips] = useState(false);
+  const [openTab, setOpenTab] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [guideStep, setGuideStep] = useState(0);
+  const last = USER_GUIDE_STEPS.length - 1;
 
   useEffect(() => {
     if (!open) return;
     setTab('guide');
-    setGuideStep(0);
-    setHowTab(HOW_IT_WORKS_TABS[0].name);
+    setStep(0);
+    setAllTips(false);
+    setOpenTab(null);
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ left: 0 }));
   }, [open]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el || el.clientWidth <= 0) return;
-    setGuideStep(Math.round(el.scrollLeft / el.clientWidth));
+    const next = Math.round(el.scrollLeft / el.clientWidth);
+    // Only once the swipe settles, so a step does not replay its entrance mid-swipe.
+    if (Math.abs(el.scrollLeft - next * el.clientWidth) > 2) return;
+    if (next !== step) {
+      setStep(next);
+      setAllTips(false);
+    }
   };
 
-  const scrollToStep = (index: number) => {
+  const goTo = (index: number) => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' });
-    setGuideStep(index);
+    setStep(index);
+    setAllTips(false);
   };
 
+  const current = HOW_IT_WORKS_TABS.find((t) => t.name === openTab);
+
   return (
-    <Overlay open={open} onClose={onClose} align="bottom">
-      <div className="panel panel-sheet sheet-up max-h-[88vh] flex flex-col overflow-hidden">
-        <div className="shrink-0 pt-3 pb-2 px-4 flex items-center justify-between border-b border-subtle">
-          <div className="flex bg-surface rounded-[12px] p-1 border border-subtle">
-            {(['guide', 'info'] as const).map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  setTab(id);
-                }}
-                className={`px-3.5 py-1.5 rounded-[8px] text-[13px] font-semibold transition-colors ${
-                  tab === id ? 'bg-primary text-on-primary' : 'text-content-secondary'
-                }`}
-              >
-                {id === 'guide' ? 'Getting started' : 'The tabs'}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl bg-surface border border-subtle text-content-secondary hover:text-content-primary"
-            aria-label="Close help"
-          >
-            <X size={18} />
+    <Overlay open={open} onClose={onClose} align="full">
+      <div className="hc-page">
+        <div className="hc-glow" aria-hidden />
+
+        <div className="hc-top">
+          {tab === 'guide' ? (
+            <div className="hc-progress">
+              {USER_GUIDE_STEPS.map((s, i) => (
+                <button
+                  key={s.title}
+                  type="button"
+                  onClick={() => goTo(i)}
+                  className={i < step ? 'is-done' : i === step ? 'is-now' : ''}
+                  aria-label={`Go to ${s.title}`}
+                >
+                  <i />
+                </button>
+              ))}
+            </div>
+          ) : current ? (
+            <button type="button" className="hc-crumb" onClick={() => setOpenTab(null)}>
+              <ChevronLeft size={16} /> The tabs
+            </button>
+          ) : (
+            <div className="flex-1" />
+          )}
+          <button type="button" onClick={onClose} className="hc-close" aria-label="Close help">
+            <X size={17} />
           </button>
         </div>
 
-        {tab === 'guide' && (
-          <div className="flex-1 min-h-0 flex flex-col">
-            <div className="px-5 pt-4 pb-1">
-              <p className="text-[13px] text-content-secondary">Swipe through how YouDO is meant to be used.</p>
-            </div>
-            <div
-              ref={scrollRef}
-              onScroll={handleScroll}
-              className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory flex no-scrollbar"
-            >
-              {USER_GUIDE_STEPS.map((step, idx) => (
-                <div key={step.title} className="w-full shrink-0 snap-center px-5 py-3 flex flex-col">
-                  <div className="bg-elevated border border-subtle rounded-[16px] p-4 shadow-card flex flex-col gap-3 max-h-[58vh] overflow-y-auto no-scrollbar">
-                    <div className="flex items-center gap-3">
-                      <div className="size-11 rounded-[12px] bg-primary-soft text-primary grid place-items-center shrink-0">
-                        <step.icon size={22} strokeWidth={2.2} />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-semibold text-primary uppercase tracking-wider">{idx + 1} / {USER_GUIDE_STEPS.length} · {step.where}</div>
-                        <h3 className="text-[16px] font-semibold text-content-primary leading-tight">{step.title}</h3>
-                      </div>
-                    </div>
-                    <p className="text-[13px] text-content-primary leading-relaxed">{step.desc}</p>
-                    <GuideMock kind={step.mock} />
-                    <div className="space-y-2 bg-surface rounded-[12px] p-3 border border-subtle">
-                      {step.do.map((line, i) => (
-                        <div key={line} className="flex gap-2.5 text-[13px] text-content-secondary leading-snug">
-                          <span className="size-5 rounded-full bg-primary-soft text-primary font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                          <span>{line}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="shrink-0 pb-5 pt-2 flex flex-col items-center gap-3">
-              <div className="flex items-center justify-center gap-2">
-                {USER_GUIDE_STEPS.map((step, idx) => (
-                  <button
-                    key={step.title}
-                    type="button"
-                    onClick={() => scrollToStep(idx)}
-                    className={`h-2 rounded-full transition-all ${idx === guideStep ? 'w-6 bg-primary' : 'w-2 bg-border'}`}
-                    aria-label={`Go to ${step.title}`}
-                  />
-                ))}
-              </div>
-              {guideStep === USER_GUIDE_STEPS.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-5 py-2 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold"
-                >
-                  Got it
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => scrollToStep(guideStep + 1)}
-                  className="px-5 py-2 rounded-[12px] bg-surface border border-subtle text-[13px] font-semibold text-content-primary"
-                >
-                  Next
-                </button>
-              )}
-            </div>
+        {!current && (
+          <div className="hc-switch">
+            {(['guide', 'tabs'] as const).map((id) => (
+              <button key={id} type="button" onClick={() => setTab(id)} className={tab === id ? 'is-on' : ''}>
+                {id === 'guide' ? 'Guide' : 'The tabs'}
+              </button>
+            ))}
           </div>
         )}
 
-        {tab === 'info' && (
-          <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-5 pt-4 pb-8 space-y-4">
-            <p className="text-[13px] text-content-secondary leading-relaxed">
-              Tap a tab to see what it is for — and what it is not.
-            </p>
-            <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-elevated border border-subtle p-1">
-              {HOW_IT_WORKS_TABS.map((t) => {
-                const Icon = t.icon;
-                const active = howTab === t.name;
+        {tab === 'guide' && (
+          <>
+            <div ref={scrollRef} onScroll={handleScroll} className="hc-track no-scrollbar">
+              {USER_GUIDE_STEPS.map((s, idx) => {
+                const active = idx === step;
+                const tips = active && allTips ? s.do : s.do.slice(0, TIPS_SHOWN);
                 return (
-                  <button
-                    key={t.name}
-                    type="button"
-                    onClick={() => {
-                      setHowTab(t.name);
-                    }}
-                    className={`flex-1 h-10 rounded-[10px] flex items-center justify-center gap-1.5 text-[13px] ${
-                      active ? 'bg-primary text-on-primary font-semibold' : 'text-content-secondary font-medium'
-                    }`}
-                  >
-                    <Icon size={15} strokeWidth={active ? 2.5 : 2} />
-                    {t.name}
-                  </button>
+                  <div key={s.title} className={`hc-slide no-scrollbar${active ? ' is-active' : ''}`}>
+                    <Scene kind={s.mock} live={active} />
+                    <div className="hc-text">
+                      <div className="hc-eyebrow">Step {idx + 1} · {s.where}</div>
+                      <h2>{s.title}</h2>
+                      <p className="hc-lead">{s.desc}</p>
+                      <ol className="hc-tips">
+                        {tips.map((line, i) => (
+                          <li key={line} style={at(0.15 + i * 0.06)}>
+                            <span>{i + 1}</span>
+                            {line}
+                          </li>
+                        ))}
+                      </ol>
+                      {s.do.length > TIPS_SHOWN && !(active && allTips) && (
+                        <button type="button" className="hc-more" onClick={() => setAllTips(true)}>
+                          + {s.do.length - TIPS_SHOWN} more {s.do.length - TIPS_SHOWN === 1 ? 'tip' : 'tips'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
             </div>
+            <div className="hc-bottom">
+              <button
+                type="button"
+                className="hc-back"
+                onClick={() => goTo(step - 1)}
+                disabled={step === 0}
+                aria-label="Previous step"
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button type="button" className="hc-next" onClick={() => (step === last ? onClose() : goTo(step + 1))}>
+                {step === last ? 'Start planning' : 'Next'}
+                <ArrowRight size={17} strokeWidth={2.4} />
+              </button>
+            </div>
+          </>
+        )}
 
-            {(() => {
-              const current = HOW_IT_WORKS_TABS.find((t) => t.name === howTab) ?? HOW_IT_WORKS_TABS[0];
-              const Icon = current.icon;
-              return (
-                <div key={current.name} className="space-y-3 fade-in">
-                  <div className="rounded-[16px] border border-subtle bg-elevated p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="size-12 rounded-[12px] bg-primary-soft text-primary grid place-items-center shrink-0">
-                        <Icon size={22} strokeWidth={2.2} />
-                      </div>
-                      <div>
-                        <div className="text-[18px] font-semibold tracking-tight text-content-primary">{current.name}</div>
-                        <div className="text-[11px] font-semibold text-primary uppercase tracking-wider">{current.role}</div>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-[14px] text-content-primary leading-relaxed">{current.oneLiner}</p>
-                  </div>
-                  <GuideMock kind={current.mock} />
-                  <div className="rounded-[12px] border border-subtle bg-elevated p-3.5 space-y-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">You use it to</p>
-                    {current.uses.map((line) => (
-                      <div key={line} className="flex gap-2.5 text-[13px] text-content-secondary leading-snug">
-                        <Check size={15} className="text-primary shrink-0 mt-0.5" />
-                        <span>{line}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="rounded-[12px] border border-subtle bg-surface p-3.5 space-y-2.5">
-                    <div className="flex items-start gap-2.5">
-                      <X size={15} className="text-error shrink-0 mt-0.5" />
-                      <p className="text-[13px] text-content-secondary leading-relaxed">{current.notFor}</p>
-                    </div>
-                    <p className="text-[13px] text-content-secondary leading-relaxed pl-[26px]">{current.after}</p>
-                  </div>
-                </div>
-              );
-            })()}
+        {tab === 'tabs' && !current && (
+          <div className="hc-scroll no-scrollbar">
+            <div className="hc-text is-plain">
+              <h2>Four tabs, four jobs</h2>
+              <p className="hc-lead">Tap one to see what it is for — and what it is not.</p>
+            </div>
+            <div className="hc-tiles">
+              {HOW_IT_WORKS_TABS.map((t, i) => (
+                <button key={t.name} type="button" className="hc-tile" style={at(i * 0.06)} onClick={() => setOpenTab(t.name)}>
+                  <span className="hc-tile-icon"><t.icon size={18} strokeWidth={2.4} /></span>
+                  <span>
+                    <b>{t.name}</b>
+                    <em>{t.role}</em>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="hc-hint">
+              Not sure where something goes? Plan it in <b>Goals</b>, do it in <b>Today</b>.
+            </p>
+          </div>
+        )}
+
+        {tab === 'tabs' && current && (
+          <div key={current.name} className="hc-scroll hc-detail no-scrollbar">
+            <Scene kind={current.mock} live />
+            <div className="hc-text is-plain">
+              <div className="hc-eyebrow">{current.name} · {current.role}</div>
+              <h2>{current.name}</h2>
+              <p className="hc-lead">{current.oneLiner}</p>
+              <div className="hc-uses">
+                {current.uses.map((line) => (
+                  <span key={line}><Check size={13} strokeWidth={3} />{line}</span>
+                ))}
+              </div>
+              <div className="hc-not">
+                <b>Not for</b>
+                {current.notFor}
+              </div>
+              <p className="hc-after">{current.after}</p>
+            </div>
           </div>
         )}
       </div>

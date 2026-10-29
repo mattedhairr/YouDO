@@ -36,13 +36,41 @@ final class SessionNotificationStore {
     static boolean save(Context ctx, String sessionJson, String title) {
         long wall = System.currentTimeMillis();
         long elapsed = SystemClock.elapsedRealtime();
-        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        boolean saved = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_JSON, sessionJson)
             .putString(KEY_TITLE, title)
             .putLong(KEY_WALL_SAMPLE, wall)
             .putLong(KEY_ELAPSED_SAMPLE, elapsed)
             .commit();
+        if (saved) HomeWidgets.onSessionChanged(ctx);
+        return saved;
+    }
+
+    /**
+     * Start on the Up next widget, with YouDO closed. Shaped like the app's own
+     * sessions; the app picks it up when it next opens (store.tsx).
+     */
+    static boolean startFromWidget(Context ctx, String taskId, String title) {
+        if (sessionJson(ctx) != null || taskId == null || taskId.isEmpty()) return false;
+        try {
+            long now = System.currentTimeMillis();
+            JSONObject session = new JSONObject();
+            session.put("taskId", taskId);
+            session.put("startTime", now);
+            session.put("pausedDuration", 0);
+            session.put("isPaused", false);
+            session.put("lastHeartbeat", now);
+            session.put("pauses", new JSONArray());
+            session.put("wallClockStart", wallClock(now));
+            session.put("nativeActionRevision", 1);
+            String safeTitle = title == null || title.trim().isEmpty() ? "Focus Session" : title.trim();
+            if (!save(ctx, session.toString(), safeTitle)) return false;
+            show(ctx, false, safeTitle);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     static boolean clear(Context ctx) {
@@ -50,6 +78,7 @@ final class SessionNotificationStore {
         // A focus sound service holds this card while it plays; let it go first.
         FocusSoundService.stop(ctx);
         NotificationManagerCompat.from(ctx).cancel(NOTIF_ID);
+        HomeWidgets.onSessionChanged(ctx);
         return true;
     }
 
@@ -193,7 +222,7 @@ final class SessionNotificationStore {
         return views;
     }
 
-    private static JSONObject sessionObject(Context ctx) {
+    static JSONObject sessionObject(Context ctx) {
         String raw = sessionJson(ctx);
         if (raw == null) return null;
         try {
@@ -203,7 +232,7 @@ final class SessionNotificationStore {
         }
     }
 
-    private static long elapsedFocusMs(JSONObject session, boolean paused) {
+    static long elapsedFocusMs(JSONObject session, boolean paused) {
         if (session == null) return 0;
         long now = System.currentTimeMillis();
         long start = session.optLong("startTime", now);
@@ -243,7 +272,7 @@ final class SessionNotificationStore {
         manager.createNotificationChannel(channel);
     }
 
-    private static PendingIntent actionIntent(Context ctx, String action) {
+    static PendingIntent actionIntent(Context ctx, String action) {
         Intent intent = new Intent(ctx, SessionNotificationReceiver.class);
         intent.setAction("com.mattedhairr.youdo.SESSION_" + action.toUpperCase());
         intent.setPackage(ctx.getPackageName());

@@ -156,7 +156,11 @@ export default {
       const staleTokens: string[] = [];
 
       for (const row of tokenRows) {
-        const messagePayload = {
+        // A silent push carries data only, so Android shows nothing and the app
+        // refreshes its widgets (live room dots) in the background.
+        const messagePayload = payload.silent ? {
+          message: { token: row.token, data: payload.data, android: { priority: 'high' } },
+        } : {
           message: {
             token: row.token,
             notification: {
