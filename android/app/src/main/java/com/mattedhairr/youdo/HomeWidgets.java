@@ -249,7 +249,8 @@ final class HomeWidgets {
         int index = clamp(HomeWidgetStore.index(ctx, widgetId), n);
         int[] segments = segments(backlog, backlog ? 0 : done, n, index);
         long[] focusToday = focusToday(snapshot, 0);
-        views.setImageViewBitmap(R.id.day_arc, ArcPainter.dayArc(arc[0], arc[1], segments, -1, share(focusToday), palette));
+        views.setImageViewBitmap(R.id.day_arc, ArcPainter.dayArc(arc[0], arc[1], segments, -1, share(focusToday), dayLeftShare(), palette));
+        dialReadings(ctx, views, arc, focusToday, false);
         String where = n > 0 ? " · " + (index + 1) + " OF " + n : "";
         views.setTextViewText(R.id.day_title, (backlog ? "TODAY · BACKLOG" : "TODAY") + where);
         color(ctx, views, R.id.day_title, "setTextColor", R.color.widget_text2);
@@ -270,7 +271,8 @@ final class HomeWidgets {
             big.append("/").append(String.valueOf(done + n));
             views.setTextViewText(R.id.day_big, big);
             color(ctx, views, R.id.day_big, "setTextColor", R.color.widget_text);
-            views.setTextViewText(R.id.day_sub, done + n == 0 ? "nothing scheduled today" : "tasks done\n" + focusLine(focusToday));
+            views.setTextViewText(R.id.day_sub, done + n == 0 ? "nothing scheduled today"
+                : ArcPainter.hasDials(arc[0]) ? "tasks done" : "tasks done\n" + focusLine(focusToday));
         }
         views.setOnClickPendingIntent(R.id.day_arc_area, openApp(ctx));
 
@@ -364,7 +366,9 @@ final class HomeWidgets {
         if (goal == null) goal = new JSONObject();
         int pct = Math.max(0, Math.min(100, goal.optInt("pct")));
         String title = goal.optString("title");
-        views.setImageViewBitmap(R.id.day_arc, ArcPainter.gauge(arc[0], arc[1], pct / 100f, palette));
+        long[] focusToday = focusToday(snapshot, 0);
+        views.setImageViewBitmap(R.id.day_arc, ArcPainter.gauge(arc[0], arc[1], pct / 100f, share(focusToday), dayLeftShare(), palette));
+        dialReadings(ctx, views, arc, focusToday, false);
         views.setTextViewText(R.id.day_title, "GOAL · " + (index + 1) + " OF " + n);
         color(ctx, views, R.id.day_title, "setTextColor", R.color.widget_text2);
 
@@ -413,7 +417,9 @@ final class HomeWidgets {
         long focused = SessionNotificationStore.elapsedFocusMs(session, paused);
         long[] focusToday = focusToday(snapshot, focused);
         views.setImageViewBitmap(R.id.day_arc, ArcPainter.dayArc(arc[0], arc[1], segments,
-            steps > 0 ? stepsDone / (float) steps : 0f, share(focusToday), palette));
+            steps > 0 ? stepsDone / (float) steps : 0f, share(focusToday), dayLeftShare(), palette));
+        // Redrawn each minute while running (scheduleTick), so the readings can be exact.
+        dialReadings(ctx, views, arc, focusToday, !paused);
 
         views.setTextViewText(R.id.day_title, paused ? "❚❚ PAUSED" : "● FOCUSING");
         if (paused) tint(ctx, views, R.id.day_title, "setTextColor", accent);
@@ -428,7 +434,7 @@ final class HomeWidgets {
         views.setViewVisibility(R.id.day_timer, View.VISIBLE);
         views.setChronometer(R.id.day_timer, SystemClock.elapsedRealtime() - focused, null, !paused);
         String title = SessionNotificationStore.title(ctx);
-        views.setTextViewText(R.id.day_sub, title + "\n" + focusLine(focusToday));
+        views.setTextViewText(R.id.day_sub, ArcPainter.hasDials(arc[0]) ? title : title + "\n" + focusLine(focusToday));
 
         // The strip: the step being worked on, with pause or resume and stop.
         String next = card == null || card.isNull("next") ? "" : card.optString("next");
@@ -523,17 +529,70 @@ final class HomeWidgets {
         return new long[] { Math.max(0, today) + Math.max(0, inProgressMs), bar > 0 ? bar : 4 * 3_600_000L };
     }
 
-    /** The outer line's share of the bar. */
+    /** The focus dial's share of the bar. */
     private static float share(long[] focus) {
         return focus[0] / (float) focus[1];
     }
 
-    /** "1h 40m of 4h focus", or "4h 12m · focus bar hit 🔥". */
+    /** "1h 40m of 4h focus", or "4h 12m · focus bar hit 🔥" (a widget too narrow for the dials). */
     private static String focusLine(long[] focus) {
         if (focus[0] >= focus[1]) return duration(focus[0]) + " · focus bar hit 🔥";
-        long barMinutes = focus[1] / 60_000;
-        String bar = barMinutes % 60 == 0 ? barMinutes / 60 + "h" : duration(focus[1]);
-        return duration(focus[0]) + " of " + bar + " focus";
+        return duration(focus[0]) + " of " + barText(focus[1]) + " focus";
+    }
+
+    /** "4h", or "4h 30m" for a bar off the hour. */
+    private static String barText(long barMs) {
+        long minutes = barMs / 60_000;
+        return minutes % 60 == 0 ? minutes / 60 + "h" : duration(barMs);
+    }
+
+    /** The fuel dial's day: full at 6:00, empty at midnight. */
+    private static final int DAY_START_HOUR = 6;
+    private static final long DAY_LENGTH_MS = (24 - DAY_START_HOUR) * 3_600_000L;
+
+    /** What is left of the day until midnight, at most the whole 6:00-to-midnight day. */
+    private static long dayLeftMs() {
+        Calendar midnight = Calendar.getInstance();
+        midnight.set(Calendar.HOUR_OF_DAY, 0);
+        midnight.set(Calendar.MINUTE, 0);
+        midnight.set(Calendar.SECOND, 0);
+        midnight.set(Calendar.MILLISECOND, 0);
+        midnight.add(Calendar.DAY_OF_MONTH, 1);
+        return Math.max(0, Math.min(DAY_LENGTH_MS, midnight.getTimeInMillis() - System.currentTimeMillis()));
+    }
+
+    private static float dayLeftShare() {
+        return dayLeftMs() / (float) DAY_LENGTH_MS;
+    }
+
+    /** "9½h", or "40m" in the last hour: a reading that may be up to half an hour old. */
+    private static String roughly(long ms) {
+        long halves = Math.round(ms / 1_800_000.0);
+        if (ms < 3_600_000L) return Math.max(5, Math.round(ms / 300_000.0) * 5) + "m";
+        return halves / 2 + (halves % 2 == 1 ? "\u00BD" : "") + "h";
+    }
+
+    /**
+     * The readings under the dials. exact: redrawn each minute (a session is
+     * running); otherwise the widget may wait half an hour to be redrawn, so
+     * what is left of the day is given to the half hour.
+     */
+    private static void dialReadings(Context ctx, RemoteViews views, int[] arc, long[] focus, boolean exact) {
+        boolean dials = ArcPainter.hasDials(arc[0]);
+        views.setViewVisibility(R.id.day_rev, dials ? View.VISIBLE : View.GONE);
+        views.setViewVisibility(R.id.day_fuel, dials ? View.VISIBLE : View.GONE);
+        if (!dials) return;
+        boolean hit = focus[0] >= focus[1];
+        long over = focus[0] - focus[1];
+        views.setTextViewText(R.id.day_rev_value, duration(focus[0]));
+        views.setTextViewText(R.id.day_rev_key, hit ? (over >= 60_000 ? "bar hit · +" + duration(over) : "bar hit") : "of " + barText(focus[1]) + " bar");
+        if (hit) views.setTextColor(R.id.day_rev_value, ArcPainter.FLAME);
+        else color(ctx, views, R.id.day_rev_value, "setTextColor", R.color.widget_text);
+
+        long left = dayLeftMs();
+        views.setTextViewText(R.id.day_fuel_value, left <= 0 ? "0m" : exact ? duration(left) : roughly(left));
+        views.setTextViewText(R.id.day_fuel_key, left <= 0 ? "day's done" : "left today");
+        color(ctx, views, R.id.day_fuel_value, "setTextColor", left > 0 && left < 2 * 3_600_000L ? R.color.widget_overdue : R.color.widget_text);
     }
 
     private static SpannableStringBuilder bold(String text) {

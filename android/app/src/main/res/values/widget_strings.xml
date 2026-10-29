@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Invisible: launchers that print a label under widgets then leave Up next unlabelled, like the others. -->
-    <string name="widget_up_next_label">​</string>
+    <string name="widget_up_next_label">Dashboard</string>
     <string name="widget_up_next_description">Your day as one arc: today\'s tasks, the backlog and your goal, with the time of day.</string>
     <string name="widget_room_label">Room</string>
     <string name="widget_room_description">A room\'s members, and who is focusing right now.</string>

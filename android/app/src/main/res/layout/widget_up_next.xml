@@ -52,6 +52,15 @@
                 android:visibility="gone" />
             <TextView android:id="@+id/day_sub" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:ellipsize="end" android:gravity="center" android:maxLines="2" android:textColor="@color/widget_text2" android:textSize="11sp" android:textStyle="bold" />
         </LinearLayout>
+        <!-- Under the dials (ArcPainter.dials): today's focus, and what is left of the day. -->
+        <LinearLayout android:id="@+id/day_rev" android:layout_width="72dp" android:layout_height="wrap_content" android:layout_gravity="bottom|start" android:gravity="center_horizontal" android:orientation="vertical">
+            <TextView android:id="@+id/day_rev_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="13sp" android:textStyle="bold" />
+            <TextView android:id="@+id/day_rev_key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:ellipsize="end" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="9.5sp" android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/day_fuel" android:layout_width="72dp" android:layout_height="wrap_content" android:layout_gravity="bottom|end" android:gravity="center_horizontal" android:orientation="vertical">
+            <TextView android:id="@+id/day_fuel_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text" android:textSize="13sp" android:textStyle="bold" />
+            <TextView android:id="@+id/day_fuel_key" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:textColor="@color/widget_text2" android:textSize="9.5sp" android:textStyle="bold" />
+        </LinearLayout>
     </FrameLayout>
 
     <!-- Scheduled / Backlog: the card in front. -->
