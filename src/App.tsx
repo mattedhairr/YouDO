@@ -201,7 +201,7 @@ function AppInner() {
   useCommunityActivity(activityUser?.id, activityPrefs.optedIn);
   const isCommunityAdmin = useIsCommunityAdmin(activityUser?.id);
   // Room-mates see when you are focusing (never what on).
-  useFocusStatusShare(activityUser?.id, activeSession);
+  useFocusStatusShare(activityUser?.id, activeSession, nativeSessionReady);
   useFocusSoundSession(activeSession);
   const {
     privatePending: hubPrivatePending,

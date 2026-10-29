@@ -33,6 +33,13 @@ public class UpNextWidget extends AppWidgetProvider {
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
+        if (intent != null && HomeWidgets.ACTION_TICK.equals(intent.getAction())) {
+            // A minute of the session has passed (HomeWidgets.scheduleTick).
+            HomeWidgets.refresh(context, UpNextWidget.class);
+            HomeWidgets.refresh(context, RoomWidget.class);
+            HomeWidgets.scheduleTick(context);
+            return;
+        }
         if (intent == null || !HomeWidgets.ACTION_CARD.equals(intent.getAction())) return;
         String action = intent.getStringExtra(HomeWidgets.EXTRA_ACTION);
         String id = intent.getStringExtra(HomeWidgets.EXTRA_TASK);

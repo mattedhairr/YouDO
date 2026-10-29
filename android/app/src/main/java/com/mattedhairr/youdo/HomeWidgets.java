@@ -1,5 +1,6 @@
 package com.mattedhairr.youdo;
 
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
@@ -91,6 +92,25 @@ final class HomeWidgets {
         lastSessionKey = key;
         refresh(ctx, UpNextWidget.class);
         showSelfInRooms(ctx, session);
+        scheduleTick(ctx);
+    }
+
+    static final String ACTION_TICK = "com.mattedhairr.youdo.WIDGET_TICK";
+    private static final long TICK_MS = 60_000;
+
+    /**
+     * Only the timer ticks by itself on a widget; while a session runs, Day
+     * Arc's focus line and your Room ring are redrawn each minute. Not a
+     * wake-up alarm: with the screen off it waits until the phone is in use.
+     */
+    static void scheduleTick(Context ctx) {
+        AlarmManager alarms = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+        if (alarms == null) return;
+        Intent intent = new Intent(ctx, UpNextWidget.class).setAction(ACTION_TICK);
+        PendingIntent tick = PendingIntent.getBroadcast(ctx, 0, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        JSONObject session = SessionNotificationStore.sessionObject(ctx);
+        if (session == null || session.optBoolean("isPaused", false)) alarms.cancel(tick);
+        else alarms.set(AlarmManager.RTC, System.currentTimeMillis() + TICK_MS, tick);
     }
 
     /**
