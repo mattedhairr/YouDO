@@ -41,15 +41,46 @@ final class HomeWidgetStore {
         }
     }
 
-    /** The app's new snapshot. Rooms the app has not loaded keep the last ones. */
+    /**
+     * The app's new snapshot. Rooms the app has not loaded keep the last ones,
+     * and a member's focus state this phone heard of later (a push, or your own
+     * session) is kept over the older one the app fetched.
+     */
     static synchronized void saveSnapshot(Context ctx, String json) throws Exception {
         JSONObject incoming = new JSONObject(json);
+        JSONObject current = snapshot(ctx);
+        JSONArray known = current != null ? current.optJSONArray("rooms") : null;
         if (incoming.isNull("rooms")) {
-            JSONObject current = snapshot(ctx);
-            JSONArray rooms = current != null ? current.optJSONArray("rooms") : null;
-            incoming.put("rooms", rooms != null ? rooms : new JSONArray());
+            incoming.put("rooms", known != null ? known : new JSONArray());
+        } else {
+            keepNewerFocus(known, incoming.optJSONArray("rooms"));
         }
         prefs(ctx).edit().putString(KEY_SNAPSHOT, incoming.toString()).apply();
+    }
+
+    private static void keepNewerFocus(JSONArray known, JSONArray rooms) throws Exception {
+        if (known == null || rooms == null) return;
+        java.util.HashMap<String, JSONObject> latest = new java.util.HashMap<>();
+        for (int r = 0; r < known.length(); r++) {
+            JSONArray members = known.getJSONObject(r).optJSONArray("members");
+            for (int m = 0; members != null && m < members.length(); m++) {
+                JSONObject person = members.getJSONObject(m);
+                JSONObject seen = latest.get(person.optString("id"));
+                if (seen == null || person.optLong("updatedAt") > seen.optLong("updatedAt")) latest.put(person.optString("id"), person);
+            }
+        }
+        for (int r = 0; r < rooms.length(); r++) {
+            JSONArray members = rooms.getJSONObject(r).optJSONArray("members");
+            for (int m = 0; members != null && m < members.length(); m++) {
+                JSONObject person = members.getJSONObject(m);
+                JSONObject seen = latest.get(person.optString("id"));
+                if (seen == null || seen.optLong("updatedAt") <= person.optLong("updatedAt")) continue;
+                person.put("state", seen.opt("state"));
+                person.put("startedAt", seen.opt("startedAt"));
+                person.put("pausedMs", seen.optLong("pausedMs"));
+                person.put("updatedAt", seen.optLong("updatedAt"));
+            }
+        }
     }
 
     static JSONObject find(JSONObject snapshot, String list, String id) {
@@ -171,6 +202,11 @@ final class HomeWidgetStore {
         }
         editor.commit();
         return new String[] { key, previous };
+    }
+
+    /** The signed-in account the widgets are for (set with its widget key), or null. */
+    static String selfId(Context ctx) {
+        return prefs(ctx).getString(KEY_WIDGET_USER, null);
     }
 
     /** {url, anonKey, widgetKey} for FocusStatusPoster, or null when signed out. */

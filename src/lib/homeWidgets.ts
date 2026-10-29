@@ -396,7 +396,10 @@ export async function loadWidgetRooms(userId: string): Promise<WidgetRoom[] | nu
   const [{ fetchMyRoomSummaries }, { fetchFocusStatuses }, { fetchRoomPaceRows }, { fetchPaceRowsForUserIds }] = await Promise.all([
     import('./squads'), import('./focusStatus'), import('./roomFocus'), import('./paceCloud'),
   ]);
-  const summaries = await fetchMyRoomSummaries(userId);
+  let failed = false;
+  const summaries = await fetchMyRoomSummaries(userId, () => { failed = true; });
+  // A failed load keeps the rooms the widget has rather than telling it there are none.
+  if (failed) return null;
   const ids = [...new Set(summaries.flatMap((summary) => summary.members.map((member) => member.id)))];
   // Each member's focus today, as the room shows it (the Public Board's totals on an older server).
   const [statuses, ...roomRows] = await Promise.all([

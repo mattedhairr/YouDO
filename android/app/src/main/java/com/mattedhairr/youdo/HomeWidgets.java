@@ -22,7 +22,9 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -83,10 +85,34 @@ final class HomeWidgets {
 
     /** Start, pause, resume or stop: Day Arc switches between its views and the timer. */
     static void onSessionChanged(Context ctx) {
-        String key = sessionKey(SessionNotificationStore.sessionObject(ctx));
+        JSONObject session = SessionNotificationStore.sessionObject(ctx);
+        String key = sessionKey(session);
         if (key.equals(lastSessionKey)) return;
         lastSessionKey = key;
         refresh(ctx, UpNextWidget.class);
+        showSelfInRooms(ctx, session);
+    }
+
+    /**
+     * Room-mates hear of your session by push; this phone is not sent one, so
+     * your own seat on its Room widgets is updated here, as the push would.
+     */
+    private static void showSelfInRooms(Context ctx, JSONObject session) {
+        String self = HomeWidgetStore.selfId(ctx);
+        if (self == null) return;
+        Map<String, String> status = new HashMap<>();
+        status.put("member", self);
+        status.put("updated_at", String.valueOf(System.currentTimeMillis()));
+        if (session == null) {
+            status.put("state", "idle");
+            status.put("started_at", "");
+            status.put("paused_ms", "0");
+        } else {
+            status.put("state", session.optBoolean("isPaused", false) ? "paused" : "focusing");
+            status.put("started_at", String.valueOf(session.optLong("startTime")));
+            status.put("paused_ms", String.valueOf(Math.max(0, session.optLong("pausedDuration"))));
+        }
+        if (HomeWidgetStore.applyFocusStatus(ctx, status)) refresh(ctx, RoomWidget.class);
     }
 
     private static String sessionKey(JSONObject session) {
@@ -522,8 +548,14 @@ final class HomeWidgets {
         JSONObject snapshot = HomeWidgetStore.snapshot(ctx);
         String roomId = HomeWidgetStore.choice(ctx, widgetId);
         JSONObject room = HomeWidgetStore.find(snapshot, "rooms", roomId);
+        JSONArray rooms = snapshot == null ? null : snapshot.optJSONArray("rooms");
+        if (room == null && roomId == null && rooms != null && rooms.length() == 1) {
+            // In just one room: nothing to choose.
+            room = rooms.optJSONObject(0);
+            roomId = room == null ? null : room.optString("id");
+            if (roomId != null) HomeWidgetStore.setChoice(ctx, widgetId, roomId);
+        }
         if (room == null) {
-            JSONArray rooms = snapshot == null ? null : snapshot.optJSONArray("rooms");
             boolean noRooms = rooms == null || rooms.length() == 0;
             views.setTextViewText(R.id.room_message, rooms == null ? "Open YouDO to load your rooms"
                 : rooms.length() == 0 ? "No rooms yet · create one in YouDO"
@@ -577,6 +609,11 @@ final class HomeWidgets {
             boolean inSession = !"idle".equals(state) && startedAt > 0 && now - startedAt < LIVE_MAX_MS;
             boolean paused = "paused".equals(state);
             long todayMs = Math.max(0, member.optLong("todayMs"));
+            if (inSession) {
+                // The session in progress counts too: its focus so far.
+                long end = paused ? Math.max(startedAt, member.optLong("updatedAt", now)) : now;
+                todayMs += Math.max(0, end - startedAt - Math.max(0, member.optLong("pausedMs")));
+            }
             together += todayMs;
             if (barMs > 0 && todayMs >= barMs) hitBar++;
             int tone = parseColor(member.optString("color"), 0xFF8A68C8);
@@ -609,11 +646,12 @@ final class HomeWidgets {
         views.setTextViewText(R.id.room_together, together > 0 ? "together " + duration(together) + " today" : "no focus yet today");
         views.setTextViewText(R.id.room_hit, people == 0 ? "" : hitBar + " of " + people + " hit the bar");
 
-        // The lines, from just past each seat's name to the room in the middle.
+        // The lines, from each avatar to the room tile (its centre: the middle of
+        // the content, less half the name and status under the tile).
         int[] size = size(ctx, widgetId, 330, 170);
         float topY = 14 + 14 + 4 + 24;
         float bottomY = size[1] - 12 - 14 - 4 - 24;
-        float leftX = 16 + 48 + 7 + 62 + 4;
+        float leftX = 16 + 24;
         float rightX = size[0] - leftX;
         float[][] seats = {
             seated[0] ? new float[] { leftX, topY } : null,
@@ -621,7 +659,7 @@ final class HomeWidgets {
             seated[2] ? new float[] { leftX, bottomY } : null,
             seated[3] ? new float[] { rightX, bottomY } : null,
         };
-        float[] centre = { size[0] / 2f, size[1] / 2f - 17 };
+        float[] centre = { size[0] / 2f, size[1] / 2f - 17.5f };
         views.setImageViewBitmap(R.id.room_canvas, ArcPainter.roomLines(size[0], size[1], seats, live, centre, palette(ctx, accent)));
         views.setOnClickPendingIntent(R.id.widget_root, openTarget(ctx, "room", roomId));
         return views;

@@ -43,6 +43,14 @@ public class WidgetConfigActivity extends AppCompatActivity {
             return;
         }
 
+        if (items.length() == 1) {
+            // In just one room: nothing to choose.
+            JSONObject only = items.optJSONObject(0);
+            if (only != null) HomeWidgetStore.setChoice(this, widgetId, only.optString("id"));
+            done();
+            return;
+        }
+
         String[] names = new String[items.length()];
         String[] ids = new String[items.length()];
         for (int i = 0; i < items.length(); i++) {

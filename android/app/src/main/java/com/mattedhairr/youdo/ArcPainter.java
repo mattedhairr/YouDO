@@ -163,11 +163,12 @@ final class ArcPainter {
     }
 
     /**
-     * The Room widget's lines, from each seat to the room in the middle: glowing
-     * green for whoever is focusing, dotted otherwise; the room glows while
-     * anyone is. Seats are {x, y} in dp (the corner of the seat's text nearest
-     * the middle), in the order top left, top right, bottom left, bottom right;
-     * null for an empty seat.
+     * The Room widget's lines, from each member's avatar to the room tile in the
+     * middle: glowing green for whoever is focusing, dotted otherwise; the room
+     * glows while anyone is. Each line leaves the avatar's edge toward the gap
+     * between the two rows and curves into the tile's side, clear of the names.
+     * Seats are avatar centres {x, y} in dp, in the order top left, top right,
+     * bottom left, bottom right; null for an empty seat. centre is the tile's.
      */
     static Bitmap roomLines(int widthDp, int heightDp, float[][] seats, boolean[] live, float[] centre, Palette palette) {
         Bitmap bitmap = bitmap(widthDp, heightDp);
@@ -177,23 +178,23 @@ final class ArcPainter {
         boolean anyLive = false;
         for (int i = 0; i < seats.length; i++) {
             if (seats[i] == null) continue;
-            float sx = seats[i][0] * SCALE;
-            float sy = seats[i][1] * SCALE;
-            boolean top = i < 2;
-            boolean left = i % 2 == 0;
-            // To the room tile's side, curving in level with it.
-            float ex = cx + (left ? -30 : 30) * SCALE;
-            float ey = cy + (top ? -8 : 8) * SCALE;
+            float dx = i % 2 == 0 ? 1 : -1;
+            float dy = i < 2 ? 1 : -1;
+            float edge = 24 * SCALE * 0.72f;
+            float sx = seats[i][0] * SCALE + dx * edge;
+            float sy = seats[i][1] * SCALE + dy * edge;
+            float ex = cx - dx * 27 * SCALE;
+            float ey = cy + (dy > 0 ? 2 : 12) * SCALE;
             Path path = new Path();
             path.moveTo(sx, sy);
-            path.quadTo(ex, sy, ex, ey);
+            path.quadTo(cx - dx * 72 * SCALE, sy + dy * 3 * SCALE, ex, ey);
             if (live[i]) {
                 anyLive = true;
                 Paint line = stroke(palette.live, 2);
                 canvas.drawPath(path, glow(line, 4, 160));
                 canvas.drawPath(path, line);
             } else {
-                Paint line = stroke(palette.dim, 1.2f);
+                Paint line = stroke(palette.dim, 1.4f);
                 line.setPathEffect(new DashPathEffect(new float[] { 3 * SCALE, 5 * SCALE }, 0));
                 canvas.drawPath(path, line);
             }
