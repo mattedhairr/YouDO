@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.3.0] - 2026-10-29 - Home-Screen Widgets and a New Guide
+
+- **Dashboard widget** — Today's cards on an arc you can step through with ‹ ›, start with ▶, and pause or stop from the home screen. Switch to Backlog or your goals. Two dials beside it show today's focus toward your daily bar (with a flame once you hit it) and how much of the day is left; the goal view adds today, your daily average over 30 days and your best day.
+- **Room widget** — See who in your room is focusing right now, live, and tap to open the room. A session started on the widget lights your seat, and opening the app keeps it.
+- **Live while you focus** — Both widgets redraw every minute during a session and follow your accent colour.
+- **A new guide** — Tapping YouDO opens a full-screen guide in your accent colour, with a small animated scene for each step and the four tabs as tiles that explain what each is for — and what it is not.
+- **Smaller fixes** — Ambient opens only when you really turn the phone, not when the keyboard opens, and the Classic look keeps the focus sound list tidy.
+- **Android APK** — versionName **8.3.0**, versionCode **84**. Installs over v8.2.0 (83). Add the widgets from your home screen's widget list.
+
+---
+
 ## [v8.2.0] - 2026-10-27 - Smooth Sync and an In-App Installer
 
 - **Sync combines both devices by itself** — When your phone and another device both changed, YouDO now compares each with the copy they last agreed on and takes both sets of changes, instead of stopping with "Cannot safely combine". **Combine copies** always works too.

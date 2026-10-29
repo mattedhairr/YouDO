@@ -9,7 +9,7 @@
     "homepage": "https://youdo-app.vercel.app",
     "bugs": "https://github.com/mattedhairr/YouDO/issues",
     "private": true,
-    "version": "8.2.0",
+    "version": "8.3.0",
     "type": "module",
     "scripts": {
         "dev": "vite",
