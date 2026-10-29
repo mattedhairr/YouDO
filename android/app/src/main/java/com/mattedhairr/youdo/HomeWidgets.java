@@ -8,13 +8,11 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.SystemClock;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
-import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.RemoteViews;
 import androidx.annotation.ColorRes;
@@ -214,9 +212,12 @@ final class HomeWidgets {
         views.setTextViewText(R.id.card_origin_text, origin);
         tint(ctx, views, R.id.card_origin_text, "setTextColor", accent);
         tint(ctx, views, R.id.card_origin_icon, "setColorFilter", accent);
-        CharSequence path = cardPath(ctx, card);
+        String path = card.optString("context");
         views.setTextViewText(R.id.card_path, path);
-        views.setViewVisibility(R.id.card_path, path.length() == 0 ? View.GONE : View.VISIBLE);
+        views.setViewVisibility(R.id.card_path, path.isEmpty() ? View.GONE : View.VISIBLE);
+        Calendar due = card.isNull("due") ? null : localDate(card.optString("due"));
+        views.setViewVisibility(R.id.card_due, due == null ? View.GONE : View.VISIBLE);
+        if (due != null) views.setTextViewText(R.id.card_due, "Due " + new SimpleDateFormat("MMM d", Locale.getDefault()).format(due.getTime()));
         // The next step to do and which one it is; the ring around ▶ fills as steps are done.
         boolean open = total > 0 && done < total && !card.isNull("next");
         views.setViewVisibility(R.id.card_next_dot, open ? View.VISIBLE : View.GONE);
@@ -229,18 +230,6 @@ final class HomeWidgets {
         views.setOnClickPendingIntent(R.id.card_start, upNextAction(ctx, widgetId, "start", card.optString("id")));
         views.setOnClickPendingIntent(R.id.card_root, openTarget(ctx, "task", card.optString("id")));
         return views;
-    }
-
-    /** The rest of the goal path under the title; a backlog card leads with the day it was due, in red. */
-    private static CharSequence cardPath(Context ctx, JSONObject card) {
-        String path = card.optString("context");
-        Calendar due = card.isNull("due") ? null : localDate(card.optString("due"));
-        if (due == null) return path;
-        SpannableStringBuilder text = new SpannableStringBuilder("Due " + new SimpleDateFormat("MMM d", Locale.getDefault()).format(due.getTime()));
-        text.setSpan(new ForegroundColorSpan(ContextCompat.getColor(ctx, R.color.widget_overdue)), 0, text.length(), 0);
-        text.setSpan(new StyleSpan(Typeface.BOLD), 0, text.length(), 0);
-        if (!path.isEmpty()) text.append(" · ").append(path);
-        return text;
     }
 
     private static JSONArray list(JSONObject snapshot, String key) {
@@ -414,6 +403,7 @@ final class HomeWidgets {
         views.setViewVisibility(R.id.room_message, View.GONE);
         views.setViewVisibility(R.id.room_content, View.VISIBLE);
         views.setTextViewText(R.id.room_name, room.optString("name"));
+        views.setTextViewText(R.id.room_icon, room.optString("icon", "🔥"));
         JSONArray members = room.optJSONArray("members");
         long now = System.currentTimeMillis();
         int live = 0;

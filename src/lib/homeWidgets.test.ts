@@ -68,6 +68,18 @@ describe('widgetRooms', () => {
   });
 });
 
+describe('widgetRooms avatars', () => {
+  it('uses the room emoji and emoji avatars, and a letter for photos or none', () => {
+    const [room] = widgetRooms([{
+      id: 'r', name: 'Gaters', icon: '🦉',
+      members: [{ id: 'a', name: 'Asha', avatar: '🐼' }, { id: 'b', name: 'ben', avatar: 'https://x.test/b.png' }, { id: 'c', name: 'Cy' }],
+    }], {});
+    expect(room.icon).toBe('🦉');
+    expect(room.members.map((member) => member.initial)).toEqual(['🐼', 'B', 'C']);
+    expect(widgetRooms([{ id: 'r', name: 'R', members: [] }], {})[0].icon).toBe('🔥');
+  });
+});
+
 describe('widgetStreak', () => {
   const revive = { active: true, windowEnds: '2026-10-28', previousStreak: 12 };
   it('keeps a broken streak that can still be restored, until the end of its window', () => {

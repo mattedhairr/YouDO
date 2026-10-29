@@ -18,4 +18,5 @@
     <color name="widget_save">#B7741A</color>
     <color name="widget_tab_on_text">#FFFFFF</color>
     <color name="widget_overdue">#D93A3F</color>
+    <color name="widget_overdue_soft">#1FD93A3F</color>
 </resources>

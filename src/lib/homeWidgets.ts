@@ -47,6 +47,7 @@ export interface WidgetMember {
   id: string;
   /** First name, or "You" for the signed-in member. */
   name: string;
+  /** Their avatar emoji, or the first letter of their name (photo avatars too). */
   initial: string;
   color: string;
   state: FocusState;
@@ -58,6 +59,8 @@ export interface WidgetMember {
 export interface WidgetRoom {
   id: string;
   name: string;
+  /** The room's emoji, as on its tile in the app. */
+  icon: string;
   members: WidgetMember[];
 }
 
@@ -195,21 +198,25 @@ export function widgetAccent(accent: string | undefined): WidgetSnapshot['accent
   return { light: swatch.light, dark: swatch.dark };
 }
 
+/** An emoji avatar as it is; a photo (URL) cannot be drawn on a widget. */
+const avatarGlyph = (avatar?: string | null) => (avatar && !/^https?:\/\//i.test(avatar) ? avatar.trim() || null : null);
+
 export function widgetRooms(
-  rooms: { id: string; name: string; members: { id: string; name: string }[] }[],
+  rooms: { id: string; name: string; icon?: string; members: { id: string; name: string; avatar?: string | null }[] }[],
   statuses: Record<string, FocusStatus>,
   selfId: string | null = null,
 ): WidgetRoom[] {
   return rooms.map((room) => ({
     id: room.id,
     name: clip(room.name) || 'Room',
+    icon: room.icon?.trim() || '🔥',
     members: room.members.slice(0, 4).map((member) => {
       const status = statuses[member.id];
       const first = member.name.trim().split(/\s+/)[0] ?? '';
       return {
         id: member.id,
         name: member.id === selfId ? 'You' : first.slice(0, 12) || '?',
-        initial: (member.name.trim()[0] ?? '?').toUpperCase(),
+        initial: avatarGlyph(member.avatar) ?? (member.name.trim()[0] ?? '?').toUpperCase(),
         color: avatarColor(member.id),
         state: status?.state ?? 'idle',
         startedAt: status?.startedAt ? Date.parse(status.startedAt) : null,
@@ -329,6 +336,7 @@ export async function loadWidgetRooms(userId: string): Promise<WidgetRoom[] | nu
   return widgetRooms(summaries.map((summary) => ({
     id: summary.squad.id,
     name: summary.squad.name,
-    members: summary.members.map((member) => ({ id: member.id, name: member.display_name || member.username || '?' })),
+    icon: summary.squad.description,
+    members: summary.members.map((member) => ({ id: member.id, name: member.display_name || member.username || '?', avatar: member.avatar_url })),
   })), statuses, userId);
 }

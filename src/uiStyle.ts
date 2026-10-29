@@ -13,9 +13,6 @@ import { subscribeUiPrefs, uiPrefsSnapshot } from './hooks/useUiPrefs';
  */
 const LEGACY_ID = 'youdo-legacy-css';
 const MOTION_ID = 'youdo-motion-css';
-const LEGACY_FONTS_ID = 'youdo-legacy-fonts';
-const LEGACY_FONTS_URL =
-  'https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap';
 
 let wanted: boolean | null = null;
 
@@ -43,24 +40,16 @@ function ensureMotion() {
   document.head.appendChild(style);
 }
 
-function setLegacyFonts(on: boolean) {
-  const fonts = document.getElementById(LEGACY_FONTS_ID);
-  if (on && !fonts) {
-    const link = document.createElement('link');
-    link.id = LEGACY_FONTS_ID;
-    link.rel = 'stylesheet';
-    link.href = LEGACY_FONTS_URL;
-    document.head.appendChild(link);
-  } else if (!on && fonts) {
-    fonts.remove();
-  }
+/** Classic Look's fonts ship with the app (legacy/legacyFonts.ts); they load once, when first needed. */
+function loadLegacyFonts() {
+  void import('./legacy/legacyFonts');
 }
 
 async function apply(legacy: boolean, firstPaint: boolean) {
   if (wanted === legacy) return;
   wanted = legacy;
   document.documentElement.dataset.uiStyle = legacy ? 'legacy' : 'modern';
-  setLegacyFonts(legacy);
+  if (legacy) loadLegacyFonts();
 
   if (!legacy) {
     document.getElementById(LEGACY_ID)?.remove();
