@@ -25,6 +25,7 @@ export const SUPABASE_SETUP_ORDER = [
   'hub_focus_status',
   'hub_room_focus',
   'hub_backers',
+  'support_settings',
   'user_push_tokens',
   'push_dispatch',
   'hub_push',

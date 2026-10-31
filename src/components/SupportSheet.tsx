@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Heart, Loader2 } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
-import { SUPPORT_UPI_ID, submitHubBacker } from '../lib/backers';
-import { SUPPORT_UPI_QR } from '../lib/supportQr';
+import { submitHubBacker } from '../lib/backers';
+import { upiPayUri } from '../lib/supportSettings';
+import { qrDrawing } from '../lib/upiQr';
+import { useSupportSettings } from '../hooks/useSupportSettings';
 import { hapticSuccess, hapticTick } from '../lib/haptics';
 import { HubSection } from './hub/HubParts';
 
@@ -19,6 +21,8 @@ interface Props {
  * UPI app (scan or paste the ID): UPI apps decline payments to a personal UPI
  * ID that are started from another app, so there is deliberately no "Pay" link.
  * After paying, the supporter can record the UTR to get the backer badge.
+ * The UPI ID, the QR code and the claim form follow the admin's Support settings;
+ * the QR is drawn from the UPI ID (a scan-to-pay link), so the two always match.
  */
 export default function SupportSheet({ open, onClose }: Props) {
   const { user } = useAuth();
@@ -31,6 +35,8 @@ export default function SupportSheet({ open, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const { upiId, qrEnabled, claimsEnabled } = useSupportSettings(open);
+  const qr = useMemo(() => (qrEnabled ? qrDrawing(upiPayUri(upiId)) : null), [qrEnabled, upiId]);
 
   // Every visit starts clean.
   useEffect(() => {
@@ -52,7 +58,7 @@ export default function SupportSheet({ open, onClose }: Props) {
 
   const copyUpiId = async () => {
     try {
-      await navigator.clipboard.writeText(SUPPORT_UPI_ID);
+      await navigator.clipboard.writeText(upiId);
       hapticTick();
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2200);
@@ -110,21 +116,23 @@ export default function SupportSheet({ open, onClose }: Props) {
                 title="Pay with any UPI app"
                 footer={
                   <>
-                    Open GPay, PhonePe or Paytm, choose <strong>Pay to UPI ID</strong> and paste the ID, or scan the
-                    code. On this phone, take a screenshot and pick it from the gallery in your UPI app’s scanner.
+                    Open GPay, PhonePe or Paytm, choose <strong>Pay to UPI ID</strong> and paste the ID
+                    {qr && <>, or scan the code. On this phone, take a screenshot and pick it from the gallery in your UPI app’s scanner</>}.
                   </>
                 }
               >
                 <div className="hub-group">
-                  <div className="hub-support-qr">
-                    <svg viewBox={SUPPORT_UPI_QR.viewBox} role="img" aria-label={`UPI QR code for ${SUPPORT_UPI_ID}`} shapeRendering="crispEdges">
-                      <path d={SUPPORT_UPI_QR.path} stroke="currentColor" strokeWidth={1} fill="none" />
-                    </svg>
-                  </div>
+                  {qr && (
+                    <div className="hub-support-qr">
+                      <svg viewBox={qr.viewBox} role="img" aria-label={`UPI QR code for ${upiId}`} shapeRendering="crispEdges">
+                        <path d={qr.path} stroke="currentColor" strokeWidth={1} fill="none" />
+                      </svg>
+                    </div>
+                  )}
                   <div className="hub-row is-compact">
                     <span className="hub-row-main">
                       <span className="hub-row-subtitle block">UPI ID</span>
-                      <span className="hub-support-upi">{SUPPORT_UPI_ID}</span>
+                      <span className="hub-support-upi">{upiId}</span>
                     </span>
                     <button type="button" className={`hub-pill-button ${copied ? 'is-quiet' : 'is-filled'}`} onClick={() => void copyUpiId()}>
                       {copied ? <><Check size={15} strokeWidth={2.6} /> Copied</> : <><Copy size={15} strokeWidth={2.4} /> Copy</>}
@@ -133,6 +141,21 @@ export default function SupportSheet({ open, onClose }: Props) {
                 </div>
               </HubSection>
 
+              {!claimsEnabled ? (
+                <HubSection title="Founding Backer badge">
+                  <div className="hub-group flex items-start gap-3 p-4">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-primary-soft text-primary" aria-hidden>
+                      <Heart size={15} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[13.5px] font-semibold text-content-primary">Badge claims are paused</span>
+                      <span className="mt-0.5 block text-[12px] leading-relaxed text-content-secondary">
+                        Thank you for supporting YouDO. New Founding Backer claims are closed for now.
+                      </span>
+                    </span>
+                  </div>
+                </HubSection>
+              ) : (
               <HubSection
                 title="Founding Backer badge"
                 footer="After paying, add the 12-digit UPI reference (UTR) from your receipt. The admin checks it before the badge appears on your profile."
@@ -183,6 +206,7 @@ export default function SupportSheet({ open, onClose }: Props) {
                 </button>
                 {username && <p className="hub-section-footer text-center">Credited to @{username}</p>}
               </HubSection>
+              )}
             </>
           )}
         </div>

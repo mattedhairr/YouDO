@@ -55,6 +55,7 @@ import { fetchAdminAppQuotes, type AdminAppQuote } from '../lib/appQuotes';
 import { dismissAdminNotification } from '../lib/notifications';
 import UserProfileSheet from './UserProfileSheet';
 import AdminBackersReviewModal from './AdminBackersReviewModal';
+import SupportSettingsAdmin from './community/SupportSettingsAdmin';
 import { HubNavBar } from './hub/HubParts';
 
 interface Props {
@@ -454,6 +455,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
         </nav>
         {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
         <div hidden={adminTab !== 'controls'} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <SupportSettingsAdmin />
         <section className="mb-5 rounded-[24px] border border-subtle bg-surface overflow-hidden shadow-sm" aria-label="Supporters">
           <button type="button" onClick={() => setBackersOpen(true)} className="flex w-full items-center justify-between gap-3 p-5 text-left">
             <span className="min-w-0 flex-1">
