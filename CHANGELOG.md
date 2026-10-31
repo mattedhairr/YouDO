@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.3.1] - 2026-10-31 - Widgets That Keep Up with the Day
+
+- **Widgets start the new day on their own** — After midnight the Dashboard widget moves unfinished cards to overdue, shows the new day's scheduled cards and starts today's focus at zero, even before you open YouDO. Room totals start again too.
+- **Time left matches the briefing** — The widget's "left today" now counts to midnight, so after midnight it no longer stops at 18h.
+- **A clearer update pop-up** — New versions show a short, titled list of what's new with the full notes a tap away, and one Update now button. The installer's ring fits its numbers and the ready tick stands upright. You will see it from this version's next update onwards.
+- **Ambient stays full screen** — Opening the notification shade on the ambient screen no longer leaves the status bar showing when you come back.
+- **Android APK** — versionName **8.3.1**, versionCode **85**. Installs over v8.3.0 (84). Open YouDO once after updating so the widgets learn the new day.
+
+---
+
 ## [v8.3.0] - 2026-10-29 - Home-Screen Widgets and a New Guide
 
 - **Dashboard widget** — Today's cards on an arc you can step through with ‹ ›, start with ▶, and pause or stop from the home screen. Switch to Backlog or your goals. Two dials beside it show today's focus toward your daily bar (with a flame once you hit it) and how much of the day is left; the goal view adds today, your daily average over 30 days and your best day.
