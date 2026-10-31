@@ -1262,6 +1262,7 @@ function AppInner() {
   return (
     <div className="min-h-screen">
       {Capacitor.getPlatform() === 'android' && <Suspense fallback={null}><HomeWidgets
+        tasks={tasks}
         todayTasks={todayTasks}
         backlogTasks={backlogTasks}
         focusByDate={streakByDate}

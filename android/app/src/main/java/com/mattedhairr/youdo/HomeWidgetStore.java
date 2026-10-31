@@ -4,6 +4,10 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Base64;
 import java.security.SecureRandom;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -31,7 +35,13 @@ final class HomeWidgetStore {
         return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
+    /** What the widgets show: the app's last snapshot, moved on to today (rollOver). */
     static JSONObject snapshot(Context ctx) {
+        return rollOver(stored(ctx), today());
+    }
+
+    /** The app's last snapshot as it was sent. */
+    private static JSONObject stored(Context ctx) {
         String raw = prefs(ctx).getString(KEY_SNAPSHOT, null);
         if (raw == null) return null;
         try {
@@ -48,7 +58,7 @@ final class HomeWidgetStore {
      */
     static synchronized void saveSnapshot(Context ctx, String json) throws Exception {
         JSONObject incoming = new JSONObject(json);
-        JSONObject current = snapshot(ctx);
+        JSONObject current = stored(ctx);
         JSONArray known = current != null ? current.optJSONArray("rooms") : null;
         if (incoming.isNull("rooms")) {
             incoming.put("rooms", known != null ? known : new JSONArray());
@@ -80,6 +90,84 @@ final class HomeWidgetStore {
                 person.put("pausedMs", seen.optLong("pausedMs"));
                 person.put("updatedAt", seen.optLong("updatedAt"));
             }
+        }
+    }
+
+    /** The phone's local date, yyyy-mm-dd, as the app writes dates. */
+    static String today() {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+    }
+
+    /**
+     * Only the app writes the snapshot, so on a day it has not been opened yet
+     * the snapshot is moved on here, as the app would: earlier days' open cards
+     * turn overdue, the day's scheduled cards (sent ahead in "upcoming") become
+     * today's, and today's focus starts again at zero. Snapshots without a date
+     * (an older app) are shown as they are.
+     */
+    static JSONObject rollOver(JSONObject snapshot, String today) {
+        String date = snapshot == null ? "" : snapshot.optString("date", "");
+        if (date.isEmpty() || date.compareTo(today) >= 0) return snapshot;
+        try {
+            JSONArray backlog = list(snapshot, "backlog");
+            JSONArray scheduled = new JSONArray();
+            JSONArray upcoming = new JSONArray();
+            JSONArray was = list(snapshot, "today");
+            for (int i = 0; i < was.length(); i++) backlog.put(was.getJSONObject(i).put("due", date));
+            // Sent by date, so the backlog stays oldest first.
+            JSONArray ahead = list(snapshot, "upcoming");
+            for (int i = 0; i < ahead.length(); i++) {
+                JSONObject card = ahead.getJSONObject(i);
+                int day = card.optString("due", "").compareTo(today);
+                if (day < 0) backlog.put(card);
+                else if (day == 0) scheduled.put(card.put("due", JSONObject.NULL));
+                else upcoming.put(card);
+            }
+            snapshot.put("backlog", ranked(backlog)).put("today", ranked(scheduled)).put("upcoming", ranked(upcoming));
+            snapshot.put("todayDone", 0);
+
+            JSONObject focus = snapshot.optJSONObject("focus");
+            if (focus != null) {
+                long last = focus.optLong("todayMs");
+                // The day just gone is now one of the 30 the best is taken from.
+                if (last > 0 && last >= focus.optLong("bestMs") && daysBetween(date, today) <= 30) {
+                    focus.put("bestMs", last).put("bestDate", date);
+                }
+                focus.put("todayMs", 0);
+            }
+            JSONArray rooms = snapshot.optJSONArray("rooms");
+            for (int r = 0; rooms != null && r < rooms.length(); r++) {
+                JSONArray members = rooms.getJSONObject(r).optJSONArray("members");
+                // A session running now is still added to this by the widget.
+                for (int m = 0; members != null && m < members.length(); m++) members.getJSONObject(m).put("todayMs", 0);
+            }
+            return snapshot.put("date", today);
+        } catch (Exception e) {
+            return snapshot;
+        }
+    }
+
+    private static JSONArray list(JSONObject snapshot, String key) {
+        JSONArray items = snapshot.optJSONArray(key);
+        return items != null ? items : new JSONArray();
+    }
+
+    private static JSONArray ranked(JSONArray cards) throws Exception {
+        for (int i = 0; i < cards.length(); i++) cards.getJSONObject(i).put("rank", i + 1);
+        return cards;
+    }
+
+    /** Whole local days from one yyyy-mm-dd to another. */
+    private static long daysBetween(String from, String to) {
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            Calendar a = Calendar.getInstance();
+            a.setTime(format.parse(from));
+            Calendar b = Calendar.getInstance();
+            b.setTime(format.parse(to));
+            return Math.round((b.getTimeInMillis() - a.getTimeInMillis()) / 86_400_000.0);
+        } catch (Exception e) {
+            return Long.MAX_VALUE;
         }
     }
 
@@ -140,7 +228,7 @@ final class HomeWidgetStore {
 
     /** A room-mate started, paused, resumed or stopped (silent push, see hub_widget_push.sql). */
     static synchronized boolean applyFocusStatus(Context ctx, Map<String, String> data) {
-        JSONObject snapshot = snapshot(ctx);
+        JSONObject snapshot = stored(ctx);
         String member = data.get("member");
         String state = data.get("state");
         if (snapshot == null || member == null || state == null) return false;

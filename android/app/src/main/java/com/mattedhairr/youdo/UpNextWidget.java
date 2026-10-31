@@ -40,6 +40,11 @@ public class UpNextWidget extends AppWidgetProvider {
             HomeWidgets.scheduleTick(context);
             return;
         }
+        if (intent != null && HomeWidgets.ACTION_NEW_DAY.equals(intent.getAction())) {
+            // Midnight (HomeWidgets.scheduleNewDay): both widgets move on to the new day.
+            HomeWidgets.refreshAll(context);
+            return;
+        }
         if (intent == null || !HomeWidgets.ACTION_CARD.equals(intent.getAction())) return;
         String action = intent.getStringExtra(HomeWidgets.EXTRA_ACTION);
         String id = intent.getStringExtra(HomeWidgets.EXTRA_TASK);

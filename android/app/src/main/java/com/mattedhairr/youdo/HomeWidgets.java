@@ -77,6 +77,24 @@ final class HomeWidgets {
 
     static void render(Context ctx, AppWidgetManager manager, Class<?> provider, int widgetId) {
         manager.updateAppWidget(widgetId, provider == UpNextWidget.class ? dayArc(ctx, widgetId) : room(ctx, widgetId));
+        scheduleNewDay(ctx);
+    }
+
+    static final String ACTION_NEW_DAY = "com.mattedhairr.youdo.WIDGET_NEW_DAY";
+
+    /**
+     * A redraw just after midnight, so the new day (HomeWidgetStore.rollOver)
+     * shows without waiting for the half-hourly update. Not a wake-up alarm:
+     * with the screen off it waits until the phone is in use.
+     */
+    static void scheduleNewDay(Context ctx) {
+        AlarmManager alarms = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+        if (alarms == null) return;
+        Intent intent = new Intent(ctx, UpNextWidget.class).setAction(ACTION_NEW_DAY);
+        PendingIntent newDay = PendingIntent.getBroadcast(ctx, 1, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        Calendar midnight = startOfToday();
+        midnight.add(Calendar.DAY_OF_MONTH, 1);
+        alarms.set(AlarmManager.RTC, midnight.getTimeInMillis() + 5_000, newDay);
     }
 
     static int count(Context ctx, Class<?> provider) {

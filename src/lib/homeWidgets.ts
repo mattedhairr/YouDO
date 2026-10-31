@@ -82,7 +82,14 @@ export interface WidgetStreakSave {
 
 export interface WidgetSnapshot {
   v: 1;
+  /**
+   * The local yyyy-mm-dd this was made. On a later day Android moves it on
+   * itself (HomeWidgetStore.rollOver) until the app is opened again.
+   */
+  date: string;
   today: WidgetTask[];
+  /** Open cards scheduled for the next days, by date, each with its day in `due`. */
+  upcoming: WidgetTask[];
   /** Open overdue tasks, oldest first, as the Backlog tab lists them. */
   backlog: WidgetTask[];
   /** Today's scheduled cards already finished (the arc's lit segments). */
@@ -108,6 +115,8 @@ export type WidgetAction =
   | ({ type: 'open' } & WidgetTarget);
 
 const MAX_TASKS = 30;
+/** How many days ahead the widget gets scheduled cards for, to start a new day without the app. */
+const UPCOMING_DAYS = 7;
 const MAX_TEXT = 120;
 const AVATAR_COLORS = ['#c08a5b', '#5f86c2', '#8a68c8', '#4f9c80', '#c26a6a', '#b59a45'];
 
@@ -148,40 +157,50 @@ export function avatarColor(userId: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+function widgetCard(task: Task, index: number, goals: GoalNode[], due: string | null): WidgetTask {
+  return {
+    id: task.id,
+    title: clip(task.title) || 'Untitled',
+    ...taskOrigin(goals, task),
+    rank: index + 1,
+    done: Math.min(task.progress, task.steps.length),
+    total: task.steps.length,
+    next: nextStep(task),
+    due,
+  };
+}
+
+const byDateThenOrder = (a: Task, b: Task) => (a.targetDate ?? '').localeCompare(b.targetDate ?? '') || a.order - b.order;
+
 /** Today's open cards in the order the Today list shows them. */
 export function widgetTodayTasks(todayTasks: Task[], goals: GoalNode[]): WidgetTask[] {
   return todayTasks
     .filter((task) => !isTaskComplete(task))
     .sort((a, b) => a.order - b.order)
     .slice(0, MAX_TASKS)
-    .map((task, index) => ({
-      id: task.id,
-      title: clip(task.title) || 'Untitled',
-      ...taskOrigin(goals, task),
-      rank: index + 1,
-      done: Math.min(task.progress, task.steps.length),
-      total: task.steps.length,
-      next: nextStep(task),
-      due: null,
-    }));
+    .map((task, index) => widgetCard(task, index, goals, null));
 }
 
 /** Open backlog cards, oldest due date first, as the Backlog tab shows them. */
 export function widgetBacklogTasks(backlogTasks: Task[], goals: GoalNode[]): WidgetTask[] {
   return backlogTasks
     .filter((task) => !isTaskComplete(task) && !!task.targetDate)
-    .sort((a, b) => (a.targetDate ?? '').localeCompare(b.targetDate ?? '') || a.order - b.order)
+    .sort(byDateThenOrder)
     .slice(0, MAX_TASKS)
-    .map((task, index) => ({
-      id: task.id,
-      title: clip(task.title) || 'Untitled',
-      ...taskOrigin(goals, task),
-      rank: index + 1,
-      done: Math.min(task.progress, task.steps.length),
-      total: task.steps.length,
-      next: nextStep(task),
-      due: (task.targetDate ?? '').slice(0, 10),
-    }));
+    .map((task, index) => widgetCard(task, index, goals, (task.targetDate ?? '').slice(0, 10)));
+}
+
+/** Open cards scheduled after today, up to UPCOMING_DAYS ahead, by date and then Today order. */
+export function widgetUpcomingTasks(tasks: Task[], goals: GoalNode[], today = todayISO()): WidgetTask[] {
+  const last = shiftLocalISO(today, UPCOMING_DAYS);
+  return tasks
+    .filter((task) => {
+      const day = (task.targetDate ?? '').slice(0, 10);
+      return !isTaskComplete(task) && day > today && day <= last;
+    })
+    .sort(byDateThenOrder)
+    .slice(0, MAX_TASKS)
+    .map((task, index) => widgetCard(task, index, goals, (task.targetDate ?? '').slice(0, 10)));
 }
 
 export function widgetGoals(goals: GoalNode[]): WidgetGoal[] {
@@ -350,6 +369,8 @@ let lastPublished = '';
 
 /** Sends the widgets a new snapshot when what they show has changed. */
 export interface WidgetSources {
+  /** Every task; the next days' scheduled cards are taken from it. */
+  tasks: Task[];
   todayTasks: Task[];
   backlogTasks: Task[];
   goals: GoalNode[];
@@ -363,10 +384,13 @@ export interface WidgetSources {
 }
 
 export async function syncWidgets(src: WidgetSources): Promise<void> {
-  const focus = widgetFocus(src.focusByDate, src.barHours);
+  const today = todayISO();
+  const focus = widgetFocus(src.focusByDate, src.barHours, today);
   const snapshot: WidgetSnapshot = {
     v: 1,
+    date: today,
     today: widgetTodayTasks(src.todayTasks, src.goals),
+    upcoming: widgetUpcomingTasks(src.tasks, src.goals, today),
     backlog: widgetBacklogTasks(src.backlogTasks, src.goals),
     todayDone: src.todayTasks.filter(isTaskComplete).length,
     focus,
