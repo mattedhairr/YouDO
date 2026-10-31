@@ -107,11 +107,19 @@ export function AmbientScreen({
     };
   }, []);
 
-  // Full screen: the phone's status bar hides while the clock shows.
+  // Full screen: the phone's status bar hides while the clock shows, and
+  // again on coming back from the notification shade or another app.
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    StatusBar.hide().catch(() => {});
+    const hide = () => {
+      if (document.visibilityState === 'visible') StatusBar.hide().catch(() => {});
+    };
+    hide();
+    window.addEventListener('focus', hide);
+    document.addEventListener('visibilitychange', hide);
     return () => {
+      window.removeEventListener('focus', hide);
+      document.removeEventListener('visibilitychange', hide);
       StatusBar.show().catch(() => {});
     };
   }, []);
