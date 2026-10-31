@@ -2,8 +2,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import SupportSheet from './SupportSheet';
-import { SUPPORT_UPI_ID, SUPPORT_UPI_QR_URI } from '../lib/backers';
-import { SUPPORT_UPI_QR } from '../lib/supportQr';
+import { SUPPORT_UPI_ID } from '../lib/backers';
+import { upiPayUri } from '../lib/supportSettings';
+import { qrDrawing } from '../lib/upiQr';
 
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', user_metadata: { username: 'aspirant' } } }),
@@ -34,8 +35,7 @@ describe('SupportSheet', () => {
     expect(renderToStaticMarkup(createElement(SupportSheet, { open: false, onClose: vi.fn() }))).toBe('');
   });
 
-  it('keeps the generated QR in sync with the UPI ID', () => {
-    expect(SUPPORT_UPI_QR.uri).toBe(SUPPORT_UPI_QR_URI);
-    expect(SUPPORT_UPI_QR_URI).toContain(`pa=${SUPPORT_UPI_ID}`);
+  it('draws the QR from the UPI ID shown beside it', () => {
+    expect(render()).toContain(qrDrawing(upiPayUri(SUPPORT_UPI_ID)).path);
   });
 });

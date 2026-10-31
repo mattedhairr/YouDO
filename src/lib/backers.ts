@@ -1,14 +1,10 @@
 import { supabase } from './supabase';
 
-/** The developer's personal UPI ID that supporters pay to. */
-export const SUPPORT_UPI_ID = 'mattedhairr@axl';
-
 /**
- * A scan-to-pay UPI link for the QR code. Opening a personal UPI ID from inside
- * another app (an intent) is blocked by UPI apps for safety, but scanning the
- * same details as a QR, or typing the ID, is allowed.
+ * The developer's personal UPI ID that supporters pay to, until the admin's
+ * Support settings (lib/supportSettings) have loaded.
  */
-export const SUPPORT_UPI_QR_URI = `upi://pay?pa=${SUPPORT_UPI_ID}&pn=YouDO&cu=INR`;
+export const SUPPORT_UPI_ID = 'mattedhairr@axl';
 
 export interface SubmitBackerParams {
   amount: number;

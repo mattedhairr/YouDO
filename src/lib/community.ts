@@ -166,6 +166,7 @@ export function describeCommunityAudit(entry: CommunityAuditEntry, targetName?: 
     'quotes.created': { category: 'Admin', title: 'Added an app quote', detail: entry.reason || 'A new motivational quote was added.' },
     'quotes.updated': { category: 'Admin', title: 'Edited an app quote', detail: entry.reason || 'A motivational quote was updated.' },
     'quotes.deleted': { category: 'Admin', title: 'Deleted an app quote', detail: entry.reason || 'A motivational quote was removed.' },
+    'support.updated': { category: 'Admin', title: 'Changed Support settings', detail: entry.reason || 'The UPI ID or a Support switch changed.' },
   };
   if (descriptions[entry.action]) return descriptions[entry.action];
   const readable = entry.action.split('.').filter(Boolean).join(' ');

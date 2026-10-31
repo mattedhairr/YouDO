@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.3.2] - 2026-10-31 - Support Settings for the Admin
+
+- **The admin edits Support** — Admin Hub → Controls has a new Support settings card: change the UPI ID, show or hide the QR code, pause Founding Backer claims, or hide Support YouDO altogether.
+- **The QR always matches the UPI ID** — The Support screen now draws its QR code from the current UPI ID, so scanning it and copying the ID always pay the same account.
+- **Paused claims mean paused everywhere** — While claims are paused, new ones are refused on every app version. Badges already given stay.
+- **Android APK** — versionName **8.3.2**, versionCode **86**. Installs over v8.3.1 (85). Older versions keep their built-in UPI ID and QR until they update.
+
+---
+
 ## [v8.3.1] - 2026-10-31 - Widgets That Keep Up with the Day
 
 - **Widgets start the new day on their own** — After midnight the Dashboard widget moves unfinished cards to overdue, shows the new day's scheduled cards and starts today's focus at zero, even before you open YouDO. Room totals start again too.

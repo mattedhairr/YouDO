@@ -41,7 +41,7 @@ try {
   }
   const tables = (await rows(`select tablename from pg_tables where schemaname='public'`)).map(r => r.tablename);
   for (const table of ['user_backups', 'public_pace', 'community_messages', 'community_hashtag_requests', 'app_quotes',
-    'profiles', 'friendships', 'squads', 'squad_members', 'direct_messages', 'squad_messages', 'hub_backers', 'user_push_tokens']) {
+    'profiles', 'friendships', 'squads', 'squad_members', 'direct_messages', 'squad_messages', 'hub_backers', 'app_support_settings', 'user_push_tokens']) {
     assert.ok(tables.includes(table), `${table} exists`);
   }
   const noRls = await rows(`select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace

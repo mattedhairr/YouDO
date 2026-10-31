@@ -65,6 +65,7 @@ import { buildMorningBriefingContent, extractBriefingData } from '../lib/morning
 import { useReducedEffects } from '../hooks/useReducedEffects';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { useSupportSettings } from '../hooks/useSupportSettings';
 import { ACCENT_COLORS, ACCENT_SWATCHES, resolveAccent } from '../lib/accentColors';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
 import type { BackupSummary } from '../lib/backup';
@@ -269,6 +270,7 @@ export default function SettingsSheet({
 
   const [trashOpen, setTrashOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const { supportEnabled } = useSupportSettings(true);
   const [trashRestoreError, setTrashRestoreError] = useState<string | null>(null);
   const [streakBarHelpOpen, setStreakBarHelpOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -3095,7 +3097,7 @@ export default function SettingsSheet({
               <ChevronRight size={16} className="shrink-0 text-content-muted" />
             </button>
 
-            <button
+            {supportEnabled && <button
               type="button"
               onClick={() => setSupportOpen(true)}
               className="settings-data-row w-full p-4 flex flex-nowrap items-center justify-between gap-3 text-left hover:bg-white/2 transition"
@@ -3112,7 +3114,7 @@ export default function SettingsSheet({
                 </div>
               </div>
               <ChevronRight size={16} className="shrink-0 text-content-muted" />
-            </button>
+            </button>}
           </div>
           <p className="mt-2 px-1 text-[10px] leading-relaxed text-content-muted">
             For a bug, mention what you were doing, what happened and what you expected. Remove personal information from screenshots.

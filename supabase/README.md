@@ -123,6 +123,11 @@ Projects set up before 2026-10-21: run `profiles_hardening.sql` once. Signed-out
 visitors can no longer read profiles, and members can no longer set their own
 Founding Backer badge.
 
+Then apply `support_settings.sql` (after `hub_backers.sql`): the admin's Support
+settings in Admin Hub → Controls (UPI ID, QR code on/off, badge claims on/off,
+Support on/off). Paused claims are refused for every app version. Safe to re-run;
+saved settings are kept.
+
 Without the Vault secrets, triggers skip the push with a warning and the user's
 action still succeeds. `claim_push_token` moves a device to the account signed in
 on it, so an earlier account's notifications stop arriving after a switch.

@@ -1,19 +1,21 @@
 # Where We Left Off
 
-Last updated **2026-10-31**, right after **v8.3.1** was released. Work pauses here for about four months. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-10-31**, right after **v8.3.2** was released. Work pauses here for about four months. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.3.1, versionCode 85, published 2026-10-31.
+- **Latest release:** v8.3.2, versionCode 86, published 2026-10-31.
   - It is on GitHub Releases with `YouDO.apk`.
-  - The website https://youdo-app.vercel.app serves 8.3.1.
+  - The website https://youdo-app.vercel.app serves 8.3.2.
   - It was announced on Telegram.
 - **Git:** only the `main` branch exists. Nothing is unreleased or half-done.
 - **Server (Supabase `iyrnywfaxakvjkmddmqv`):**
   - every SQL file in `supabase/` and the `send-push` function were applied to production by v8.3.0 (checked 2026-10-29);
-  - v8.3.1 had no server changes.
+  - v8.3.1 had no server changes;
+  - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings).
+- **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
   - the widget's "left today" counting to midnight;
@@ -31,7 +33,9 @@ These shipped without a device test, because the owner chose a direct release.
 3. **Ambient screen.** Pull down the notification shade, close it and come back. The status bar should hide again.
 4. **The new update pop-up and installer.** You'll check these: the glass card, titled "what's new" lines, Full notes, the ring with "2.4 of 11.1 MB", and an upright ✓. They first appear when a phone on 8.3.1 updates to the *next* version.
 
-If something is wrong, fix it on a `fixes` branch and ship a patch (v8.3.2).
+5. **Support settings (v8.3.2).** Signed in as admin, open Admin Hub → Controls → Support settings. Change a switch and Save, then check the Support screen follows it. Scan the QR with a UPI app and check it opens "Pay to" the saved UPI ID. Turn claims back on afterwards if you turned them off.
+
+If something is wrong, fix it on a `fixes` branch and ship a patch (v8.3.3).
 
 ## Known limits and ideas for later
 
