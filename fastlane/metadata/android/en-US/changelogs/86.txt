@@ -1,0 +1,4 @@
+v8.3.2: Support settings for the admin
+- Admin Hub can change the UPI ID, show or hide the QR code, pause Founding Backer claims, or hide Support.
+- The Support QR code is drawn from the current UPI ID, so it always matches.
+- Paused claims are refused on every version; existing badges stay.
