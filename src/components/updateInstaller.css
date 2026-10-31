@@ -49,8 +49,9 @@ html[data-liquid-glass='false'] .update-installer::after { display: none; }
 .update-installer-grabber { width: 40px; height: 4px; margin: 0 auto 14px; border-radius: 9px; background: color-mix(in srgb, var(--text-primary) 25%, transparent); }
 .update-installer-icon { width: 48px; height: 48px; border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3); }
 
-.update-installer-ring { position: relative; width: 132px; height: 132px; margin: 8px auto 0; display: grid; place-items: center; }
-.update-installer-ring svg { transform: rotate(-90deg); }
+.update-installer-ring { position: relative; width: 148px; height: 148px; margin: 8px auto 0; display: grid; place-items: center; }
+/* Only the ring turns to start at the top; the tick inside stays upright. */
+.update-installer-ring > svg { transform: rotate(-90deg); }
 .update-installer-track { fill: none; stroke: color-mix(in srgb, var(--text-primary) 12%, transparent); stroke-width: 9; }
 .update-installer-fill {
   fill: none; stroke: var(--primary); stroke-width: 9; stroke-linecap: round;
@@ -59,7 +60,7 @@ html[data-liquid-glass='false'] .update-installer::after { display: none; }
 }
 .update-installer-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
 .update-installer-done {
-  display: grid; place-items: center; width: 112px; height: 112px; border-radius: 999px;
+  display: grid; place-items: center; width: 124px; height: 124px; border-radius: 999px;
   background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
@@ -92,4 +93,40 @@ html[data-liquid-glass='false'] .update-installer::after { display: none; }
 .update-installer-btn:active { transform: scale(0.97); }
 .update-installer-btn.is-primary { background: var(--primary); color: var(--on-primary); }
 .update-installer-btn:disabled { opacity: 0.5; }
+/* The update pop-up: the same glass as the installer, as a floating card. */
+.update-notice-glass {
+  padding: 16px;
+  border-radius: 26px;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0) 100%),
+    color-mix(in srgb, rgba(26, 25, 23, 0.9) 92%, var(--primary));
+  backdrop-filter: blur(28px) saturate(2.1) brightness(1.06);
+  -webkit-backdrop-filter: blur(28px) saturate(2.1) brightness(1.06);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+html.light-dusky .update-notice-glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%),
+    color-mix(in srgb, rgba(255, 255, 255, 0.8) 94%, var(--primary));
+  box-shadow: 0 20px 50px -14px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+html[data-liquid-glass='false'] .update-notice-glass { background: var(--bg-sheet); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.update-notice-icon { width: 46px; height: 46px; flex: none; border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3); }
+.update-notice-close {
+  align-self: flex-start; width: 30px; height: 30px; flex: none; border-radius: 999px;
+  display: grid; place-items: center; color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+.update-notice-dot {
+  flex: none; width: 7px; height: 7px; margin: 6px 3px 0 4px; border-radius: 999px;
+  background: var(--primary); box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 70%, transparent);
+}
+.update-notice-later {
+  min-height: 48px; padding: 0 18px; border-radius: 14px; font-size: 15px; font-weight: 700; color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 9%, transparent);
+}
+
 :root[data-reduced-effects='true'] .update-installer { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--bg-sheet); }

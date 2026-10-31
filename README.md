@@ -123,7 +123,7 @@ Two Android widgets keep the plan one glance away:
 - **Dashboard** — today's cards on an arc. Step through them with ‹ ›, start a focus session with ▶, and pause or stop it without opening the app. Switch to Backlog or a goal. A focus dial shows today's net focus toward your daily bar, a gauge shows how much of the day is left, and the goal view adds today, your 30-day daily average and your best day.
 - **Room** — who in one of your Private Hub rooms is focusing right now. The dots change within seconds, even while YouDO is closed.
 
-Both follow your accent colour and redraw every minute while a session runs.
+Both follow your accent colour, redraw every minute while a session runs, and move on to the new day at midnight even before you open YouDO.
 
 ### A daily briefing that changes with the day
 

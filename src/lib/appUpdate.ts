@@ -89,6 +89,15 @@ export function releaseHighlights(body: string): string[] {
   return [...new Set(bullets)];
 }
 
+/** A highlight's bold title and its text ("Title — text"); a line without a title is all text. */
+export function highlightParts(line: string): { title: string; text: string } {
+  const match = /^(.{2,60}?)\s+[—–-]\s+(.+)$/.exec(line);
+  return match ? { title: match[1], text: match[2] } : { title: '', text: line };
+}
+
+/** The release notes' install line (versionName, versionCode), which users do not need. */
+export const isApkHighlight = (line: string) => /^Android APK\b/i.test(line);
+
 function parseRelease(raw: ReleaseResponse): AppRelease | null {
   if (raw.draft || raw.prerelease) return null;
   if (typeof raw.tag_name !== 'string' || typeof raw.html_url !== 'string') return null;

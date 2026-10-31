@@ -77,6 +77,24 @@ final class HomeWidgets {
 
     static void render(Context ctx, AppWidgetManager manager, Class<?> provider, int widgetId) {
         manager.updateAppWidget(widgetId, provider == UpNextWidget.class ? dayArc(ctx, widgetId) : room(ctx, widgetId));
+        scheduleNewDay(ctx);
+    }
+
+    static final String ACTION_NEW_DAY = "com.mattedhairr.youdo.WIDGET_NEW_DAY";
+
+    /**
+     * A redraw just after midnight, so the new day (HomeWidgetStore.rollOver)
+     * shows without waiting for the half-hourly update. Not a wake-up alarm:
+     * with the screen off it waits until the phone is in use.
+     */
+    static void scheduleNewDay(Context ctx) {
+        AlarmManager alarms = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+        if (alarms == null) return;
+        Intent intent = new Intent(ctx, UpNextWidget.class).setAction(ACTION_NEW_DAY);
+        PendingIntent newDay = PendingIntent.getBroadcast(ctx, 1, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        Calendar midnight = startOfToday();
+        midnight.add(Calendar.DAY_OF_MONTH, 1);
+        alarms.set(AlarmManager.RTC, midnight.getTimeInMillis() + 5_000, newDay);
     }
 
     static int count(Context ctx, Class<?> provider) {
@@ -568,7 +586,7 @@ final class HomeWidgets {
     private static final int DAY_START_HOUR = 6;
     private static final long DAY_LENGTH_MS = (24 - DAY_START_HOUR) * 3_600_000L;
 
-    /** What is left of the day until midnight, at most the whole 6:00-to-midnight day. */
+    /** What is left of the day until midnight, as the morning briefing counts it. */
     private static long dayLeftMs() {
         Calendar midnight = Calendar.getInstance();
         midnight.set(Calendar.HOUR_OF_DAY, 0);
@@ -576,11 +594,12 @@ final class HomeWidgets {
         midnight.set(Calendar.SECOND, 0);
         midnight.set(Calendar.MILLISECOND, 0);
         midnight.add(Calendar.DAY_OF_MONTH, 1);
-        return Math.max(0, Math.min(DAY_LENGTH_MS, midnight.getTimeInMillis() - System.currentTimeMillis()));
+        return Math.max(0, midnight.getTimeInMillis() - System.currentTimeMillis());
     }
 
+    /** The fuel dial's needle: full until 6:00 (its reading still counts to midnight). */
     private static float dayLeftShare() {
-        return dayLeftMs() / (float) DAY_LENGTH_MS;
+        return Math.min(DAY_LENGTH_MS, dayLeftMs()) / (float) DAY_LENGTH_MS;
     }
 
     /** "9½h", or "40m" in the last hour: a reading that may be up to half an hour old. */

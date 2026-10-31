@@ -13,6 +13,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 
@@ -38,6 +39,10 @@ public class YouDoActivity extends BridgeActivity {
         getWindow().setStatusBarColor(Color.rgb(17, 16, 14));
         getWindow().setNavigationBarColor(Color.rgb(17, 16, 14));
         getWindow().getDecorView().setBackgroundColor(Color.rgb(17, 16, 14));
+        // A status bar hidden by the ambient screen comes back only for a moment
+        // when swiped or the notification shade is opened, then hides again.
+        WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
+            .setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
         if (getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().setBackgroundColor(Color.rgb(17, 16, 14));
             keepWebViewClearOfBarsAndKeyboard();

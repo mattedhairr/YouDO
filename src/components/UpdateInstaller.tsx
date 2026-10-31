@@ -15,7 +15,7 @@ function timeLeft(bytes: number, speed: number): string {
   return seconds < 60 ? `about ${seconds} s left` : `about ${Math.ceil(seconds / 60)} min left`;
 }
 
-const RING = 2 * Math.PI * 52;
+const RING = 2 * Math.PI * 60;
 
 function Steps({ at }: { at: 0 | 1 | 2 }) {
   const labels = ['Download', 'Check', 'Install'];
@@ -71,17 +71,17 @@ export default function UpdateInstaller() {
           </div>
         ) : (
           <div className="update-installer-ring" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
-            <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden>
-              <circle cx="66" cy="66" r="52" className="update-installer-track" />
-              <circle cx="66" cy="66" r="52" className="update-installer-fill" strokeDasharray={RING} strokeDashoffset={RING * (1 - pct / 100)} />
+            <svg width="148" height="148" viewBox="0 0 148 148" aria-hidden>
+              <circle cx="74" cy="74" r="60" className="update-installer-track" />
+              <circle cx="74" cy="74" r="60" className="update-installer-fill" strokeDasharray={RING} strokeDashoffset={RING * (1 - pct / 100)} />
             </svg>
             <div className="update-installer-center">
               <div className="text-[30px] font-bold leading-none tabular-nums text-content-primary">
                 {phase === 'downloading' && state.total <= 0 ? mb(state.received) : `${Math.round(pct)}%`}
               </div>
-              <div className="mt-1 text-[11.5px] text-content-muted tabular-nums">
+              <div className="mt-1 text-[11px] text-content-muted tabular-nums">
                 {phase === 'checking' ? 'Checking the file'
-                  : phase === 'downloading' ? (state.total > 0 ? `${mb(state.received)} of ${mb(state.total)}` : 'Downloading')
+                  : phase === 'downloading' ? (state.total > 0 ? `${(state.received / 1048576).toFixed(1)} of ${mb(state.total)}` : 'Downloading')
                     : 'Not started'}
               </div>
             </div>

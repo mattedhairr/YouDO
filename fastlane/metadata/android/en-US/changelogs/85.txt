@@ -1,0 +1,5 @@
+v8.3.1: Widgets that keep up with the day
+- Widgets start the new day on their own: overdue cards move to Backlog, the day's cards show and focus starts at zero.
+- "Left today" on the widget counts to midnight, like the briefing.
+- A clearer update pop-up and installer.
+- Ambient stays full screen after opening the notification shade.

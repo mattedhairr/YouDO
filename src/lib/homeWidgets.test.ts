@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalNode, Task } from '../types';
-import { avatarColor, parseWidgetActions, widgetAccent, widgetBacklogTasks, widgetFocus, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks } from './homeWidgets';
+import { avatarColor, parseWidgetActions, widgetAccent, widgetBacklogTasks, widgetFocus, widgetGoals, widgetRooms, widgetStreak, widgetTodayTasks, widgetUpcomingTasks } from './homeWidgets';
 
 const task = (id: string, order: number, extra: Partial<Task> = {}): Task => ({
   id, title: `Task ${id}`, description: '', priority: 'medium', targetDate: '2026-10-28', deadline: null,
@@ -34,6 +34,24 @@ describe('widgetBacklogTasks', () => {
       task('fixed', 2, { targetDate: '2026-10-24', progress: 2 }),
     ], []);
     expect(cards.map((card) => [card.id, card.due, card.rank])).toEqual([['later', '2026-10-25', 1], ['late', '2026-10-27', 2]]);
+  });
+});
+
+describe('widgetUpcomingTasks', () => {
+  it('lists open cards for the next seven days, by date and then order, each with its day', () => {
+    const cards = widgetUpcomingTasks([
+      task('today', 0, { targetDate: '2026-10-28' }),
+      task('fri', 3, { targetDate: '2026-10-30' }),
+      task('thu', 1, { targetDate: '2026-10-29' }),
+      task('fri-first', 1, { targetDate: '2026-10-30' }),
+      task('done', 0, { targetDate: '2026-10-29', progress: 2 }),
+      task('week-out', 0, { targetDate: '2026-11-04' }),
+      task('too-far', 0, { targetDate: '2026-11-05' }),
+      task('undated', 0, { targetDate: null }),
+    ], [], '2026-10-28');
+    expect(cards.map((card) => [card.id, card.due])).toEqual([
+      ['thu', '2026-10-29'], ['fri-first', '2026-10-30'], ['fri', '2026-10-30'], ['week-out', '2026-11-04'],
+    ]);
   });
 });
 

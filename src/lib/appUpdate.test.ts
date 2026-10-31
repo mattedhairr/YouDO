@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkAppUpdateStatus, checkForAppUpdate, compareAppVersions, dismissAppUpdate, releaseHighlights, releaseApk } from './appUpdate';
+import {
+  checkAppUpdateStatus, checkForAppUpdate, compareAppVersions, dismissAppUpdate, highlightParts, isApkHighlight, releaseHighlights, releaseApk,
+} from './appUpdate';
 import { APP_VERSION } from './version';
 
 const NEXT_VERSION = `${Number(APP_VERSION.split('.')[0]) + 1}.0.0`;
@@ -77,6 +79,13 @@ describe('app updates', () => {
       'Update notice opens the official release.',
       'Fourth item remains visible.',
     ]);
+  });
+
+  it('splits a highlight into its title and text, and spots the APK line', () => {
+    expect(highlightParts('Room widget — See who is focusing - live.')).toEqual({ title: 'Room widget', text: 'See who is focusing - live.' });
+    expect(highlightParts('Clear history with restore points.')).toEqual({ title: '', text: 'Clear history with restore points.' });
+    expect(isApkHighlight('Android APK — versionName 8.3.0, versionCode 84.')).toBe(true);
+    expect(isApkHighlight('Room widget — live.')).toBe(false);
   });
 
   it('ignores an update cache written by an older installed app version', async () => {

@@ -24,7 +24,7 @@ function ProgressBar({ received, total, checking, onOpen }: { received: number; 
   );
 }
 
-export default function UpdateAction({ release }: { release: AppRelease | null }) {
+export default function UpdateAction({ release, big = false }: { release: AppRelease | null; big?: boolean }) {
   const { activeSession, sessionStorageError } = useSessionStore();
   const { workspaceStorageError } = useStore();
   const state = useSyncExternalStore(subscribeNativeUpdate, nativeUpdateState);
@@ -59,14 +59,14 @@ export default function UpdateAction({ release }: { release: AppRelease | null }
   };
   const label = isWeb ? (webReady ? 'Refresh app' : 'Check website update')
     : !native ? 'View update' : phase === 'downloading' ? 'Downloading…' : phase === 'checking' ? 'Checking…'
-      : phase === 'verifying' ? 'Opening installer…' : phase === 'permission' || phase === 'ready' ? 'Install update' : 'Download update';
+      : phase === 'verifying' ? 'Opening installer…' : phase === 'permission' || phase === 'ready' ? 'Install update' : 'Update now';
 
   return <div className="min-w-0">
     <button
       type="button"
       disabled={(busy && phase !== 'downloading' && phase !== 'checking') || restartBlocked}
       onClick={() => void act()}
-      className="min-h-10 w-full px-3 rounded-[11px] bg-primary text-on-primary text-[12px] font-semibold disabled:opacity-50"
+      className={`w-full px-3 bg-primary text-on-primary disabled:opacity-50 ${big ? 'min-h-12 rounded-[14px] text-[15px] font-bold' : 'min-h-10 rounded-[11px] text-[12px] font-semibold'}`}
     >
       {label}
     </button>
