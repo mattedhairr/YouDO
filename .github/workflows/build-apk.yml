@@ -44,7 +44,7 @@ jobs:
           rm -rf android/app/build
 
       - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'npm'
