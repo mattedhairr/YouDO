@@ -117,7 +117,7 @@ jobs:
           echo "Release identity verified: versionName $CURRENT_NAME; versionCode $CURRENT_CODE; certificate pinned"
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: YouDO-APK
           path: android/app/build/outputs/apk/release/app-release.apk
