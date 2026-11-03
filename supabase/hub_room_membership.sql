@@ -44,10 +44,16 @@ create policy "Users can join squads" on public.squad_members for insert with ch
   )
 );
 
--- A room holds at most 4 members; the limit applies when someone joins.
+-- A room holds 2, 3 or 4 members, chosen when it is created; rooms made before
+-- the choice existed hold 4. The limit applies when someone joins.
+alter table public.squads add column if not exists member_limit smallint not null default 4;
+alter table public.squads drop constraint if exists squads_member_limit_check;
+alter table public.squads add constraint squads_member_limit_check check (member_limit between 2 and 4);
+
 create or replace function public.squad_has_room(target_squad uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
-  select (select count(*) from public.squad_members m where m.squad_id = target_squad and m.status = 'accepted') < 4;
+  select (select count(*) from public.squad_members m where m.squad_id = target_squad and m.status = 'accepted')
+    < (select s.member_limit from public.squads s where s.id = target_squad);
 $$;
 revoke execute on function public.squad_has_room(uuid) from public, anon, authenticated;
 

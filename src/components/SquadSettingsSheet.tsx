@@ -3,7 +3,7 @@ import { Check, Globe, Loader2, Lock, Search } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  ROOM_MEMBER_LIMIT,
+  roomMemberLimit,
   kickMember,
   inviteUserToSquad,
   acceptSquadJoinRequest,
@@ -51,7 +51,8 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
   const accepted = members.filter((m) => m.status === 'accepted');
   const invited = members.filter((m) => m.status === 'invited');
   const pending = members.filter((m) => m.status === 'pending');
-  const full = accepted.length >= ROOM_MEMBER_LIMIT;
+  const memberLimit = roomMemberLimit(squad);
+  const full = accepted.length >= memberLimit;
 
   useEffect(() => {
     setPrivacy(squadPrivacy(squad));
@@ -183,7 +184,7 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
           )}
 
           {isAdmin && pending.length > 0 && (
-            <HubSection title="Asking to join" aside={`${pending.length}`} footer={full ? `The room is full (${ROOM_MEMBER_LIMIT} members). Approving needs a free place.` : undefined}>
+            <HubSection title="Asking to join" aside={`${pending.length}`} footer={full ? `The room is full (${memberLimit} members). Approving needs a free place.` : undefined}>
               <div className="hub-group">
                 {pending.map((m) =>
                   memberRow(
@@ -213,7 +214,7 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
           )}
 
           {isAdmin && (
-            <HubSection title="Invite people" footer="They answer in their Requests. A room holds 4 people.">
+            <HubSection title="Invite people" footer={`They answer in their Requests. This room holds ${memberLimit} people.`}>
               <div className="hub-search mb-2">
                 <Search size={16} aria-hidden />
                 <input
@@ -269,7 +270,7 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
             </HubSection>
           )}
 
-          <HubSection title="Members" aside={`${accepted.length} of ${ROOM_MEMBER_LIMIT}`}>
+          <HubSection title="Members" aside={`${accepted.length} of ${memberLimit}`}>
             <div className="hub-group">
               {accepted.map((m) =>
                 memberRow(

@@ -69,6 +69,8 @@ export interface WidgetRoom {
   icon: string;
   /** The room's daily focus bar, in hours. */
   barHours: number;
+  /** How many people the room holds: the widget's layout and its free seats. */
+  seats: number;
   members: WidgetMember[];
 }
 
@@ -289,6 +291,7 @@ export function widgetRooms(
     name: string;
     icon?: string;
     barHours?: number | null;
+    seats?: number;
     members: { id: string; name: string; avatar?: string | null; todayMs?: number }[];
   }[],
   statuses: Record<string, FocusStatus>,
@@ -299,6 +302,7 @@ export function widgetRooms(
     name: clip(room.name) || 'Room',
     icon: room.icon?.trim() || '🔥',
     barHours: room.barHours && room.barHours > 0 ? room.barHours : 4,
+    seats: room.seats ?? 4,
     members: room.members.slice(0, 4).map((member) => {
       const status = statuses[member.id];
       const first = member.name.trim().split(/\s+/)[0] ?? '';
@@ -441,7 +445,7 @@ export async function syncWidgetKey(userId: string | null): Promise<void> {
  * placed widget.
  */
 export async function loadWidgetRooms(userId: string, live: boolean): Promise<WidgetRoom[] | null> {
-  const [{ fetchMyRoomSummaries }, { fetchFocusStatuses }, { fetchRoomPaceRows }, { fetchPaceRowsForUserIds }] = await Promise.all([
+  const [{ fetchMyRoomSummaries, roomMemberLimit }, { fetchFocusStatuses }, { fetchRoomPaceRows }, { fetchPaceRowsForUserIds }] = await Promise.all([
     import('./squads'), import('./focusStatus'), import('./roomFocus'), import('./paceCloud'),
   ]);
   let failed = false;
@@ -464,6 +468,7 @@ export async function loadWidgetRooms(userId: string, live: boolean): Promise<Wi
     name: summary.squad.name,
     icon: summary.squad.description,
     barHours: summary.squad.bar_hours,
+    seats: roomMemberLimit(summary.squad),
     members: summary.members.map((member) => ({
       id: member.id,
       name: member.display_name || member.username || '?',

@@ -9,6 +9,7 @@ import {
   fetchOutgoingSquadJoinRequests,
   normalizeSquadPrivacy,
   requestJoinSquad,
+  roomMemberLimit,
   type RoomSummary,
   type Squad,
 } from '../lib/squads';
@@ -150,7 +151,7 @@ export default function RoomsView({ onOpenRoom, onCreateRoom, onNotificationsCha
                         ? `${pendingRequests} ${pendingRequests === 1 ? 'request' : 'requests'} to join`
                         : newMessages > 0
                           ? `${newMessages} new ${newMessages === 1 ? 'message' : 'messages'}`
-                          : [role === 'admin' ? 'Admin' : 'Member', `${members.length} of ${ROOM_MEMBER_LIMIT}`, bar].filter(Boolean).join(' · ')}
+                          : [role === 'admin' ? 'Admin' : 'Member', `${members.length} of ${roomMemberLimit(squad)}`, bar].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                   <span className="hub-row-trailing">

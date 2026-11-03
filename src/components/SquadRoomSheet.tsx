@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Info, Send, Reply, X } from 'lucide-react';
 import Overlay from './Overlay';
 import SquadSettingsSheet from './SquadSettingsSheet';
-import { ROOM_MEMBER_LIMIT, deleteSquad, getSquadDetails, leaveSquad, type Squad, type SquadMember } from '../lib/squads';
+import { roomMemberLimit, deleteSquad, getSquadDetails, leaveSquad, type Squad, type SquadMember } from '../lib/squads';
 import { useAuth } from '../contexts/AuthContext';
 import { hapticSuccess } from '../lib/haptics';
 import { fetchSquadMessages, markSquadChatRead, sendSquadMessage, deleteSquadMessage } from '../lib/messages';
@@ -297,7 +297,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
           <>
             <HubNavBar
               title={`${squad.description || '🔥'} ${squad.name}`}
-              subtitle={`${acceptedMembers.length} of ${ROOM_MEMBER_LIMIT} members${squad.bar_hours ? ` · ${squad.bar_hours}h a day` : ''}`}
+              subtitle={`${acceptedMembers.length} of ${roomMemberLimit(squad)} members${squad.bar_hours ? ` · ${squad.bar_hours}h a day` : ''}`}
               onBack={onClose}
               backLabel="Back to rooms"
               actions={
