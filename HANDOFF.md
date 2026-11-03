@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-10-31**, right after **v8.3.2** was released. Work pauses here for about four months. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-04**, while preparing **v8.3.3**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.3.2, versionCode 86, published 2026-10-31.
+- **Latest release:** v8.3.3, versionCode 87 (being released 2026-11-04). Before it: v8.3.2, versionCode 86, published 2026-10-31.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app serves 8.3.2.
   - It was announced on Telegram.
