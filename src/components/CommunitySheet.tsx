@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, Check, ChevronDown, ChevronRight, Flag, Heart, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, UserRoundCheck, UserRoundX, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, BadgeCheck, Check, ChevronDown, ChevronRight, Flag, Heart, Megaphone, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, UserRoundCheck, UserRoundX, X, type LucideIcon } from 'lucide-react';
 import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
@@ -57,6 +57,31 @@ import UserProfileSheet from './UserProfileSheet';
 import AdminBackersReviewModal from './AdminBackersReviewModal';
 import SupportSettingsAdmin from './community/SupportSettingsAdmin';
 import { HubNavBar } from './hub/HubParts';
+import { fetchPendingHubBackers } from '../lib/backers';
+import { isSupportPaused } from '../lib/supportSettings';
+import { useSupportSettings } from '../hooks/useSupportSettings';
+import '../signature.css';
+
+/** Controls' own pages, and what each says in the bar at the top. */
+const CONTROLS_PAGES = {
+  community: { title: 'Room and Kudos', subtitle: 'Community features' },
+  broadcast: { title: 'Board broadcast', subtitle: 'Shown above the community room' },
+  support: { title: 'Support YouDO', subtitle: 'What everyone sees in Settings' },
+} as const;
+type ControlsPage = keyof typeof CONTROLS_PAGES;
+
+function ControlsRow({ icon: Icon, title, text, on, onClick }: { icon: LucideIcon; title: string; text: string; on?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="yd-row" onClick={onClick}>
+      <span className="yd-tile" aria-hidden><Icon size={19} strokeWidth={1.8} /></span>
+      <span className="yd-row-main">
+        <span className="yd-row-title">{title}</span>
+        <span className={`yd-row-text ${on ? 'is-on' : ''}`}>{text}</span>
+      </span>
+      <ChevronRight size={17} className="shrink-0 text-content-muted" aria-hidden />
+    </button>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -89,6 +114,25 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   // The room and the Admin Hub are separate places: the sheet opens in one of them.
   const mode: 'room' | 'admin' = startInAdmin ? 'admin' : 'room';
   const [backersOpen, setBackersOpen] = useState(false);
+  const [controlsPage, setControlsPage] = useState<ControlsPage | null>(null);
+  const adminBody = useRef<HTMLElement>(null);
+  const supportSettings = useSupportSettings(false);
+  const supportPaused = isSupportPaused(supportSettings);
+  const [pendingBackers, setPendingBackers] = useState(0);
+  // Counted when the Admin Hub opens and again after reviewing them.
+  useEffect(() => {
+    if (mode !== 'admin' || backersOpen) return;
+    let cancelled = false;
+    void fetchPendingHubBackers().then((items) => { if (!cancelled) setPendingBackers(items.length); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [mode, backersOpen]);
+  // Each Controls page starts at its top, and so does the list on the way back.
+  useEffect(() => { adminBody.current?.scrollTo?.(0, 0); }, [controlsPage]);
+  // Back (the arrow, Android's button, Escape) leaves a Controls page before the Admin Hub.
+  const goBack = () => {
+    if (controlsPage) setControlsPage(null);
+    else onClose();
+  };
   const [draft, setDraft] = useState('');
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -305,14 +349,14 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     setBusy(false);
   };
 
-  return <Overlay open={open} onClose={onClose} align="full">
+  return <Overlay open={open} onClose={goBack} align="full">
     <div className={`community-shell app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base ${mode === 'admin' ? 'hub' : ''}`}>
       {mode === 'admin' ? (
         <HubNavBar
-          title="Admin Hub"
-          subtitle={refreshing ? 'Refreshing…' : 'Community, requests and the Private Hub'}
-          onBack={onClose}
-          backLabel="Close Admin Hub"
+          title={controlsPage ? CONTROLS_PAGES[controlsPage].title : 'Admin Hub'}
+          subtitle={refreshing ? 'Refreshing…' : controlsPage ? CONTROLS_PAGES[controlsPage].subtitle : 'Community, requests and the Private Hub'}
+          onBack={goBack}
+          backLabel={controlsPage ? 'Back to Controls' : 'Close Admin Hub'}
           actions={
             <button type="button" className="hub-icon-button" disabled={refreshing} onClick={() => void refresh()} aria-label="Refresh">
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
@@ -406,7 +450,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <div className="flex items-end gap-2"><textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={240} rows={2} disabled={!context.canPost || !context.settings.roomEnabled} placeholder={context.banned ? 'Community access is disabled' : context.mutedUntil ? 'Posting is temporarily paused' : replyToId ? 'Write a reply…' : 'Share a short encouragement…'} className="min-h-[46px] flex-1 resize-none rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] text-content-primary outline-none focus:border-primary" /><button type="button" onClick={() => void send()} disabled={!draft.trim() || busy || !context.canPost || !context.settings.roomEnabled} className="grid size-11 place-items-center rounded-xl bg-primary text-on-primary disabled:opacity-40" aria-label="Send"><Send size={17} /></button></div>
           <p className="mt-1 text-right text-[9px] text-content-muted">{draft.length}/240</p>
         </footer>
-      </> : <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      </> : <main ref={adminBody} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        {!controlsPage && <>
         <section className="mb-6 rounded-[24px] bg-gradient-to-br from-surface to-base border border-subtle overflow-hidden shadow-sm" aria-label="Community pulse">
           <div className="flex items-center justify-between px-5 py-4 border-b border-subtle/40 bg-surface/40">
             <div className="flex items-center gap-2.5 text-primary">
@@ -453,38 +498,73 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             );
           })}
         </nav>
+        </>}
         {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
         <div hidden={adminTab !== 'controls'} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <SupportSettingsAdmin />
-        <section className="mb-5 rounded-[24px] border border-subtle bg-surface overflow-hidden shadow-sm" aria-label="Supporters">
-          <button type="button" onClick={() => setBackersOpen(true)} className="flex w-full items-center justify-between gap-3 p-5 text-left">
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-bold text-content-primary">Backer claims</span>
-              <span className="block text-[11px] text-content-muted mt-1">Verify or reject UPI support claims</span>
-            </span>
-            <ChevronRight size={16} className="shrink-0 text-content-muted" />
-          </button>
-        </section>
-        <section className="rounded-[24px] border border-subtle bg-surface overflow-hidden shadow-sm">
-          <div className="flex items-center justify-between gap-3 p-5 border-b border-subtle/50">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-bold text-content-primary">Community room</p>
-              <p className="text-[11px] text-content-muted mt-1">Pause messages and automatic notes</p>
+        <div hidden={controlsPage !== null}>
+          <section className="yd-section" aria-label="Community">
+            <h3 className="yd-heading">Community</h3>
+            <div className="yd-card">
+              <ControlsRow
+                icon={MessageCircle}
+                title="Room and Kudos"
+                text={`Room ${context.settings.roomEnabled ? 'on' : 'off'} · Kudos ${context.settings.appreciationsEnabled ? 'on' : 'off'}`}
+                on={context.settings.roomEnabled || context.settings.appreciationsEnabled}
+                onClick={() => setControlsPage('community')}
+              />
+              <ControlsRow
+                icon={Megaphone}
+                title="Board broadcast"
+                text={context.settings.announcement.trim() ? 'Live now' : 'Nothing live'}
+                on={Boolean(context.settings.announcement.trim())}
+                onClick={() => setControlsPage('broadcast')}
+              />
             </div>
-            <Toggle disabled={busy || savingFeature} checked={context.settings.roomEnabled} onChange={() => void setFeature('roomEnabled', !context.settings.roomEnabled)} label="Toggle community room" />
-          </div>
-          <div className="flex items-center justify-between gap-3 p-5">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-bold text-content-primary">Kudos</p>
-              <p className="text-[11px] text-content-muted mt-1">Recognition for the top three</p>
+          </section>
+          <section className="yd-section" aria-label="Support">
+            <h3 className="yd-heading">Support</h3>
+            <div className="yd-card">
+              <ControlsRow
+                icon={Heart}
+                title="Support YouDO"
+                text={supportPaused ? 'Paused' : 'Accepting support'}
+                on={!supportPaused}
+                onClick={() => setControlsPage('support')}
+              />
+              <ControlsRow
+                icon={BadgeCheck}
+                title="Backer claims"
+                text={pendingBackers > 0 ? `${pendingBackers} waiting to be checked` : 'Verify or reject UPI support claims'}
+                on={pendingBackers > 0}
+                onClick={() => setBackersOpen(true)}
+              />
             </div>
-            <Toggle disabled={busy || savingFeature} checked={context.settings.appreciationsEnabled} onChange={() => void setFeature('appreciationsEnabled', !context.settings.appreciationsEnabled)} label="Toggle Kudos" />
+          </section>
+        </div>
+        <div hidden={controlsPage !== 'support'}>
+          <SupportSettingsAdmin />
+        </div>
+        <div hidden={controlsPage !== 'community'}>
+          <div className="yd-card">
+            <div className="yd-row">
+              <span className="yd-row-main">
+                <span className="yd-row-title">Community room</span>
+                <span className="yd-row-text">Pause messages and automatic notes</span>
+              </span>
+              <Toggle disabled={busy || savingFeature} checked={context.settings.roomEnabled} onChange={() => void setFeature('roomEnabled', !context.settings.roomEnabled)} label="Toggle community room" />
+            </div>
+            <div className="yd-row">
+              <span className="yd-row-main">
+                <span className="yd-row-title">Kudos</span>
+                <span className="yd-row-text">Recognition for the top three</span>
+              </span>
+              <Toggle disabled={busy || savingFeature} checked={context.settings.appreciationsEnabled} onChange={() => void setFeature('appreciationsEnabled', !context.settings.appreciationsEnabled)} label="Toggle Kudos" />
+            </div>
           </div>
-        </section>
-        <section className="mt-5 rounded-[24px] border border-subtle bg-surface p-5 shadow-sm">
-          <label htmlFor="community-announcement" className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-3">
-            <MessageCircle size={14} /> Board broadcast
-          </label>
+        </div>
+        <section hidden={controlsPage !== 'broadcast'} className="yd-card">
+          <div className="yd-block">
+          <label htmlFor="community-announcement" className="yd-label">Message</label>
           <textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="w-full resize-y rounded-[16px] border border-subtle bg-base p-3.5 text-[12.5px] text-content-primary outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
           <p className="mt-2.5 text-[10.5px] text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p>
           {announcement.trim() && <BroadcastExtrasEditor draft={updateDraft} disabled={busy || savingFeature} onChange={editDraft} />}
@@ -504,6 +584,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
             </div>
           )}
           <BroadcastResults state={liveUpdate} replies={updateReplies} names={names} busy={busy} onEndPoll={() => void endPoll()} />
+          </div>
         </section>
         </div>
         <div hidden={adminTab !== 'hashtags' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">

@@ -3,7 +3,7 @@ import { Check, Copy, Heart, Loader2 } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
 import { submitHubBacker } from '../lib/backers';
-import { upiPayUri } from '../lib/supportSettings';
+import { isSupportPaused, upiPayUri } from '../lib/supportSettings';
 import { qrDrawing } from '../lib/upiQr';
 import { useSupportSettings } from '../hooks/useSupportSettings';
 import { hapticSuccess, hapticTick } from '../lib/haptics';
@@ -21,8 +21,9 @@ interface Props {
  * UPI app (scan or paste the ID): UPI apps decline payments to a personal UPI
  * ID that are started from another app, so there is deliberately no "Pay" link.
  * After paying, the supporter can record the UTR to get the backer badge.
- * The UPI ID, the QR code and the claim form follow the admin's Support settings;
- * the QR is drawn from the UPI ID (a scan-to-pay link), so the two always match.
+ * The UPI ID follows the admin's Support settings, and the QR is drawn from it
+ * (a scan-to-pay link), so the two always match. While the admin has support
+ * paused, none of this shows: only a note that it is paused.
  */
 export default function SupportSheet({ open, onClose }: Props) {
   const { user } = useAuth();
@@ -35,8 +36,10 @@ export default function SupportSheet({ open, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
-  const { upiId, qrEnabled, claimsEnabled } = useSupportSettings(open);
-  const qr = useMemo(() => (qrEnabled ? qrDrawing(upiPayUri(upiId)) : null), [qrEnabled, upiId]);
+  const settings = useSupportSettings(open);
+  const { upiId } = settings;
+  const paused = isSupportPaused(settings);
+  const qr = useMemo(() => (paused ? null : qrDrawing(upiPayUri(upiId))), [paused, upiId]);
 
   // Every visit starts clean.
   useEffect(() => {
@@ -97,7 +100,15 @@ export default function SupportSheet({ open, onClose }: Props) {
         </div>
 
         <div className="hub-sheet-body">
-          {submitted ? (
+          {paused && !submitted ? (
+            <div className="hub-empty py-10">
+              <span className="hub-empty-icon" aria-hidden><Heart size={24} /></span>
+              <p className="hub-empty-title">Support is temporarily paused</p>
+              <p className="hub-empty-text">
+                YouDO isn’t accepting support right now. Thank you for thinking of it. Please check back later.
+              </p>
+            </div>
+          ) : submitted ? (
             <div className="hub-empty py-10">
               <span className="hub-empty-icon is-success" aria-hidden><Heart size={24} fill="currentColor" /></span>
               <p className="hub-empty-title">Thank you</p>
@@ -141,21 +152,6 @@ export default function SupportSheet({ open, onClose }: Props) {
                 </div>
               </HubSection>
 
-              {!claimsEnabled ? (
-                <HubSection title="Founding Backer badge">
-                  <div className="hub-group flex items-start gap-3 p-4">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-[10px] bg-primary-soft text-primary" aria-hidden>
-                      <Heart size={15} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-[13.5px] font-semibold text-content-primary">Badge claims are paused</span>
-                      <span className="mt-0.5 block text-[12px] leading-relaxed text-content-secondary">
-                        Thank you for supporting YouDO. New Founding Backer claims are closed for now.
-                      </span>
-                    </span>
-                  </div>
-                </HubSection>
-              ) : (
               <HubSection
                 title="Founding Backer badge"
                 footer="After paying, add the 12-digit UPI reference (UTR) from your receipt. The admin checks it before the badge appears on your profile."
@@ -206,7 +202,6 @@ export default function SupportSheet({ open, onClose }: Props) {
                 </button>
                 {username && <p className="hub-section-footer text-center">Credited to @{username}</p>}
               </HubSection>
-              )}
             </>
           )}
         </div>
