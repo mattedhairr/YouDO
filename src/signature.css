@@ -42,7 +42,7 @@
 }
 button.yd-row:active { background: color-mix(in srgb, var(--primary) 10%, transparent); }
 .yd-block { padding: 12px 14px; }
-.yd-card > * + * { border-top: 0.5px solid var(--separator); }
+.yd-card > * + * { border-top: 0.5px solid var(--separator, var(--border-subtle)); }
 
 .yd-tile {
   display: grid;

@@ -186,9 +186,9 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
           </HubSection>
 
           <HubSection title="Room size" footer="Including you. This can’t be changed after the room is created.">
-            <div className="ios-segmented" role="group" aria-label="Room size">
+            <div className="hub-segmented" role="radiogroup" aria-label="Room size">
               {ROOM_SIZES.map((size) => (
-                <button key={size} type="button" aria-pressed={roomSize === size} onClick={() => chooseSize(size)}>
+                <button key={size} type="button" role="radio" aria-checked={roomSize === size} onClick={() => chooseSize(size)}>
                   {size} people
                 </button>
               ))}
