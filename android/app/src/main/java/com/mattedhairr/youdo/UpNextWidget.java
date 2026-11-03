@@ -8,7 +8,7 @@ import android.os.Bundle;
 import org.json.JSONObject;
 
 /**
- * Day Arc (4×3): the day as one arc with today's Scheduled and Backlog tasks
+ * Day Arc (4×2): the day as one arc with today's Scheduled and Backlog tasks
  * and the goal view, or the running session. (Up next before; the name stays
  * so widgets already placed turn into it.)
  */

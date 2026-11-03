@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Globe, Loader2, Lock, Minus, Plus, Search, X } from 'lucide-react';
 import Overlay from './Overlay';
-import { ROOM_MEMBER_LIMIT, createSquad, type SquadPrivacy } from '../lib/squads';
+import { ROOM_MEMBER_LIMIT, ROOM_SIZES, createSquad, type SquadPrivacy } from '../lib/squads';
 import { searchProfilesByUsernamePrefix, type Profile } from '../lib/profiles';
 import { useAuth } from '../contexts/AuthContext';
 import { clampStreakBarHours, MAX_STREAK_BAR_HOURS, MIN_STREAK_BAR_HOURS } from '../lib/focusTrends';
@@ -9,7 +9,6 @@ import { hapticSuccess, hapticTick } from '../lib/haptics';
 import { HubAvatar, HubSection } from './hub/HubParts';
 
 const ROOM_ICONS = ['🔥', '⚡', '🦉', '🚀', '🎯', '📚', '☕', '⚔️', '🌊', '🏔️', '🏆', '💎'];
-const MAX_INVITES = ROOM_MEMBER_LIMIT - 1;
 
 interface Props {
   personalPace?: number;
@@ -24,6 +23,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
   const [icon, setIcon] = useState(ROOM_ICONS[0]);
   const [barHours, setBarHours] = useState<number>(personalPace);
   const [privacy, setPrivacy] = useState<SquadPrivacy>('anyone_can_join');
+  const [roomSize, setRoomSize] = useState<number>(ROOM_MEMBER_LIMIT);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
@@ -38,6 +38,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
     setIcon(ROOM_ICONS[0]);
     setBarHours(clampStreakBarHours(personalPace));
     setPrivacy('anyone_can_join');
+    setRoomSize(ROOM_MEMBER_LIMIT);
     setQuery('');
     setResults([]);
     setInvites([]);
@@ -70,6 +71,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
   if (!open) return null;
 
   const canCreate = name.trim().length > 0 && !saving;
+  const maxInvites = roomSize - 1;
 
   const create = async () => {
     if (!user || !canCreate) return;
@@ -83,6 +85,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
       privacy === 'anyone_can_join',
       privacy,
       invites.map((p) => p.id),
+      roomSize,
     );
     setSaving(false);
     if (res.ok && res.squad) {
@@ -98,8 +101,15 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
     setInvites((current) =>
       current.some((p) => p.id === profile.id)
         ? current.filter((p) => p.id !== profile.id)
-        : current.length >= MAX_INVITES ? current : [...current, profile],
+        : current.length >= maxInvites ? current : [...current, profile],
     );
+  };
+
+  const chooseSize = (size: number) => {
+    hapticTick();
+    setRoomSize(size);
+    // A smaller room keeps the friends invited first.
+    setInvites((current) => current.slice(0, size - 1));
   };
 
   const stepHours = (delta: number) => {
@@ -175,6 +185,16 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
             </div>
           </HubSection>
 
+          <HubSection title="Room size" footer="Including you. This can’t be changed after the room is created.">
+            <div className="hub-segmented" role="radiogroup" aria-label="Room size">
+              {ROOM_SIZES.map((size) => (
+                <button key={size} type="button" role="radio" aria-checked={roomSize === size} onClick={() => chooseSize(size)}>
+                  {size} people
+                </button>
+              ))}
+            </div>
+          </HubSection>
+
           <HubSection title="Who can join">
             <div className="hub-group" role="radiogroup" aria-label="Who can join">
               {([
@@ -202,8 +222,8 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
 
           <HubSection
             title="Invite friends"
-            aside={`${invites.length} of ${MAX_INVITES}`}
-            footer={`A room holds ${ROOM_MEMBER_LIMIT} people including you. Room-mates see each other’s focus time, never what they work on.`}
+            aside={`${invites.length} of ${maxInvites}`}
+            footer={`This room holds ${roomSize} people including you. Room-mates see each other’s focus time, never what they work on.`}
           >
             {invites.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5 px-1">
@@ -256,7 +276,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
                       <button
                         type="button"
                         className={`hub-pill-button ${added ? 'is-quiet' : ''}`}
-                        disabled={!added && invites.length >= MAX_INVITES}
+                        disabled={!added && invites.length >= maxInvites}
                         onClick={() => toggleInvite(p)}
                       >
                         {added ? 'Added' : 'Invite'}

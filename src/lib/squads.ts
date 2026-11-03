@@ -60,6 +60,8 @@ export interface Squad {
   bar_hours?: number | null;
   allow_join_requests: boolean;
   privacy?: SquadPrivacy;
+  /** How many people the room holds; see roomMemberLimit. */
+  member_limit?: number | null;
   created_by: string;
   created_at: string;
 }
@@ -72,6 +74,7 @@ export interface CreateSquadParams {
   allowJoinRequests?: boolean;
   privacy?: AnySquadPrivacy;
   initialInviteUserIds?: string[];
+  memberLimit?: number;
 }
 
 export type SquadMemberStatus = 'accepted' | 'invited' | 'pending';
@@ -136,6 +139,7 @@ export async function createSquad(
   allowJoinRequests?: boolean,
   privacy?: AnySquadPrivacy,
   initialInviteUserIds?: string[],
+  memberLimit?: number,
 ): Promise<{ ok: boolean; error?: string; squad?: Squad }>;
 export async function createSquad(
   ownerIdOrParams: string | CreateSquadParams,
@@ -145,6 +149,7 @@ export async function createSquad(
   allowJoinRequestsArg?: boolean,
   privacyArg?: AnySquadPrivacy,
   initialInviteUserIdsArg?: string[],
+  memberLimitArg?: number,
 ): Promise<{ ok: boolean; error?: string; squad?: Squad }> {
   let ownerId: string;
   let name: string;
@@ -153,6 +158,7 @@ export async function createSquad(
   let allowJoinRequests: boolean;
   let privacy: SquadPrivacy;
   let initialInviteUserIds: string[] | undefined;
+  let memberLimit: number | undefined;
 
   if (typeof ownerIdOrParams === 'object') {
     ownerId = ownerIdOrParams.ownerId;
@@ -162,6 +168,7 @@ export async function createSquad(
     privacy = normalizeSquadPrivacy(ownerIdOrParams.privacy);
     allowJoinRequests = privacy === 'invite_only' ? false : (ownerIdOrParams.allowJoinRequests ?? true);
     initialInviteUserIds = ownerIdOrParams.initialInviteUserIds;
+    memberLimit = ownerIdOrParams.memberLimit;
   } else {
     ownerId = ownerIdOrParams;
     name = nameArg ?? '';
@@ -170,6 +177,7 @@ export async function createSquad(
     privacy = normalizeSquadPrivacy(privacyArg);
     allowJoinRequests = privacy === 'invite_only' ? false : (allowJoinRequestsArg ?? true);
     initialInviteUserIds = initialInviteUserIdsArg;
+    memberLimit = memberLimitArg;
   }
 
   const trimmedName = name.trim();
@@ -187,6 +195,11 @@ export async function createSquad(
 
   if (barHours != null && Number.isFinite(barHours) && barHours > 0) {
     insertPayload.bar_hours = barHours;
+  }
+
+  // A full-size room is the server's default, so it also works on an older server.
+  if (memberLimit != null && ROOM_SIZES.includes(memberLimit) && memberLimit !== ROOM_MEMBER_LIMIT) {
+    insertPayload.member_limit = memberLimit;
   }
 
   const attemptInsert = async (payload: Record<string, unknown>) => {
@@ -503,8 +516,15 @@ export interface RoomSummary {
   pendingRequests: number;
 }
 
-/** Matches the limit enforced by hub_room_membership.sql. */
+/** The largest room, and the sizes to choose from; hub_room_membership.sql enforces both. */
 export const ROOM_MEMBER_LIMIT = 4;
+export const ROOM_SIZES: readonly number[] = [2, 3, ROOM_MEMBER_LIMIT];
+
+/** How many people this room holds. Rooms from before the choice, or an older server, hold the most. */
+export function roomMemberLimit(squad: Pick<Squad, 'member_limit'> | null | undefined): number {
+  const limit = squad?.member_limit;
+  return limit != null && ROOM_SIZES.includes(limit) ? limit : ROOM_MEMBER_LIMIT;
+}
 
 /** onError: told when the rooms could not be loaded (the list is then empty, not "no rooms"). */
 export async function fetchMyRoomSummaries(userId: string, onError?: () => void): Promise<RoomSummary[]> {

@@ -6,6 +6,7 @@ import { StatusBar } from '@capacitor/status-bar';
 import type { ActiveSession, Task } from '../types';
 import Overlay from './Overlay';
 import OriginChip from './OriginChip';
+import { setBackStep } from '../lib/backSteps';
 import { computeNetFocusMs } from '../lib/sessionStats';
 import { sessionClockLabel } from '../lib/sessionClock';
 import FocusSoundPicker from './FocusSoundPicker';
@@ -86,6 +87,11 @@ export function AmbientScreen({
   const [now, setNow] = useState(() => new Date());
   const [controls, setControls] = useState(true);
   const [soundsOpen, setSoundsOpen] = useState(false);
+  // Android's Back closes the sounds before the ambient screen.
+  useEffect(() => {
+    setBackStep('ambient', soundsOpen ? () => setSoundsOpen(false) : null);
+    return () => setBackStep('ambient', null);
+  }, [soundsOpen]);
   const [drift, setDrift] = useState({ x: 0, y: 0 });
   const [clockDrift, setClockDrift] = useState({ x: 0, y: 0 });
   const [resting, setResting] = useState(false);

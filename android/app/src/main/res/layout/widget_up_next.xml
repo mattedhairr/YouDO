@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Day Arc (4x3): the day as one arc (ArcPainter), with Scheduled, Backlog and
+<!-- Day Arc (4x2): the day as one arc (ArcPainter), with Scheduled, Backlog and
      Goal views picked by the chips at the bottom (HomeWidgets.dayArc). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"

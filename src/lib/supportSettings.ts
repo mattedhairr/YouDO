@@ -28,6 +28,21 @@ const UPI_ID = /^[A-Za-z0-9._-]{2,255}@[A-Za-z0-9]{2,64}$/;
 
 export const isValidUpiId = (value: string) => UPI_ID.test(value.trim());
 
+/** Support is on or paused as one choice; settings saved by v8.3.2 count as paused if either switch was off. */
+export const isSupportPaused = (settings: SupportSettings) => !settings.supportEnabled || !settings.claimsEnabled;
+
+/**
+ * What saving a UPI ID and the pause choice stores. Pausing turns every switch
+ * off: v8.3.2 then hides Support, and the server refuses new badge claims from
+ * every version.
+ */
+export const supportSettingsFor = (upiId: string, paused: boolean): SupportSettings => ({
+  supportEnabled: !paused,
+  upiId: upiId.trim(),
+  qrEnabled: !paused,
+  claimsEnabled: !paused,
+});
+
 /** The scan-to-pay link a UPI QR code holds; UPI apps open it as "Pay to <ID>". */
 export const upiPayUri = (upiId: string) => `upi://pay?pa=${upiId}&pn=YouDO&cu=INR`;
 

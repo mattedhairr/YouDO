@@ -1,0 +1,117 @@
+/* YouDO's signature style: named sections, lit cards, accent icon tiles and a
+   status line that says what is on. Everything comes from the theme tokens, so
+   it follows the accent colour and works in light and dark mode. */
+
+.yd-section { margin-bottom: 18px; }
+.yd-section:last-child { margin-bottom: 0; }
+
+.yd-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 8px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.yd-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 35%, transparent), transparent);
+}
+
+.yd-card {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 10%, var(--border-subtle));
+  border-radius: 20px;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--primary) 9%, var(--bg-surface)), var(--bg-surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.yd-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 62px;
+  padding: 12px 14px;
+  text-align: left;
+}
+button.yd-row:active { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.yd-block { padding: 12px 14px; }
+.yd-card > * + * { border-top: 0.5px solid var(--separator, var(--border-subtle)); }
+
+.yd-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+
+.yd-row-main { flex: 1; min-width: 0; }
+.yd-row-title { display: block; color: var(--text-primary); font-size: 14.5px; font-weight: 600; }
+.yd-row-text { display: block; margin-top: 2px; color: var(--text-muted); font-size: 12px; line-height: 1.35; }
+.yd-row-text.is-on { color: var(--primary); font-weight: 600; }
+
+.yd-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.yd-field {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  outline: none;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+.yd-field:focus { border-color: var(--primary); }
+
+.yd-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+.yd-button:disabled { opacity: 0.45; }
+
+.yd-note { margin-top: 8px; padding: 0 4px; color: var(--text-muted); font-size: 11.5px; line-height: 1.45; }
+
+/* The open arc from the widgets, around the one thing a screen is about. */
+.yd-arc { position: relative; display: grid; flex: none; place-items: center; width: 72px; height: 72px; }
+.yd-arc > svg { position: absolute; inset: 0; fill: none; stroke: var(--primary); stroke-linecap: round; stroke-width: 2.5; }
+
+/* A QR code stays black on white in every theme, so it always scans. */
+.yd-qr {
+  flex: none;
+  width: 88px;
+  height: 88px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #000000;
+}
+.yd-qr svg { display: block; width: 100%; height: 100%; }

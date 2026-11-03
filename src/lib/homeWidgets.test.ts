@@ -109,6 +109,14 @@ describe('widgetRooms', () => {
   });
 });
 
+describe('widgetRooms seats', () => {
+  it('passes on the room size, and a room without one holds four', () => {
+    const members = [{ id: 'a', name: 'Asha' }];
+    expect(widgetRooms([{ id: 'r', name: 'R', seats: 2, members }], {})[0].seats).toBe(2);
+    expect(widgetRooms([{ id: 'r', name: 'R', members }], {})[0].seats).toBe(4);
+  });
+});
+
 describe('widgetRooms avatars', () => {
   it('uses the room emoji and emoji avatars, and a letter for photos or none', () => {
     const [room] = widgetRooms([{

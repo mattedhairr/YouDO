@@ -719,6 +719,11 @@ final class HomeWidgets {
             return views;
         }
 
+        JSONArray members = room.optJSONArray("members");
+        // The room's size, though never fewer seats than people in it.
+        int seats = Math.max(2, Math.min(SLOT.length, Math.max(room.optInt("seats", SLOT.length), members == null ? 0 : members.length())));
+        if (seats < SLOT.length) views = new RemoteViews(ctx.getPackageName(), seats == 2 ? R.layout.widget_room_duo : R.layout.widget_room_trio);
+
         views.setViewVisibility(R.id.room_message, View.GONE);
         views.setViewVisibility(R.id.room_content, View.VISIBLE);
         views.setViewVisibility(R.id.room_canvas, View.VISIBLE);
@@ -730,15 +735,15 @@ final class HomeWidgets {
         views.setTextViewText(R.id.room_name, room.optString("name"));
         views.setTextViewText(R.id.room_bar, bar + " a day");
 
-        JSONArray members = room.optJSONArray("members");
         long now = System.currentTimeMillis();
         boolean[] live = new boolean[SLOT.length];
         boolean[] seated = new boolean[SLOT.length];
+        int[] tones = new int[SLOT.length];
         int liveCount = 0;
         int people = 0;
         int hitBar = 0;
         long together = 0;
-        for (int i = 0; i < SLOT.length; i++) {
+        for (int i = 0; i < seats; i++) {
             JSONObject member = members == null ? null : members.optJSONObject(i);
             if (member == null) {
                 // A free seat asks for a friend.
@@ -769,6 +774,7 @@ final class HomeWidgets {
             together += todayMs;
             if (barMs > 0 && todayMs >= barMs) hitBar++;
             int tone = parseColor(member.optString("color"), 0xFF8A68C8);
+            tones[i] = tone;
 
             views.setImageViewResource(AVATAR[i], R.drawable.widget_avatar);
             views.setInt(AVATAR[i], "setColorFilter", inSession ? tone : ColorUtils.blendARGB(tone, 0xFF8E8E93, 0.55f));
@@ -793,28 +799,70 @@ final class HomeWidgets {
                 views.setTextViewText(AWAY[i], todayMs > 0 ? duration(todayMs) + " / " + bar : "away");
             }
         }
-        views.setTextViewText(R.id.room_live, liveCount == 0 ? "nobody focusing" : "● " + liveCount + " focusing");
+        boolean everyone = seats < SLOT.length && liveCount == seats;
+        views.setTextViewText(R.id.room_live, liveCount == 0 ? "nobody focusing"
+            : everyone ? (seats == 2 ? "● both focusing" : "● all 3 focusing")
+            : "● " + liveCount + " focusing");
         color(ctx, views, R.id.room_live, "setTextColor", liveCount == 0 ? R.color.widget_text3 : R.color.widget_live);
-        views.setTextViewText(R.id.room_together, together > 0 ? "together " + duration(together) + " today" : "no focus yet today");
+        // The triangle's bottom line shares its height with the third member, so it is shorter.
+        views.setTextViewText(R.id.room_together, together == 0 ? "no focus yet today"
+            : seats == 3 ? duration(together) + " together" : "together " + duration(together) + " today");
         views.setTextViewText(R.id.room_hit, people == 0 ? "" : hitBar + " of " + people + " hit the bar");
 
         // The lines, from each avatar to the room tile (its centre: the middle of
         // the content, less half the name and status under the tile).
         int[] size = size(ctx, widgetId, 330, 170);
+        if (seats < SLOT.length) {
+            smallRoomLines(views, size, seats, seated, live, tones, palette(ctx, accent));
+            views.setOnClickPendingIntent(R.id.widget_root, openTarget(ctx, "room", roomId));
+            return views;
+        }
         float topY = 14 + 14 + 4 + 24;
         float bottomY = size[1] - 12 - 14 - 4 - 24;
         float leftX = 16 + 24;
         float rightX = size[0] - leftX;
-        float[][] seats = {
+        float[][] spots = {
             seated[0] ? new float[] { leftX, topY } : null,
             seated[1] ? new float[] { rightX, topY } : null,
             seated[2] ? new float[] { leftX, bottomY } : null,
             seated[3] ? new float[] { rightX, bottomY } : null,
         };
         float[] centre = { size[0] / 2f, size[1] / 2f - 17.5f };
-        views.setImageViewBitmap(R.id.room_canvas, ArcPainter.roomLines(size[0], size[1], seats, live, centre, palette(ctx, accent)));
+        views.setImageViewBitmap(R.id.room_canvas, ArcPainter.roomLines(size[0], size[1], spots, live, centre, palette(ctx, accent)));
         views.setOnClickPendingIntent(R.id.widget_root, openTarget(ctx, "room", roomId));
         return views;
+    }
+
+    /** The lines of a room of 2 or 3, placed to match widget_room_duo and widget_room_trio. */
+    private static void smallRoomLines(RemoteViews views, int[] size, int seats, boolean[] seated, boolean[] live, int[] tones, ArcPainter.Palette palette) {
+        float w = size[0];
+        float h = size[1];
+        float cx = w / 2f;
+        float cy;
+        float radius;
+        float[][] spots;
+        float[][] ends;
+        if (seats == 2) {
+            cy = h / 2f - 17.5f;
+            float seatY = h / 2f - 14.25f;
+            radius = 28;
+            spots = new float[][] { { 64, seatY }, { w - 64, seatY } };
+            ends = new float[][] { { cx - 38, cy }, { cx + 38, cy } };
+        } else {
+            // On a very low widget the room gives up its status line to keep the third member in view.
+            boolean low = h < 165;
+            if (low) views.setViewVisibility(R.id.room_live, View.GONE);
+            float block = low ? 73 : 87;
+            float top = 14 + Math.max(0, h - 26 - 48 - block) / 5f;
+            cy = top + 25;
+            radius = 24;
+            spots = new float[][] { { 54, 54 }, { w - 54, 54 }, { cx, h - 36 } };
+            ends = new float[][] { { cx - 38, cy }, { cx + 38, cy }, { cx, top + block + 2 } };
+        }
+        for (int i = 0; i < spots.length; i++) {
+            if (!seated[i]) spots[i] = null;
+        }
+        views.setImageViewBitmap(R.id.room_canvas, ArcPainter.roomBonds(size[0], size[1], spots, ends, radius, live, tones, new float[] { cx, cy }, palette));
     }
 
     private static int parseColor(String hex, int fallback) {

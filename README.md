@@ -168,7 +168,7 @@ Signed-in users get a private space next to the public Board:
 
 - **Friends and direct messages**: add people by @username and chat one to one.
 - **Share a goal**: send any goal tree in a direct message. Your friend can view the whole plan and save a fresh copy; showing your progress is optional.
-- **Study rooms** of up to four: see who is focusing right now and move a shared progress bar together.
+- **Study rooms** of two, three or four: see who is focusing right now and move a shared progress bar together.
 - **Room chat with @mentions**: type @ to pick a member, or @all for the whole room.
 - **Notifications that respect your attention**: messages, requests, invites and @mentions arrive even when the app is closed; ordinary room chat stays quiet unless you choose **All messages**. Each kind can be switched off in **Settings → Notifications**.
 

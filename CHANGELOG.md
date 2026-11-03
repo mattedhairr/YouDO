@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.3.3] - 2026-11-04 - Smaller Rooms and a Fresh New Look
+
+- **Rooms of 2 or 3** — Choose 2, 3 or 4 people when you create a room. The Room widget has its own layout for each size, and existing rooms keep 4.
+- **A new look for Settings, the Hub and Admin Hub** — Named sections, softly lit cards and icons in your accent colour. Admin Hub controls are now organised into sections with their own pages.
+- **A calmer light mode** — Warm paper tones replace bright white and pure black, so it's easier on the eyes for long sessions.
+- **Back goes one step at a time** — Android's back button closes the popup or page you're on, instead of jumping out of the whole screen.
+- **Blueprint Studio** — Add Goal works again, and leaving with unsaved changes now asks first, so plan edits can't be lost by accident.
+- **Android APK** — versionName **8.3.3**, versionCode **87**. Installs over v8.3.2 (86).
+
+---
+
 ## [v8.3.2] - 2026-10-31 - Support Settings for the Admin
 
 - **The admin edits Support** — Admin Hub → Controls has a new Support settings card: change the UPI ID, show or hide the QR code, pause Founding Backer claims, or hide Support YouDO altogether.

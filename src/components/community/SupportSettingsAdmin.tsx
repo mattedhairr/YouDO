@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 import Toggle from '../Toggle';
-import { fetchSupportSettings, isValidUpiId, saveSupportSettings, type SupportSettings } from '../../lib/supportSettings';
+import { fetchSupportSettings, isSupportPaused, isValidUpiId, saveSupportSettings, supportSettingsFor, upiPayUri } from '../../lib/supportSettings';
+import { qrDrawing } from '../../lib/upiQr';
 
-/** Admin Hub → Controls: what Settings → Support YouDO shows to everyone. */
+interface Draft {
+  upiId: string;
+  paused: boolean;
+}
+
+/** Admin Hub → Controls → Support YouDO: where payments go, and pausing support. */
 export default function SupportSettingsAdmin() {
-  const [saved, setSaved] = useState<SupportSettings | null>(null);
-  const [draft, setDraft] = useState<SupportSettings | null>(null);
+  const [saved, setSaved] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [state, setState] = useState<'loading' | 'missing' | 'ready'>('loading');
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
@@ -15,29 +21,32 @@ export default function SupportSettingsAdmin() {
     let cancelled = false;
     void fetchSupportSettings().then((next) => {
       if (cancelled) return;
-      setSaved(next);
-      setDraft(next);
-      setState(next ? 'ready' : 'missing');
+      const loaded = next && { upiId: next.upiId, paused: isSupportPaused(next) };
+      setSaved(loaded);
+      setDraft(loaded);
+      setState(loaded ? 'ready' : 'missing');
     });
     return () => { cancelled = true; };
   }, []);
 
-  const set = (patch: Partial<SupportSettings>) => {
+  const set = (patch: Partial<Draft>) => {
     if (draft) setDraft({ ...draft, ...patch });
     setMessage(null);
   };
   const upiValid = !!draft && isValidUpiId(draft.upiId);
-  const changed = !!draft && !!saved && JSON.stringify({ ...draft, upiId: draft.upiId.trim() }) !== JSON.stringify(saved);
+  const changed = !!draft && !!saved && (draft.upiId.trim() !== saved.upiId || draft.paused !== saved.paused);
+  const qr = useMemo(() => (draft && isValidUpiId(draft.upiId) ? qrDrawing(upiPayUri(draft.upiId.trim())) : null), [draft]);
 
   const save = async () => {
     if (!draft || !upiValid || working) return;
     setWorking(true);
     setMessage(null);
     try {
-      const next = await saveSupportSettings(draft);
-      setSaved(next);
-      setDraft(next);
-      setMessage({ error: false, text: 'Saved. Everyone on this version sees it the next time Support opens.' });
+      const next = await saveSupportSettings(supportSettingsFor(draft.upiId, draft.paused));
+      const loaded = { upiId: next.upiId, paused: isSupportPaused(next) };
+      setSaved(loaded);
+      setDraft(loaded);
+      setMessage({ error: false, text: 'Saved. Everyone sees it the next time Support opens.' });
     } catch (cause) {
       setMessage({ error: true, text: cause instanceof Error ? cause.message : 'Could not save.' });
     } finally {
@@ -45,61 +54,70 @@ export default function SupportSettingsAdmin() {
     }
   };
 
-  const row = (title: string, hint: string, checked: boolean, onChange: () => void) => (
-    <div className="flex items-center justify-between gap-3 border-t border-subtle/50 px-5 py-3">
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-semibold text-content-primary">{title}</span>
-        <span className="mt-0.5 block text-[11px] leading-snug text-content-muted">{hint}</span>
-      </span>
-      <Toggle checked={checked} onChange={onChange} label={title} disabled={working} />
-    </div>
-  );
+  if (state === 'loading') return <p role="status" className="yd-note">Loading…</p>;
+  if (state === 'missing' || !draft) {
+    return (
+      <p role="alert" className="yd-note">
+        Support settings could not be loaded. Check your connection and that <code>supabase/support_settings.sql</code> has been run, then reopen Admin Hub.
+      </p>
+    );
+  }
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[24px] border border-subtle bg-surface shadow-sm" aria-label="Support settings">
-      <div className="px-5 pb-3 pt-5">
-        <p className="text-[13px] font-bold text-content-primary">Support settings</p>
-        <p className="mt-1 text-[11px] text-content-muted">What everyone sees in Settings → Support YouDO</p>
-      </div>
-      {state === 'loading' && <p role="status" className="border-t border-subtle/50 px-5 py-4 text-[11px] text-content-muted">Loading…</p>}
-      {state === 'missing' && (
-        <p role="alert" className="border-t border-subtle/50 px-5 py-4 text-[11px] leading-relaxed text-content-secondary">
-          Support settings are not connected yet. Run <code>supabase/support_settings.sql</code> in the SQL editor, then reopen Admin Hub.
-        </p>
-      )}
-      {state === 'ready' && draft && <>
-        {row('Show Support YouDO', 'Off hides the whole option in Settings', draft.supportEnabled, () => set({ supportEnabled: !draft.supportEnabled }))}
-        <label className="block border-t border-subtle/50 px-5 py-3">
-          <span className="block text-[11px] font-semibold uppercase tracking-wider text-content-muted">UPI ID</span>
-          <input
-            className="mt-2 h-11 w-full rounded-xl border border-subtle bg-base px-3 font-mono text-[13.5px] text-content-primary outline-none focus:border-primary"
-            value={draft.upiId}
-            maxLength={321}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            inputMode="email"
-            placeholder="name@bank"
-            aria-invalid={!upiValid}
-            onChange={(event) => set({ upiId: event.target.value })}
-          />
-          {!upiValid && <span className="mt-1.5 block text-[11px] text-error">Enter a UPI ID like name@bank</span>}
-        </label>
-        {row('Show QR code', 'Made from the UPI ID, so it always matches', draft.qrEnabled, () => set({ qrEnabled: !draft.qrEnabled }))}
-        {row('Accept badge claims', 'Off stops new Founding Backer claims on every version. Badges already given stay.', draft.claimsEnabled, () => set({ claimsEnabled: !draft.claimsEnabled }))}
-        <div className="border-t border-subtle/50 px-5 pb-5 pt-4">
-          <button
-            type="button"
-            disabled={!changed || !upiValid || working}
-            onClick={() => void save()}
-            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-primary text-[13.5px] font-bold text-on-primary disabled:opacity-40"
-          >
-            <Check size={15} /> {working ? 'Saving…' : 'Save'}
-          </button>
-          {message && <p role={message.error ? 'alert' : 'status'} className={`mt-2 text-[11px] leading-relaxed ${message.error ? 'text-error' : 'text-secondary'}`}>{message.text}</p>}
-          <p className="mt-2 text-[10.5px] leading-relaxed text-content-muted">Phones on 8.3.1 or older keep their built-in UPI ID and QR until they update.</p>
+    <>
+      <section className="yd-section" aria-label="Pause support">
+        <h3 className="yd-heading">Status</h3>
+        <div className="yd-card">
+          <div className="yd-row">
+            <span className="yd-row-main">
+              <span className="yd-row-title">Pause support</span>
+              <span className="yd-row-text">Hides the UPI ID and QR code and stops new badge claims. People see that support is temporarily paused.</span>
+            </span>
+            <Toggle checked={draft.paused} onChange={() => set({ paused: !draft.paused })} label="Pause support" disabled={working} />
+          </div>
         </div>
-      </>}
-    </section>
+      </section>
+
+      <section className="yd-section" aria-label="Where payments go">
+        <h3 className="yd-heading">Where payments go</h3>
+        <div className="yd-card">
+          <label className="yd-block block">
+            <span className="yd-label">UPI ID</span>
+            <input
+              className="yd-field font-mono"
+              value={draft.upiId}
+              maxLength={321}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="email"
+              placeholder="name@bank"
+              aria-invalid={!upiValid}
+              onChange={(event) => set({ upiId: event.target.value })}
+            />
+            {!upiValid && <span className="mt-1.5 block text-[11px] text-error">Enter a UPI ID like name@bank</span>}
+          </label>
+          {qr && (
+            <div className="yd-row">
+              <span className="yd-qr">
+                <svg viewBox={qr.viewBox} role="img" aria-label={`UPI QR code for ${draft.upiId.trim()}`} shapeRendering="crispEdges">
+                  <path d={qr.path} stroke="currentColor" strokeWidth={1} fill="none" />
+                </svg>
+              </span>
+              <span className="yd-row-main">
+                <span className="yd-row-title">Check before saving</span>
+                <span className="yd-row-text">Scan this with your UPI app. It should open “Pay to” this ID.</span>
+              </span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <button type="button" className="yd-button" disabled={!changed || !upiValid || working} onClick={() => void save()}>
+        <Check size={15} /> {working ? 'Saving…' : 'Save'}
+      </button>
+      {message && <p role={message.error ? 'alert' : 'status'} className={`yd-note ${message.error ? '!text-error' : '!text-secondary'}`}>{message.text}</p>}
+      <p className="yd-note">Phones on 8.3.1 or older keep their built-in UPI ID and QR until they update, but new badge claims stop on every version while paused.</p>
+    </>
   );
 }

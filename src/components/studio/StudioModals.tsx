@@ -11,7 +11,8 @@ export interface StudioModalsProps {
 export function StudioModals({ controller }: StudioModalsProps) {
   const { activeModal, targetNodeIds } = controller;
 
-  if (activeModal === 'none' || targetNodeIds.length === 0) return null;
+  // Adding with nothing selected creates new goals; every other sheet needs its targets.
+  if (activeModal === 'none' || (targetNodeIds.length === 0 && activeModal !== 'bulk_add_inside')) return null;
 
   return (
     <>

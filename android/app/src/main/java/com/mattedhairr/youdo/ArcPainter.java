@@ -340,4 +340,71 @@ final class ArcPainter {
         if (anyLive) canvas.drawCircle(cx, cy, 34 * SCALE, glow(fill(palette.live), 18, 90));
         return bitmap;
     }
+
+    /**
+     * The lines of a room of 2 or 3: an open ring over the room tile (in the app's
+     * accent, green while anyone focuses, doubled while everyone does) and a bond
+     * from each member's avatar to it. A focusing member's bond glows from their
+     * own colour into green and ends in bright dots; the others are dotted.
+     * seats are avatar centres in dp, null for an empty seat; ends are where each
+     * bond stops; radius is how far from a seat's centre it starts.
+     */
+    static Bitmap roomBonds(int widthDp, int heightDp, float[][] seats, float[][] ends, float radius, boolean[] live, int[] tones, float[] centre, Palette palette) {
+        Bitmap bitmap = bitmap(widthDp, heightDp);
+        Canvas canvas = new Canvas(bitmap);
+        float cx = centre[0] * SCALE;
+        float cy = centre[1] * SCALE;
+        int people = 0;
+        int liveCount = 0;
+        for (int i = 0; i < seats.length; i++) {
+            if (seats[i] == null) continue;
+            people++;
+            if (live[i]) liveCount++;
+            float ex = ends[i][0] * SCALE;
+            float ey = ends[i][1] * SCALE;
+            float dx = ex - seats[i][0] * SCALE;
+            float dy = ey - seats[i][1] * SCALE;
+            float length = Math.max(1, (float) Math.hypot(dx, dy));
+            float sx = seats[i][0] * SCALE + dx / length * (radius + 1) * SCALE;
+            float sy = seats[i][1] * SCALE + dy / length * (radius + 1) * SCALE;
+            // A slight bow, so the bond reads as drawn rather than ruled.
+            float bow = Math.min(6 * SCALE, length * 0.12f);
+            float side = dx < 0 ? -1 : 1;
+            Path path = new Path();
+            path.moveTo(sx, sy);
+            path.quadTo((sx + ex) / 2 - dy / length * bow * side, (sy + ey) / 2 + dx / length * bow * side, ex, ey);
+            if (live[i]) {
+                canvas.drawPath(path, glow(stroke(palette.live, 2.4f), 5, 170));
+                Paint line = stroke(palette.live, 2.4f);
+                line.setShader(new LinearGradient(sx, sy, ex, ey, tones[i], palette.live, Shader.TileMode.CLAMP));
+                canvas.drawPath(path, line);
+                canvas.drawCircle(sx, sy, 2.6f * SCALE, fill(tones[i]));
+                canvas.drawCircle(ex, ey, 2.6f * SCALE, fill(palette.live));
+            } else {
+                Paint line = stroke(palette.dim, 1.4f);
+                line.setPathEffect(new DashPathEffect(new float[] { 3 * SCALE, 5 * SCALE }, 0));
+                canvas.drawPath(path, line);
+                canvas.drawCircle(ex, ey, 1.8f * SCALE, fill(palette.dim));
+            }
+        }
+        // Open at the bottom, where the room's name sits.
+        RectF ring = new RectF(cx - 36 * SCALE, cy - 36 * SCALE, cx + 36 * SCALE, cy + 36 * SCALE);
+        if (liveCount > 0) {
+            canvas.drawCircle(cx, cy, 34 * SCALE, glow(fill(palette.live), 18, 110));
+            Paint arc = stroke(palette.live, 1.6f);
+            canvas.drawArc(ring, 150, 240, false, glow(arc, 3, 170));
+            canvas.drawArc(ring, 150, 240, false, arc);
+            if (liveCount == people && people > 1) {
+                ring.inset(-5 * SCALE, -5 * SCALE);
+                Paint outer = stroke(palette.live, 1);
+                outer.setAlpha(120);
+                canvas.drawArc(ring, 165, 210, false, outer);
+            }
+        } else {
+            Paint arc = stroke(palette.accent, 1.2f);
+            arc.setAlpha(90);
+            canvas.drawArc(ring, 150, 240, false, arc);
+        }
+        return bitmap;
+    }
 }

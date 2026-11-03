@@ -17,6 +17,8 @@ interface OverlayProps {
    * (default), a wider column for editors, or edge to edge.
    */
   fullWidth?: 'column' | 'wide' | 'bleed';
+  /** A full screen App routes Back to itself; popups on top of it are closed first. */
+  screen?: boolean;
 }
 
 function overlayHost(): HTMLElement {
@@ -30,6 +32,7 @@ export default function Overlay({
   align = 'center',
   scrim = true,
   fullWidth = 'column',
+  screen = false,
 }: OverlayProps) {
   const layerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -42,7 +45,7 @@ export default function Overlay({
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (!layers.length) unlockedOverflow = document.body.style.overflow;
     layers.push(layer);
-    const unregisterClose = registerOverlayCloser(() => closeRef.current?.());
+    const unregisterClose = registerOverlayCloser(() => closeRef.current?.(), screen);
     layer.style.zIndex = String(1000 + layers.length);
     document.body.style.overflow = 'hidden';
     if (!layer.contains(document.activeElement)) layer.focus({ preventScroll: true });
@@ -87,7 +90,7 @@ export default function Overlay({
       window.removeEventListener('keydown', onKey);
       if (wasTop && previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, [open]);
+  }, [open, screen]);
 
   // Chromium often skips backdrop-filter on the first portal paint until a later
   // compositor update (e.g. a button re-render). Re-apply the filter on the next frame.

@@ -19,6 +19,7 @@ import SquadRoomSheet from './SquadRoomSheet';
 import DmInboxSheet from './DmInboxSheet';
 import RoomsView from './RoomsView';
 import PrivateHubUsernameGate from './PrivateHubUsernameGate';
+import { setBackStep } from '../lib/backSteps';
 import { fetchDmInboxPreviews, type DmInboxPreview } from '../lib/messages';
 import { subscribePrivateHubInbox } from '../lib/privateHubSync';
 import { HubAvatar, HubAvatarStack, HubEmpty, HubSection } from './hub/HubParts';
@@ -57,6 +58,11 @@ export default function PrivateHubView({
   const [addFriendOpen, setAddFriendOpen] = useState(false);
   const [friendsListOpen, setFriendsListOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  // Android's Back returns from Requests to the Hub list, not to the Today tab.
+  useEffect(() => {
+    setBackStep('hub', notificationsOpen ? () => setNotificationsOpen(false) : null);
+    return () => setBackStep('hub', null);
+  }, [notificationsOpen]);
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [friends, setFriends] = useState<Profile[]>([]);
   const [myProfile, setMyProfile] = useState<Profile | null>(null);

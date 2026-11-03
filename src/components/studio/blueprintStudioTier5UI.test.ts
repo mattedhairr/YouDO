@@ -621,17 +621,34 @@ describe('BlueprintStudio Tier 5 Adversarial UI & Component Hardening', () => {
   // Suite 4: Modal Sheets Under Boundary Conditions & Adversarial Inputs
   // =========================================================================
   describe('Suite 4: Modal Sheets Under Boundary Conditions & Adversarial Inputs', () => {
-    it('T4.1: StudioModals renders null when activeModal is "none" or targetNodeIds is empty', () => {
+    it('T4.1: StudioModals renders null when closed, or when a sheet that needs targets has none', () => {
       const goals = createRichStressTree();
       const controller = createBlueprintStudioController({ goals });
 
       let html = renderToStaticMarkup(createElement(StudioModals, { controller }));
       expect(html).toBe('');
 
-      // activeModal set but targetNodeIds empty
-      controller.openModal('bulk_add_inside', []);
+      controller.openModal('date_picker', []);
       html = renderToStaticMarkup(createElement(StudioModals, { controller }));
       expect(html).toBe('');
+    });
+
+    it('T4.1b: Add Goal with nothing selected opens the sheet and creates new goals', () => {
+      const goals = createRichStressTree();
+      const controller = createBlueprintStudioController({ goals });
+
+      controller.openModal('bulk_add_inside', []);
+      const html = renderToStaticMarkup(createElement(StudioModals, { controller }));
+      expect(html).toContain('Create New Goals');
+      expect(html).toContain('Adding to root level');
+
+      const result = controller.addChildrenInside([], ['New goal'], 'goal');
+      expect(result.count).toBe(1);
+      const added = controller.draftGoals[controller.draftGoals.length - 1];
+      expect(added.title).toBe('New goal');
+      expect(added.kind).toBe('goal');
+      expect(controller.draftGoals).toHaveLength(goals.length + 1);
+      expect(controller.isDirty).toBe(true);
     });
 
     it('T4.2: StudioNodeExpansionModal renders fallback safely when target ID does not exist', () => {

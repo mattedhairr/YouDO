@@ -1,5 +1,5 @@
 // Isolated PostgreSQL contract tests for room membership: joining, inviting,
-// accepting, approving and the 4-member limit.
+// accepting, approving and each room's member limit.
 import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
@@ -111,6 +111,27 @@ try {
   await as(5); await rows('select public.accept_squad_invite($1)', [OPEN]);
   check((await status(OPEN, 5))?.status === 'accepted', 'a place freed by leaving can be taken');
 
+  // A room can be made smaller: 2 or 3 people. Older rooms keep 4.
+  await system();
+  check((await rows('select member_limit from public.squads where id=$1', [OPEN]))[0].member_limit === 4, 'rooms without a chosen size hold 4');
+  const DUO = '50000000-0000-4000-8000-0000000000a3';
+  const TRIO = '50000000-0000-4000-8000-0000000000a4';
+  await as(1);
+  await fails("insert into public.squads(name,created_by,member_limit) values ('Too big',$1,5)", [id(1)], /member_limit/, 'a room cannot hold more than 4');
+  await fails("insert into public.squads(name,created_by,member_limit) values ('Too small',$1,1)", [id(1)], /member_limit/, 'a room holds at least 2');
+  for (const [room, size] of [[DUO, 2], [TRIO, 3]]) {
+    await db.query("insert into public.squads(id,name,privacy,created_by,member_limit) values ($1,'Small room','invite_only',$2,$3)", [room, id(1), size]);
+    await db.query("insert into public.squad_members(squad_id,user_id,role,status) values ($1,$2,'admin','accepted')", [room, id(1)]);
+    await db.query("insert into public.squad_members(squad_id,user_id,role,status) values ($1,$2,'member','invited'),($1,$3,'member','invited'),($1,$4,'member','invited')", [room, id(2), id(3), id(4)]);
+  }
+  await as(2); await rows('select public.accept_squad_invite($1)', [DUO]);
+  await as(3);
+  await fails('select public.accept_squad_invite($1)', [DUO], /room is full/, 'a room of 2 takes one friend');
+  await as(2); await rows('select public.accept_squad_invite($1)', [TRIO]);
+  await as(3); await rows('select public.accept_squad_invite($1)', [TRIO]);
+  await as(4);
+  await fails('select public.accept_squad_invite($1)', [TRIO], /room is full/, 'a room of 3 takes two friends');
+
   // Only the creator deletes a room, and everything in it goes too.
   await as(2);
   await fails('select public.delete_squad($1)', [OPEN], /Only the room creator/, 'members cannot delete the room');
@@ -125,7 +146,7 @@ try {
   await fails('select public.accept_squad_invite($1)', [OPEN], null, 'anonymous users cannot accept');
   await fails('select public.approve_squad_join_request($1,$2)', [OPEN, id(6)], null, 'anonymous users cannot approve');
 
-  console.log(`PASS: ${checks} isolated PostgreSQL checks for room membership (join rules, invites, accept, approve, 4-member limit).`);
+  console.log(`PASS: ${checks} isolated PostgreSQL checks for room membership (join rules, invites, accept, approve, member limits).`);
 } finally {
   await db.close();
 }

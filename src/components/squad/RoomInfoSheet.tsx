@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, Globe, Loader2, Lock, LogOut, Settings, Trash2 } from 'lucide-react';
 import Overlay from '../Overlay';
-import { ROOM_MEMBER_LIMIT, normalizeSquadPrivacy, type Squad, type SquadMember } from '../../lib/squads';
+import { roomMemberLimit, normalizeSquadPrivacy, type Squad, type SquadMember } from '../../lib/squads';
 import { HubAvatar, HubSection } from '../hub/HubParts';
 
 interface Props {
@@ -49,7 +49,7 @@ export default function RoomInfoSheet({
   };
 
   return (
-    <Overlay open={open} onClose={onClose} align="bottom">
+    <Overlay open={open} onClose={() => { if (confirm) setConfirm(null); else onClose(); }} align="bottom">
       <div className="hub hub-sheet" role="dialog" aria-label="Room info">
         <div className="hub-sheet-grabber" aria-hidden />
         <div className="hub-sheet-header">
@@ -72,7 +72,7 @@ export default function RoomInfoSheet({
 
           <HubSection
             title="Members"
-            aside={`${accepted.length} of ${ROOM_MEMBER_LIMIT}`}
+            aside={`${accepted.length} of ${roomMemberLimit(squad)}`}
             footer={invited > 0 ? `${invited} ${invited === 1 ? 'invite' : 'invites'} waiting for an answer.` : undefined}
           >
             <div className="hub-group">

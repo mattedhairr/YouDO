@@ -8,6 +8,7 @@ import {
   fetchDiscoverableSquads,
   fetchOutgoingSquadJoinRequests,
   normalizeSquadPrivacy,
+  roomMemberLimit,
   type Squad,
   type SquadPrivacy,
 } from './squads';
@@ -352,3 +353,15 @@ describe('createSquad & updateSquadPrivacy check constraint graceful recovery', 
   });
 });
 
+
+describe('roomMemberLimit', () => {
+  it('reads the chosen size, and anything else holds four', () => {
+    expect(roomMemberLimit({ member_limit: 2 })).toBe(2);
+    expect(roomMemberLimit({ member_limit: 3 })).toBe(3);
+    expect(roomMemberLimit({ member_limit: 4 })).toBe(4);
+    expect(roomMemberLimit({})).toBe(4);
+    expect(roomMemberLimit({ member_limit: null })).toBe(4);
+    expect(roomMemberLimit({ member_limit: 9 })).toBe(4);
+    expect(roomMemberLimit(null)).toBe(4);
+  });
+});

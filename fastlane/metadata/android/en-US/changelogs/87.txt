@@ -1,0 +1,1 @@
+Rooms of 2 or 3 people, with their own widget layouts. New look for Settings, the Hub and Admin Hub. Calmer light mode. Android back now goes one step at a time. Blueprint Studio: Add Goal works, and it asks before discarding unsaved changes. Dashboard widget adds at 4x2.

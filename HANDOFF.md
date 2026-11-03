@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-10-31**, right after **v8.3.2** was released. Work pauses here for about four months. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-04**, while preparing **v8.3.3**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.3.2, versionCode 86, published 2026-10-31.
+- **Latest release:** v8.3.3, versionCode 87 (being released 2026-11-04). Before it: v8.3.2, versionCode 86, published 2026-10-31.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app serves 8.3.2.
   - It was announced on Telegram.
@@ -21,6 +21,14 @@ Last updated **2026-10-31**, right after **v8.3.2** was released. Work pauses he
   - the widget's "left today" counting to midnight;
   - a clearer update pop-up and installer;
   - the ambient screen's status bar hiding again after the notification shade.
+
+## Still to check from v8.3.3 (released without these phone tests, by the owner's choice)
+
+- Create real rooms of 2 and 3, and check the invite limit. The Room widget's 2 and 3 person layouts have never been seen on a phone.
+- Pause support, check the paused screen, then turn it off. Scan the QR.
+- Light mode and the Classic Look on the phone.
+- Small known flaw: an icon overlaps the title in Blueprint Studio's top bar at phone width.
+- Stage 4 of the signature style (Today, Goals, Calendar, Studio) was mocked up and set aside. Five Dependabot pull requests (#72 to #76) wait for one combined branch and a test APK.
 
 ## Check these on a real phone first
 

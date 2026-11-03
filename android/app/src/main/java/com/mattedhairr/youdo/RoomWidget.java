@@ -5,7 +5,7 @@ import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.os.Bundle;
 
-/** Room (4×2): one chosen room, its members around it, lit up for whoever is focusing. */
+/** Room (4×2): one chosen room of 2, 3 or 4, its members around it, lit up for whoever is focusing. */
 public class RoomWidget extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] widgetIds) {
