@@ -22,6 +22,14 @@ Last updated **2026-11-04**, while preparing **v8.3.3**. Read this file first wh
   - a clearer update pop-up and installer;
   - the ambient screen's status bar hiding again after the notification shade.
 
+## Still to check from v8.3.3 (released without these phone tests, by the owner's choice)
+
+- Create real rooms of 2 and 3, and check the invite limit. The Room widget's 2 and 3 person layouts have never been seen on a phone.
+- Pause support, check the paused screen, then turn it off. Scan the QR.
+- Light mode and the Classic Look on the phone.
+- Small known flaw: an icon overlaps the title in Blueprint Studio's top bar at phone width.
+- Stage 4 of the signature style (Today, Goals, Calendar, Studio) was mocked up and set aside. Five Dependabot pull requests (#72 to #76) wait for one combined branch and a test APK.
+
 ## Check these on a real phone first
 
 These shipped without a device test, because the owner chose a direct release.
