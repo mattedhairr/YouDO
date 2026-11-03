@@ -57,6 +57,7 @@ import UserProfileSheet from './UserProfileSheet';
 import AdminBackersReviewModal from './AdminBackersReviewModal';
 import SupportSettingsAdmin from './community/SupportSettingsAdmin';
 import { HubNavBar } from './hub/HubParts';
+import { setAdminBackHandler } from '../lib/adminBack';
 import { fetchPendingHubBackers } from '../lib/backers';
 import { isSupportPaused } from '../lib/supportSettings';
 import { useSupportSettings } from '../hooks/useSupportSettings';
@@ -128,7 +129,17 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   }, [mode, backersOpen]);
   // Each Controls page starts at its top, and so does the list on the way back.
   useEffect(() => { adminBody.current?.scrollTo?.(0, 0); }, [controlsPage]);
-  // Back (the arrow, Android's button, Escape) leaves a Controls page before the Admin Hub.
+  // Android's Back reaches the Admin Hub through App, not through the Overlay below.
+  useEffect(() => {
+    if (mode !== 'admin') return;
+    setAdminBackHandler(() => {
+      if (backersOpen) { setBackersOpen(false); return true; }
+      if (controlsPage) { setControlsPage(null); return true; }
+      return false;
+    });
+    return () => setAdminBackHandler(null);
+  }, [mode, backersOpen, controlsPage]);
+  // The arrow and Escape leave a Controls page before the Admin Hub, too.
   const goBack = () => {
     if (controlsPage) setControlsPage(null);
     else onClose();

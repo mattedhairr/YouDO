@@ -9,6 +9,7 @@ import { requestOpenRoom } from './components/hub/openDm';
 import { syncPushPreferences } from './lib/pushPreferences';
 import { OPEN_APP_UPDATES_EVENT } from './lib/boardUpdate';
 import { settingsBackStep } from './lib/settingsBack';
+import { adminBackStep } from './lib/adminBack';
 import { ambientAutoOpenEnabled, phoneIsSideways } from './lib/ambient';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
@@ -368,6 +369,17 @@ function AppInner() {
       return true;
     }
     if (adminHubOpen) {
+      // A Controls page or Backer claims steps back to the Controls list first.
+      if (adminBackStep()) {
+        if (!window.history.state?.modal) {
+          try {
+            window.history.pushState({ modal: true }, '', window.location.href);
+          } catch {
+            /* The Admin Hub stays open even if the browser blocks history access. */
+          }
+        }
+        return true;
+      }
       setAdminHubOpen(false);
       window.dispatchEvent(new Event(ADMIN_QUEUE_EVENT));
       return true;
