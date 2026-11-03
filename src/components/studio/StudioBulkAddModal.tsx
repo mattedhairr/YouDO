@@ -57,6 +57,7 @@ export function StudioBulkAddModal({ controller }: StudioBulkAddModalProps) {
     return [];
   }, [mode, singleTitle, listText, prefix, startNum, sequenceCount]);
 
+  const addingGoals = targetNodeIds.length === 0;
   const totalCreated = computedTitles.length * Math.max(1, targetNodeIds.length);
   // Names stay short; details belong in each item's Description.
   const tooLong = mode === 'list'
@@ -66,7 +67,7 @@ export function StudioBulkAddModal({ controller }: StudioBulkAddModalProps) {
   const handleAdd = () => {
     if (tooLong) return;
     if (computedTitles.length > 0) {
-      addChildrenInside(targetNodeIds, computedTitles);
+      addChildrenInside(targetNodeIds, computedTitles, addingGoals ? 'goal' : undefined);
     }
     closeModal();
   };
@@ -246,16 +247,22 @@ export function StudioBulkAddModal({ controller }: StudioBulkAddModalProps) {
           <div className="p-3 rounded-xl bg-primary-soft/40 border border-primary/20 text-xs text-content-secondary space-y-1">
             <div className="flex items-center justify-between">
               <span className="font-medium text-primary">
-                {computedTitles.length} {computedTitles.length === 1 ? 'item' : 'items'} per parent
+                {addingGoals
+                  ? `${computedTitles.length} new ${computedTitles.length === 1 ? 'goal' : 'goals'}`
+                  : `${computedTitles.length} ${computedTitles.length === 1 ? 'item' : 'items'} per parent`}
               </span>
-              <span className="font-semibold text-content-primary">
-                {totalCreated} total {totalCreated === 1 ? 'node' : 'nodes'}
-              </span>
+              {!addingGoals && (
+                <span className="font-semibold text-content-primary">
+                  {totalCreated} total {totalCreated === 1 ? 'node' : 'nodes'}
+                </span>
+              )}
             </div>
             {tooLong && <p role="alert" className="text-[11px] font-semibold text-error">{tooLong}</p>}
-            <p className="text-[11px] text-content-muted">
-              Duplicate titles within the same parent will be automatically skipped without error.
-            </p>
+            {!addingGoals && (
+              <p className="text-[11px] text-content-muted">
+                Duplicate titles within the same parent will be automatically skipped without error.
+              </p>
+            )}
           </div>
         </div>
 
@@ -275,7 +282,9 @@ export function StudioBulkAddModal({ controller }: StudioBulkAddModalProps) {
             onClick={handleAdd}
           >
             <Plus size={16} />
-            <span>Add {computedTitles.length > 0 ? `${totalCreated} Nodes` : 'Nodes'}</span>
+            <span>{addingGoals
+              ? `Add ${totalCreated === 1 ? '1 Goal' : totalCreated > 1 ? `${totalCreated} Goals` : 'Goals'}`
+              : `Add ${computedTitles.length > 0 ? `${totalCreated} Nodes` : 'Nodes'}`}</span>
           </button>
         </div>
       </div>

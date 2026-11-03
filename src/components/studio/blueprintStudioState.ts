@@ -599,7 +599,9 @@ export function createBlueprintStudioController(
         dispatch({
           type: 'APPLY_CHANGE',
           nextGoals: result.goals,
-          description: `Added ${result.count} items inside ${parentIds.length} parents`,
+          description: parentIds.length === 0
+            ? `Added ${result.count} ${result.count === 1 ? 'goal' : 'goals'}`
+            : `Added ${result.count} items inside ${parentIds.length} parents`,
         });
         const nextExpanded = new Set(state.expandedIds);
         parentIds.forEach((id) => nextExpanded.add(id));
