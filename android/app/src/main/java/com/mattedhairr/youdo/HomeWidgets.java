@@ -821,14 +821,14 @@ final class HomeWidgets {
         float bottomY = size[1] - 12 - 14 - 4 - 24;
         float leftX = 16 + 24;
         float rightX = size[0] - leftX;
-        float[][] seats = {
+        float[][] spots = {
             seated[0] ? new float[] { leftX, topY } : null,
             seated[1] ? new float[] { rightX, topY } : null,
             seated[2] ? new float[] { leftX, bottomY } : null,
             seated[3] ? new float[] { rightX, bottomY } : null,
         };
         float[] centre = { size[0] / 2f, size[1] / 2f - 17.5f };
-        views.setImageViewBitmap(R.id.room_canvas, ArcPainter.roomLines(size[0], size[1], seats, live, centre, palette(ctx, accent)));
+        views.setImageViewBitmap(R.id.room_canvas, ArcPainter.roomLines(size[0], size[1], spots, live, centre, palette(ctx, accent)));
         views.setOnClickPendingIntent(R.id.widget_root, openTarget(ctx, "room", roomId));
         return views;
     }
