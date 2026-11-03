@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GoalNode } from '../types';
 import type { GoalTreeChangeResult } from '../store';
 import {
@@ -9,6 +9,7 @@ import { StudioTree } from './studio/StudioTree';
 import { StudioActionBar } from './studio/StudioActionBar';
 import { StudioModals } from './studio/StudioModals';
 import Overlay from './Overlay';
+import { BLUEPRINT_BACK_EVENT } from '../lib/backSteps';
 import './studio/studio.css';
 import {
   Undo2,
@@ -59,6 +60,25 @@ export function BlueprintStudioContent({
   const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
   const setSearchQuery = onSearchChange ?? setInternalSearchQuery;
 
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  // Back steps out of whatever is open, and never drops unsaved work without asking.
+  const goBack = () => {
+    const panels = document.querySelectorAll('.studio .studio-panel-scrim:not([aria-hidden="true"])');
+    const panelClose = panels[panels.length - 1]?.querySelector<HTMLElement>('[aria-label="Close editor"], [aria-label="Close"]');
+    if (panelClose) panelClose.click();
+    else if (controller.activeModal !== 'none') controller.closeModal();
+    else if (controller.isDirty) setConfirmDiscard(true);
+    else onClose();
+  };
+  const goBackRef = useRef(goBack);
+  goBackRef.current = goBack;
+  useEffect(() => {
+    const onBack = () => goBackRef.current();
+    window.addEventListener(BLUEPRINT_BACK_EVENT, onBack);
+    return () => window.removeEventListener(BLUEPRINT_BACK_EVENT, onBack);
+  }, []);
+
   const handleCommit = () => {
     const summary = controller.lastActionDescription || 'Updated studio items';
     const result = onCommit(controller.baseGoals, controller.draftGoals, summary);
@@ -75,7 +95,7 @@ export function BlueprintStudioContent({
           <button
             type="button"
             className="studio-icon-button"
-            onClick={onClose}
+            onClick={goBack}
             aria-label="Go back"
             title="Go back"
           >
@@ -220,6 +240,16 @@ export function BlueprintStudioContent({
         {/* Modals Sheet Layer */}
         <StudioModals controller={controller} />
       </div>
+      <Overlay open={confirmDiscard} onClose={() => setConfirmDiscard(false)} align="center">
+        <div role="alertdialog" aria-label="Discard your changes?" className="w-[min(88vw,22rem)] rounded-[20px] border border-subtle bg-elevated p-5 shadow-sm">
+          <h2 className="text-[16px] font-semibold text-content-primary">Discard your changes?</h2>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-content-secondary">Your plan edits haven’t been saved. Leaving now loses them.</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setConfirmDiscard(false)} className="h-10 rounded-xl bg-primary px-4 text-[13px] font-bold text-on-primary">Keep editing</button>
+            <button type="button" onClick={() => { setConfirmDiscard(false); onClose(); }} className="h-10 rounded-xl bg-error-soft px-4 text-[13px] font-bold text-error">Discard</button>
+          </div>
+        </div>
+      </Overlay>
     </div>
   );
 }
@@ -235,7 +265,7 @@ export default function BlueprintStudio({
   if (!open) return null;
 
   return (
-    <Overlay open={open} onClose={onClose} align="full" scrim={false} fullWidth="wide">
+    <Overlay open={open} onClose={() => window.dispatchEvent(new Event(BLUEPRINT_BACK_EVENT))} align="full" scrim={false} fullWidth="wide" screen>
       <BlueprintStudioContent
         goals={goals}
         initialPathIds={initialPathIds}

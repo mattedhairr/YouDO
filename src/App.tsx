@@ -9,7 +9,7 @@ import { requestOpenRoom } from './components/hub/openDm';
 import { syncPushPreferences } from './lib/pushPreferences';
 import { OPEN_APP_UPDATES_EVENT } from './lib/boardUpdate';
 import { settingsBackStep } from './lib/settingsBack';
-import { adminBackStep } from './lib/adminBack';
+import { BLUEPRINT_BACK_EVENT, runBackStep } from './lib/backSteps';
 import { ambientAutoOpenEnabled, phoneIsSideways } from './lib/ambient';
 import type { GoalKind, GoalNode, Task, View, TaskSession } from './types';
 import { useNavigationSync } from './hooks/useNavigationSync';
@@ -45,7 +45,7 @@ import { useFocusStatusShare } from './hooks/useFocusStatusShare';
 import { useFocusSoundSession } from './hooks/useFocusSoundSession';
 import { ADMIN_QUEUE_EVENT, useAdminHubCounts } from './hooks/useAdminHubCounts';
 import { useAuth } from './contexts/AuthContext';
-import { closeTopOverlay } from './lib/overlayNavigation';
+import { closeTopOverlay, popupIsOnTop } from './lib/overlayNavigation';
 import { FALLBACK_APP_QUOTES, fetchAppQuotes, loadCachedAppQuotes, type AppQuote } from './lib/appQuotes';
 import { taskStepStates } from './lib/goalTree';
 import { hapticSuccess } from './lib/haptics';
@@ -337,9 +337,20 @@ function AppInner() {
 
   // Modal close interceptor ref for popstate (device back gesture)
   const modalCloseRef = useRef<() => boolean>(() => false);
+  // A browser's Back has already removed the page's history entry; this screen
+  // stays open, so it gets one again.
+  const keepHistoryEntry = () => {
+    if (window.history.state?.modal) return;
+    try {
+      window.history.pushState({ modal: true }, '', window.location.href);
+    } catch {
+      /* The screen stays open even if the browser blocks history access. */
+    }
+  };
   modalCloseRef.current = () => {
     if (showAmbient) {
-      setShowAmbient(false);
+      if (!runBackStep('ambient')) setShowAmbient(false);
+      else keepHistoryEntry();
       return true;
     }
     if (stopDialogTask) {
@@ -354,30 +365,23 @@ function AppInner() {
       setGoalSheetOpen(false);
       return true;
     }
+    // These screens are closed from here, so a popup on top of one must go first.
+    if ((blueprintStudioOpen || adminHubOpen || settingsOpen) && popupIsOnTop()) {
+      keepHistoryEntry();
+      closeTopOverlay();
+      return true;
+    }
     if (blueprintStudioOpen) {
       // The Studio owns its draft. Route device/browser Back into it so an
       // unsaved blueprint cannot be closed behind its discard confirmation.
-      const poppedModalEntry = !window.history.state?.modal;
-      if (poppedModalEntry) {
-        try {
-          window.history.pushState({ modal: true }, '', window.location.href);
-        } catch {
-          /* Keep the Studio open even if the browser blocks history access. */
-        }
-      }
-      window.dispatchEvent(new Event('youdo:blueprint-back-request'));
+      keepHistoryEntry();
+      window.dispatchEvent(new Event(BLUEPRINT_BACK_EVENT));
       return true;
     }
     if (adminHubOpen) {
-      // A Controls page or Backer claims steps back to the Controls list first.
-      if (adminBackStep()) {
-        if (!window.history.state?.modal) {
-          try {
-            window.history.pushState({ modal: true }, '', window.location.href);
-          } catch {
-            /* The Admin Hub stays open even if the browser blocks history access. */
-          }
-        }
+      // A Controls page steps back to the Controls list first.
+      if (runBackStep('admin')) {
+        keepHistoryEntry();
         return true;
       }
       setAdminHubOpen(false);
@@ -387,13 +391,7 @@ function AppInner() {
     if (settingsOpen) {
       // A Settings sub-page steps back to the Settings list first.
       if (settingsBackStep()) {
-        if (!window.history.state?.modal) {
-          try {
-            window.history.pushState({ modal: true }, '', window.location.href);
-          } catch {
-            /* Settings stays open even if the browser blocks history access. */
-          }
-        }
+        keepHistoryEntry();
         return true;
       }
       setSettingsOpen(false);
@@ -412,7 +410,16 @@ function AppInner() {
       setHelpOpen(false);
       return true;
     }
-    return closeTopOverlay();
+    if (closeTopOverlay()) return true;
+    // Hub's Requests is a page inside the Hub tab, not a popup.
+    if (view === 'board' && runBackStep('hub')) {
+      // A browser's Back has already moved the address off the Hub tab.
+      if (new URLSearchParams(window.location.search).get('view') !== 'board') {
+        window.history.pushState({ view: 'board', goalPathIds: [] }, '', '?view=board');
+      }
+      return true;
+    }
+    return false;
   };
 
   const handleModalPopState = useCallback(() => {

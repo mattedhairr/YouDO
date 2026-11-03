@@ -19,7 +19,7 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
 
   if (!context) {
     return (
-      <Overlay open onClose={onClose} align="full">
+      <Overlay open onClose={onClose} align="full" screen>
         <div role="status" className="app-frame mx-auto flex h-full w-full max-w-md items-center justify-center gap-2 bg-base text-[12px] text-content-muted">
           <Loader2 size={16} className="animate-spin text-primary" /> Opening Admin Hub…
         </div>

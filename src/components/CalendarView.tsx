@@ -407,7 +407,7 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
 
       {/* ── Daily Focus Stats & Efficiency Modal ── */}
       {dayStatsModalDate && (
-        <Overlay open onClose={closeDayStats} align="center">
+        <Overlay open onClose={() => { if (dayStatsPage === 'sessions') showDayStatsPage('overview'); else closeDayStats(); }} align="center">
           <div className="panel sheet-up p-5 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-subtle">
               <div className="flex items-center gap-2">

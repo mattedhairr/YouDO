@@ -49,7 +49,7 @@ export default function RoomInfoSheet({
   };
 
   return (
-    <Overlay open={open} onClose={onClose} align="bottom">
+    <Overlay open={open} onClose={() => { if (confirm) setConfirm(null); else onClose(); }} align="bottom">
       <div className="hub hub-sheet" role="dialog" aria-label="Room info">
         <div className="hub-sheet-grabber" aria-hidden />
         <div className="hub-sheet-header">

@@ -482,6 +482,11 @@ export default function SettingsSheet({
   // Device Back: Recently Deleted, then a sub-page, step back to the list first.
   const backStepRef = useRef<() => boolean>(() => false);
   backStepRef.current = () => {
+    // A panel open in the account card closes before the page.
+    if (securityMode) { setSecurityMode(null); setConfirmDeleteAccount(false); return true; }
+    if (securityOpen) { setSecurityOpen(false); return true; }
+    if (restoreOpen) { setRestoreOpen(false); return true; }
+    if (editProfileOpen) { setEditProfileOpen(false); return true; }
     if (legacyStyle) return false;
     if (trashOpen) { setTrashOpen(false); return true; }
     if (page !== 'home') { openPage('home'); return true; }
@@ -607,7 +612,7 @@ export default function SettingsSheet({
   };
 
   return (
-    <Overlay open={open} onClose={onClose} align="full">
+    <Overlay open={open} onClose={onClose} align="full" screen>
     <div
       className={legacyStyle ? 'settings-shell app-frame h-full w-full max-w-md mx-auto bg-base page-slide-in flex flex-col overflow-hidden border-x border-subtle' : 'settings-shell app-frame h-full w-full max-w-md mx-auto bg-base page-slide-in flex flex-col overflow-hidden'}
     >

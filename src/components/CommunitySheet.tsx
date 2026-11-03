@@ -57,7 +57,7 @@ import UserProfileSheet from './UserProfileSheet';
 import AdminBackersReviewModal from './AdminBackersReviewModal';
 import SupportSettingsAdmin from './community/SupportSettingsAdmin';
 import { HubNavBar } from './hub/HubParts';
-import { setAdminBackHandler } from '../lib/adminBack';
+import { setBackStep } from '../lib/backSteps';
 import { fetchPendingHubBackers } from '../lib/backers';
 import { isSupportPaused } from '../lib/supportSettings';
 import { useSupportSettings } from '../hooks/useSupportSettings';
@@ -131,14 +131,9 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   useEffect(() => { adminBody.current?.scrollTo?.(0, 0); }, [controlsPage]);
   // Android's Back reaches the Admin Hub through App, not through the Overlay below.
   useEffect(() => {
-    if (mode !== 'admin') return;
-    setAdminBackHandler(() => {
-      if (backersOpen) { setBackersOpen(false); return true; }
-      if (controlsPage) { setControlsPage(null); return true; }
-      return false;
-    });
-    return () => setAdminBackHandler(null);
-  }, [mode, backersOpen, controlsPage]);
+    setBackStep('admin', controlsPage ? () => setControlsPage(null) : null);
+    return () => setBackStep('admin', null);
+  }, [controlsPage]);
   // The arrow and Escape leave a Controls page before the Admin Hub, too.
   const goBack = () => {
     if (controlsPage) setControlsPage(null);
@@ -360,7 +355,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     setBusy(false);
   };
 
-  return <Overlay open={open} onClose={goBack} align="full">
+  return <Overlay open={open} onClose={goBack} align="full" screen={mode === 'admin'}>
     <div className={`community-shell app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base ${mode === 'admin' ? 'hub' : ''}`}>
       {mode === 'admin' ? (
         <HubNavBar
