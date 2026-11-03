@@ -4,7 +4,7 @@
 
 /* ─────────────────────────────────────────────────────────────────────────
    YouDO 8 design system — modelled on Apple's Human Interface Guidelines.
-   • Grouped backgrounds: true-black / #F2F2F7 canvas, raised cells on top.
+   • Grouped backgrounds: true-black / warm paper canvas, raised cells on top.
    • One tint (user-selectable system color) drives every interactive state.
    • Hairline separators instead of outlined boxes; depth comes from fills.
    ───────────────────────────────────────────────────────────────────────── */
@@ -42,12 +42,13 @@ html.dark {
 }
 
 html.light-dusky {
-  --bg-base: #f2f2f7;
-  --bg-surface: #ffffff;
-  --bg-elevated: #ffffff;
-  --bg-sheet: #f2f2f7;
-  --bg-fill: rgba(118, 118, 128, 0.12);
-  --bg-fill-strong: rgba(118, 118, 128, 0.2);
+  /* Warm paper rather than bright white, so long sessions stay easy on the eyes. */
+  --bg-base: #e8e4da;
+  --bg-surface: #f5f2ea;
+  --bg-elevated: #faf8f2;
+  --bg-sheet: #eeeae0;
+  --bg-fill: rgba(84, 74, 52, 0.12);
+  --bg-fill-strong: rgba(84, 74, 52, 0.2);
   --primary: #8c6a3a;
   --accent-tick: #4e7a57;
   --secondary: #248a3d;
@@ -56,20 +57,20 @@ html.light-dusky {
   --error: #e5342a;
   --on-primary: #ffffff;
   --on-accent: #ffffff;
-  --text-primary: #000000;
-  --text-secondary: #6c6c70;
-  --text-muted: #8e8e93;
-  --border: #d1d1d6;
-  --border-subtle: #ebebef;
-  --separator: rgba(60, 60, 67, 0.22);
+  --text-primary: #1f1d19;
+  --text-secondary: #5a564c;
+  --text-muted: #736d61;
+  --border: #cfc9ba;
+  --border-subtle: #d9d3c5;
+  --separator: rgba(70, 60, 40, 0.2);
   --switch-on: var(--primary);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 14px -6px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 1px 2px rgba(60, 50, 30, 0.08), 0 6px 16px -8px rgba(60, 50, 30, 0.16);
   --shadow-elevated: 0 24px 60px -24px rgba(0, 0, 0, 0.28);
   --backdrop: rgba(0, 0, 0, 0.24);
-  --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-border: rgba(0, 0, 0, 0.06);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 10px 34px -10px rgba(0, 0, 0, 0.22);
+  --glass-bg: rgba(245, 242, 234, 0.72);
+  --glass-border: rgba(70, 60, 40, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 10px 34px -10px rgba(60, 50, 30, 0.24);
   color-scheme: light;
 }
 
@@ -1145,18 +1146,14 @@ input[type='datetime-local'] {
 }
 /* Settings home (new look): a Signal-style profile header and plain rows,
    no cards; each row opens its own page. */
-.settings-home-profile { display: flex; align-items: center; gap: 14px; width: 100%; padding: 6px 16px 18px; }
+.settings-home-profile { display: flex; align-items: center; gap: 12px; width: 100%; padding: 0 4px 20px; }
 .settings-home-avatar {
-  display: grid; place-items: center; flex: none; width: 64px; height: 64px; overflow: hidden;
+  display: grid; place-items: center; flex: none; width: 56px; height: 56px; overflow: hidden;
   border-radius: 999px; background: color-mix(in srgb, var(--primary) 18%, var(--bg-surface));
   color: var(--primary); font-size: 24px; font-weight: 600;
 }
-.settings-home-row { display: flex; align-items: center; gap: 16px; width: 100%; min-height: 54px; padding: 0 16px; }
-.settings-home-row:active, .settings-home-profile:active { background: var(--bg-elevated); }
-@media (hover: hover) {
-  .settings-home-row:hover, .settings-home-profile:hover { background: var(--bg-surface); }
-}
-.settings-home-group { margin-top: 6px; padding-top: 6px; border-top: 0.5px solid var(--separator); }
+.settings-home-profile:active { opacity: 0.7; }
+.settings-home .yd-section { margin-bottom: 18px; }
 .settings-home-count {
   min-width: 20px; height: 20px; padding: 0 6px; display: grid; place-items: center; border-radius: 999px;
   background: var(--primary); color: var(--on-primary); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -1741,11 +1738,12 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
   content: none;
 }
 
+/* The signature lit card (signature.css), for the groups on every Settings page. */
 .settings-card {
-  border-radius: var(--radius) !important;
-  border: 0 !important;
-  background: var(--bg-surface) !important;
-  box-shadow: var(--shadow-card) !important;
+  border-radius: 20px !important;
+  border: 1px solid color-mix(in srgb, var(--primary) 10%, var(--border-subtle)) !important;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--primary) 9%, var(--bg-surface)), var(--bg-surface)) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent), var(--shadow-card) !important;
 }
 .settings-card > * + * { border-color: var(--separator) !important; }
 
@@ -1826,13 +1824,12 @@ html[data-native-shell='true'] .auth-scroll-page { height: 100%; }
 .settings-card div.w-9.h-9.rounded-xl,
 .settings-card div.size-9.rounded-xl,
 .settings-data-row > div:first-child > div.w-9:first-child {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
   border: 0;
-  background: var(--primary) !important;
-  color: var(--on-primary) !important;
-  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--primary) 16%, transparent) !important;
+  color: var(--primary) !important;
 }
 
 .settings-segment {
@@ -1929,12 +1926,12 @@ html.dark .settings-segment > button.bg-primary { background: #636366 !important
 }
 
 .settings-data-row > div > svg {
-  width: 32px;
-  height: 32px;
-  padding: 7px;
-  border-radius: 8px;
-  background: var(--primary);
-  color: var(--on-primary);
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
   border: 0;
 }
 

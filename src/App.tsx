@@ -767,7 +767,7 @@ function AppInner() {
   useEffect(() => {
     const chrome = legacyStyle
       ? (darkMode ? '#11100E' : '#E6E0D4')
-      : (darkMode ? '#000000' : '#F2F2F7');
+      : (darkMode ? '#000000' : '#E8E4DA');
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', chrome);
     const initStatusBar = async () => {
       try {

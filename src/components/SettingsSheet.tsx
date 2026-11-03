@@ -47,6 +47,7 @@ import {
   X,
   Database,
 } from 'lucide-react';
+import '../signature.css';
 import Overlay from './Overlay';
 import Toggle from './Toggle';
 import FocusSoundPicker from './FocusSoundPicker';
@@ -786,35 +787,38 @@ export default function SettingsSheet({
           const name = user ? (user.user_metadata?.full_name || user.email?.split('@')[0] || 'Aspirant') : 'Offline workspace';
           const handle = normalizeUsername(accountProfile?.username);
           const avatar = user?.user_metadata?.avatar_url;
-          const rows: { id: string; label: string; icon: typeof Bell; onClick: () => void; badge?: React.ReactNode }[][] = [
-            [
+          const rows: { title: string; items: { id: string; label: string; icon: typeof Bell; onClick: () => void; badge?: React.ReactNode }[] }[] = [
+            { title: 'Your day', items: [
               { id: 'appearance', label: 'Appearance', icon: Palette, onClick: () => openPage('appearance') },
               { id: 'notifications', label: 'Notifications', icon: Bell, onClick: () => openPage('notifications') },
               { id: 'focus', label: 'Focus and streak', icon: Flame, onClick: () => openPage('focus') },
-            ],
-            [
+            ] },
+            { title: 'People and data', items: [
               { id: 'board', label: 'Board and Hub', icon: Users, onClick: () => openPage('board') },
               { id: 'data', label: 'Backup and data', icon: Database, onClick: () => openPage('data') },
-            ],
-            [
+            ] },
+            { title: 'YouDO', items: [
               ...(onOpenAdminHub ? [{ id: 'admin', label: 'Admin Hub', icon: ShieldCheck, onClick: onOpenAdminHub,
                 badge: adminPending > 0 ? <span className="settings-home-count" aria-label={`${adminPending} waiting`}>{adminPending > 99 ? '99+' : adminPending}</span> : undefined }] : []),
               { id: 'about', label: 'About and updates', icon: Info, onClick: () => openPage('about'),
                 badge: availableUpdate ? <span className="size-2.5 shrink-0 rounded-full bg-error" aria-label="Update available" /> : undefined },
-            ],
+            ] },
           ];
           return (
-            <nav aria-label="Settings" className="settings-home -mx-4 -mt-1">
+            <nav aria-label="Settings" className="settings-home -mt-1">
               <button
                 type="button"
                 className="settings-home-profile"
                 onClick={() => openPage('account')}
               >
-                <span className="settings-home-avatar" aria-hidden>
-                  {!user ? <WifiOff size={24} />
-                    : avatar && /^https?:/.test(String(avatar)) ? <img src={String(avatar)} alt="" className="size-full object-cover" />
-                      : avatar ? String(avatar)
-                        : name.trim().split(/s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase() ?? '').join('')}
+                <span className="yd-arc" aria-hidden>
+                  <svg viewBox="0 0 72 72"><path d="M12.5 56.5a31 31 0 1 1 47 0" /></svg>
+                  <span className="settings-home-avatar">
+                    {!user ? <WifiOff size={24} />
+                      : avatar && /^https?:/.test(String(avatar)) ? <img src={String(avatar)} alt="" className="size-full object-cover" />
+                        : avatar ? String(avatar)
+                          : name.trim().split(/s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase() ?? '').join('')}
+                  </span>
                 </span>
                 <span className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-[18px] font-semibold text-content-primary">{name}</span>
@@ -825,20 +829,23 @@ export default function SettingsSheet({
                 {cloudSyncConflict && <span className="size-2 shrink-0 rounded-full bg-warning" aria-label="Sync conflict requires review" />}
                 <ChevronRight size={18} className="shrink-0 text-content-muted" aria-hidden />
               </button>
-              {rows.map((group, index) => (
-                <div key={index} className={index ? 'settings-home-group' : undefined}>
-                  {group.map((row) => {
-                    const Icon = row.icon;
-                    return (
-                      <button key={row.id} type="button" className="settings-home-row" onClick={row.onClick}>
-                        <Icon size={21} strokeWidth={1.8} className="shrink-0 text-content-secondary" aria-hidden />
-                        <span className="flex-1 text-left text-[15px] text-content-primary">{row.label}</span>
-                        {row.badge}
-                        <ChevronRight size={17} className="shrink-0 text-content-muted" aria-hidden />
-                      </button>
-                    );
-                  })}
-                </div>
+              {rows.map((group) => (
+                <section key={group.title} className="yd-section" aria-label={group.title}>
+                  <h2 className="yd-heading">{group.title}</h2>
+                  <div className="yd-card">
+                    {group.items.map((row) => {
+                      const Icon = row.icon;
+                      return (
+                        <button key={row.id} type="button" className="yd-row" onClick={row.onClick}>
+                          <span className="yd-tile" aria-hidden><Icon size={19} strokeWidth={1.8} /></span>
+                          <span className="yd-row-main yd-row-title">{row.label}</span>
+                          {row.badge}
+                          <ChevronRight size={17} className="shrink-0 text-content-muted" aria-hidden />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
               ))}
             </nav>
           );

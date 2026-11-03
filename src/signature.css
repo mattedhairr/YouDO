@@ -100,6 +100,10 @@ button.yd-row:active { background: color-mix(in srgb, var(--primary) 10%, transp
 
 .yd-note { margin-top: 8px; padding: 0 4px; color: var(--text-muted); font-size: 11.5px; line-height: 1.45; }
 
+/* The open arc from the widgets, around the one thing a screen is about. */
+.yd-arc { position: relative; display: grid; flex: none; place-items: center; width: 72px; height: 72px; }
+.yd-arc > svg { position: absolute; inset: 0; fill: none; stroke: var(--primary); stroke-linecap: round; stroke-width: 2.5; }
+
 /* A QR code stays black on white in every theme, so it always scans. */
 .yd-qr {
   flex: none;
