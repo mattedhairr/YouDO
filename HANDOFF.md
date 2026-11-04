@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-04**, while preparing **v8.3.3**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-04**, while preparing **v8.3.4**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.3.3, versionCode 87 (being released 2026-11-04). Before it: v8.3.2, versionCode 86, published 2026-10-31.
+- **Latest release:** v8.3.4, versionCode 88 (being released 2026-11-04). Before it: v8.3.3, versionCode 87, also 2026-11-04.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app serves 8.3.2.
   - It was announced on Telegram.
@@ -14,7 +14,8 @@ Last updated **2026-11-04**, while preparing **v8.3.3**. Read this file first wh
 - **Server (Supabase `iyrnywfaxakvjkmddmqv`):**
   - every SQL file in `supabase/` and the `send-push` function were applied to production by v8.3.0 (checked 2026-10-29);
   - v8.3.1 had no server changes;
-  - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings).
+  - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings);
+  - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success).
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -30,11 +31,9 @@ Last updated **2026-11-04**, while preparing **v8.3.3**. Read this file first wh
 - Small known flaw: an icon overlaps the title in Blueprint Studio's top bar at phone width.
 - Stage 4 of the signature style (Today, Goals, Calendar, Studio) was mocked up and set aside. Five Dependabot pull requests (#72 to #76) wait for one combined branch and a test APK.
 
-## Next release: sync rework (on the `fixes` branch, not pushed)
+## Still to check from v8.3.4 (the sync rework, released without phone tests by the owner's choice)
 
-**Before releasing, run `supabase/cloud_backup_limits.sql` in the SQL Editor** (safe to re-run; the app works with or without it).
-
-Phone checks for the next test build, with a test account, not your main one:
+It was tested with a two-device simulation and in the real app against a fake cloud, never on real phones or the real server. Use a test account, not your main one:
 - Change something on the phone with the website open: it should appear within a few seconds. The instant signal has never run against the real server.
 - Edit on the phone and close the app at once, then look on the website.
 - Run a sitting on the phone while changing another card on the website; both should stay.

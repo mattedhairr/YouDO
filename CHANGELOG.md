@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.3.4] - 2026-11-04 - Smoother Sync Between Devices
+
+- **Sync that doesn't get stuck** — Changing a setting never stops sync. A new or empty device picks up your work by itself, and Combine copies now always does something.
+- **Your work stays safe** — Edits made while copies are combining are kept, a device with a wrong clock can't undo a change, and trash you emptied stays empty.
+- **Faster and lighter** — Changes reach your other devices sooner, edits upload as you leave the app, and sync no longer re-downloads your whole backup while nothing has changed.
+- **Syncs during a sitting** — Changes from your other devices now arrive while you focus, unless they touch the card you're working on.
+- **More private and more honest** — Signing out removes the sync copy from that device, and messages about clearing and storing your data now say exactly what happens.
+- **Android APK** — versionName **8.3.4**, versionCode **88**. Installs over v8.3.3 (87).
+
+---
+
 ## [v8.3.3] - 2026-11-04 - Smaller Rooms and a Fresh New Look
 
 - **Rooms of 2 or 3** — Choose 2, 3 or 4 people when you create a room. The Room widget has its own layout for each size, and existing rooms keep 4.
