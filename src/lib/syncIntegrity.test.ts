@@ -3,8 +3,8 @@ import { mergeWorkspace, type WorkspaceSlice } from './syncMerge';
 import { decideSyncAction, isWorkspaceEffectivelyEmpty } from './syncDecision';
 import type { Task } from '../types';
 import { advanceDeletionLedger } from './deletionLedger';
-import { canonicalWorkspaceFingerprint, differOnlyInSettings, mergeSettingsInto } from './syncPayload';
-import { mergeWorkspaceThreeWay } from './syncMerge3';
+import { canonicalWorkspaceFingerprint, differOnlyInSettings } from './syncPayload';
+import { mergeSettingsInto, mergeWorkspaceThreeWay } from './syncMerge3';
 import { defaultStreakMeta } from './focusTrends';
 
 const empty: WorkspaceSlice = { tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [] };
@@ -14,7 +14,9 @@ describe('copies that differ only in settings', () => {
   const day = '2026-11-04';
 
   it('never stops sync, even on an empty device that has synced before', () => {
-    expect(decideSyncAction({ localFingerprint: 'pc', remoteFingerprint: 'cloud', baseFingerprint: 'cloud', localEmpty: true, onlySettingsDiffer: true })).toBe('settings');
+    expect(decideSyncAction({ localFingerprint: 'pc', remoteFingerprint: 'cloud', baseFingerprint: 'cloud', localEmpty: true, onlySettingsDiffer: true })).toBe('push');
+    expect(decideSyncAction({ localFingerprint: 'pc', remoteFingerprint: 'cloud', baseFingerprint: 'pc', localEmpty: true, onlySettingsDiffer: true })).toBe('pull');
+    expect(decideSyncAction({ localFingerprint: 'pc', remoteFingerprint: 'cloud', baseFingerprint: 'older', localEmpty: true, onlySettingsDiffer: true })).toBe('settings');
     expect(decideSyncAction({ localFingerprint: 'a', remoteFingerprint: 'b', baseFingerprint: 'c', localEmpty: false, onlySettingsDiffer: true })).toBe('settings');
     expect(decideSyncAction({ localFingerprint: 'a', remoteFingerprint: 'b', baseFingerprint: null, localEmpty: false, onlySettingsDiffer: true })).toBe('settings');
   });

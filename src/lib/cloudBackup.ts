@@ -192,6 +192,17 @@ export async function fetchLiveBackupMeta(
   return { backupData: data.backup_data as string, updatedAt: data.updated_at as string, revision: data.revision as number };
 }
 
+/** Just the revision number, so an unchanged cloud copy is not downloaded again. */
+export async function fetchLiveRevision(userId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('user_backups')
+    .select('revision')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw new Error('Could not reach the cloud copy. Reconnect and try again; the device copy was preserved.');
+  return (data?.revision as number | undefined) ?? null;
+}
+
 export function visitSnapshotLabel(indexFromNewest: number): string {
   if (indexFromNewest === 0) return 'Most recent safety copy';
   if (indexFromNewest === 1) return 'Previous safety copy';

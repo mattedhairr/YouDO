@@ -30,6 +30,17 @@ Last updated **2026-11-04**, while preparing **v8.3.3**. Read this file first wh
 - Small known flaw: an icon overlaps the title in Blueprint Studio's top bar at phone width.
 - Stage 4 of the signature style (Today, Goals, Calendar, Studio) was mocked up and set aside. Five Dependabot pull requests (#72 to #76) wait for one combined branch and a test APK.
 
+## Next release: sync rework (on the `fixes` branch, not pushed)
+
+**Before releasing, run `supabase/cloud_backup_limits.sql` in the SQL Editor** (safe to re-run; the app works with or without it).
+
+Phone checks for the next test build, with a test account, not your main one:
+- Change something on the phone with the website open: it should appear within a few seconds. The instant signal has never run against the real server.
+- Edit on the phone and close the app at once, then look on the website.
+- Run a sitting on the phone while changing another card on the website; both should stay.
+- Combine copies on a real device pair, then check Cloud Restore Points.
+- Sign out on a device: its saved sync copy should be gone.
+
 ## Check these on a real phone first
 
 These shipped without a device test, because the owner chose a direct release.

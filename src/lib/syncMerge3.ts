@@ -165,16 +165,25 @@ function deletedUnchanged(side: WorkspaceSlice, id: string, kind: 'goal' | 'task
   return false;
 }
 
-function mergeSessions(local: unknown, remote: unknown, localNewer: boolean): Record<string, TaskSession[]> {
+function mergeSessions(base: unknown, local: unknown, remote: unknown, localNewer: boolean): Record<string, TaskSession[]> {
   const byId = new Map<string, TaskSession>();
-  const histories = localNewer ? [sanitizeSessionHistory(remote), sanitizeSessionHistory(local)] : [sanitizeSessionHistory(local), sanitizeSessionHistory(remote)];
-  for (const history of histories) {
-    for (const rows of Object.values(history)) {
-      for (const row of rows) {
-        const prior = byId.get(row.id);
-        // A sitting that differs between copies keeps the longer record of work.
-        if (!prior || (row.netFocusMs ?? 0) >= (prior.netFocusMs ?? 0)) byId.set(row.id, row);
-      }
+  const rowsOf = (history: Record<string, TaskSession[]>) => new Map(Object.values(history).flat().map((row) => [row.id, row]));
+  const localRows = rowsOf(sanitizeSessionHistory(local));
+  const remoteRows = rowsOf(sanitizeSessionHistory(remote));
+  for (const rows of localNewer ? [remoteRows, localRows] : [localRows, remoteRows]) {
+    for (const row of rows.values()) {
+      const prior = byId.get(row.id);
+      // A sitting that differs between copies keeps the longer record of work.
+      if (!prior || (row.netFocusMs ?? 0) >= (prior.netFocusMs ?? 0)) byId.set(row.id, row);
+    }
+  }
+  // Removed on one device (trimmed, or a step unticked) and untouched on the
+  // other: the removal stands, or a backup could never be made smaller.
+  if (base) {
+    for (const [id, row] of rowsOf(sanitizeSessionHistory(base))) {
+      const l = localRows.get(id);
+      const r = remoteRows.get(id);
+      if (Boolean(l) !== Boolean(r) && same(row, l ?? r)) byId.delete(id);
     }
   }
   const out: Record<string, TaskSession[]> = {};
@@ -191,6 +200,33 @@ function mergeLedgers(local: DeletionMarker[], remote: DeletionMarker[]): Deleti
     if (!prior || marker.deletedAt > prior.deletedAt) byKey.set(key, marker);
   }
   return sortDeletionLedger([...byKey.values()]);
+}
+
+/** Whichever copy changed since they agreed; a real clash goes to the later change. */
+function settle<T>(hasBase: boolean, base: T | null | undefined, local: T | null | undefined, remote: T | null | undefined, merge: (a: T, b: T) => T): T | null | undefined {
+  if (!local) return remote;
+  if (!remote || same(local, remote)) return local;
+  if (hasBase && same(base, local)) return remote;
+  if (hasBase && same(base, remote)) return local;
+  // Sorted, so equal timestamps give both devices the same answer.
+  return stableContent(local) <= stableContent(remote) ? merge(local, remote) : merge(remote, local);
+}
+
+/** Settings of two copies. Clocks decide only when both copies really changed. */
+export function mergeSettings(base: WorkspaceSlice | null, local: WorkspaceSlice, remote: WorkspaceSlice): Pick<WorkspaceSlice, 'streakMeta' | 'pacePrefs'> {
+  return {
+    streakMeta: settle(Boolean(base), base?.streakMeta, local.streakMeta, remote.streakMeta, mergeStreakMeta) ?? undefined,
+    pacePrefs: settle(Boolean(base), base?.pacePrefs, local.pacePrefs, remote.pacePrefs, mergePacePrefs) ?? undefined,
+  };
+}
+
+/** This device's work with each setting taken from the copy that really changed it. */
+export function mergeSettingsInto(local: WorkspaceSlice, remote: WorkspaceSlice, base: WorkspaceSlice | null = null): WorkspaceSlice {
+  return {
+    ...local,
+    ...mergeSettings(base, local, remote),
+    updatedAt: Math.max(local.updatedAt ?? 0, remote.updatedAt ?? 0) || undefined,
+  };
 }
 
 export function mergeWorkspaceThreeWay(base: WorkspaceSlice | null, local: WorkspaceSlice, remote: WorkspaceSlice, now = Date.now()): ThreeWayMerge {
@@ -309,8 +345,14 @@ export function mergeWorkspaceThreeWay(base: WorkspaceSlice | null, local: Works
   const deletionLedger = mergeLedgers(local.deletionLedger ?? [], remote.deletionLedger ?? [])
     .filter((m) => (m.kind === 'goal' ? !goals.has(m.id) : !tasks.has(m.id)));
   const trash = new Map<string, TrashRecord>();
+  const trashIds = (side: WorkspaceSlice | null) => new Set((side?.recentlyDeletedGoals ?? []).map((row) => row?.id));
+  const baseTrash = trashIds(base);
+  const localTrash = trashIds(local);
+  const remoteTrash = trashIds(remote);
   for (const row of [...(remote.recentlyDeletedGoals ?? []), ...(local.recentlyDeletedGoals ?? [])]) {
     if (!row?.id || !row.node || goals.has(row.node.id)) continue;
+    // Emptied from the trash on one device: it stays gone.
+    if (baseTrash.has(row.id) && !(localTrash.has(row.id) && remoteTrash.has(row.id))) continue;
     const prior = trash.get(row.id);
     if (!prior || row.deletedAt >= prior.deletedAt) trash.set(row.id, row);
   }
@@ -319,17 +361,10 @@ export function mergeWorkspaceThreeWay(base: WorkspaceSlice | null, local: Works
     slice: {
       tasks: mergedTasks,
       goals: mergedGoals,
-      sessionHistory: mergeSessions(local.sessionHistory, remote.sessionHistory, localNewer),
+      sessionHistory: mergeSessions(base?.sessionHistory, local.sessionHistory, remote.sessionHistory, localNewer),
       recentlyDeletedGoals: [...trash.values()].sort((a, b) => b.deletedAt - a.deletedAt).slice(0, 20),
       deletionLedger,
-      streakMeta: mergeStreakMeta(
-        local.streakMeta ?? { bestStreak: 0, barHours: 1, barEffectiveFrom: '1970-01-01', revive: null, updatedAt: 0 },
-        remote.streakMeta,
-      ),
-      pacePrefs: mergePacePrefs(
-        local.pacePrefs ?? { optedIn: false, displayName: '', examLabel: '', updatedAt: 0 },
-        remote.pacePrefs,
-      ),
+      ...mergeSettings(base, local, remote),
       updatedAt: Math.max(now, local.updatedAt ?? 0, remote.updatedAt ?? 0),
     },
     clashes: [...clashes],

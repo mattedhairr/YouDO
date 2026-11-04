@@ -1036,7 +1036,7 @@ export default function SettingsSheet({
                     {/* Clear cloud backup flow in-place */}
                     {!confirmWipeCloud ? (
                       <div className="flex items-center justify-between pt-1 border-t border-subtle/50 text-[10.5px]">
-                        <span className="text-content-muted">Encrypted cloud copy</span>
+                        <span className="text-content-muted">Private to your account</span>
                         <button
                           type="button"
                           onClick={() => setConfirmWipeCloud(true)}
@@ -1050,10 +1050,10 @@ export default function SettingsSheet({
                       <div className="rounded-xl border border-error/30 bg-error-soft/90 p-3 space-y-2.5">
                         <div className="flex items-center gap-2 text-error font-semibold text-[11.5px]">
                           <AlertTriangle size={14} className="shrink-0" />
-                          <span>Permanently clear cloud backup?</span>
+                          <span>Clear cloud backup?</span>
                         </div>
                         <p className="text-[11px] text-content-secondary leading-relaxed">
-                          Clearing the cloud backup deletes your data from the server. Your local device copy will NOT be deleted.
+                          This deletes the live cloud copy. Your device copy stays, and so do your restore points, so this can be undone. Deleting your account removes everything.
                         </p>
                         <div className="flex gap-2 pt-0.5">
                           <button
@@ -1063,7 +1063,7 @@ export default function SettingsSheet({
                               setConfirmWipeCloud(false);
                               setMsg(
                                 success
-                                  ? { text: '✓ Cloud backup permanently cleared.' }
+                                  ? { text: '✓ Cloud backup cleared. Restore points were kept.' }
                                   : { text: '✗ Failed to clear cloud backup.', error: true },
                               );
                             }}
@@ -1110,7 +1110,7 @@ export default function SettingsSheet({
                             setCombining(false);
                             setMsg(
                               result.ok
-                                ? { text: `✓ ${result.notice ?? 'Combined changes from both devices.'}` }
+                                ? { text: `✓ ${result.notice ?? 'This device and the cloud match again.'}` }
                                 : { text: `✗ ${result.error || 'Could not combine copies.'}`, error: true },
                             );
                           }}
@@ -1804,7 +1804,7 @@ export default function SettingsSheet({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 text-[10.5px] text-content-muted">
                       <span className="size-1.5 rounded-full bg-secondary" />
-                      <span>Encrypted local workspace</span>
+                      <span>Saved on this device</span>
                     </div>
 
                     <button
@@ -1867,7 +1867,7 @@ export default function SettingsSheet({
                     </div>
                     <h3 className="mt-1 text-[16px] font-bold text-content-primary leading-tight">Stored on this device</h3>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-content-secondary">
-                      You can use every private planning tool without an account. Connect when you want encrypted cloud backup and multi-device sync.
+                      You can use every private planning tool without an account. Connect when you want private cloud backup and multi-device sync.
                     </p>
                   </div>
                 </div>
