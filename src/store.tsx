@@ -71,14 +71,17 @@ import {
   isStoredSessionHistory,
   WORKSPACE_ALIAS_KEYS,
 } from './lib/storageKeys';
+import { readWorkspaceJsonStrict } from './lib/storageKeys';
 import { commitWorkspaceMutation, prepareSettingsImport } from './lib/workspaceReplacement';
 import { workspaceFingerprint, workspaceSignature, type TrashRecord, type WorkspaceSlice } from './lib/syncMerge';
-import { mergeWorkspaceThreeWay, type ThreeWayMerge } from './lib/syncMerge3';
-import { loadSyncBase, saveSyncBase } from './lib/syncBase';
+import type { ThreeWayMerge } from './lib/syncMerge3';
+import { loadSyncBase, pruneSyncBases, saveSyncBase } from './lib/syncBase';
+import { openSyncSignal, type SyncSignal } from './lib/syncSignal';
 import { decideSyncAction, isWorkspaceEffectivelyEmpty, type SyncConflictStrategy } from './lib/syncDecision';
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
 import { isPristineLocalWorkspace } from './lib/syncCheckpoint';
 import { advanceDeletionLedger, isDeletionLedger, type DeletionMarker } from './lib/deletionLedger';
+import { differOnlyInSettings } from './lib/syncPayload';
 import { parseSyncConflictRecord, type SyncConflictKind, type SyncConflictRecord } from './lib/syncConflictRecord';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 import {
@@ -158,7 +161,23 @@ type CloudSyncOptions = {
   conflictStrategy?: SyncConflictStrategy;
 };
 
-type CloudSyncResult = { ok: boolean; error?: string; conflict?: boolean; /** What a combine did, in plain words. */ notice?: string };
+type CloudSyncResult = {
+  ok: boolean;
+  error?: string;
+  conflict?: boolean;
+  /** What a combine did, in plain words. */
+  notice?: string;
+  /** Another device saved first; worth looking again straight away. */
+  raced?: boolean;
+  /** Nothing moved on either side since the last sync. */
+  unchanged?: boolean;
+};
+
+/** What this device last settled with the cloud, so an idle check costs almost nothing. */
+type SyncedState = { accountId: string; revision: number; fingerprint: string; slice: WorkspaceSlice; pace: string };
+
+/** How often Board and room evidence is rebuilt while nothing has changed. */
+const IDLE_EVIDENCE_MS = 5 * 60_000;
 
 /** One short line about what combining two devices did. */
 function combineNotice(result: ThreeWayMerge): string {
@@ -337,7 +356,7 @@ const isArray = (value: unknown) => Array.isArray(value);
 const isRecord = (value: unknown) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { user, deleteCloudBackup, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot, saveSafetyCopy } = useAuth();
+  const { user, deleteCloudBackup, updateCloudBackup, fetchCloudBackup, fetchLiveBackupInfo, fetchLiveBackupRevision, listVisitSnapshots, fetchVisitSnapshot, saveSafetyCopy } = useAuth();
   const [tasks, setTasks] = useLocalStorage<Task[]>(STORAGE_KEYS.tasks, SEED_TASKS, { ...atomicStorage, validate: isStoredTaskList });
   const [goals, setGoals] = useLocalStorage<GoalNode[]>(STORAGE_KEYS.goals, SEED_GOALS, { ...atomicStorage, validate: isStoredGoalTree });
   const [recentlyDeletedGoals, setRecentlyDeletedGoals] = useLocalStorage<DeletedGoalRecord[]>(STORAGE_KEYS.deletedGoals, [], { ...atomicStorage, validate: isArray });
@@ -1568,7 +1587,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const syncedRef = useRef<SyncedState | null>(null);
+  const syncSignalRef = useRef<SyncSignal | null>(null);
   const commitAndApplyWorkspace = useCallback((next: WorkspaceSlice, cloudFingerprint: string | null): boolean => {
+    syncedRef.current = null;
     const nextState = {
       tasks: next.tasks,
       goals: next.goals,
@@ -1686,7 +1708,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Agreed copies already looked for in the cloud restore points and not found.
   const baseLookupMissRef = useRef(new Set<string>());
-  const performCloudSync = useCallback(async (opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
+  const performCloudSync = useCallback(async (opts?: CloudSyncOptions, lastTry = true): Promise<CloudSyncResult> => {
     if (localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null) {
       return { ok: false, error: 'Device recovery is pending. Cloud sync is paused until this copy is safe.' };
     }
@@ -1705,8 +1727,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pacePrefs: pacePrefsRef.current,
       updatedAt: workspaceUpdatedAtRef.current,
     });
-    const remoteInfo = await fetchLiveBackupInfo();
+    // Ask for the revision first. If the cloud has not moved, nothing needs
+    // downloading: either nothing changed at all, or only this device did.
+    const known = syncedRef.current?.accountId === syncUserId ? syncedRef.current : null;
+    let onlyThisDeviceChanged = false;
+    if (!opts && known) {
+      const revision = await fetchLiveBackupRevision(syncUserId!);
+      if (!stillCurrent()) return accountChanged;
+      if (revision === known.revision) {
+        const now = currentSlice();
+        const same = now.tasks === known.slice.tasks && now.goals === known.slice.goals
+          && now.sessionHistory === known.slice.sessionHistory && now.recentlyDeletedGoals === known.slice.recentlyDeletedGoals
+          && now.deletionLedger === known.slice.deletionLedger && now.streakMeta === known.slice.streakMeta
+          && JSON.stringify(now.pacePrefs) === known.pace;
+        if (same) return { ok: true, unchanged: true };
+        onlyThisDeviceChanged = !isWorkspaceEffectivelyEmpty(now) && readWorkspaceCloudFingerprint() === known.fingerprint;
+      }
+    }
+    const remoteInfo = onlyThisDeviceChanged ? null : await fetchLiveBackupInfo(syncUserId!);
     if (!stillCurrent()) return accountChanged;
+    const markSynced = (revision: number | undefined, fingerprint: string, slice: WorkspaceSlice) => {
+      syncedRef.current = revision
+        ? { accountId: syncUserId!, revision, fingerprint, slice, pace: JSON.stringify(slice.pacePrefs) }
+        : null;
+    };
     // Reads any cloud copy: the live one or a restore point.
     const sliceOf = (backupData: string): WorkspaceSlice | null => {
       const parsed = parseBackupPayload(backupData);
@@ -1728,7 +1772,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const remoteSlice: WorkspaceSlice | null = remoteInfo ? sliceOf(remoteInfo.backupData) : null;
     if (remoteInfo && !remoteSlice) return { ok: false, error: 'The cloud backup could not be read. Neither copy was replaced.' };
     let localSlice = currentSlice();
-    let localFingerprint = canonicalWorkspaceFingerprint(localSlice, todayISO());
+    let localFingerprint = onlyThisDeviceChanged ? '' : canonicalWorkspaceFingerprint(localSlice, todayISO());
     const remoteFingerprint = remoteSlice
       ? canonicalWorkspaceFingerprint(remoteSlice, todayISO())
       : null;
@@ -1762,6 +1806,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return null;
     };
     const conflictResult = (kind: SyncConflictKind, error: string): CloudSyncResult => {
+      syncedRef.current = null;
       if (stillCurrent()) rememberCloudConflict({
         accountId: syncUserId!, kind, detectedAt: Date.now(),
         localFingerprint, remoteFingerprint, remoteRevision: remoteInfo?.revision ?? null,
@@ -1772,9 +1817,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const pullRemote = (): { ok: boolean; error?: string } => {
       if (!remoteInfo || !remoteSlice || !remoteFingerprint) return { ok: false, error: 'No valid cloud copy was found.' };
-      if (activeSessionRef.current) return { ok: false, error: 'End the current sitting before replacing this device workspace.' };
+      // A running sitting only needs its own card to stay as it is.
+      if (activeSessionRef.current) {
+        const runningId = activeSessionRef.current.taskId;
+        const here = localSlice.tasks.find((task) => task.id === runningId);
+        const there = remoteSlice.tasks.find((task) => task.id === runningId);
+        if (!here || !there || !sameTasks([here], [there])) return { ok: false, error: 'End the current sitting before replacing this device workspace.' };
+      }
       if (!commitAndApplyWorkspace(remoteSlice, remoteFingerprint)) return { ok: false, error: 'The cloud copy could not be saved on this device. Your previous copy was preserved.' };
       rememberBase(remoteFingerprint, remoteSlice);
+      markSynced(remoteInfo.revision, remoteFingerprint, currentSlice());
       setCloudSyncConflict(false);
       return { ok: true };
     };
@@ -1795,30 +1847,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         pacePrefs: pacePrefsRef.current,
       };
       const fingerprint = canonicalWorkspaceFingerprint(payload, todayISO());
-      const result = await updateCloudBackup(payload, { expectedRevision: remoteInfo?.revision ?? 0, expectedUserId: syncUserId!, requireSafetyCopy });
+      const expectedRevision = onlyThisDeviceChanged ? known!.revision : remoteInfo?.revision ?? 0;
+      const result = await updateCloudBackup(payload, { expectedRevision, expectedUserId: syncUserId!, requireSafetyCopy });
       if (!stillCurrent()) return accountChanged;
       if (result.ok) {
         if (!persistCloudFingerprint(fingerprint)) return { ok: false, error: 'Cloud saved, but this device could not save its sync status. Keep app data intact and retry.' };
-        rememberBase(fingerprint, {
+        const saved: WorkspaceSlice = {
           tasks: payload.tasks, goals: payload.goals, sessionHistory: payload.sessionHistory,
           recentlyDeletedGoals: payload.recentlyDeletedGoals as TrashRecord[], deletionLedger: payload.deletionLedger,
           streakMeta: payload.streakMeta, pacePrefs: payload.pacePrefs, updatedAt: payload.updatedAt,
-        });
+        };
+        rememberBase(fingerprint, saved);
+        markSynced(result.revision, fingerprint, saved);
+        syncSignalRef.current?.send();
         setCloudSyncConflict(false);
         return result;
       }
       const raced = /changed on another device|created on another device/i.test(result.error ?? '');
-      if (raced) return conflictResult('stale_revision', result.error ?? 'Cloud changed on another device.');
+      if (raced) {
+        // Both devices saved at once. Look again rather than showing a pause; an
+        // explicit overwrite never retries, since it would replace the newer copy.
+        if (!lastTry && !opts?.allowEmpty && opts?.conflictStrategy !== 'device') return { ok: false, raced: true, error: result.error };
+        localFingerprint = fingerprint;
+        return conflictResult('stale_revision', result.error ?? 'Cloud changed on another device.');
+      }
       return result;
     };
 
-    let decision = decideSyncAction({
+    // Empty now, but was there ever work here? Only the agreed copy can say.
+    const emptiedHere = localEmpty && remoteSlice && baseFingerprint && localFingerprint !== baseFingerprint && localFingerprint !== remoteFingerprint;
+    const agreedCopy = emptiedHere ? await findBase(false) : null;
+    if (!stillCurrent()) return accountChanged;
+    let decision = onlyThisDeviceChanged ? 'push' : decideSyncAction({
       localFingerprint,
       remoteFingerprint,
       baseFingerprint,
       localEmpty,
       allowEmpty: opts?.allowEmpty,
       conflictStrategy: opts?.conflictStrategy,
+      baseWasEmpty: Boolean(agreedCopy && isWorkspaceEffectivelyEmpty(agreedCopy)),
+      onlySettingsDiffer: Boolean(remoteSlice && localFingerprint !== remoteFingerprint && differOnlyInSettings(localSlice, remoteSlice, todayISO())),
     });
 
     // v6.1.1 stored fingerprints before canonical cloud normalization. During
@@ -1841,32 +1909,57 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (decision === 'noop') {
       if (!persistCloudFingerprint(remoteFingerprint!)) return { ok: false, error: 'This device could not save its cloud sync status.' };
       if (remoteSlice) rememberBase(remoteFingerprint!, remoteSlice);
+      markSynced(remoteInfo?.revision, remoteFingerprint!, localSlice);
       setCloudSyncConflict(false);
       return { ok: true };
     }
     if (decision === 'pull') return pullRemote();
     if (decision === 'push') return pushCurrent();
     if (decision === 'empty-error') {
-      return conflictResult('cleared_device', 'This workspace was cleared after its last cloud sync. Nothing was restored or uploaded. Review both copies before choosing what to keep.');
+      return conflictResult('cleared_device', remoteSlice
+        ? 'This device is empty, but the cloud copy has work. Nothing was changed. Combine copies brings that work back here.'
+        : 'This device is empty and its cloud copy is gone. Nothing was changed. Combine copies starts a new cloud copy.');
+    }
+    // Same work on both copies, so only the settings need settling. No restore
+    // point: nothing can be lost, and they would push real ones out of the ten kept.
+    if (decision === 'settings') {
+      const [base, { mergeSettingsInto }] = await Promise.all([findBase(false), import('./lib/syncMerge3')]);
+      if (!stillCurrent()) return accountChanged;
+      // Read again after that wait, so a change made meanwhile is kept.
+      const merged = mergeSettingsInto(currentSlice(), remoteSlice!, base);
+      if (!commitAndApplyWorkspace(merged, baseFingerprint)) return { ok: false, error: 'The settings could not be saved on this device. Neither copy was replaced.' };
+      localSlice = currentSlice();
+      localFingerprint = canonicalWorkspaceFingerprint(localSlice, todayISO());
+      if (localFingerprint === remoteFingerprint) {
+        if (!persistCloudFingerprint(remoteFingerprint!)) return { ok: false, error: 'This device could not save its cloud sync status.' };
+        rememberBase(remoteFingerprint!, remoteSlice!);
+        markSynced(remoteInfo?.revision, remoteFingerprint!, localSlice);
+        setCloudSyncConflict(false);
+        return { ok: true };
+      }
+      return pushCurrent(false);
     }
     // Combine both devices change by change against the last agreed copy, so
     // nothing either device did is lost. Both original copies become restore
     // points first. `auto` is a background sync; a tap on Combine copies is not.
     const combine = async (base: WorkspaceSlice | null, auto: boolean): Promise<CloudSyncResult> => {
       if (!remoteSlice) return { ok: false, error: 'No valid cloud copy was found to combine.' };
-      const result = mergeWorkspaceThreeWay(base, localSlice, remoteSlice);
-      const merged = result.slice;
-      const runningTaskId = activeSessionRef.current?.taskId;
-      if (runningTaskId) {
+      // Loaded on first use: most sessions never combine, and first-screen code has a size budget.
+      const { mergeWorkspaceThreeWay } = await import('./lib/syncMerge3');
+      if (!stillCurrent()) return accountChanged;
+      const runningCardChanged = (merged: WorkspaceSlice) => {
+        const runningTaskId = activeSessionRef.current?.taskId;
+        if (!runningTaskId) return false;
         const localRunningTask = localSlice.tasks.find((task) => task.id === runningTaskId);
         const mergedRunningTask = merged.tasks.find((task) => task.id === runningTaskId);
-        if (!localRunningTask || !mergedRunningTask || !sameTasks([localRunningTask], [mergedRunningTask])) {
-          return auto
-            ? conflictResult('different_copies', 'Both devices changed the card of this sitting. Sync combines them once the sitting ends.')
-            : { ok: false, error: 'End the current sitting before combining workspace changes.' };
-        }
-      }
-      const savedDevice = await saveSafetyCopy({
+        return !localRunningTask || !mergedRunningTask || !sameTasks([localRunningTask], [mergedRunningTask]);
+      };
+      const waitForSitting = (): CloudSyncResult => auto
+        ? conflictResult('different_copies', 'Both devices changed the card of this sitting. Sync combines them once the sitting ends.')
+        : { ok: false, error: 'End the current sitting before combining workspace changes.' };
+      if (runningCardChanged(mergeWorkspaceThreeWay(base, localSlice, remoteSlice).slice)) return waitForSitting();
+      // An empty copy holds nothing to go back to; it would only push out a real restore point.
+      const savedDevice = isWorkspaceEffectivelyEmpty(localSlice) || await saveSafetyCopy({
         app: 'YouDO', version: APP_VERSION, exportedAt: new Date().toISOString(), ...localSlice,
       }, syncUserId!);
       if (!stillCurrent()) return accountChanged;
@@ -1875,7 +1968,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? conflictResult('different_copies', 'Sync paused: a safety copy of this device could not be saved first. Nothing was overwritten.')
           : { ok: false, error: 'Could not save a safety copy of this device first. Nothing was combined; reconnect and retry.' };
       }
-      if (!commitAndApplyWorkspace(merged, baseFingerprint)) {
+      // Merge what the device holds now: anything done during the waits above
+      // (an edit, a finished sitting) is part of it and must not be overwritten.
+      localSlice = currentSlice();
+      const result = mergeWorkspaceThreeWay(base, localSlice, remoteSlice);
+      if (runningCardChanged(result.slice)) return waitForSitting();
+      if (!commitAndApplyWorkspace(result.slice, baseFingerprint)) {
         return { ok: false, error: 'The combined copy could not be saved on this device. Neither copy was replaced.' };
       }
       localSlice = currentSlice();
@@ -1883,6 +1981,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (localFingerprint === remoteFingerprint) {
         if (!persistCloudFingerprint(remoteFingerprint)) return { ok: false, error: 'This device could not save its cloud sync status.' };
         rememberBase(remoteFingerprint, remoteSlice);
+        markSynced(remoteInfo?.revision, remoteFingerprint, localSlice);
         setCloudSyncConflict(false);
         return { ok: true, notice: combineNotice(result) };
       }
@@ -1890,7 +1989,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const pushed = await pushCurrent(true);
       return pushed.ok ? { ...pushed, notice: combineNotice(result) } : pushed;
     };
-    if (decision === 'merge') return combine(await findBase(true), false);
+    // An empty device has nothing of its own to weigh: compared with the last
+    // agreed copy, its emptiness would read as deleting the cloud's work.
+    if (decision === 'merge') return combine(localEmpty ? null : await findBase(true), false);
     // Both devices changed: combine on its own when the last agreed copy is known.
     if (decision === 'conflict' && remoteSlice && baseFingerprint) {
       const base = await findBase(false);
@@ -1898,19 +1999,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (base) return combine(base, true);
     }
     return conflictResult(remoteSlice ? 'different_copies' : 'missing_cloud', !remoteSlice
-        ? 'The cloud copy disappeared. This device was preserved; review before recreating cloud data.'
+        ? 'The cloud copy is gone. This device was preserved. Combine copies starts a new cloud copy from it.'
         : baseFingerprint
           ? 'Sync paused: this device and another device both changed. Nothing was overwritten.'
           : 'Sync paused for a one-time safety check because this device and cloud contain different work.');
-  }, [activeSessionRef, updateCloudBackup, fetchLiveBackupInfo, listVisitSnapshots, fetchVisitSnapshot, saveSafetyCopy, commitAndApplyWorkspace, persistCloudFingerprint, rememberCloudConflict]);
+  }, [activeSessionRef, updateCloudBackup, fetchLiveBackupInfo, fetchLiveBackupRevision, listVisitSnapshots, fetchVisitSnapshot, saveSafetyCopy, commitAndApplyWorkspace, persistCloudFingerprint, rememberCloudConflict]);
 
   const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const lastEvidenceAtRef = useRef(0);
   const syncToCloud = useCallback((opts?: CloudSyncOptions): Promise<CloudSyncResult> => {
     const syncOwner = userIdRef.current;
-    const run = syncQueueRef.current.then(
-      () => performCloudSync(opts),
-      () => performCloudSync(opts),
-    ).then(async (result) => {
+    const attempt = async (retries: number): Promise<CloudSyncResult> => {
+      const result = await performCloudSync(opts, retries === 0);
+      return result.raced && retries > 0 ? attempt(retries - 1) : result;
+    };
+    const run = syncQueueRef.current.then(() => attempt(2), () => attempt(2)).then(async (result) => {
+      if (result.unchanged && Date.now() - lastEvidenceAtRef.current < IDLE_EVIDENCE_MS) return result;
+      if (result.ok) lastEvidenceAtRef.current = Date.now();
       if (result.ok && syncOwner && syncOwner === userIdRef.current && pacePrefsRef.current.optedIn) {
         // Public ranking is rebuilt only after the private cloud copy succeeds.
         // An unavailable Board must never turn a successful backup into a failure.
@@ -1929,6 +2034,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const clearCloudData = useCallback(async (): Promise<boolean> => {
     const success = await deleteCloudBackup();
     if (success) {
+      syncedRef.current = null;
+      syncSignalRef.current?.send();
       persistCloudFingerprint(null);
       setCloudSyncConflict(false);
     }
@@ -2026,59 +2133,154 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return before - after;
   }, [setSessionHistory]);
 
+  // The user object is replaced whenever the session is re-checked (each return
+  // to the app), so sync follows the account's id and the latest syncToCloud.
+  const signedInId = user?.id;
+  const syncToCloudRef = useRef(syncToCloud);
+  syncToCloudRef.current = syncToCloud;
+
   // Reconcile against the cloud on auth change. syncToCloud only pushes when
   // this device is the sole editor; concurrent edits pause instead of overwriting.
   useEffect(() => {
-    if (!user) return;
-    void syncToCloud();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+    if (!signedInId) return;
+    void syncToCloudRef.current();
+  }, [signedInId]);
 
-  // Automatic reconciliation: debounced 2s after any data change.
-  // syncToCloud is intentionally excluded from deps — it is a stable useCallback ref
-  // and including it would cause the effect to re-trigger after each cloud merge,
-  // creating a loop. Persisted fingerprints prevent redundant writes and detect two-device edits.
+  // Another tab of this site saved: take its copy, or this tab's older one in
+  // memory would be written back over it on the next save or sync.
   useEffect(() => {
-    if (!user) return;
-    const timer = setTimeout(() => { syncToCloud(); }, 2000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, tasks, goals, sessionHistory, recentlyDeletedGoals, deletionLedger, streakMeta, pacePrefs]);
+    const workspaceKeys = new Set<string>([STORAGE_KEYS.tasks, STORAGE_KEYS.goals, STORAGE_KEYS.deletedGoals, STORAGE_KEYS.deletionLedger, STORAGE_KEYS.sessionHistory, STORAGE_KEYS.streakMeta, STORAGE_KEYS.pacePrefs]);
+    const changed = new Set<string>();
+    let timer = 0;
+    const apply = () => {
+      const keys = new Set(changed);
+      changed.clear();
+      if (localStorage.getItem(STORAGE_KEYS.workspaceReplacement) !== null) return;
+      if (userIdRef.current && localStorage.getItem(STORAGE_KEYS.workspaceOwner) !== userIdRef.current) return;
+      const next = { ...persistedWorkspaceRef.current };
+      try {
+        if (keys.has(STORAGE_KEYS.tasks)) next.tasks = readWorkspaceJsonStrict(STORAGE_KEYS.tasks, next.tasks, isStoredTaskList);
+        if (keys.has(STORAGE_KEYS.goals)) next.goals = readWorkspaceJsonStrict(STORAGE_KEYS.goals, next.goals, isStoredGoalTree);
+        if (keys.has(STORAGE_KEYS.deletedGoals)) next.recentlyDeletedGoals = readWorkspaceJsonStrict(STORAGE_KEYS.deletedGoals, next.recentlyDeletedGoals, isArray);
+        if (keys.has(STORAGE_KEYS.deletionLedger)) next.deletionLedger = readWorkspaceJsonStrict(STORAGE_KEYS.deletionLedger, next.deletionLedger, isDeletionLedger);
+        if (keys.has(STORAGE_KEYS.sessionHistory)) next.sessionHistory = readWorkspaceJsonStrict(STORAGE_KEYS.sessionHistory, next.sessionHistory, isStoredSessionHistory);
+        if (keys.has(STORAGE_KEYS.streakMeta)) next.streakMeta = readWorkspaceJsonStrict(STORAGE_KEYS.streakMeta, next.streakMeta, isRecord);
+        if (keys.has(STORAGE_KEYS.pacePrefs)) next.pacePrefs = readWorkspaceJsonStrict(STORAGE_KEYS.pacePrefs, next.pacePrefs, isRecord);
+      } catch {
+        return; // Mid-write or damaged: keep this tab's copy; strict startup checks handle real damage.
+      }
+      persistedWorkspaceRef.current = next;
+      tasksRef.current = next.tasks;
+      goalsRef.current = next.goals;
+      recentlyDeletedRef.current = next.recentlyDeletedGoals;
+      deletionLedgerRef.current = next.deletionLedger;
+      sessionHistoryRef.current = next.sessionHistory;
+      streakMetaRef.current = next.streakMeta;
+      workspaceUpdatedAtRef.current = readWorkspaceUpdatedAt();
+      setTasks(next.tasks);
+      setGoals(next.goals);
+      setRecentlyDeletedGoals(next.recentlyDeletedGoals);
+      setDeletionLedger(next.deletionLedger);
+      setSessionHistory(next.sessionHistory);
+      setStreakMeta(next.streakMeta);
+      setPacePrefs(next.pacePrefs);
+      clearRollupCache();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.newValue === null || !workspaceKeys.has(event.key)) return;
+      changed.add(event.key);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(apply, 60); // One save writes several keys.
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [setTasks, setGoals, setRecentlyDeletedGoals, setDeletionLedger, setSessionHistory, setStreakMeta, setPacePrefs]);
+
+  // What an earlier account may have left on this device goes on the next sign-in.
+  useEffect(() => {
+    if (signedInId) void pruneSyncBases(signedInId);
+  }, [signedInId]);
+
+  // Automatic reconciliation: debounced 1s after any data change.
+  // Persisted fingerprints prevent redundant writes and detect two-device edits.
+  const pendingUploadRef = useRef(0);
+  useEffect(() => {
+    if (!signedInId) return;
+    const timer = window.setTimeout(() => { pendingUploadRef.current = 0; void syncToCloudRef.current(); }, 1000);
+    pendingUploadRef.current = timer;
+    return () => {
+      window.clearTimeout(timer);
+      pendingUploadRef.current = 0;
+    };
+  }, [signedInId, tasks, goals, sessionHistory, recentlyDeletedGoals, deletionLedger, streakMeta, pacePrefs]);
 
   // Retry the local-first workspace as soon as connectivity returns. A failed
   // attempt never clears local data; normal merge safeguards still apply.
   useEffect(() => {
-    if (!user) return;
-    const handleOnline = () => { void syncToCloud(); };
+    if (!signedInId) return;
+    const handleOnline = () => { void syncToCloudRef.current(); };
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [user, syncToCloud]);
+  }, [signedInId]);
 
   // Reconcile when the app returns to the foreground, before a stale device
   // becomes the next editor. A light periodic check also keeps an open desktop
   // copy aware of work completed on the phone.
   useEffect(() => {
-    if (!user) return;
+    if (!signedInId) return;
     let lastAttemptAt = 0;
     const reconcileVisible = () => {
       if (document.visibilityState !== 'visible' || !navigator.onLine) return;
       const now = Date.now();
       if (now - lastAttemptAt < 1_500) return;
       lastAttemptAt = now;
-      void syncToCloud();
+      void syncToCloudRef.current();
     };
-    const handleVisibility = () => reconcileVisible();
+    // Leaving the app: send a waiting edit now, while the system still lets it run.
+    const flushPending = () => {
+      if (!pendingUploadRef.current) return;
+      window.clearTimeout(pendingUploadRef.current);
+      pendingUploadRef.current = 0;
+      void syncToCloudRef.current();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') flushPending();
+      else reconcileVisible();
+    };
+    // Another device just saved. A visible app looks at once (the revision check
+    // is tiny); a hidden one catches up when it comes back. Signals carry no data
+    // and are spaced out, so anything sending them can only cause small reads.
+    let signalTimer = 0;
+    let lastSignalAt = 0;
+    const onOtherDeviceSaved = () => {
+      if (signalTimer || document.visibilityState !== 'visible') return;
+      signalTimer = window.setTimeout(() => {
+        signalTimer = 0;
+        lastSignalAt = Date.now();
+        void syncToCloudRef.current();
+      }, Math.max(250, 2_000 - (Date.now() - lastSignalAt)));
+    };
+    const signal = openSyncSignal(signedInId, onOtherDeviceSaved);
+    syncSignalRef.current = signal;
     window.addEventListener('focus', reconcileVisible);
     window.addEventListener('pageshow', reconcileVisible);
+    window.addEventListener('pagehide', flushPending);
     document.addEventListener('visibilitychange', handleVisibility);
     const interval = window.setInterval(reconcileVisible, 30_000);
     return () => {
       window.removeEventListener('focus', reconcileVisible);
       window.removeEventListener('pageshow', reconcileVisible);
+      window.removeEventListener('pagehide', flushPending);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.clearInterval(interval);
+      window.clearTimeout(signalTimer);
+      syncSignalRef.current = null;
+      signal.close();
     };
-  }, [user, syncToCloud]);
+  }, [signedInId]);
 
   const dataValue = useMemo<DataStore>(
     () => ({

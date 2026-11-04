@@ -1,0 +1,1 @@
+Smoother sync between devices. Changing a setting never stops sync, a new or empty device picks up your work by itself, and Combine copies always works. Edits made during a combine are kept. Changes arrive sooner and sync uses far less data. Changes also arrive during a sitting. Signing out removes the sync copy from the device.

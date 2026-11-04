@@ -51,13 +51,39 @@ Sync pauses also retain an account-bound device-local conflict record with the r
 
 An explicit empty-workspace overwrite requires a fresh cloud safety copy before the compare-and-set write. If that snapshot cannot be saved, the overwrite stops. Ordinary incremental writes still make at most one best-effort visit snapshot. The Settings clear action is available only when no goals, tasks, history, trash, active timer, or deletion evidence remains on this device; a plan emptied by deletions is not falsely described as a fully empty backup.
 
+## How a sync runs
+
+An idle check asks only for the cloud revision. If it has not moved and nothing changed here, nothing is downloaded or hashed. If only this device changed, it uploads without downloading; the compare-and-set write still refuses a stale copy. Anything else downloads the cloud copy and decides against the last agreed copy. A refused upload (both devices saved at once) looks again up to twice before it becomes a visible pause, except an explicit overwrite, which never retries.
+
+Sync follows the account's id, not the user object, which is replaced every time the session is re-checked. A successful upload sends a data-free broadcast so other open devices check at once. It is only a hint: receiving one costs a revision read, and if it never connects the 30-second check still works. Edits upload one second after the last change, and straight away when the app is left, as far as the system allows; otherwise at the next open.
+
+A combine merges what the device holds after its network waits, so an edit or finished sitting made during them is kept. Another tab's save is read into this tab's memory, so an old copy there is not written back; two tabs saving within the same instant are still last-write-wins per collection.
+
+## Settings and empty devices
+
+Copies with the same goals, tasks, history and trash differ at most in settings (bar hours, streak state, Board preferences). Nothing can be lost between them, so they never pause sync, and no restore point is written. If only one copy changed since they last agreed, that copy is right whatever the clocks say. Device clocks decide only when both copies really changed the same setting; equal timestamps resolve the same way on both devices, so they settle instead of overwriting each other.
+
+An empty device whose last agreed copy held no work has deleted nothing, so it takes cloud work on its own and keeps its settings. An empty device whose last agreed copy had work (or where that copy cannot be found) never restores on its own, because that could bring back work deleted on purpose. A tap on Combine copies does bring it back: it merges with no base, since against the agreed copy its emptiness would read as deleting the cloud's work. An empty copy is not saved as a restore point; the cloud copy still is.
+
+If the cloud copy is gone while a device has work, sync pauses, because clearing it may have been deliberate. A tap on Combine copies starts a new cloud copy from the device. No session at all is reported as a sign-in problem, never as a missing cloud copy.
+
+## Removals in a combine
+
+With a last agreed copy, an emptied trash record or a removed sitting stays removed when the other copy did not change it, so a backup can be made smaller. A sitting the other device changed is kept. With no agreed copy, everything from both copies is kept.
+
+## Privacy and limits
+
+Signing out or deleting the account clears the agreed copy kept in IndexedDB, and signing in removes any left by another account. Clear cloud backup removes only the live copy; restore points stay until the account is deleted, and the app says so. Backups are private to the account through row-level security and encrypted by the host at rest, but they are not end-to-end encrypted: a forgotten password must not mean lost work. Device storage is not encrypted by the app, and the app no longer claims it is.
+
+`supabase/cloud_backup_limits.sql` enforces on the server what the app already keeps to: 4 MB for the live copy, 8 MB for a restore point and the newest 10 restore points per account. Direct writes by older clients remain possible, so they can still skip the compare-and-set check.
+
 ## Remaining audit work after the v7.5.14 release candidate
 
 - Extend device-persistence verification beyond the completed save/restart and install-over gate to real process termination and constrained-storage scenarios when practical. Fault-injection tests cover quota and rollback without filling the user's phone.
 - Extend the completed two-browser conflict checks to physical devices and additional recovery paths when practical.
 - The device checkpoint does not span local storage and the hosted database. If a cloud upload succeeds but saving the local sync fingerprint fails, the app reports a partial-sync state and requires review on retry.
 - Additional physical Android termination and notification-action tests, including the extended Discard retest that the owner explicitly waived. Long offline Resume, timezone changes, install-over, and an offline sitting syncing to Board were checked on a disposable workspace. Native wall-clock ordering remains a guarded snapshot, not a monotonic event journal.
-- Simultaneous browser-tab writers. The timer and replacement compare-before-write checks detect stale copies but are not atomic cross-process locks. Pending replacement events close other gates; that does not make older clients or uncoordinated writes transactional.
+- Simultaneous browser-tab writers. Tabs now read each other's saves, and the timer and replacement compare-before-write checks detect stale copies, but none of these is an atomic cross-process lock. Pending replacement events close other gates; that does not make older clients or uncoordinated writes transactional.
 - Further hosted authentication/RLS and backward-compatible migration checks. Batch 7 did verify disposable-account deletion, real password recovery, and eligible remote-session revocation on the hosted project; Batch 8 verified the Board migration and an offline Android sitting reaching Board after sync.
 
 These are unresolved audit items, not completed fixes. No observed data-loss or permission failure is being waived. Performance measurements and the final repository audit remain Batch 9; separate Community room behavior remains Batch 10.

@@ -11,6 +11,8 @@ import {
   deleteLiveBackup,
   type VisitSnapshotMeta,
 } from '../lib/cloudBackup';
+import { fetchLiveRevision } from '../lib/cloudBackup';
+import { clearSyncBases } from '../lib/syncBase';
 import { supabase } from '../lib/supabase';
 import { changeVerifiedCredentials } from '../lib/accountCredentials';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
@@ -48,8 +50,9 @@ interface AuthContextType {
   updateCloudBackup: (
     backupData: unknown,
     options: { expectedRevision: number; expectedUserId?: string; requireSafetyCopy?: boolean },
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{ ok: boolean; error?: string; revision?: number }>;
   fetchCloudBackup: () => Promise<string | null>;
+  fetchLiveBackupRevision: (expectedUserId: string) => Promise<number | null>;
   fetchLiveBackupInfo: (expectedUserId?: string) => Promise<{ backupData: string; updatedAt: string; revision: number } | null>;
   listVisitSnapshots: () => Promise<VisitSnapshotMeta[]>;
   fetchVisitSnapshot: (snapshotId: string) => Promise<string | null>;
@@ -74,6 +77,7 @@ const AuthContext = createContext<AuthContextType>({
   updateCloudBackup: async () => ({ ok: false, error: 'Not initialized' }),
   fetchCloudBackup: async () => null,
   fetchLiveBackupInfo: async () => null,
+  fetchLiveBackupRevision: async () => null,
   listVisitSnapshots: async () => [],
   fetchVisitSnapshot: async () => null,
   saveSafetyCopy: async () => false,
@@ -87,6 +91,8 @@ if (typeof window !== 'undefined') {
     earlyRecoveryGrant = nextRecoveryGrant(earlyRecoveryGrant, event, session, isAuthRecoveryUrl(window.location.search));
   });
 }
+
+const SIGN_IN_NEEDED = 'Your sign-in needs renewing. Nothing was changed; reconnect and try again.';
 
 async function currentUserId(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -198,8 +204,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (accountSwitchVersion.current !== switchVersion) throw new Error('Account changed during sign-out. The device workspace was kept for safety.');
       setUser(null);
       if (before) {
-        try { finishAccountSignOut(before); }
-        catch (failure) {
+        try {
+          finishAccountSignOut(before);
+          void clearSyncBases();
+        } catch (failure) {
           return { ok: false, error: `Signed out, but the device workspace was kept for safety. ${failure instanceof Error ? failure.message : 'Open YouDO again before switching accounts.'}` };
         }
       }
@@ -282,6 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (accountSwitchVersion.current !== switchVersion) throw new Error('Account changed during deletion cleanup. The device workspace was kept for safety.');
       finishAccountSignOut(before);
+      void clearSyncBases();
       setUser(null);
       return { ok: true };
     } catch (err) {
@@ -373,7 +382,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateCloudBackup = async (
     backupData: unknown,
     options: { expectedRevision: number; expectedUserId?: string; requireSafetyCopy?: boolean },
-  ): Promise<{ ok: boolean; error?: string }> => {
+  ): Promise<{ ok: boolean; error?: string; revision?: number }> => {
     try {
       const userId = await currentUserId();
       if (!userId) return { ok: false, error: 'No active user session found. Please sign in again.' };
@@ -400,11 +409,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchLiveBackupInfo = async (expectedUserId?: string) => {
     const userId = await currentUserId();
+    // No session says nothing about the cloud copy: it must not look like a missing one.
+    if (expectedUserId && !userId) throw new Error(SIGN_IN_NEEDED);
     if (expectedUserId && userId !== expectedUserId) throw new Error('Account changed. Cloud inspection stopped.');
     if (!userId) return null;
     const result = await fetchLiveBackupMeta(userId);
     if (await currentUserId() !== userId) throw new Error('Account changed. Cloud inspection stopped.');
     return result;
+  };
+
+  const fetchLiveBackupRevision = async (expectedUserId: string) => {
+    const userId = await currentUserId();
+    if (!userId) throw new Error(SIGN_IN_NEEDED);
+    if (userId !== expectedUserId) throw new Error('Account changed. Cloud inspection stopped.');
+    return fetchLiveRevision(userId);
   };
 
   const listVisitSnapshotsForUser = async () => {
@@ -444,6 +462,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateCloudBackup,
         fetchCloudBackup,
         fetchLiveBackupInfo,
+        fetchLiveBackupRevision,
         listVisitSnapshots: listVisitSnapshotsForUser,
         fetchVisitSnapshot,
         saveSafetyCopy: saveSafetyCopyForUser,

@@ -47,6 +47,35 @@ export async function saveSyncBase(accountId: string, fingerprint: string, slice
   db.close();
 }
 
+/** Removes saved copies, keeping only `keepAccountId`'s when one is given. */
+async function removeBases(keepAccountId: string | null): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      if (keepAccountId === null) {
+        store.clear();
+      } else {
+        const keys = store.getAllKeys();
+        keys.onsuccess = () => { for (const key of keys.result) if (key !== keepAccountId) store.delete(key); };
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+      tx.onabort = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+  db.close();
+}
+
+/** Signing out leaves no copy of the account's work behind on this device. */
+export const clearSyncBases = (): Promise<void> => removeBases(null);
+/** Clears what another account left here before this rule existed. */
+export const pruneSyncBases = (accountId: string): Promise<void> => removeBases(accountId);
+
 /** The saved agreed copy, only when it is the one this device's sync status names. */
 export async function loadSyncBase(accountId: string, fingerprint: string): Promise<WorkspaceSlice | null> {
   const db = await openDb();

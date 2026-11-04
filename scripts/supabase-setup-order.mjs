@@ -11,6 +11,7 @@
 export const SUPABASE_SETUP_ORDER = [
   'user_backups',
   'cloud_backup_revisions',
+  'cloud_backup_limits',
   'public_pace',
   'community',
   'community_chat',

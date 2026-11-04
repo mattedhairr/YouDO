@@ -277,11 +277,15 @@ export function workspaceFingerprint(
   slice: Pick<WorkspaceSlice, 'tasks' | 'goals' | 'sessionHistory' | 'recentlyDeletedGoals' | 'streakMeta' | 'pacePrefs' | 'deletionLedger'>,
 ): string {
   const value = workspaceSignature(slice);
-  let hash = 0xcbf29ce484222325n;
-  const prime = 0x100000001b3n;
+  // 64-bit FNV-1a in two 32-bit halves: the same value BigInt would give, without
+  // freezing the screen on a large workspace. Saved fingerprints stay valid.
+  let hi = 0xcbf29ce4;
+  let lo = 0x84222325;
   for (let index = 0; index < value.length; index += 1) {
-    hash ^= BigInt(value.charCodeAt(index));
-    hash = BigInt.asUintN(64, hash * prime);
+    lo = (lo ^ value.charCodeAt(index)) >>> 0;
+    const low = lo * 0x1b3;
+    hi = (hi * 0x1b3 + Math.floor(low / 0x100000000) + ((lo << 8) >>> 0)) >>> 0;
+    lo = low >>> 0;
   }
-  return `${value.length}:${hash.toString(16).padStart(16, '0')}`;
+  return `${value.length}:${hi.toString(16).padStart(8, '0')}${lo.toString(16).padStart(8, '0')}`;
 }

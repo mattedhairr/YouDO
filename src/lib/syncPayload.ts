@@ -39,3 +39,9 @@ export function canonicalWorkspaceSlice(slice: WorkspaceSlice, todayISO: string)
 export function canonicalWorkspaceFingerprint(slice: WorkspaceSlice, todayISO: string): string {
   return workspaceFingerprint(canonicalWorkspaceSlice(slice, todayISO));
 }
+
+/** Goals, tasks, history and trash match: the copies differ at most in settings. */
+export function differOnlyInSettings(local: WorkspaceSlice, remote: WorkspaceSlice, todayISO: string): boolean {
+  const settings = { streakMeta: remote.streakMeta, pacePrefs: remote.pacePrefs, updatedAt: remote.updatedAt };
+  return canonicalWorkspaceFingerprint({ ...local, ...settings }, todayISO) === canonicalWorkspaceFingerprint(remote, todayISO);
+}
