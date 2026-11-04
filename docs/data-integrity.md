@@ -51,6 +51,12 @@ Sync pauses also retain an account-bound device-local conflict record with the r
 
 An explicit empty-workspace overwrite requires a fresh cloud safety copy before the compare-and-set write. If that snapshot cannot be saved, the overwrite stops. Ordinary incremental writes still make at most one best-effort visit snapshot. The Settings clear action is available only when no goals, tasks, history, trash, active timer, or deletion evidence remains on this device; a plan emptied by deletions is not falsely described as a fully empty backup.
 
+## Settings and empty devices
+
+Copies with the same goals, tasks, history and trash differ at most in settings (bar hours, streak state, Board preferences). Nothing can be lost between them, so they never pause sync: each setting comes from whichever copy changed it last, and no restore point is written, so settings changes cannot push real restore points out of the ten kept.
+
+An empty device that has synced before still never restores cloud work on its own, because that could bring back work deleted on purpose. A tap on Combine copies does bring it back: the empty device is merged with no base, since against the last agreed copy its emptiness would read as deleting the cloud's work. Both copies become restore points first.
+
 ## Remaining audit work after the v7.5.14 release candidate
 
 - Extend device-persistence verification beyond the completed save/restart and install-over gate to real process termination and constrained-storage scenarios when practical. Fault-injection tests cover quota and rollback without filling the user's phone.

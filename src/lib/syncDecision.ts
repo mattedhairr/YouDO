@@ -7,6 +7,7 @@ export type SyncDecision =
   | 'pull'
   | 'push'
   | 'merge'
+  | 'settings'
   | 'conflict'
   | 'empty-error';
 
@@ -25,6 +26,8 @@ export function decideSyncAction(input: {
   localEmpty: boolean;
   allowEmpty?: boolean;
   conflictStrategy?: SyncConflictStrategy;
+  /** The copies hold the same work and differ only in settings, such as the bar hours. */
+  onlySettingsDiffer?: boolean;
 }): SyncDecision {
   const {
     localFingerprint,
@@ -33,19 +36,28 @@ export function decideSyncAction(input: {
     localEmpty,
     allowEmpty,
     conflictStrategy,
+    onlySettingsDiffer,
   } = input;
 
   if (allowEmpty) return 'push';
+  // Nothing can be lost between copies of the same work, so settings never stop
+  // sync. A first-time empty device (no base) still just takes the cloud's.
+  if (
+    onlySettingsDiffer && localFingerprint !== remoteFingerprint
+    && (!localEmpty || baseFingerprint)
+    && (!conflictStrategy || conflictStrategy === 'merge')
+  ) return 'settings';
   if (localEmpty) {
     // A new account has neither a cloud copy nor a prior sync base. Create its
     // first (empty) backup; a missing copy after a prior sync still needs review.
-    if (!remoteFingerprint) return baseFingerprint ? 'empty-error' : 'push';
+    if (!remoteFingerprint) return baseFingerprint && conflictStrategy !== 'merge' ? 'empty-error' : 'push';
     if (localFingerprint === remoteFingerprint) return 'noop';
     if (conflictStrategy === 'cloud') return 'pull';
     // A first-time empty device may hydrate automatically. A previously synced
     // device emptied by edits must never silently restore old cloud work.
     if (!baseFingerprint || (localFingerprint === baseFingerprint && remoteFingerprint !== baseFingerprint)) return 'pull';
-    return 'empty-error';
+    // Only asked for by a tap on Combine copies: the cloud's work comes back here.
+    return conflictStrategy === 'merge' ? 'merge' : 'empty-error';
   }
   if (!remoteFingerprint) {
     return baseFingerprint && conflictStrategy !== 'device' ? 'conflict' : 'push';

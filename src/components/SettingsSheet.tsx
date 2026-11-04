@@ -221,6 +221,7 @@ export default function SettingsSheet({
   const tabBarRef = useRef<HTMLDivElement>(null);
 
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
+  const [combining, setCombining] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const [signOutBusy, setSignOutBusy] = useState(false);
   const [confirmImport, setConfirmImport] = useState(false);
@@ -1102,17 +1103,20 @@ export default function SettingsSheet({
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
                           type="button"
+                          disabled={combining}
                           onClick={async () => {
+                            setCombining(true);
                             const result = await syncToCloud({ conflictStrategy: 'merge' });
+                            setCombining(false);
                             setMsg(
                               result.ok
                                 ? { text: `✓ ${result.notice ?? 'Combined changes from both devices.'}` }
                                 : { text: `✗ ${result.error || 'Could not combine copies.'}`, error: true },
                             );
                           }}
-                          className="h-9 rounded-xl bg-primary text-on-primary text-[11.5px] font-bold shadow-sm active:scale-[0.98] transition-all"
+                          className="h-9 rounded-xl bg-primary text-on-primary text-[11.5px] font-bold shadow-sm active:scale-[0.98] transition-all disabled:opacity-60"
                         >
-                          Combine copies
+                          {combining ? 'Combining…' : 'Combine copies'}
                         </button>
                         <button
                           type="button"

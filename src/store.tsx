@@ -79,6 +79,7 @@ import { decideSyncAction, isWorkspaceEffectivelyEmpty, type SyncConflictStrateg
 import { canonicalWorkspaceFingerprint } from './lib/syncPayload';
 import { isPristineLocalWorkspace } from './lib/syncCheckpoint';
 import { advanceDeletionLedger, isDeletionLedger, type DeletionMarker } from './lib/deletionLedger';
+import { differOnlyInSettings, mergeSettingsInto } from './lib/syncPayload';
 import { parseSyncConflictRecord, type SyncConflictKind, type SyncConflictRecord } from './lib/syncConflictRecord';
 import { hapticGoalComplete, hapticSuccess, hapticTick, hapticWarn } from './lib/haptics';
 import {
@@ -1819,6 +1820,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       localEmpty,
       allowEmpty: opts?.allowEmpty,
       conflictStrategy: opts?.conflictStrategy,
+      onlySettingsDiffer: Boolean(remoteSlice && differOnlyInSettings(localSlice, remoteSlice, todayISO())),
     });
 
     // v6.1.1 stored fingerprints before canonical cloud normalization. During
@@ -1847,7 +1849,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (decision === 'pull') return pullRemote();
     if (decision === 'push') return pushCurrent();
     if (decision === 'empty-error') {
-      return conflictResult('cleared_device', 'This workspace was cleared after its last cloud sync. Nothing was restored or uploaded. Review both copies before choosing what to keep.');
+      return conflictResult('cleared_device', remoteSlice
+        ? 'This device is empty, but the cloud copy has work. Nothing was changed. Combine copies brings that work back here.'
+        : 'This device is empty and its cloud copy is gone. Nothing was changed. Combine copies starts a new cloud copy.');
+    }
+    // Same work on both copies, so only the settings need settling. No restore
+    // point: nothing can be lost, and they would push real ones out of the ten kept.
+    if (decision === 'settings') {
+      const merged = mergeSettingsInto(localSlice, remoteSlice!);
+      if (!commitAndApplyWorkspace(merged, baseFingerprint)) return { ok: false, error: 'The settings could not be saved on this device. Neither copy was replaced.' };
+      localSlice = currentSlice();
+      localFingerprint = canonicalWorkspaceFingerprint(localSlice, todayISO());
+      if (localFingerprint === remoteFingerprint) {
+        if (!persistCloudFingerprint(remoteFingerprint!)) return { ok: false, error: 'This device could not save its cloud sync status.' };
+        rememberBase(remoteFingerprint!, remoteSlice!);
+        setCloudSyncConflict(false);
+        return { ok: true };
+      }
+      return pushCurrent(false);
     }
     // Combine both devices change by change against the last agreed copy, so
     // nothing either device did is lost. Both original copies become restore
@@ -1890,7 +1909,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const pushed = await pushCurrent(true);
       return pushed.ok ? { ...pushed, notice: combineNotice(result) } : pushed;
     };
-    if (decision === 'merge') return combine(await findBase(true), false);
+    // An empty device has nothing of its own to weigh: compared with the last
+    // agreed copy, its emptiness would read as deleting the cloud's work.
+    if (decision === 'merge') return combine(localEmpty ? null : await findBase(true), false);
     // Both devices changed: combine on its own when the last agreed copy is known.
     if (decision === 'conflict' && remoteSlice && baseFingerprint) {
       const base = await findBase(false);

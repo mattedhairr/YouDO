@@ -3,9 +3,74 @@ import { mergeWorkspace, type WorkspaceSlice } from './syncMerge';
 import { decideSyncAction, isWorkspaceEffectivelyEmpty } from './syncDecision';
 import type { Task } from '../types';
 import { advanceDeletionLedger } from './deletionLedger';
+import { canonicalWorkspaceFingerprint, differOnlyInSettings, mergeSettingsInto } from './syncPayload';
+import { mergeWorkspaceThreeWay } from './syncMerge3';
+import { defaultStreakMeta } from './focusTrends';
 
 const empty: WorkspaceSlice = { tasks: [], goals: [], sessionHistory: {}, recentlyDeletedGoals: [] };
 const task: Task = { id: 'phone-only', title: 'Revision', description: '', priority: 'medium', targetDate: null, deadline: null, steps: [], progress: 0, createdAt: 1, order: 0 };
+describe('copies that differ only in settings', () => {
+  const settings = (barHours: number, updatedAt: number) => ({ ...defaultStreakMeta('2026-11-04'), barHours, updatedAt });
+  const day = '2026-11-04';
+
+  it('never stops sync, even on an empty device that has synced before', () => {
+    expect(decideSyncAction({ localFingerprint: 'pc', remoteFingerprint: 'cloud', baseFingerprint: 'cloud', localEmpty: true, onlySettingsDiffer: true })).toBe('settings');
+    expect(decideSyncAction({ localFingerprint: 'a', remoteFingerprint: 'b', baseFingerprint: 'c', localEmpty: false, onlySettingsDiffer: true })).toBe('settings');
+    expect(decideSyncAction({ localFingerprint: 'a', remoteFingerprint: 'b', baseFingerprint: null, localEmpty: false, onlySettingsDiffer: true })).toBe('settings');
+  });
+  it('lets a first-time empty device simply take the cloud copy', () => {
+    expect(decideSyncAction({ localFingerprint: 'new', remoteFingerprint: 'cloud', baseFingerprint: null, localEmpty: true, onlySettingsDiffer: true })).toBe('pull');
+  });
+  it('still obeys an explicit choice of one copy', () => {
+    expect(decideSyncAction({ localFingerprint: 'a', remoteFingerprint: 'b', baseFingerprint: 'c', localEmpty: false, onlySettingsDiffer: true, conflictStrategy: 'cloud' })).toBe('pull');
+    expect(decideSyncAction({ localFingerprint: 'a', remoteFingerprint: 'b', baseFingerprint: 'c', localEmpty: false, onlySettingsDiffer: true, conflictStrategy: 'device' })).toBe('push');
+  });
+  it('recognises two empty copies with different bar hours as settings only', () => {
+    const pc = { ...empty, streakMeta: settings(6, 200) };
+    const cloud = { ...empty, streakMeta: settings(8, 100) };
+    expect(differOnlyInSettings(pc, cloud, day)).toBe(true);
+    expect(canonicalWorkspaceFingerprint(pc, day)).not.toBe(canonicalWorkspaceFingerprint(cloud, day));
+  });
+  it('does not mistake different work for settings', () => {
+    expect(differOnlyInSettings({ ...empty, tasks: [task] }, empty, day)).toBe(false);
+    expect(differOnlyInSettings(empty, { ...empty, tasks: [task] }, day)).toBe(false);
+  });
+  it('keeps whichever setting was changed last, in both directions', () => {
+    const newer = { ...empty, streakMeta: settings(6, 200) };
+    const older = { ...empty, streakMeta: settings(8, 100) };
+    expect(mergeSettingsInto(newer, older).streakMeta?.barHours).toBe(6);
+    expect(mergeSettingsInto(older, newer).streakMeta?.barHours).toBe(6);
+  });
+  it('settles on one copy, so the next sync finds nothing to do', () => {
+    const pc = { ...empty, streakMeta: settings(6, 200), updatedAt: 200 };
+    const cloud = { ...empty, streakMeta: settings(8, 100), updatedAt: 100 };
+    const fromPc = mergeSettingsInto(pc, cloud);
+    const fromPhone = mergeSettingsInto(cloud, pc);
+    expect(canonicalWorkspaceFingerprint(fromPc, day)).toBe(canonicalWorkspaceFingerprint(fromPhone, day));
+  });
+});
+
+describe('Combine copies on an empty device', () => {
+  it('brings the cloud copy back when tapped, and only when tapped', () => {
+    const input = { localFingerprint: 'empty', remoteFingerprint: 'cloud', baseFingerprint: 'older', localEmpty: true };
+    expect(decideSyncAction(input)).toBe('empty-error');
+    expect(decideSyncAction({ ...input, conflictStrategy: 'merge' })).toBe('merge');
+  });
+  it('keeps every item from the cloud when combined without a base', () => {
+    const cloud = { ...empty, tasks: [task] };
+    expect(mergeWorkspaceThreeWay(null, empty, cloud).slice.tasks.map((t) => t.id)).toEqual(['phone-only']);
+  });
+  it('would delete them if compared with the last agreed copy, which is why it is not', () => {
+    const cloud = { ...empty, tasks: [task] };
+    expect(mergeWorkspaceThreeWay(cloud, empty, cloud).slice.tasks).toEqual([]);
+  });
+  it('starts a new cloud copy when the cloud has none', () => {
+    const input = { localFingerprint: 'empty', remoteFingerprint: null, baseFingerprint: 'older', localEmpty: true };
+    expect(decideSyncAction(input)).toBe('empty-error');
+    expect(decideSyncAction({ ...input, conflictStrategy: 'merge' })).toBe('push');
+  });
+});
+
 describe('conservative workspace combination', () => {
   it('does not resurrect deliberately emptied local work from an unchanged cloud', () => {
     expect(decideSyncAction({ localFingerprint: 'empty', remoteFingerprint: 'base', baseFingerprint: 'base', localEmpty: true })).toBe('empty-error');
