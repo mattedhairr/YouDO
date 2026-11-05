@@ -639,6 +639,20 @@ final class HomeWidgets {
         return minutes >= 60 ? minutes / 60 + "h " + String.format(Locale.US, "%02d", minutes % 60) + "m" : minutes + "m";
     }
 
+    /** "4h", or "1.5h". */
+    private static String hoursLabel(double hours) {
+        return (hours == Math.rint(hours) ? String.valueOf((long) hours) : String.valueOf(hours)) + "h";
+    }
+
+    /** "43:33", or "1:13:44" from an hour on, like the live timer. */
+    private static String clock(long ms) {
+        long seconds = Math.max(0, ms) / 1000;
+        long hours = seconds / 3600;
+        return hours > 0
+            ? String.format(Locale.US, "%d:%02d:%02d", hours, (seconds % 3600) / 60, seconds % 60)
+            : String.format(Locale.US, "%02d:%02d", seconds / 60, seconds % 60);
+    }
+
     /** "14h", or "40m" in the last hour. */
     private static String timeLeft(long ms) {
         long minutes = ms / 60_000;
@@ -729,17 +743,16 @@ final class HomeWidgets {
         views.setViewVisibility(R.id.room_canvas, View.VISIBLE);
         int[] accent = accent(snapshot);
         double barHours = room.optDouble("barHours", 4);
-        long barMs = Math.round(barHours * 3_600_000);
-        String bar = (barHours == Math.rint(barHours) ? String.valueOf((long) barHours) : String.valueOf(barHours)) + "h";
         views.setTextViewText(R.id.room_icon, room.optString("icon", "🔥"));
         views.setTextViewText(R.id.room_name, room.optString("name"));
-        views.setTextViewText(R.id.room_bar, bar + " a day");
+        views.setTextViewText(R.id.room_bar, hoursLabel(barHours) + " a day");
 
         long now = System.currentTimeMillis();
         boolean[] live = new boolean[SLOT.length];
         boolean[] seated = new boolean[SLOT.length];
         int[] tones = new int[SLOT.length];
         int liveCount = 0;
+        int pausedCount = 0;
         int people = 0;
         int hitBar = 0;
         long together = 0;
@@ -764,7 +777,12 @@ final class HomeWidgets {
             String state = member.optString("state", "idle");
             long startedAt = member.isNull("startedAt") ? 0 : member.optLong("startedAt");
             boolean inSession = !"idle".equals(state) && startedAt > 0 && now - startedAt < LIVE_MAX_MS;
-            boolean paused = "paused".equals(state);
+            boolean paused = inSession && "paused".equals(state);
+            boolean focusing = inSession && !paused;
+            // Each person's own bar, as the room shows it; the room's until theirs is known.
+            double ownBar = member.optDouble("barHours", barHours);
+            if (!(ownBar > 0)) ownBar = barHours;
+            long barMs = Math.round(ownBar * 3_600_000);
             long todayMs = Math.max(0, member.optLong("todayMs"));
             if (inSession) {
                 // The session in progress counts too: its focus so far.
@@ -782,25 +800,30 @@ final class HomeWidgets {
             views.setTextColor(INITIAL[i], Color.WHITE);
             views.setTextViewText(MEMBER[i], member.optString("name", member.optString("initial", "?")));
             color(ctx, views, MEMBER[i], "setTextColor", R.color.widget_text);
-            // The ring: today's focus against the room's bar.
+            // The ring: today's focus against their bar.
             views.setViewVisibility(RING[i], View.VISIBLE);
             views.setProgressBar(RING[i], 100, barMs > 0 ? (int) Math.min(100, todayMs * 100 / barMs) : 0, false);
-            tintProgress(views, RING[i], inSession ? LIVE : accent);
-            views.setViewVisibility(TIME[i], inSession ? View.VISIBLE : View.GONE);
-            views.setViewVisibility(AWAY[i], inSession ? View.GONE : View.VISIBLE);
-            if (inSession) {
+            tintProgress(views, RING[i], focusing ? LIVE : accent);
+            views.setViewVisibility(TIME[i], focusing ? View.VISIBLE : View.GONE);
+            views.setViewVisibility(AWAY[i], focusing ? View.GONE : View.VISIBLE);
+            if (focusing) {
                 live[i] = true;
                 liveCount++;
-                // While paused the clock stops where the pause began (its last update).
-                long end = paused ? Math.max(startedAt, member.optLong("updatedAt", now)) : now;
-                long focused = Math.max(0, end - startedAt - Math.max(0, member.optLong("pausedMs")));
-                views.setChronometer(TIME[i], SystemClock.elapsedRealtime() - focused, "● %s", !paused);
+                long focused = Math.max(0, now - startedAt - Math.max(0, member.optLong("pausedMs")));
+                views.setChronometer(TIME[i], SystemClock.elapsedRealtime() - focused, "● %s", true);
+            } else if (paused) {
+                pausedCount++;
+                // Plain text: a stopped Chronometer still recalculates from its base
+                // whenever the launcher redraws it, so a paused time would creep up.
+                // The clock stops where the pause began (its last update).
+                long end = Math.max(startedAt, member.optLong("updatedAt", now));
+                views.setTextViewText(AWAY[i], "Paused " + clock(end - startedAt - Math.max(0, member.optLong("pausedMs"))));
             } else {
-                views.setTextViewText(AWAY[i], todayMs > 0 ? duration(todayMs) + " / " + bar : "away");
+                views.setTextViewText(AWAY[i], todayMs > 0 ? duration(todayMs) + " / " + hoursLabel(ownBar) : "away");
             }
         }
         boolean everyone = seats < SLOT.length && liveCount == seats;
-        views.setTextViewText(R.id.room_live, liveCount == 0 ? "nobody focusing"
+        views.setTextViewText(R.id.room_live, liveCount == 0 ? (pausedCount > 0 ? pausedCount + " paused" : "nobody focusing")
             : everyone ? (seats == 2 ? "● both focusing" : "● all 3 focusing")
             : "● " + liveCount + " focusing");
         color(ctx, views, R.id.room_live, "setTextColor", liveCount == 0 ? R.color.widget_text3 : R.color.widget_live);

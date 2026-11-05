@@ -109,6 +109,17 @@ describe('widgetRooms', () => {
   });
 });
 
+describe('widgetRooms bars', () => {
+  it('passes on each member\'s own bar beside the room\'s', () => {
+    const [room] = widgetRooms([{
+      id: 'r', name: 'R', barHours: 8,
+      members: [{ id: 'a', name: 'Asha', barHours: 4 }, { id: 'b', name: 'Ben' }, { id: 'c', name: 'Cara', barHours: -1 }],
+    }], {});
+    expect(room.barHours).toBe(8);
+    expect(room.members.map((member) => member.barHours)).toEqual([4, 0, 0]);
+  });
+});
+
 describe('widgetRooms seats', () => {
   it('passes on the room size, and a room without one holds four', () => {
     const members = [{ id: 'a', name: 'Asha' }];

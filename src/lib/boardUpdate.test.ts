@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { draftSignature, parseUpdateAction, parseUpdateState, validateDraft } from './boardUpdate';
+import { draftSignature, EMPTY_UPDATE_DRAFT, parseUpdateAction, parseUpdateState, updateResetKind, validateDraft } from './boardUpdate';
+
+describe('updateResetKind', () => {
+  it('takes down what is live, even while the form is empty or edited', () => {
+    expect(updateResetKind('Live now', 'Live now', EMPTY_UPDATE_DRAFT)).toBe('live');
+    expect(updateResetKind('Live now', '', EMPTY_UPDATE_DRAFT)).toBe('live');
+    expect(updateResetKind('Live now', 'Edited', EMPTY_UPDATE_DRAFT)).toBe('live');
+  });
+  it('only empties a draft when nothing is live', () => {
+    expect(updateResetKind('', 'Draft', EMPTY_UPDATE_DRAFT)).toBe('draft');
+    expect(updateResetKind('  ', '', { ...EMPTY_UPDATE_DRAFT, allowReplies: true })).toBe('draft');
+  });
+  it('has nothing to reset on an empty form', () => {
+    expect(updateResetKind('', '  ', EMPTY_UPDATE_DRAFT)).toBeNull();
+  });
+  it('leaves nothing behind that differs from a cleared update', () => {
+    expect(draftSignature('', EMPTY_UPDATE_DRAFT)).toBe(draftSignature('', { ...EMPTY_UPDATE_DRAFT, allowReplies: true }));
+  });
+});
 
 describe('parseUpdateState', () => {
   it('reads a poll, reactions, replies and the action', () => {

@@ -200,7 +200,7 @@ The build signs the APK with the permanent release key, stored in the repository
 1. Open https://github.com/mattedhairr/YouDO/releases/new?tag=v8.3.1.
 2. Fill in the release:
    - **Title:** `YouDO v8.3.1`
-   - **Notes:** the bullets of the `[v8.3.1]` CHANGELOG entry (without the `##` heading line).
+   - **Notes:** the whole `[v8.3.1]` CHANGELOG entry, including its `##` heading line.
 3. Drop `YouDO.apk` into **Attach binaries**. GitHub records its SHA-256 digest automatically.
 4. Keep the label on **Latest**. Not Pre-release, and not left as a draft.
 5. Click **Publish release**.

@@ -1,21 +1,21 @@
 # Where We Left Off
 
-Last updated **2026-11-04**, while preparing **v8.3.4**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-05**, while preparing **v8.3.5**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.3.4, versionCode 88 (being released 2026-11-04). Before it: v8.3.3, versionCode 87, also 2026-11-04.
+- **Latest release:** v8.3.5, versionCode 89 (being released 2026-11-05). Before it: v8.3.4, versionCode 88, published 2026-11-04.
   - It is on GitHub Releases with `YouDO.apk`.
-  - The website https://youdo-app.vercel.app serves 8.3.2.
-  - It was announced on Telegram.
-- **Git:** only the `main` branch exists. Nothing is unreleased or half-done.
+  - The website https://youdo-app.vercel.app deploys from `main`.
+- **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
 - **Server (Supabase `iyrnywfaxakvjkmddmqv`):**
   - every SQL file in `supabase/` and the `send-push` function were applied to production by v8.3.0 (checked 2026-10-29);
   - v8.3.1 had no server changes;
   - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings);
-  - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success).
+  - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
+  - v8.3.5 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -39,6 +39,15 @@ It was tested with a two-device simulation and in the real app against a fake cl
 - Run a sitting on the phone while changing another card on the website; both should stay.
 - Combine copies on a real device pair, then check Cloud Restore Points.
 - Sign out on a device: its saved sync copy should be gone.
+
+## Still to check from v8.3.5 (released without phone tests, by the owner's choice)
+
+The Reset broadcast button was tried against a fake server, in dark mode only; check it on the real server, in light mode and in the Classic Look.
+
+- When a room-mate pauses, with YouDO closed, their time on your widget should freeze in grey as "Paused 43:33" within a few seconds, and stay the same after you tap the widget and come back. If it keeps counting until the app opens, the paused signal is being missed: that is a separate fix.
+- The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
+- Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
+- Open question: `set_focus_status` updates `updated_at` even when nothing changed. If a paused time jumps forward in the app too, keep `updated_at` for unchanged rows.
 
 ## Check these on a real phone first
 

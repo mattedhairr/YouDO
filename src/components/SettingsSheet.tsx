@@ -46,6 +46,7 @@ import {
   WifiOff,
   X,
   Database,
+  Calculator,
 } from 'lucide-react';
 import '../signature.css';
 import Overlay from './Overlay';
@@ -152,6 +153,7 @@ function SectionLabel({ children, icon }: { children: React.ReactNode; icon?: Re
 
 const TELEGRAM_UPDATES_URL = 'https://t.me/YouDO_Updates';
 const TELEGRAM_DISCUSSION_URL = 'https://t.me/+-manVNAPhThkMzRl';
+const CALCU_URL = 'https://calcu-youdo.vercel.app';
 
 async function openExternalUrl(url: string): Promise<void> {
   try {
@@ -3105,6 +3107,25 @@ export default function SettingsSheet({
                   <h3 className="text-xs font-semibold text-content-primary">Discussion &amp; bug reports</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed">
                     Ask for help, suggest improvements or attach a bug screenshot
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="shrink-0 text-content-muted" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void openExternalUrl(CALCU_URL)}
+              className="settings-data-row w-full p-4 flex flex-nowrap items-center justify-between gap-3 text-left hover:bg-white/2 transition"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="size-9 shrink-0 rounded-xl bg-primary-soft text-primary grid place-items-center">
+                  <Calculator size={16} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs font-semibold text-content-primary">CalCU for your laptop</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed">
+                    Press Alt + C to open the GATE virtual calculator over any PDF or lecture. Free for Windows and Linux.
                   </p>
                 </div>
               </div>

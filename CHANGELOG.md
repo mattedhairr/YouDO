@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.3.5] - 2026-11-05 - Room Widget Fixes and CalCU
+
+- **Paused means paused on the Room widget** — A room-mate who pauses now shows a frozen "Paused" time instead of a timer that keeps moving, and the widget no longer says "both focusing".
+- **Everyone's own bar** — The Room widget's times, rings and "hit the bar" count now use each person's own daily bar, matching the room in the app.
+- **Meet CalCU** — Settings → About and updates now links to CalCU, the GATE virtual calculator you can open with Alt + C over any PDF or lecture on your laptop.
+- **Reset broadcast** — Admins can take a live Board broadcast down for everyone with one button, after a confirmation.
+- **Android APK** — versionName **8.3.5**, versionCode **89**. Installs over v8.3.4 (88).
+
+---
+
 ## [v8.3.4] - 2026-11-04 - Smoother Sync Between Devices
 
 - **Sync that doesn't get stuck** — Changing a setting never stops sync. A new or empty device picks up your work by itself, and Combine copies now always does something.

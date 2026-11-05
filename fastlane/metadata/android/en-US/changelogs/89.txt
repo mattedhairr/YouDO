@@ -1,0 +1,1 @@
+Room widget fixes: a paused room-mate now shows a frozen Paused time instead of a moving timer, and times, rings and "hit the bar" use each person's own daily bar. Settings now links to CalCU, the GATE virtual calculator for your laptop. Admins can reset a live Board broadcast.
