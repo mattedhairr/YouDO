@@ -60,6 +60,8 @@ export interface WidgetMember {
   updatedAt: number;
   /** Their focus today, as the room shows it. */
   todayMs: number;
+  /** Their own daily bar in hours, as the room shows it; 0 when unknown (the room's bar applies). */
+  barHours: number;
 }
 
 export interface WidgetRoom {
@@ -292,7 +294,7 @@ export function widgetRooms(
     icon?: string;
     barHours?: number | null;
     seats?: number;
-    members: { id: string; name: string; avatar?: string | null; todayMs?: number }[];
+    members: { id: string; name: string; avatar?: string | null; todayMs?: number; barHours?: number }[];
   }[],
   statuses: Record<string, FocusStatus>,
   selfId: string | null = null,
@@ -316,6 +318,7 @@ export function widgetRooms(
         pausedMs: status?.pausedMs ?? 0,
         updatedAt: status ? Date.parse(status.updatedAt) : 0,
         todayMs: Math.max(0, member.todayMs ?? 0),
+        barHours: Math.max(0, member.barHours ?? 0),
       };
     }),
   }));
@@ -401,10 +404,10 @@ export async function syncWidgets(src: WidgetSources): Promise<void> {
     streak: widgetStreak(src.streak),
     accent: widgetAccent(src.accent),
     goals: widgetGoals(src.goals),
-    // Your own focus today is known here before the room's copy syncs.
+    // Your own focus today and bar are known here before the room's copy syncs.
     rooms: src.rooms && src.rooms.map((room) => ({
       ...room,
-      members: room.members.map((member) => (member.id === src.userId ? { ...member, todayMs: Math.max(member.todayMs, focus.todayMs) } : member)),
+      members: room.members.map((member) => (member.id === src.userId ? { ...member, todayMs: Math.max(member.todayMs, focus.todayMs), barHours: src.barHours > 0 ? src.barHours : member.barHours } : member)),
     })),
   };
   const json = JSON.stringify(snapshot);
@@ -459,10 +462,19 @@ export async function loadWidgetRooms(userId: string, live: boolean): Promise<Wi
     ...summaries.map((summary) => fetchRoomPaceRows(summary.squad.id)),
   ]) : [{}];
   const todayMs = new Map<string, number>();
+  const barHours = new Map<string, number>();
   if (roomRows.some((rows) => rows === null)) {
-    for (const row of await fetchPaceRowsForUserIds(ids)) todayMs.set(row.userId, row.todayMs);
+    for (const row of await fetchPaceRowsForUserIds(ids)) {
+      todayMs.set(row.userId, row.todayMs);
+      barHours.set(row.userId, row.barHours);
+    }
   }
-  for (const rows of roomRows) for (const row of Object.values(rows ?? {})) todayMs.set(row.userId, row.todayMs);
+  for (const rows of roomRows) {
+    for (const row of Object.values(rows ?? {})) {
+      todayMs.set(row.userId, row.todayMs);
+      barHours.set(row.userId, row.barHours);
+    }
+  }
   return widgetRooms(summaries.map((summary) => ({
     id: summary.squad.id,
     name: summary.squad.name,
@@ -474,6 +486,7 @@ export async function loadWidgetRooms(userId: string, live: boolean): Promise<Wi
       name: member.display_name || member.username || '?',
       avatar: member.avatar_url,
       todayMs: todayMs.get(member.id) ?? 0,
+      barHours: barHours.get(member.id) ?? 0,
     })),
   })), statuses, userId);
 }
