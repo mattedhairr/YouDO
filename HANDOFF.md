@@ -9,7 +9,7 @@ Last updated **2026-11-05**, after **v8.3.4** was released. Read this file first
 - **Latest release:** v8.3.4, versionCode 88, published 2026-11-04. Before it: v8.3.3, versionCode 87, also 2026-11-04.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app serves 8.3.4.
-- **Git:** `fixes` holds unreleased Room widget fixes, committed locally and not pushed.
+- **Git:** `fixes` holds unreleased Room widget fixes and a CalCU row in Settings, committed locally and not pushed.
 - **Server (Supabase `iyrnywfaxakvjkmddmqv`):**
   - every SQL file in `supabase/` and the `send-push` function were applied to production by v8.3.0 (checked 2026-10-29);
   - v8.3.1 had no server changes;
