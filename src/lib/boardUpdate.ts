@@ -104,6 +104,17 @@ export function draftFromState(state: UpdateState | null): UpdateExtrasDraft {
   };
 }
 
+export const EMPTY_UPDATE_DRAFT: UpdateExtrasDraft = { pollOptions: [], allowReplies: false, action: null };
+
+/**
+ * What Reset does: take down the update everyone sees ('live'), only empty an
+ * unpublished draft ('draft'), or nothing to reset (null).
+ */
+export function updateResetKind(publishedText: string, text: string, draft: UpdateExtrasDraft): 'live' | 'draft' | null {
+  if (publishedText.trim()) return 'live';
+  return text.trim() || draft.pollOptions.length > 0 || draft.allowReplies || draft.action ? 'draft' : null;
+}
+
 /** A problem to show before publishing, or null when the draft is fine. */
 export function validateDraft(text: string, draft: UpdateExtrasDraft): string | null {
   if (!text.trim()) return null;
@@ -123,7 +134,7 @@ export function validateDraft(text: string, draft: UpdateExtrasDraft): string | 
   return null;
 }
 
-const SERVER_UPDATE_NEEDED = 'Polls and replies need a server update first.';
+export const SERVER_UPDATE_NEEDED = 'Polls and replies need a server update first.';
 const message = (error: { code?: string; message?: string }, fallback: string) =>
   error.code === 'PGRST202' ? SERVER_UPDATE_NEEDED : error.message || fallback;
 

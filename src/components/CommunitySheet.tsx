@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, BadgeCheck, Check, ChevronDown, ChevronRight, Flag, Heart, Megaphone, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, UserRoundCheck, UserRoundX, X, type LucideIcon } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, BadgeCheck, Check, ChevronDown, ChevronRight, Flag, Heart, Megaphone, MessageCircle, RefreshCw, Reply, RotateCcw, Send, ShieldCheck, UserRoundCheck, UserRoundX, X, type LucideIcon } from 'lucide-react';
 import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
@@ -42,6 +42,9 @@ import {
   type UpdateExtrasDraft,
   type UpdateReply,
   type UpdateState,
+  EMPTY_UPDATE_DRAFT,
+  SERVER_UPDATE_NEEDED,
+  updateResetKind,
 } from '../lib/boardUpdate';
 import { hapticSuccess, hapticTick, hapticWarn } from '../lib/haptics';
 import CommunityChat from './community/CommunityChat';
@@ -157,6 +160,8 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   const [announcementExpanded, setAnnouncementExpanded] = useState(false);
   /** After publishing a new update: ask before pushing it to every Board member. */
   const [askNotify, setAskNotify] = useState(false);
+  /** Reset was tapped while an update is live: it reaches everyone, so it asks first. */
+  const [askReset, setAskReset] = useState(false);
   /** The poll, replies and action button going out with the update, and how the live one is doing. */
   const [updateDraft, setUpdateDraft] = useState<UpdateExtrasDraft>({ pollOptions: [], allowReplies: false, action: null });
   const [liveUpdate, setLiveUpdate] = useState<UpdateState | null>(null);
@@ -300,6 +305,26 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     }
     setStatus(result.ok ? (text ? 'Update published.' : 'Update cleared.') : (result.error ?? 'Could not publish the update.'));
     if (result.ok) { hapticSuccess(); announcementDirty.current = false; setAskNotify(text !== ''); await refresh(); }
+    setBusy(false);
+  };
+  const resetKind = updateResetKind(context.settings.announcement, announcement, updateDraft);
+  const emptyForm = () => {
+    announcementDirty.current = false;
+    setAnnouncement('');
+    setUpdateDraft(EMPTY_UPDATE_DRAFT);
+    setAskReset(false);
+    setAskNotify(false);
+  };
+  const removeBroadcast = async () => {
+    setBusy(true);
+    let result = await publishCommunityUpdate('', EMPTY_UPDATE_DRAFT);
+    // A server without board_update_extras.sql can still clear plain text.
+    if (!result.ok && result.error === SERVER_UPDATE_NEEDED) {
+      result = (await saveCommunitySettings({ ...context.settings, announcement: '' })) ? { ok: true } : { ok: false, error: 'Could not save controls.' };
+    }
+    setStatus(result.ok ? 'Broadcast removed.' : (result.error ?? 'Could not remove the broadcast.'));
+    if (result.ok) { hapticSuccess(); emptyForm(); await refresh(); }
+    else setAskReset(false);
     setBusy(false);
   };
   const endPoll = async () => {
@@ -574,11 +599,26 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="w-full resize-y rounded-[16px] border border-subtle bg-base p-3.5 text-[12.5px] text-content-primary outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
           <p className="mt-2.5 text-[10.5px] text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p>
           {announcement.trim() && <BroadcastExtrasEditor draft={updateDraft} disabled={busy || savingFeature} onChange={editDraft} />}
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+            {resetKind && !askReset && (
+              <button type="button" onClick={() => (resetKind === 'live' ? setAskReset(true) : emptyForm())} disabled={busy || savingFeature} className="mr-auto inline-flex h-10 items-center gap-2 rounded-xl border border-error/30 px-3.5 text-[12px] font-bold text-error disabled:opacity-40 transition-transform active:scale-95">
+                <RotateCcw size={15} /> Reset broadcast
+              </button>
+            )}
             <button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || !draftChanged} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-[12px] font-bold text-on-primary shadow-sm disabled:opacity-40 transition-transform active:scale-95">
               <Check size={16} /> Publish Broadcast
             </button>
           </div>
+          {askReset && resetKind === 'live' && (
+            <div role="alertdialog" aria-labelledby="reset-broadcast-title" className="mt-4 rounded-[16px] border border-error/30 bg-error-soft p-3.5">
+              <p id="reset-broadcast-title" className="text-[12.5px] font-semibold text-content-primary">Remove this broadcast for everyone?</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">The message, poll and button leave the room. You won't be able to see its poll results or private replies here any more. No one is notified.</p>
+              <div className="mt-3 flex justify-end gap-2">
+                <button type="button" onClick={() => setAskReset(false)} disabled={busy} className="h-9 rounded-xl px-3.5 text-[11.5px] font-semibold text-content-secondary">Cancel</button>
+                <button type="button" onClick={() => void removeBroadcast()} disabled={busy} className="h-9 rounded-xl bg-error px-3.5 text-[11.5px] font-bold text-white disabled:opacity-40">Remove for everyone</button>
+              </div>
+            </div>
+          )}
           {askNotify && (
             <div role="alertdialog" aria-labelledby="notify-everyone-title" className="mt-4 rounded-[16px] border border-primary/25 bg-primary-soft/30 p-3.5">
               <p id="notify-everyone-title" className="text-[12.5px] font-semibold text-content-primary">Notify everyone?</p>
