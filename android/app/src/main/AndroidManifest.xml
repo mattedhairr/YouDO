@@ -17,7 +17,21 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
-            android:exported="true" />
+            android:exported="true">
+            <!-- "Open with YouDO" and Share for audio files: added to Your sounds
+                 on this phone (IncomingSound.java). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+        </activity>
 
         <!-- Home-screen icons (Settings → App icon). Exactly one is enabled; the
              default keeps the ".MainActivity" name so icons pinned by older

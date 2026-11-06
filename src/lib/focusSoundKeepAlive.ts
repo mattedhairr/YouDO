@@ -1,11 +1,15 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
-interface YouDoFocusSoundPlugin {
+export interface YouDoFocusSoundPlugin {
   keepAlive(options: { on: boolean }): Promise<void>;
+  /** An audio file opened with or shared to YouDO: {path, name}, or {} (Android only). */
+  takeIncomingSound(): Promise<{ path?: string; name?: string }>;
+  clearIncomingSound(): Promise<void>;
+  addListener(event: 'incomingSound', listener: () => void): Promise<{ remove: () => Promise<void> }>;
 }
 
-const YouDoFocusSound = registerPlugin<YouDoFocusSoundPlugin>('YouDoFocusSound', {
-  web: () => ({ async keepAlive() {} }) as YouDoFocusSoundPlugin,
+export const YouDoFocusSound = registerPlugin<YouDoFocusSoundPlugin>('YouDoFocusSound', {
+  web: () => ({ async keepAlive() {} }) as unknown as YouDoFocusSoundPlugin,
 });
 
 /**

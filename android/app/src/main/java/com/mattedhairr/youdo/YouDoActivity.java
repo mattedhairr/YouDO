@@ -121,6 +121,8 @@ public class YouDoActivity extends BridgeActivity {
             HomeWidgetStore.queueOpen(this, open);
             intent.removeExtra(HomeWidgets.EXTRA_OPEN);
         }
+        // An audio file opened with or shared to YouDO: offered for Your sounds.
+        IncomingSound.handle(this, intent);
         super.onNewIntent(intent);
     }
 
