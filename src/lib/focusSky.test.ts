@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LANDSCAPE_KEEP_OUT, PORTRAIT_KEEP_OUT, SKY_STARS, constellation, crossesBox, rgbOf, skyProgress, skySeed, starMap } from './focusSky';
+import { LANDSCAPE_KEEP_OUT, PORTRAIT_KEEP_OUT, SKY_STARS, constellation, crossesBox, fbm, milkyWay, milkyWayGlow, milkyWayLevel, rgbOf, skyProgress, skySeed, starMap } from './focusSky';
 
 describe('star map', () => {
   it('is the same all day and different on another day', () => {
@@ -109,5 +109,61 @@ describe('accent colour', () => {
     expect(rgbOf('rgb(201, 164, 110)')).toEqual([201, 164, 110]);
     expect(rgbOf('color(srgb 0.5 0.25 1)')).toEqual([128, 64, 255]);
     expect(rgbOf('')).toEqual([201, 164, 110]);
+  });
+});
+
+describe('Milky Way', () => {
+  it('has its own shape each day, the same all day, within calm limits', () => {
+    expect(milkyWay('2026-11-06')).toEqual(milkyWay('2026-11-06'));
+    expect(milkyWay('2026-11-07')).not.toEqual(milkyWay('2026-11-06'));
+    for (const day of ['2026-11-01', '2026-11-02', '2026-11-03', '2026-12-25', '2027-01-01']) {
+      const way = milkyWay(day);
+      expect(Math.abs(way.angle)).toBeGreaterThanOrEqual(0.25);
+      expect(Math.abs(way.angle)).toBeLessThanOrEqual(0.7);
+      expect(way.width).toBeGreaterThanOrEqual(0.13);
+      expect(way.width).toBeLessThanOrEqual(0.2);
+    }
+  });
+
+  it('lights a band and leaves the rest of the screen black', () => {
+    const way = { angle: 0.4, width: 0.2, curve: 0, offset: 0, seed: 7 };
+    const on = milkyWayLevel(way, 0, 0);
+    expect(on).toBeGreaterThan(0.05);
+    expect(on).toBeLessThanOrEqual(1);
+    // Far across the band: nothing at all.
+    expect(milkyWayLevel(way, -Math.sin(0.4) * 0.9, Math.cos(0.4) * 0.9)).toBe(0);
+    // Over half a phone screen stays fully off: below 1/255 once drawn at its ~10% peak.
+    for (const day of ['2026-11-04', '2026-11-06', '2026-12-01', '2027-03-15']) {
+      let off = 0;
+      let total = 0;
+      for (let x = -1.1; x <= 1.1; x += 0.02) for (let y = -0.5; y <= 0.5; y += 0.02) {
+        total++;
+        if (milkyWayLevel(milkyWay(day), x, y) * 0.095 * 255 < 1) off++;
+      }
+      expect(off / total).toBeGreaterThan(0.5);
+    }
+  });
+
+  it('has texture: knots and lanes, not a smooth stripe', () => {
+    const way = { angle: 0, width: 0.25, curve: 0, offset: 0, seed: 3 };
+    const along = Array.from({ length: 40 }, (_, i) => milkyWayLevel(way, -1 + i * 0.05, 0));
+    expect(Math.max(...along) - Math.min(...along)).toBeGreaterThan(0.15);
+    expect(milkyWayLevel(way, 0.3, 0, 1)).not.toBe(milkyWayLevel(way, 0.3, 0, 0));
+  });
+
+  it('glows quietly, brighter with the day and the music, nearly gone when paused', () => {
+    const quiet = milkyWayGlow({ progress: 0, music: 0, paused: false });
+    expect(milkyWayGlow({ progress: 1, music: 0, paused: false })).toBeGreaterThan(quiet);
+    expect(milkyWayGlow({ progress: 0, music: 1, paused: false })).toBeGreaterThan(quiet);
+    expect(milkyWayGlow({ progress: 1, music: 1, paused: false })).toBeLessThanOrEqual(1);
+    expect(milkyWayGlow({ progress: 1, music: 1, paused: true })).toBeLessThan(quiet);
+  });
+
+  it('noise stays in range', () => {
+    for (let i = 0; i < 200; i++) {
+      const v = fbm(i * 0.37, i * 0.11, 5);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
   });
 });

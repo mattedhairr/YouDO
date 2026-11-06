@@ -222,10 +222,48 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
   pointer-events: none;
   color: var(--ambient-ink);
 }
-.focus-sky canvas {
+.focus-sky-stars {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+/* The Milky Way: two layers 130% the size of the sky, drifting apart very
+   slowly in different directions so their overlap keeps changing. Moved and
+   faded by the compositor (transform, opacity): smooth at the screen's own
+   refresh rate, never redrawn, and no pixel holds the same light for long. */
+.focus-sky-milky {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  transition: opacity 0.6s linear;
+}
+.focus-sky-layer {
+  position: absolute;
+  left: -15%;
+  top: -15%;
+  width: 130%;
+  height: 130%;
+  /* The app caps canvases at 100% wide; these must overhang so drifting never shows an edge. */
+  max-width: none;
+  opacity: 0;
+  transition: opacity 2.5s ease;
+  will-change: transform;
+}
+.focus-sky-layer.is-ready { opacity: 1; }
+.focus-sky-layer.is-a { animation: focus-sky-drift-a 240s ease-in-out infinite alternate; }
+.focus-sky-layer.is-b { animation: focus-sky-drift-b 330s ease-in-out infinite alternate; }
+@keyframes focus-sky-drift-a {
+  from { transform: translate3d(-4%, -2.5%, 0) rotate(-1.2deg); }
+  to { transform: translate3d(4%, 2.5%, 0) rotate(1.2deg); }
+}
+@keyframes focus-sky-drift-b {
+  from { transform: translate3d(3.5%, -3%, 0) rotate(1.5deg); }
+  to { transform: translate3d(-3.5%, 3%, 0) rotate(-1.5deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .focus-sky-layer.is-a,
+  .focus-sky-layer.is-b { animation: none; }
+  .focus-sky-layer { transition: none; }
 }
 .ambient-screen.is-resting .focus-sky { opacity: 0.85; transition: opacity 4s ease; }

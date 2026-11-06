@@ -29,11 +29,17 @@ turns it off.
   right separately. Links that are long or would cross the timer are dropped.
   Every 15 minutes past the bar adds one more star (up to 30). The lines draw
   over 3.5 seconds the first time.
-- **Aurora:** while a focus sound plays, a soft ribbon along the bottom follows
-  its loudness (`focusSoundPlayer.meter()`, an AnalyserNode after the fades) and
-  sits higher as the day nears the bar. It is drawn at 1/8 size and stretched,
-  which softens it cheaply, about 20 times a second, and only once a second
-  while silent. Everything above it stays true black.
+- **Milky Way:** a faint, uneven band of light with dust lanes and knots
+  (fractal noise, `milkyWayLevel`). The date sets its angle, width, curve and
+  texture (`milkyWay`), so each day has its own. Two layers, each drawn once
+  in small slices (no stutter on opening), 130% the size of the sky, drift
+  apart slowly in different directions (CSS animations, 240 s and 330 s), so
+  their overlap keeps changing. Brightness (`milkyWayGlow`) is set 4 times a
+  second and eased by a CSS transition: quieter with no sound, brighter as the
+  day nears the bar, breathing with the music (`focusSoundPlayer.meter()`),
+  nearly gone in a pause.
+- **Burn-in:** the band peaks under 10% brightness, has only soft edges, never
+  stops moving, and leaves more than half the screen fully off (tested).
 - **Reduce motion:** stars appear without fading, lines without drawing, and
-  the aurora holds still.
+  the Milky Way holds still.
 - **Cost:** it loads with the ambient screen, not the first screen.

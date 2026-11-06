@@ -3,6 +3,9 @@ import {
   LANDSCAPE_KEEP_OUT,
   PORTRAIT_KEEP_OUT,
   constellation,
+  milkyWay,
+  milkyWayGlow,
+  milkyWayLevel,
   rgbOf,
   skyProgress,
   starMap,
@@ -14,29 +17,31 @@ interface Props {
   /** Today's focus so far, including the running sitting. */
   focusMs: number;
   barHours: number;
-  /** Today's local date, "YYYY-MM-DD": sets the star map. */
+  /** Today's local date, "YYYY-MM-DD": sets the star map and the Milky Way. */
   dateKey: string;
+  /** A paused sitting: the Milky Way fades nearly away. */
+  paused?: boolean;
 }
 
 /** A new star fades in over this long; the constellation draws over LINES_MS. */
 const STAR_FADE_MS = 2000;
 const LINES_MS = 3500;
-/** The aurora redraws about 20 times a second, and only while sound plays. */
-const AURORA_FRAME_MS = 50;
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /**
  * The ambient screen's night sky (src/lib/focusSky.ts): one star for each part
- * of today's focus, a constellation once the bar is reached, and an aurora
- * along the bottom that moves with the focus sound and sits higher as the day
- * nears the bar. Stars are tiny and dim on true black, and drift with the face.
+ * of today's focus, a constellation once the bar is reached, and a faint Milky
+ * Way, its own shape each day, that breathes with the focus sound. Dim, soft
+ * and always drifting, on true black, so it never marks the screen.
  */
-export default function FocusSky({ focusMs, barHours, dateKey }: Props) {
+export default function FocusSky({ focusMs, barHours, dateKey, paused = false }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const starCanvas = useRef<HTMLCanvasElement>(null);
-  const auroraCanvas = useRef<HTMLCanvasElement>(null);
+  const milky = useRef<HTMLDivElement>(null);
+  const layerA = useRef<HTMLCanvasElement>(null);
+  const layerB = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Where the timer's digits really are, as fractions of the sky (rounded, so
   // the slow drift doesn't redraw it). Until measured, a box for the orientation.
@@ -151,77 +156,98 @@ export default function FocusSky({ focusMs, barHours, dateKey }: Props) {
     return () => cancelAnimationFrame(frame);
   }, [stars, shape, progress.lit, size.w, size.h, timer]);
 
-  // The aurora: a soft ribbon that follows the sound's loudness, low and calm.
-  const progressRef = useRef(progress.progress);
-  progressRef.current = progress.progress;
+  // The Milky Way: two layers, each drawn once (in small slices, so opening
+  // never stutters). The compositor drifts them apart slowly and sets their
+  // brightness, so nothing is redrawn while it moves.
+  const way = useMemo(() => milkyWay(dateKey), [dateKey]);
   useEffect(() => {
-    const canvas = auroraCanvas.current;
-    if (!canvas || !size.w || !size.h) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    // Drawn small and stretched: the browser's scaling softens it like a blur, cheaply.
-    const scale = 0.125;
-    const w = Math.max(16, Math.round(size.w * scale));
-    const h = Math.max(16, Math.round(size.h * scale));
-    canvas.width = w;
-    canvas.height = h;
+    if (!size.w || !size.h) return;
     const [r, g, b] = rgbOf(getComputedStyle(wrap.current!).color);
-    const still = reducedMotion();
-    let level = 0;
-    let phase = 0;
+    const jobs: { canvas: HTMLCanvasElement; layer: number; peak: number }[] = [];
+    if (layerA.current) jobs.push({ canvas: layerA.current, layer: 0, peak: 0.095 });
+    if (layerB.current) jobs.push({ canvas: layerB.current, layer: 1, peak: 0.05 });
+    let cancelled = false;
+    // Each layer covers 130% of the sky, so drifting never shows an edge.
+    const scale = 0.75;
+    const W = Math.round(size.w * 1.3 * scale);
+    const H = Math.round(size.h * 1.3 * scale);
+    let job = 0;
+    let row = 0;
+    let image: ImageData | null = null;
     let timer = 0;
-    let last = performance.now();
-
-    const paint = () => {
-      ctx.clearRect(0, 0, w, h);
-      if (level < 0.004) return;
-      const lift = progressRef.current;
-      // It rises less in portrait, where the seconds sit low on the screen.
-      const base = h * (0.93 - (w >= h ? 0.2 : 0.08) * lift);
-      // Glow rising from the horizon, only below the ribbon: the rest stays true black.
-      const top = base - h * 0.12;
-      const glow = ctx.createLinearGradient(0, top, 0, h);
-      glow.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-      glow.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${0.16 * level})`);
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, top, w, h - top);
-      // The ribbon: brightest in the middle, fading at both ends.
-      const band = ctx.createLinearGradient(0, 0, w, 0);
-      band.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-      band.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${0.38 * level})`);
-      band.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, ${0.55 * level})`);
-      band.addColorStop(0.8, `rgba(${r}, ${g}, ${b}, ${0.32 * level})`);
-      band.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-      ctx.fillStyle = band;
-      const amp = h * (0.02 + 0.035 * level);
-      const thick = h * 0.07;
-      ctx.beginPath();
-      const edge = (x: number) => base + Math.sin(x / (w * 0.083) + phase) * amp + Math.sin(x / (w * 0.027) + phase * 2) * amp * 0.35;
-      for (let x = 0; x <= w; x += 1) ctx.lineTo(x, edge(x));
-      for (let x = w; x >= 0; x -= 1) ctx.lineTo(x, edge(x) + thick);
-      ctx.closePath();
-      ctx.fill();
+    const slice = () => {
+      if (cancelled) return;
+      const current = jobs[job];
+      if (!current) return;
+      const ctx = current.canvas.getContext('2d');
+      if (!ctx) return;
+      if (!image) {
+        current.canvas.width = W;
+        current.canvas.height = H;
+        current.canvas.classList.remove('is-ready');
+        image = ctx.createImageData(W, H);
+      }
+      const data = image.data;
+      const until = performance.now() + 8;
+      for (; row < H && performance.now() < until; row++) {
+        // Screen position of this row, in screen heights from the centre.
+        const y = (row / scale - size.h * 0.15 - size.h / 2) / size.h;
+        for (let col = 0; col < W; col++) {
+          const x = (col / scale - size.w * 0.15 - size.w / 2) / size.h;
+          const level = milkyWayLevel(way, x, y, current.layer);
+          if (level <= 0) continue;
+          const i = (row * W + col) * 4;
+          // A little cooler at the core, the accent toward the edges.
+          const core = 0.25 * level;
+          data[i] = r * (1 - core) + 235 * core;
+          data[i + 1] = g * (1 - core) + 238 * core;
+          data[i + 2] = b * (1 - core) + 245 * core;
+          data[i + 3] = level * current.peak * 255;
+        }
+      }
+      if (row < H) {
+        timer = window.setTimeout(slice, 0);
+        return;
+      }
+      ctx.putImageData(image, 0, 0);
+      current.canvas.classList.add('is-ready');
+      job += 1;
+      row = 0;
+      image = null;
+      timer = window.setTimeout(slice, 0);
     };
+    timer = window.setTimeout(slice, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [way, size.w, size.h]);
 
-    const step = () => {
-      const now = performance.now();
-      const dt = Math.min(0.2, (now - last) / 1000);
-      last = now;
+  // Brightness: quieter with no sound, a little brighter as the day nears the
+  // bar, breathing with the music, nearly gone in a pause. Set a few times a
+  // second; the CSS transition makes every step smooth.
+  const glowState = useRef({ progress: progress.progress, paused });
+  glowState.current = { progress: progress.progress, paused };
+  useEffect(() => {
+    const el = milky.current;
+    if (!el) return;
+    let music = 0;
+    const tick = () => {
       const target = focusSoundPlayer.meter();
-      // Slower than the music: it breathes rather than flickers.
-      level += (target - level) * Math.min(1, dt * (target > level ? 2.2 : 0.9));
-      if (!still) phase += dt * (0.12 + level * 0.18);
-      paint();
-      // Silent and settled: check again in a second instead of every frame.
-      timer = window.setTimeout(step, level < 0.004 && target === 0 ? 1000 : still ? 1000 : AURORA_FRAME_MS);
+      music += (target - music) * (target > music ? 0.5 : 0.2);
+      el.style.opacity = String(milkyWayGlow({ ...glowState.current, music }));
     };
-    step();
-    return () => window.clearTimeout(timer);
-  }, [size.w, size.h]);
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <div ref={wrap} className="focus-sky" aria-hidden>
-      <canvas ref={auroraCanvas} className="focus-sky-aurora" />
+      <div ref={milky} className="focus-sky-milky">
+        <canvas ref={layerA} className="focus-sky-layer is-a" />
+        <canvas ref={layerB} className="focus-sky-layer is-b" />
+      </div>
       <canvas ref={starCanvas} className="focus-sky-stars" />
     </div>
   );

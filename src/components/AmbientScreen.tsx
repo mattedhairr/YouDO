@@ -205,7 +205,7 @@ export function AmbientScreen({
           className="ambient-face"
           style={{ transform: `translate3d(${drift.x}px, ${drift.y}px, 0)` }}
         >
-          {skyOn && <FocusSky focusMs={todayFocusMs + elapsed * 1000} barHours={barHours} dateKey={todayISO()} />}
+          {skyOn && <FocusSky focusMs={todayFocusMs + elapsed * 1000} barHours={barHours} dateKey={todayISO()} paused={paused} />}
           <div className="ambient-top">
             <span>{clock}</span>
             <span>

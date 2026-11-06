@@ -2944,8 +2944,8 @@ export default function SettingsSheet({
                 <li><b className="text-content-primary">The music note</b> opens the focus sounds: pick one, set the volume, or let it play with the screen off.</li>
                 <li><b className="text-content-primary">Stars:</b> each day has its own sky. Every bit of today's focus lights a star; the whole sky is lit when you reach your daily bar, however long the bar is. Paused time adds none.</li>
                 <li><b className="text-content-primary">Constellation:</b> when you reach your bar, today's brightest stars join into a shape of their own, different every day. Each extra 15 minutes adds one more star to it.</li>
-                <li><b className="text-content-primary">Aurora:</b> while a focus sound plays, a soft glow along the bottom moves with the music and sits higher as you near your bar.</li>
-                <li><b className="text-content-primary">Easy on the screen:</b> true black, dim tiny stars and a slow drift keep it from marking the display. Reduce motion keeps everything still.</li>
+                <li><b className="text-content-primary">Milky Way:</b> a faint river of light with its own shape each day. It glows a little brighter with your focus sound and as you near your bar, and fades when you pause.</li>
+                <li><b className="text-content-primary">Easy on the screen:</b> true black, dim stars, soft edges and a slow, constant drift keep it from marking the display. Reduce motion keeps everything still.</li>
               </ul>
             </details>
           </div>

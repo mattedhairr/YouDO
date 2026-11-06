@@ -64,8 +64,8 @@ export function starMap(dateKey: string, keepOut: SkyKeepOut, count = SKY_STARS)
   while (stars.length < count && guard++ < count * 50) {
     const x = 0.02 + next() * 0.96;
     const y = 0.07 + next() * 0.86;
-    const size = 0.5 + next() * 1.1;
-    const brightness = 0.22 + next() * 0.62;
+    const size = 0.7 + next() * 1.0;
+    const brightness = 0.5 + next() * 0.45;
     const inside = x > keepOut.left && x < keepOut.right && y > keepOut.top && y < keepOut.bottom;
     if (inside && next() < 0.9) continue;
     stars.push({ x, y, size, brightness });
@@ -181,4 +181,98 @@ export function rgbOf(color: string): [number, number, number] {
   if (!m || m.length < 3) return [201, 164, 110];
   const unit = color.trim().startsWith('color(') ? 255 : 1;
   return [0, 1, 2].map((i) => Math.round(Math.min(255, Math.max(0, Number(m[i]) * unit)))) as [number, number, number];
+}
+
+/**
+ * The Milky Way: a faint, uneven river of light across the sky, with darker
+ * dust lanes and brighter knots. Its angle, width, curve and texture come from
+ * the date, so each day has its own and it stays the same all day.
+ */
+export interface MilkyWay {
+  /** Radians from horizontal: tilted one way or the other, never flat or steep. */
+  angle: number;
+  /** Half-width of the band, in screen heights. */
+  width: number;
+  /** How much it bends. */
+  curve: number;
+  /** How far the band sits from the centre, in screen heights. */
+  offset: number;
+  seed: number;
+}
+
+export function milkyWay(dateKey: string): MilkyWay {
+  const next = random(skySeed(`milky-${dateKey}`));
+  return {
+    angle: (next() < 0.5 ? -1 : 1) * (0.25 + next() * 0.45),
+    width: 0.13 + next() * 0.07,
+    curve: (next() - 0.5) * 0.5,
+    offset: (next() - 0.5) * 0.35,
+    seed: Math.floor(next() * 100000),
+  };
+}
+
+function hash(x: number, y: number, seed: number): number {
+  let h = (x * 374761393 + y * 668265263 + seed * 2246822519) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+
+/** Smooth value noise, 0–1. */
+function noise(x: number, y: number, seed: number): number {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const sx = xf * xf * (3 - 2 * xf);
+  const sy = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi, seed);
+  const b = hash(xi + 1, yi, seed);
+  const c = hash(xi, yi + 1, seed);
+  const d = hash(xi + 1, yi + 1, seed);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+
+/** Fractal noise: detail on several scales, as in clouds and nebulae. About 0–1. */
+export function fbm(x: number, y: number, seed: number, octaves = 5): number {
+  let value = 0;
+  let amp = 0.5;
+  let freq = 1;
+  for (let i = 0; i < octaves; i++) {
+    value += amp * noise(x * freq, y * freq, seed + i * 17);
+    freq *= 2.03;
+    amp *= 0.5;
+  }
+  return value;
+}
+
+/**
+ * How bright the band is at a point, 0–1. x and y are in screen heights,
+ * measured from the centre. `layer` gives a second, fainter layer its own
+ * texture, so two layers drifting apart blend into slowly changing shapes.
+ */
+export function milkyWayLevel(way: MilkyWay, x: number, y: number, layer = 0): number {
+  const cos = Math.cos(way.angle);
+  const sin = Math.sin(way.angle);
+  const u = x * cos + y * sin;
+  const v = -x * sin + y * cos;
+  const centre = way.offset + way.curve * u * u;
+  const dist = (v - centre) / way.width;
+  const band = Math.exp(-dist * dist * 2.2);
+  if (band < 0.01) return 0;
+  const seed = way.seed + layer * 1013;
+  const body = fbm(u * 3 + 10, v * 3 + 4, seed);
+  const knots = Math.pow(fbm(u * 7 + 3, v * 7 + 9, seed + 5), 3) * 1.8;
+  const lane = Math.max(0, 1 - Math.abs(fbm(u * 2.2 + 7, v * 5 + 1, seed + 9) - 0.5) * 7) * Math.exp(-dist * dist * 4);
+  return Math.max(0, Math.min(1, band * (0.35 + 0.85 * body + knots) * (1 - 0.75 * lane)));
+}
+
+/**
+ * The Milky Way's brightness on screen, 0–1 (the layer itself peaks under 10%).
+ * Quieter with no sound, a little brighter as the day nears the bar, breathing
+ * with the music's loudness, and nearly gone during a pause.
+ */
+export function milkyWayGlow({ progress, music, paused }: { progress: number; music: number; paused: boolean }): number {
+  const day = 0.55 + 0.2 * Math.min(1, Math.max(0, progress));
+  const glow = Math.min(1, day + 0.25 * Math.min(1, Math.max(0, music)));
+  return paused ? glow * 0.3 : glow;
 }
