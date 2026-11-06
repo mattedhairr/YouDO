@@ -22,6 +22,33 @@ describe('fitting a file to loop', () => {
     expect(fit.end).toBeLessThan(33.2);
   });
 
+  it('cuts a slow fade-out and fade-in, so repeats do not dip and swell', () => {
+    // 6 s fade in, 30 s steady, 12 s fade out.
+    const song = new Float32Array(48 * RATE);
+    for (let i = 0; i < song.length; i++) {
+      const t = i / RATE;
+      const env = t < 6 ? t / 6 : t < 36 ? 1 : Math.max(0, 1 - (t - 36) / 12);
+      song[i] = 0.2 * env * Math.sin((2 * Math.PI * 220 * i) / RATE);
+    }
+    const fit = fitLoop([song], RATE)!;
+    // Cut where the fade has dropped about 6 dB: about 3 s into each fade.
+    expect(fit.start).toBeGreaterThan(2);
+    expect(fit.start).toBeLessThan(4.5);
+    expect(fit.end).toBeGreaterThan(40);
+    expect(fit.end).toBeLessThan(43);
+  });
+
+  it('keeps a quiet passage in the middle of a song', () => {
+    const song = new Float32Array(40 * RATE);
+    for (let i = 0; i < song.length; i++) {
+      const t = i / RATE;
+      song[i] = (t > 15 && t < 25 ? 0.03 : 0.2) * Math.sin((2 * Math.PI * 220 * i) / RATE);
+    }
+    const fit = fitLoop([song], RATE)!;
+    expect(fit.start).toBeLessThan(0.1);
+    expect(fit.end).toBeGreaterThan(39.9);
+  });
+
   it('matches loudness: a quiet file is raised, a loud one lowered', () => {
     expect(fitLoop([tone(20, 0.02)], RATE)!.gain).toBeGreaterThan(3);
     expect(fitLoop([tone(20, 0.5)], RATE)!.gain).toBeLessThan(0.4);

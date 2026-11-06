@@ -71,11 +71,29 @@ export function fitLoop(channels: Float32Array[], sampleRate: number): LoopFit |
   if (first < 0) return null;
   let last = levels.length - 1;
   while (last > first && levels[last] <= threshold) last--;
-  const start = Math.max(0, (first - 1) * win) / sampleRate;
-  const end = Math.min(length, (last + 2) * win) / sampleRate;
-  if (end - start < OWN_SOUND_MIN_SECONDS) return null;
+  if ((last + 2 - first) * win < OWN_SOUND_MIN_SECONDS * sampleRate) return null;
   const body = levels.slice(first, last + 1).filter((v) => v > threshold).sort((a, b) => a - b);
   const median = body[Math.floor(body.length / 2)];
+
+  // Songs often fade in and fade out over several seconds. Left in, every
+  // repeat would dip and swell, so a slow fade at either end is cut too: from
+  // where the level (averaged over a second) stays 4 dB under the usual level.
+  const perSecond = Math.round(sampleRate / win);
+  const fadeLevel = median * 0.63;
+  const maxCut = perSecond * 30;
+  const minKeep = OWN_SOUND_MIN_SECONDS * perSecond;
+  const average = (from: number, to: number) => {
+    let sum = 0;
+    for (let i = from; i < to; i++) sum += levels[i];
+    return sum / Math.max(1, to - from);
+  };
+  let cutEnd = last;
+  while (last - cutEnd < maxCut && cutEnd - first > minKeep && average(cutEnd - perSecond + 1, cutEnd + 1) < fadeLevel) cutEnd--;
+  let cutStart = first;
+  while (cutStart - first < maxCut && cutEnd - cutStart > minKeep && average(cutStart, cutStart + perSecond) < fadeLevel) cutStart++;
+
+  const start = Math.max(0, (cutStart - 1) * win) / sampleRate;
+  const end = Math.min(length, (cutEnd + 2) * win) / sampleRate;
   let gain = median > 0 ? TARGET_RMS / median : 1;
   gain = Math.min(4, Math.max(0.25, gain));
   if (peak > 0) gain = Math.min(gain, PEAK_CEILING / peak);

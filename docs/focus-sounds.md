@@ -42,8 +42,10 @@ sound → Add your own sound, or with "Open with YouDO" / Share on Android.
 - The file stays on the phone, in IndexedDB (`youdo-own-sounds`); only the
   list of names and loop points is in localStorage (`youdo-own-sounds-v1`).
   Nothing is uploaded or synced, and focus sound choices are not synced.
-- `fitLoop` (`src/lib/ownSounds.ts`) cuts the silent lead-in and ending, so a
-  repeat never drops into silence, and matches the loudness to the built-in
+- `fitLoop` (`src/lib/ownSoundFiles.ts`) cuts the silent lead-in and ending,
+  then any slow fade-in or fade-out (where the level, averaged over a second,
+  stays 4 dB under the usual level; at most 30 s per end), so a repeat never
+  dips into silence or a fade. It also matches the loudness to the built-in
   music without clipping. It plays with the same 6-second blend as the music.
 - Limits: 12 sounds, 60 MB per file, 10 seconds to 8 minutes long.
 - Android: `IncomingSound.java` copies a file opened with or shared to YouDO
