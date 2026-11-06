@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { ChevronRight, MoreHorizontal, Play, Plus, Volume1, Volume2 } from 'lucide-react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Ban, ChevronRight, MoreHorizontal, Play, Plus, Volume1, Volume2, X } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import Toggle from './Toggle';
 import {
@@ -21,6 +21,8 @@ const OwnSoundSheet = lazy(() => import('./OwnSoundSheet'));
 interface Props {
   /** ambient: the dark panel on the ambient screen. settings: the Focus page card, which also previews. */
   variant: 'ambient' | 'settings';
+  /** Ambient: closes the panel (its ✕). */
+  onClose?: () => void;
 }
 
 const GROUPS: { id: Exclude<FocusSoundGroup, 'own'>; label: string }[] = [
@@ -54,7 +56,7 @@ function PlayingBars() {
 }
 
 /** Pick the focus sound, its volume, and whether it keeps playing when you leave the app. */
-export default function FocusSoundPicker({ variant }: Props) {
+export default function FocusSoundPicker({ variant, onClose }: Props) {
   const [prefs, setPrefs] = useState(readFocusSoundPrefs);
   const [own, setOwn] = useState<OwnSound[]>(readOwnSounds);
   const [adding, setAdding] = useState<PreparedOwnSound | null>(null);
@@ -74,6 +76,13 @@ export default function FocusSoundPicker({ variant }: Props) {
   }, []);
   // Leaving the picker ends a preview.
   useEffect(() => () => focusSoundPlayer.endPreview(), []);
+  // The ambient row opens scrolled to the sound that is on.
+  const tilesRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = tilesRef.current;
+    const on = row?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (row && on) row.scrollLeft = on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2;
+  }, []);
 
   const update = (patch: Partial<FocusSoundPrefs>) => {
     const next = { ...prefs, ...patch };
@@ -104,26 +113,65 @@ export default function FocusSoundPicker({ variant }: Props) {
   const isOn = (id: FocusSoundId | null) => prefs.sound === id;
 
   if (variant === 'ambient') {
+    const current = sounds.find((s) => s.id === prefs.sound);
+    // Off, then music, nature, noise and your own, with a thin line between groups.
+    const groups = (['music', 'nature', 'noise', 'own'] as const)
+      .map((group) => sounds.filter((s) => s.group === group))
+      .filter((list) => list.length > 0);
+    const ambientTile = (sound: FocusSound | null) => {
+      const id = sound?.id ?? null;
+      return (
+        <button
+          key={id ?? 'off'}
+          type="button"
+          role="radio"
+          aria-checked={isOn(id)}
+          className={`fs-amb-tile ${isOn(id) ? 'is-on' : ''}`}
+          onClick={() => choose(id)}
+        >
+          <span className="fs-amb-icon" aria-hidden>{sound ? sound.icon : <Ban size={17} />}</span>
+          <span className="fs-amb-name">{sound?.label ?? 'Off'}</span>
+        </button>
+      );
+    };
     return (
       <div className="fs-picker is-ambient">
-        <p className="fs-picker-title">Focus sound</p>
-        <div className="fs-chips no-scrollbar" role="radiogroup" aria-label="Focus sound">
-          {[null, ...sounds].map((sound) => (
-            <button
-              key={sound?.id ?? 'off'}
-              type="button"
-              role="radio"
-              aria-checked={isOn(sound?.id ?? null)}
-              className={`fs-chip ${isOn(sound?.id ?? null) ? 'is-on' : ''}`}
-              onClick={() => choose(sound?.id ?? null)}
-            >
-              {sound && <span aria-hidden>{sound.icon}</span>}
-              <span className="fs-chip-label">{sound?.label ?? 'Off'}</span>
+        <div className="fs-amb-head">
+          <div className="min-w-0 flex-1">
+            <p className="fs-amb-label">Focus sound</p>
+            <p className="fs-amb-now">
+              {current && <PlayingBars />}
+              <span className="truncate">{current?.label ?? 'Off'}</span>
+            </p>
+          </div>
+          {onClose && (
+            <button type="button" className="fs-amb-close" onClick={onClose} aria-label="Close focus sounds">
+              <X size={15} />
             </button>
+          )}
+        </div>
+        <div ref={tilesRef} className="fs-amb-tiles no-scrollbar" role="radiogroup" aria-label="Focus sound">
+          {ambientTile(null)}
+          {groups.map((list, i) => (
+            <Fragment key={list[0].group}>
+              {i > 0 && <span className="fs-amb-sep" aria-hidden />}
+              {list.map(ambientTile)}
+            </Fragment>
           ))}
         </div>
-        <Volume value={prefs.volume} onChange={(volume) => update({ volume })} />
-        <KeepPlaying on={prefs.keepPlaying} onToggle={() => update({ keepPlaying: !prefs.keepPlaying })} />
+        <div className="fs-amb-foot">
+          <Volume value={prefs.volume} onChange={(volume) => update({ volume })} />
+          <button
+            type="button"
+            role="switch"
+            aria-checked={prefs.keepPlaying}
+            className={`fs-amb-pill ${prefs.keepPlaying ? 'is-on' : ''}`}
+            onClick={() => update({ keepPlaying: !prefs.keepPlaying })}
+          >
+            <span className="fs-amb-dot" aria-hidden />
+            Plays with screen off
+          </button>
+        </div>
       </div>
     );
   }
@@ -274,6 +322,7 @@ function Volume({ value, onChange }: { value: number; onChange: (volume: number)
         value={Math.round(value * 100)}
         onChange={(event) => onChange(Number(event.target.value) / 100)}
         aria-label="Focus sound volume"
+        style={{ '--fill': `${Math.round(value * 100)}%` } as CSSProperties}
       />
       <Volume2 size={16} aria-hidden />
     </label>

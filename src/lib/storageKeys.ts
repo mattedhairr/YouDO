@@ -32,6 +32,7 @@ export const STORAGE_KEYS = {
   notificationPrefs: 'youdo-notification-prefs-v1',
   ambientAutoOpen: 'youdo-ambient-auto-open-v1',
   ambientTipSeen: 'youdo-ambient-tip-seen-v1',
+  ambientSky: 'youdo-ambient-sky-v1',
   focusSounds: 'youdo-focus-sounds-v1',
   ownSounds: 'youdo-own-sounds-v1',
   goalShareSaved: 'youdo-goal-share-saved-v1',

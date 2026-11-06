@@ -59,6 +59,23 @@ export function setAmbientAutoOpen(enabled: boolean): void {
   }
 }
 
+/** Settings → Focus and streak: the Focus Sky behind the ambient clock (on by default). */
+export function ambientSkyEnabled(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.ambientSky) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export function setAmbientSky(enabled: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ambientSky, String(enabled));
+  } catch {
+    /* Restricted storage: the default (on) stays. */
+  }
+}
+
 /**
  * A phone turned sideways, by the device's real rotation. The viewport is not
  * used: an on-screen keyboard shortens it, so typing a note looked "sideways"

@@ -2079,6 +2079,8 @@ function AppInner() {
           onStop={() => { setShowAmbient(false); setStopDialogTask(activeTask); }}
           onMinimize={() => setShowAmbient(false)}
           onJumpToGoal={activeTask.goalNodeId ? () => jumpToGoalTask(activeTask.goalNodeId) : undefined}
+          todayFocusMs={streakByDate.get(todayISO()) ?? 0}
+          barHours={streakMeta.barHours}
         /></Suspense>
       )}
 

@@ -10,7 +10,9 @@ import { setBackStep } from '../lib/backSteps';
 import { computeNetFocusMs } from '../lib/sessionStats';
 import { sessionClockLabel } from '../lib/sessionClock';
 import FocusSoundPicker from './FocusSoundPicker';
-import { ambientClockDriftRange, ambientDigits, ambientDrift, formatAmbientTimer } from '../lib/ambient';
+import { ambientClockDriftRange, ambientDigits, ambientDrift, ambientSkyEnabled, formatAmbientTimer } from '../lib/ambient';
+import { todayISO } from '../lib/dates';
+import FocusSky from './FocusSky';
 import '@fontsource/quicksand/600.css';
 import './ambient.css';
 
@@ -58,6 +60,10 @@ interface Props {
   onStop: () => void;
   onMinimize: () => void;
   onJumpToGoal?: () => void;
+  /** Today's focus from finished sittings (the running one is added here), for the Focus Sky. */
+  todayFocusMs?: number;
+  /** The daily bar, in hours. */
+  barHours?: number;
 }
 
 /** How long the controls stay after a tap. */
@@ -82,7 +88,10 @@ export function AmbientScreen({
   onStop,
   onMinimize,
   onJumpToGoal,
+  todayFocusMs = 0,
+  barHours = 4,
 }: Props) {
+  const [skyOn] = useState(ambientSkyEnabled);
   const [elapsed, setElapsed] = useState(0);
   const [now, setNow] = useState(() => new Date());
   const [controls, setControls] = useState(true);
@@ -196,6 +205,7 @@ export function AmbientScreen({
           className="ambient-face"
           style={{ transform: `translate3d(${drift.x}px, ${drift.y}px, 0)` }}
         >
+          {skyOn && <FocusSky focusMs={todayFocusMs + elapsed * 1000} barHours={barHours} dateKey={todayISO()} />}
           <div className="ambient-top">
             <span>{clock}</span>
             <span>
@@ -246,7 +256,7 @@ export function AmbientScreen({
 
         {soundsOpen && controls && (
           <div className="ambient-sounds" onClick={(e) => e.stopPropagation()} role="presentation">
-            <FocusSoundPicker variant="ambient" />
+            <FocusSoundPicker variant="ambient" onClose={() => setSoundsOpen(false)} />
           </div>
         )}
 
