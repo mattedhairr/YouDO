@@ -65,6 +65,8 @@ const HelpCenterSheet = lazy(() => import('./components/HelpCenterSheet'));
 const UpdateInstaller = lazy(() => import('./components/UpdateInstaller'));
 // Android home-screen widgets: none of their code is needed for the first screen.
 const HomeWidgets = lazy(() => import('./hooks/useHomeWidgets'));
+// Android: audio files opened with or shared to YouDO, offered for Your sounds.
+const IncomingSoundHost = lazy(() => import('./components/IncomingSoundHost'));
 
 /** Loads the installer sheet only once it is first opened; its own component follows the download. */
 function UpdateInstallerHost() {
@@ -1280,6 +1282,7 @@ function AppInner() {
 
   return (
     <div className="min-h-screen">
+      {Capacitor.getPlatform() === 'android' && <Suspense fallback={null}><IncomingSoundHost /></Suspense>}
       {Capacitor.getPlatform() === 'android' && <Suspense fallback={null}><HomeWidgets
         tasks={tasks}
         todayTasks={todayTasks}

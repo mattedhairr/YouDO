@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-05**, while preparing **v8.3.5**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-06**, while releasing **v8.4.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.3.5, versionCode 89 (being released 2026-11-05). Before it: v8.3.4, versionCode 88, published 2026-11-04.
+- **Latest release:** v8.4.0, versionCode 90, published 2026-11-06. Before it: v8.3.5, versionCode 89, published 2026-11-05.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -15,7 +15,7 @@ Last updated **2026-11-05**, while preparing **v8.3.5**. Read this file first wh
   - v8.3.1 had no server changes;
   - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings);
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
-  - v8.3.5 had no server changes.
+  - v8.3.5 and v8.4.0 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -48,6 +48,18 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Open question: `set_focus_status` updates `updated_at` even when nothing changed. If a paused time jumps forward in the app too, keep `updated_at` for unchanged rows.
+
+## Still to check from v8.4.0: new focus sounds (released without phone tests, by the owner's choice)
+
+Six new CC0 music tracks replace the guitar and two pianos; a picker in tiles (Music, Nature, Noise, Your sounds); "Add your own sound", kept on the phone only; "Open with YouDO" and Share for audio files; a Study playlist link. Sources and how loops work: [docs/focus-sounds.md](docs/focus-sounds.md). Tried in the browser (dark, light, Classic Look, ambient chips, add/rename/remove). Own sounds also cut a slow fade-in or fade-out (4 dB under the usual level), checked against real songs.
+
+Check on the phone:
+- Play each new track in a session for a few minutes: the repeat should be hard to notice. Quiet violin loops with no blend; the others blend over 6 s.
+- Add your own sound from Settings: Android's picker opens, the name sheet appears, "Hear the repeat" plays its end blending into its start, and it then plays in a session at about the same loudness as the built-in music.
+- In a file manager or music app, "Open with" or Share an audio file to YouDO: the same Add sheet should appear, with the app closed and with it open.
+- Rename and remove an own sound; removing the one that is chosen should switch the sound to Off.
+- If you had chosen guitar or a piano before, the choice should now be Soft strings or First light.
+- Study playlist opens Spotify or YouTube Music.
 
 ## Check these on a real phone first
 
