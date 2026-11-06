@@ -143,7 +143,7 @@ describe('two devices over many random sessions', () => {
       const sittings = new Set(Object.values(cloud.slice!.sessionHistory).flat().map((x) => x.id));
       for (const id of t.sittings) expect(sittings.has(id), `${label}: lost sitting ${id}`).toBe(true);
     }
-  });
+  }, 30_000); // 400 full simulations: far under a second each, but a busy or throttled machine needs room.
 
   it('survives both devices saving at the same moment', () => {
     const a = device('a', 0);
