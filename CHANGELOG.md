@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.5.1] - 2026-11-06 - A Milky Way for Focus Sky
+
+- **A Milky Way instead of the cloud** — A faint, natural river of light now crosses the sky, with its own shape every day and soft clouds that slowly drift and change.
+- **It moves with your music** — It glows a little brighter while a focus sound plays, grows as your day nears the bar, and fades away when you pause.
+- **Every star shows** — The faintest stars are brighter now, so each one you earn is clearly visible.
+- **Kind to your screen** — Very dim, soft-edged and always moving, with most of the screen left fully black.
+- **Android APK** — versionName **8.5.1**, versionCode **92**. Installs over v8.5.0 (91).
+
+---
+
 ## [v8.5.0] - 2026-11-06 - Focus Sky
 
 - **Focus Sky** — The ambient screen is now a night sky you fill by studying: today's focus lights the stars, and the whole sky is lit when you reach your daily bar.
