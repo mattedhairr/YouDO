@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-06**, while building the next release (new focus sounds) on the `fixes` branch. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-06**, while releasing **v8.4.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.3.5, versionCode 89, published 2026-11-05. Before it: v8.3.4, versionCode 88, published 2026-11-04.
+- **Latest release:** v8.4.0, versionCode 90, published 2026-11-06. Before it: v8.3.5, versionCode 89, published 2026-11-05.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -15,7 +15,7 @@ Last updated **2026-11-06**, while building the next release (new focus sounds) 
   - v8.3.1 had no server changes;
   - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings);
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
-  - v8.3.5 had no server changes.
+  - v8.3.5 and v8.4.0 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -49,9 +49,9 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Open question: `set_focus_status` updates `updated_at` even when nothing changed. If a paused time jumps forward in the app too, keep `updated_at` for unchanged rows.
 
-## Next release: new focus sounds (on `fixes`, not released)
+## Still to check from v8.4.0: new focus sounds (released without phone tests, by the owner's choice)
 
-Six new CC0 music tracks replace the guitar and two pianos; a picker in tiles (Music, Nature, Noise, Your sounds); "Add your own sound", kept on the phone only; "Open with YouDO" and Share for audio files; a Study playlist link. Sources and how loops work: [docs/focus-sounds.md](docs/focus-sounds.md). Tried in the browser (dark, light, Classic Look, ambient chips, add/rename/remove); the Java is new and compiles first in CI.
+Six new CC0 music tracks replace the guitar and two pianos; a picker in tiles (Music, Nature, Noise, Your sounds); "Add your own sound", kept on the phone only; "Open with YouDO" and Share for audio files; a Study playlist link. Sources and how loops work: [docs/focus-sounds.md](docs/focus-sounds.md). Tried in the browser (dark, light, Classic Look, ambient chips, add/rename/remove). Own sounds also cut a slow fade-in or fade-out (4 dB under the usual level), checked against real songs.
 
 Check on the phone:
 - Play each new track in a session for a few minutes: the repeat should be hard to notice. Quiet violin loops with no blend; the others blend over 6 s.

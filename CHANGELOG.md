@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.4.0] - 2026-11-06 - New Focus Music and Your Own Sounds
+
+- **New focus music** — Six calm new tracks (violin, piano, shakuhachi, strings and koto) replace the old music, all set to the same volume.
+- **Smoother repeats** — Each track now blends its end into its start, so you hardly notice it starting over while you study.
+- **Add your own sound** — Pick a song or recording from your phone; YouDO trims its silence and fades, matches its volume, and keeps it on your phone only. You can also use "Open with YouDO" or Share.
+- **A new sound picker** — Sounds sit in tiles by Music, Nature and Noise, with quick chips on the ambient screen and a Study playlist link to Spotify or YouTube Music.
+- **Android APK** — versionName **8.4.0**, versionCode **90**. Installs over v8.3.5 (89).
+
+---
+
 ## [v8.3.5] - 2026-11-05 - Room Widget Fixes and CalCU
 
 - **Paused means paused on the Room widget** — A room-mate who pauses now shows a frozen "Paused" time instead of a timer that keeps moving, and the widget no longer says "both focusing".
