@@ -1,6 +1,6 @@
 import { useUiPrefs } from '../hooks/useUiPrefs';
 import { setSettingsBackHandler } from '../lib/settingsBack';
-import { ambientAutoOpenEnabled, setAmbientAutoOpen } from '../lib/ambient';
+import { ambientAutoOpenEnabled, ambientSkyEnabled, setAmbientAutoOpen, setAmbientSky } from '../lib/ambient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -47,6 +47,7 @@ import {
   X,
   Database,
   Calculator,
+  ChevronDown,
 } from 'lucide-react';
 import '../signature.css';
 import Overlay from './Overlay';
@@ -217,6 +218,7 @@ export default function SettingsSheet({
   const [activeTab, setActiveTab] = useState<SettingsTab>(focusSection === 'public-board' ? 'board' : (initialTab ?? 'account'));
   const [page, setPage] = useState<SettingsPage>(() => initialPage(focusSection, initialTab));
   const [ambientAutoOpen, setAmbientAutoOpenState] = useState(ambientAutoOpenEnabled);
+  const [ambientSky, setAmbientSkyState] = useState(ambientSkyEnabled);
   const [highlightBoard, setHighlightBoard] = useState(focusSection === 'public-board');
   const contentRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<SettingsTab, HTMLButtonElement | null>>>({});
@@ -2914,6 +2916,38 @@ export default function SettingsSheet({
                 label="Open the ambient clock when the phone turns sideways"
               />
             </div>
+            <div className="flex items-start justify-between gap-3 mt-3 pt-3 border-t border-subtle">
+              <div className="min-w-0 flex-1 pl-12">
+                <h3 className="text-xs font-semibold text-content-primary">Focus Sky</h3>
+                <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
+                  A night sky behind the timer that fills with stars as you focus.
+                </p>
+              </div>
+              <Toggle
+                checked={ambientSky}
+                onChange={() => {
+                  const next = !ambientSky;
+                  setAmbientSky(next);
+                  setAmbientSkyState(next);
+                }}
+                label="Show the Focus Sky on the ambient clock"
+              />
+            </div>
+            <details className="group mt-3 pt-3 border-t border-subtle">
+              <summary className="flex items-center justify-between gap-2 cursor-pointer list-none text-[11px] font-semibold text-primary [&::-webkit-details-marker]:hidden">
+                How the ambient screen works
+                <ChevronDown size={14} className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden />
+              </summary>
+              <ul className="mt-2 space-y-1.5 text-[10.5px] text-content-secondary font-medium leading-relaxed">
+                <li><b className="text-content-primary">Open it</b> by turning the phone sideways in a session, or with the Ambient button on the running card. The screen stays on.</li>
+                <li><b className="text-content-primary">Tap anywhere</b> for the buttons: pause or resume, stop, focus sound and minimise, with this sitting's pauses along the top. They fade after a few seconds.</li>
+                <li><b className="text-content-primary">The music note</b> opens the focus sounds: pick one, set the volume, or let it play with the screen off.</li>
+                <li><b className="text-content-primary">Stars:</b> each day has its own sky. Every bit of today's focus lights a star; the whole sky is lit when you reach your daily bar, however long the bar is. Paused time adds none.</li>
+                <li><b className="text-content-primary">Constellation:</b> when you reach your bar, today's brightest stars join into a shape of their own, different every day. Each extra 15 minutes adds one more star to it.</li>
+                <li><b className="text-content-primary">Aurora:</b> while a focus sound plays, a soft glow along the bottom moves with the music and sits higher as you near your bar.</li>
+                <li><b className="text-content-primary">Easy on the screen:</b> true black, dim tiny stars and a slow drift keep it from marking the display. Reduce motion keeps everything still.</li>
+              </ul>
+            </details>
           </div>
 
           {/* Public Board Participation Card */}

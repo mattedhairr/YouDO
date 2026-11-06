@@ -1,15 +1,6 @@
 /* Focus sound picker. Loaded with its component, so it applies under both
    looks. Settings uses theme tokens, so it follows the accent colour; the
    ambient panel follows its own light text (currentColor). */
-.fs-picker-title {
-  margin-bottom: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.6;
-}
-
 /* Section labels: Music, Nature, Noise, Your sounds, Playback. */
 .fs-sec {
   display: flex;
@@ -195,34 +186,107 @@ button.fs-tile-corner { cursor: pointer; }
 }
 .fs-playlists .fs-note { flex-basis: 100%; margin-top: 2px; }
 
-/* Ambient chips: one sideways row, so the panel stays small over the clock. */
-.fs-chips {
+/* Ambient panel: what is playing, a row of small tiles that scrolls sideways
+   (fading at its edges), then volume and the screen-off pill on one line. */
+.fs-amb-head { display: flex; align-items: center; gap: 10px; padding: 0 14px 0 18px; }
+.fs-amb-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.fs-amb-now { display: flex; align-items: center; gap: 8px; margin-top: 2px; min-width: 0; font-size: 15px; font-weight: 600; }
+.fs-amb-now .fs-bars { flex: none; height: 12px; color: var(--primary); }
+.fs-amb-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+}
+.fs-amb-tiles {
   display: flex;
-  gap: 6px;
-  margin: 0 -16px;
-  padding: 0 16px 2px;
+  gap: 8px;
+  padding: 14px 18px 4px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 30px), transparent);
+  mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 30px), transparent);
 }
-.fs-chip {
+.fs-amb-tile {
+  flex: none;
+  width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 6px 9px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  scroll-snap-align: center;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.fs-amb-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.7);
+  transition: background-color 0.2s ease;
+}
+.fs-amb-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  height: 2.4em;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.78);
+  word-break: break-word;
+}
+.fs-amb-tile.is-on {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+}
+.fs-amb-tile.is-on .fs-amb-icon { background: var(--primary); color: var(--on-primary, #141316); }
+.fs-amb-tile.is-on .fs-amb-name { color: #fff; }
+.fs-amb-sep { flex: none; width: 1px; margin: 10px 2px; background: rgba(255, 255, 255, 0.1); }
+.fs-amb-foot { display: flex; align-items: center; gap: 12px; padding: 10px 14px 0 18px; }
+.fs-amb-foot .fs-picker-volume { flex: 1; min-width: 0; margin: 0; gap: 10px; color: rgba(255, 255, 255, 0.55); }
+.fs-amb-pill {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   height: 34px;
-  padding: 0 13px;
-  border-radius: 999px;
-  background: color-mix(in srgb, currentColor 9%, transparent);
-  font-size: 12.5px;
+  padding: 0 12px 0 10px;
+  border-radius: 17px;
+  font-size: 12px;
   font-weight: 600;
-  color: inherit;
   white-space: nowrap;
-  scroll-snap-align: start;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.75);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
-.fs-chip-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
-.fs-chip.is-on { background: var(--primary); color: var(--on-primary, #fff); }
+.fs-amb-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); transition: background-color 0.2s ease, box-shadow 0.2s ease; }
+.fs-amb-pill.is-on { background: color-mix(in srgb, var(--primary) 18%, transparent); color: color-mix(in srgb, var(--primary) 70%, #fff); }
+.fs-amb-pill.is-on .fs-amb-dot { background: var(--primary); box-shadow: 0 0 6px var(--primary); }
+@media (max-width: 360px) {
+  .fs-amb-foot { flex-wrap: wrap; }
+}
 
 .fs-picker-volume {
   display: flex;
@@ -250,3 +314,30 @@ button.fs-tile-corner { cursor: pointer; }
 .fs-picker-keep-hint { margin-top: 2px; font-size: 12px; opacity: 0.6; }
 .fs-picker.is-settings .fs-picker-keep-label { font-size: 12px; font-weight: 600; }
 .fs-picker.is-settings .fs-picker-keep-hint { font-size: 10.5px; }
+/* Ambient volume: a soft track with the accent fill and a light thumb. */
+.fs-amb-foot input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--primary) var(--fill, 50%), rgba(255, 255, 255, 0.12) var(--fill, 50%));
+  outline: none;
+}
+.fs-amb-foot input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f4f2ee;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.fs-amb-foot input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: #f4f2ee;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.fs-amb-foot input[type='range']:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 45%, transparent); }

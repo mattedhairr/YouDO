@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.5.0] - 2026-11-06 - Focus Sky
+
+- **Focus Sky** — The ambient screen is now a night sky you fill by studying: today's focus lights the stars, and the whole sky is lit when you reach your daily bar.
+- **Your own constellation** — Reaching your bar joins today's brightest stars into a shape of their own, different every day, and it grows as you keep going.
+- **An aurora for your music** — While a focus sound plays, a soft glow along the bottom moves with the music and rises as your day nears the bar.
+- **A calmer sound panel** — The music note on the ambient screen opens frosted glass with what's playing, the sounds as tiles, and volume in one tidy row. The line between minutes and seconds now sits centred.
+- **Android APK** — versionName **8.5.0**, versionCode **91**. Installs over v8.4.0 (90).
+
+---
+
 ## [v8.4.0] - 2026-11-06 - New Focus Music and Your Own Sounds
 
 - **New focus music** — Six calm new tracks (violin, piano, shakuhachi, strings and koto) replace the old music, all set to the same volume.

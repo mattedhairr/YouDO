@@ -367,6 +367,29 @@ class FocusSoundPlayer {
   get playing(): FocusSoundId | null {
     return this.current?.id ?? null;
   }
+
+  private analyser: AnalyserNode | null = null;
+  private meterData: Float32Array<ArrayBuffer> | null = null;
+
+  /**
+   * How loud the sound is right now, about 0–1, for the ambient screen's
+   * aurora. Measured after the fades, so it sinks when the sound pauses, and
+   * against the chosen volume, so a quiet setting still moves it. 0 when silent.
+   */
+  meter(): number {
+    if (!this.ctx || !this.master || !this.current || this.ctx.state !== 'running') return 0;
+    if (!this.analyser || !this.meterData) {
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 1024;
+      this.master.connect(this.analyser);
+      this.meterData = new Float32Array(new ArrayBuffer(this.analyser.fftSize * 4));
+    }
+    this.analyser.getFloatTimeDomainData(this.meterData);
+    let sum = 0;
+    for (const v of this.meterData) sum += v * v;
+    const rms = Math.sqrt(sum / this.meterData.length);
+    return Math.min(1, (rms / Math.max(0.05, this.volume)) * 5);
+  }
 }
 
 export const focusSoundPlayer = new FocusSoundPlayer();

@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-06**, while releasing **v8.4.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-06**, after releasing **v8.5.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.4.0, versionCode 90, published 2026-11-06. Before it: v8.3.5, versionCode 89, published 2026-11-05.
+- **Latest release:** v8.5.0, versionCode 91, published 2026-11-06. Before it: v8.4.0, versionCode 90, published the same day.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -15,7 +15,7 @@ Last updated **2026-11-06**, while releasing **v8.4.0**. Read this file first wh
   - v8.3.1 had no server changes;
   - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings);
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
-  - v8.3.5 and v8.4.0 had no server changes.
+  - v8.3.5, v8.4.0 and v8.5.0 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -48,6 +48,17 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Open question: `set_focus_status` updates `updated_at` even when nothing changed. If a paused time jumps forward in the app too, keep `updated_at` for unchanged rows.
+
+## Still to check from v8.5.0: Focus Sky (released without phone tests, by the owner's choice)
+
+Built and released while the owner was away. Tried in the browser (landscape and portrait, sound playing, a reached bar); never on a phone. How it works: [docs/ambient-screen.md](docs/ambient-screen.md).
+- Open the ambient screen sideways and upright: stars around the timer, never a line across the digits, the pause log or the buttons.
+- With a focus sound playing, the glow along the bottom should move with the music and fade when you pause. Check it doesn't feel distracting; if it does, it can be made dimmer.
+- Reach the daily bar (or set a short bar on a test account): the constellation should draw slowly once.
+- Look at the screen in a dark room: everything above the glow should stay truly black.
+- Watch the battery over a long sitting with the sky on; Settings → Focus and streak → Focus Sky turns it off.
+- The divider between minutes and seconds should look centred and as tall as the digits.
+- Settings → Focus and streak → "How the ambient screen works" opens and reads well in light, dark and the Classic Look.
 
 ## Still to check from v8.4.0: new focus sounds (released without phone tests, by the owner's choice)
 
@@ -107,7 +118,7 @@ Then:
 | Home-screen widgets | Snapshot: `src/lib/homeWidgets.ts` and `src/hooks/useHomeWidgets.ts`. Native: `HomeWidgets.java` (drawing), `HomeWidgetStore.java` (snapshot, new-day roll-over), `UpNextWidget.java` (Dashboard), `RoomWidget.java`, `ArcPainter.java` |
 | In-app updater | `src/lib/appUpdate.ts`, `src/components/UpdateNotice.tsx`, `src/components/UpdateInstaller.tsx`, `YouDoAppUpdatePlugin.java`, `docs/update-delivery.md` |
 | Guide | `src/components/HelpCenterSheet.tsx` and `helpCenter.css` |
-| Focus sounds and ambient | `src/lib/focusSounds.ts`, `src/components/AmbientScreen.tsx`, `FocusSoundService.java`, `docs/focus-sounds.md` |
+| Focus sounds and ambient | `src/lib/focusSounds.ts`, `src/components/AmbientScreen.tsx`, `src/components/FocusSky.tsx` and `src/lib/focusSky.ts` (Focus Sky), `FocusSoundService.java`, `docs/focus-sounds.md`, `docs/ambient-screen.md` |
 | Server | `supabase/*.sql` (each safe to re-run), `supabase/functions/send-push` and `delete-account` |
 | CI | `.github/workflows/pr-checks.yml` (checks on pull requests), `build-apk.yml` (signed APK on `main`) |
 | Store text | `fastlane/metadata/android/en-US/` (one changelog file per versionCode) |
