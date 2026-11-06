@@ -111,7 +111,7 @@ YouDO records both total session duration and net focus.
 - Pause and resume from the app or Android notification.
 - Keep the session accessible from the lock screen.
 - Return directly to the running task after reopening the app.
-- Turn the phone sideways (or tap **Ambient** on the task card) for a full-screen desk clock: big, soft digits on true black that drift and dim slowly to protect OLED screens.
+- Turn the phone sideways (or tap **Ambient** on the task card) for a full-screen desk clock: big, soft digits on true black that drift and dim slowly to protect OLED screens. Behind them, **Focus Sky** fills with stars as you focus, draws a constellation when you reach your daily bar, and glows with your focus music.
 - Play a calm **focus sound** with the session: violin, piano, strings, koto, nature or noise, or **add your own** from your phone (kept on the phone only). It pauses when you pause and can keep playing with the screen off (**Settings → Focus and streak**).
 - Recover an interrupted or forgotten session safely.
 - Split overnight sessions correctly at midnight.
