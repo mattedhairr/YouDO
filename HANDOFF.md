@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-06**, while releasing **v8.5.1**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-12**, while releasing **v8.5.2**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.5.1, versionCode 92 (released 2026-11-06). Before it: v8.5.0, versionCode 91, the same day.
+- **Latest release:** v8.5.2, versionCode 93 (released 2026-11-12). Before it: v8.5.1, versionCode 92, published 2026-11-06.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -15,7 +15,7 @@ Last updated **2026-11-06**, while releasing **v8.5.1**. Read this file first wh
   - v8.3.1 had no server changes;
   - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings);
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
-  - v8.3.5, v8.4.0, v8.5.0 and v8.5.1 had no server changes.
+  - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -48,6 +48,15 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Open question: `set_focus_status` updates `updated_at` even when nothing changed. If a paused time jumps forward in the app too, keep `updated_at` for unchanged rows.
+
+## Still to check from v8.5.2: room status from any device
+
+Found on 2026-11-12: a session on the website showed as "away" in the room, because opening YouDO on the phone (with no session of its own) told the server "idle". Now a device speaks only for its own session (`shouldShareFocus` in `src/lib/focusStatus.ts`): it says "idle" only when a session it announced ends (remembered across restarts), and re-announces "focusing" when the app or tab comes back. The rule is unit-tested; the two-device flow was not tried (it needs a signed-in account on two devices).
+- Start on the website, then open the phone: the room (on both) should keep "You · focusing".
+- Stop on the website: the room shows you away within seconds.
+- Start on the phone, stop it, close the app at once: the room still ends up showing you away (on the next open at the latest).
+- Pausing still shows "Paused" with a frozen time on room-mates' screens and widgets.
+- Known limit: two sessions on two devices at once, then one stops: the room shows you away until the other device's app or tab is opened again.
 
 ## Still to check from v8.5.1: the Milky Way
 

@@ -1,0 +1,1 @@
+Rooms now see your session from any device: opening YouDO on your phone no longer marks you as away while you focus on the website or another phone. Coming back to the app during a session tells your room again, and stopping still clears you.

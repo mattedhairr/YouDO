@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.5.2] - 2026-11-12 - Rooms See Every Session
+
+- **Your focus shows in the room from any device** — Opening YouDO on your phone no longer marks you as away while a session runs on the website (or another phone).
+- **A missed update fixes itself** — Coming back to the app or tab during a session tells your room again that you're focusing.
+- **Stopping still clears you** — When you stop a session, your room sees you as away, even if the app closed before it could say so.
+- **Android APK** — versionName **8.5.2**, versionCode **93**. Installs over v8.5.1 (92).
+
+---
+
 ## [v8.5.1] - 2026-11-06 - A Milky Way for Focus Sky
 
 - **A Milky Way instead of the cloud** — A faint, natural river of light now crosses the sky, with its own shape every day and soft clouds that slowly drift and change.
