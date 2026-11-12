@@ -4,10 +4,14 @@ vi.mock('./supabase', () => ({ supabase: { rpc: vi.fn(), from: vi.fn(), channel:
 
 import {
   FOCUS_STATUS_MAX_AGE_MS,
+  announcedAfter,
   focusElapsedMs,
   focusShareFromSession,
   focusShareKey,
   isLiveFocus,
+  parseFocusAnnounced,
+  shouldShareFocus,
+  type FocusShare,
   type FocusStatus,
 } from './focusStatus';
 import type { ActiveSession } from '../types';
@@ -84,5 +88,44 @@ describe('reading a room-mate’s focus', () => {
     expect(formatClock(0)).toBe('0:00');
     expect(formatClock(24 * MIN + 2_000)).toBe('24:02');
     expect(formatClock(102 * MIN + 7_000)).toBe('1:42:07');
+  });
+});
+
+describe('a device speaks only for its own session', () => {
+  const idle: FocusShare = { state: 'idle', startedAt: null, pausedMs: 0 };
+  const focusing: FocusShare = { state: 'focusing', startedAt: '2026-11-12T09:58:00.000Z', pausedMs: 0 };
+  const paused: FocusShare = { ...focusing, state: 'paused', pausedMs: 60000 };
+
+  it('opening the phone with no session does not cancel a session on the website', () => {
+    // The phone never announced a session: it stays quiet.
+    expect(shouldShareFocus(idle, null, 'me')).toBe(false);
+  });
+
+  it('signing in on a device with no session stays quiet too, even after another account used it', () => {
+    expect(shouldShareFocus(idle, { userId: 'someone-else', startedAt: focusing.startedAt! }, 'me')).toBe(false);
+  });
+
+  it('a running or paused session here is always shared', () => {
+    expect(shouldShareFocus(focusing, null, 'me')).toBe(true);
+    expect(shouldShareFocus(paused, null, 'me')).toBe(true);
+  });
+
+  it('stopping a session this device announced says idle, even after a restart', () => {
+    const announced = announcedAfter(focusing, 'me');
+    expect(announced).toEqual({ userId: 'me', startedAt: focusing.startedAt });
+    // Kept in storage: the same answer after the app restarts.
+    expect(shouldShareFocus(idle, parseFocusAnnounced(JSON.parse(JSON.stringify(announced))), 'me')).toBe(true);
+  });
+
+  it('forgets the session once idle has gone out', () => {
+    expect(announcedAfter(idle, 'me')).toBeNull();
+    expect(announcedAfter(paused, 'me')).toEqual({ userId: 'me', startedAt: paused.startedAt });
+  });
+
+  it('ignores a broken stored record', () => {
+    expect(parseFocusAnnounced(null)).toBeNull();
+    expect(parseFocusAnnounced({ userId: '', startedAt: 'x' })).toBeNull();
+    expect(parseFocusAnnounced({ userId: 'me' })).toBeNull();
+    expect(parseFocusAnnounced('nope')).toBeNull();
   });
 });
