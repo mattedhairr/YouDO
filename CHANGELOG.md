@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.5.3] - 2026-11-12 - Your Seat Follows You
+
+- **Your widget sees every session** — Start a session on the website and the Room widget on your phone shows you focusing within seconds, even with YouDO closed.
+- **No more stuck "away"** — Your phone no longer marks you as away on its widget just because it has no session of its own.
+- **Steady paused times** — A paused room-mate's time no longer jumps forward when the app reopens.
+- **Long sittings stay live** — Widgets keep showing a session past 4 hours, up to 12, just like the app.
+- **Android APK** — versionName **8.5.3**, versionCode **94**. Installs over v8.5.2 (93).
+
+---
+
 ## [v8.5.2] - 2026-11-12 - Rooms See Every Session
 
 - **Your focus shows in the room from any device** — Opening YouDO on your phone no longer marks you as away while a session runs on the website (or another phone).

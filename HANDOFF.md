@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-12**, while releasing **v8.5.2**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-12**, while releasing **v8.5.3**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.5.2, versionCode 93 (released 2026-11-12). Before it: v8.5.1, versionCode 92, published 2026-11-06.
+- **Latest release:** v8.5.3, versionCode 94 (released 2026-11-12). Before it: v8.5.2, versionCode 93, the same day.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -15,7 +15,8 @@ Last updated **2026-11-12**, while releasing **v8.5.2**. Read this file first wh
   - v8.3.1 had no server changes;
   - v8.3.2 added `support_settings.sql`, run in production on 2026-10-31 (checked: it returns the default settings);
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
-  - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes.
+  - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
+  - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success).
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -47,7 +48,15 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - When a room-mate pauses, with YouDO closed, their time on your widget should freeze in grey as "Paused 43:33" within a few seconds, and stay the same after you tap the widget and come back. If it keeps counting until the app opens, the paused signal is being missed: that is a separate fix.
 - The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
-- Open question: `set_focus_status` updates `updated_at` even when nothing changed. If a paused time jumps forward in the app too, keep `updated_at` for unchanged rows.
+- Settled in v8.5.3: an unchanged status keeps its `updated_at`.
+
+## Still to check from v8.5.3: your seat on your own widget
+
+Found on 2026-11-12 with USB debugging: a session on the website never reached the phone's own Room widget. The server pushed focus changes to room-mates only, and the phone wrote "away" into your seat at startup (stamped with its own clock, so it outlived the server's "focusing"). Now your own phones get the push too; the phone speaks only for its own session (a session there always wins; its own writes are provisional and any server update replaces them; entries from older versions give way to the first fresh fetch). Also: an unchanged status keeps its time (paused clocks no longer jump), and widgets keep a session live for 12 hours, as the app (was 4). The Java compiled in CI; the flow was not seen on a phone yet.
+- With YouDO closed on the phone, start a session on the website: within seconds the widget should show **You · focusing**. Stop it: back to away.
+- Start on the phone, then open the website: both keep you focusing.
+- Pause on one device: room-mates see "Paused" with a time that stays put, also after reopening the app.
+- A sitting longer than 4 hours still shows as live on widgets.
 
 ## Still to check from v8.5.2: room status from any device
 
