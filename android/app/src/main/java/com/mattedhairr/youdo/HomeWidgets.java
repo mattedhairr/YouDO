@@ -43,7 +43,8 @@ final class HomeWidgets {
     static final String TAB_GOAL = "goal";
 
     /** A room-mate's dot goes out after this, in case the push that ended it was missed. */
-    private static final long LIVE_MAX_MS = 4 * 60 * 60 * 1000L;
+    /** A session older than this reads as over (the app was killed mid-session); as the app's FOCUS_STATUS_MAX_AGE_MS. */
+    private static final long LIVE_MAX_MS = 12 * 60 * 60 * 1000L;
     /** YouDO's sand {light, dark}, until the app has sent its accent. */
     private static final int[] DEFAULT_ACCENT = { 0xFF8C6A3A, 0xFFC9A46E };
     /** widget_live {light, dark}, for tints that follow the phone's mode. */
@@ -132,25 +133,32 @@ final class HomeWidgets {
     }
 
     /**
-     * Room-mates hear of your session by push; this phone is not sent one, so
-     * your own seat on its Room widgets is updated here, as the push would.
+     * Your own seat on this phone's Room widgets, from this phone's session: at
+     * once, even offline. The server also tells this phone about sessions on
+     * your other devices (the website), so this speaks only for the phone: it
+     * shows a session here, and "away" only when a session here has ended. A
+     * phone that simply has no session leaves your seat to the server, so it
+     * can't hide a session running on the website. Remembered across restarts.
      */
     private static void showSelfInRooms(Context ctx, JSONObject session) {
         String self = HomeWidgetStore.selfId(ctx);
         if (self == null) return;
-        Map<String, String> status = new HashMap<>();
-        status.put("member", self);
-        status.put("updated_at", String.valueOf(System.currentTimeMillis()));
-        if (session == null) {
+        String key = sessionKey(session);
+        String before = HomeWidgetStore.selfSessionKey(ctx);
+        if (key.equals(before)) return;
+        HomeWidgetStore.setSelfSessionKey(ctx, key);
+        Map<String, String> status = HomeWidgetStore.selfStatus(session);
+        if (status == null) {
+            // No session here, and none ended here: nothing for this phone to say.
+            if (before.isEmpty()) return;
+            status = new HashMap<>();
             status.put("state", "idle");
             status.put("started_at", "");
             status.put("paused_ms", "0");
-        } else {
-            status.put("state", session.optBoolean("isPaused", false) ? "paused" : "focusing");
-            status.put("started_at", String.valueOf(session.optLong("startTime")));
-            status.put("paused_ms", String.valueOf(Math.max(0, session.optLong("pausedDuration"))));
+            status.put("updated_at", String.valueOf(System.currentTimeMillis()));
         }
-        if (HomeWidgetStore.applyFocusStatus(ctx, status)) refresh(ctx, RoomWidget.class);
+        status.put("member", self);
+        if (HomeWidgetStore.applySelfStatus(ctx, status)) refresh(ctx, RoomWidget.class);
     }
 
     private static String sessionKey(JSONObject session) {

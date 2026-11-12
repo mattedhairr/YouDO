@@ -1,5 +1,6 @@
 // Isolated PostgreSQL checks for hub_widget_push.sql: a focus change sends one
-// silent push to the people who share a room, and nothing else.
+// silent push to the people who share a room (and the person's own phones,
+// for a session started on another device), and nothing else.
 // pg_net is replaced by a recorder; nothing is sent.
 import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
@@ -44,7 +45,7 @@ try {
   await db.query("insert into public.focus_status(user_id,state,started_at,paused_ms) values($1,'focusing','2026-10-28T09:00:00Z',0)", [id(1)]);
   let calls = await sent();
   check(calls.length === 1, 'starting a session sends one push');
-  check([...calls[0].userIds].sort().join() === [id(2), id(3)].join(), 'to each room-mate once, never to the invited, the sender or outsiders');
+  check([...calls[0].userIds].sort().join() === [id(1), id(2), id(3)].join(), 'to each room-mate once and to the person\'s own phones, never to the invited or outsiders');
   check(calls[0].data.silent === 'true' && calls[0].data.type === 'focus_status', 'it is a silent widget refresh');
   check(calls[0].data.member === id(1) && calls[0].data.state === 'focusing', 'it says who changed and to what');
   check(calls[0].data.started_at === String(Date.parse('2026-10-28T09:00:00Z')), 'start time is epoch milliseconds');
@@ -90,6 +91,17 @@ try {
   await db.exec('reset role');
   check((await rows('select state from public.focus_status where user_id=$1', [id(2)]))[0]?.state === 'focusing', "the widget posts its owner's focus with the key alone");
   check((await sent()).some((call) => call.data.member === id(2)), 'and room-mates get the silent push');
+
+  // Rewriting the same status keeps its time (for a paused one, when the pause began).
+  const pauseFrom = new Date(Date.now() - 20 * 60_000).toISOString();
+  await as(0);
+  await db.query("select public.set_focus_status_by_widget($1,'paused',$2,60000)", [key, pauseFrom]);
+  await db.exec('reset role');
+  await db.query("update public.focus_status set updated_at = now() - interval '7 minutes' where user_id = $1", [id(2)]);
+  await as(0);
+  await db.query("select public.set_focus_status_by_widget($1,'paused',$2,60000)", [key, pauseFrom]);
+  await db.exec('reset role');
+  check((await rows("select now() - updated_at > interval '6 minutes' as kept from public.focus_status where user_id=$1", [id(2)]))[0].kept, 'the widget re-posting the same pause keeps when it began');
   await as(0);
   check(await fails("select public.set_focus_status_by_widget($1,'focusing',now(),0)", ['x'.repeat(43)]), 'an unknown key posts nothing');
   check(await fails("select public.set_focus_status_by_widget($1,'sleeping',now(),0)", [key]), 'an unknown state is refused');

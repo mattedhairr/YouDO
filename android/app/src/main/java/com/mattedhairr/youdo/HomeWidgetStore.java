@@ -27,6 +27,8 @@ final class HomeWidgetStore {
     private static final String KEY_WIDGET_USER = "widget_user";
     private static final String KEY_API_URL = "api_url";
     private static final String KEY_API_ANON = "api_anon";
+    /** The phone session your Room seat last showed ("" for none): see HomeWidgets.showSelfInRooms. */
+    private static final String KEY_SELF_SESSION = "self_session";
     private static final int MAX_ACTIONS = 100;
 
     private HomeWidgetStore() {}
@@ -65,6 +67,13 @@ final class HomeWidgetStore {
         } else {
             keepNewerFocus(known, incoming.optJSONArray("rooms"));
         }
+        // A session on this phone is always your seat, whatever the server said last.
+        Map<String, String> mine = selfStatus(SessionNotificationStore.sessionObject(ctx));
+        String self = selfId(ctx);
+        if (mine != null && self != null) {
+            mine.put("member", self);
+            setMember(incoming.optJSONArray("rooms"), mine, true);
+        }
         prefs(ctx).edit().putString(KEY_SNAPSHOT, incoming.toString()).apply();
     }
 
@@ -84,11 +93,14 @@ final class HomeWidgetStore {
             for (int m = 0; members != null && m < members.length(); m++) {
                 JSONObject person = members.getJSONObject(m);
                 JSONObject seen = latest.get(person.optString("id"));
-                if (seen == null || seen.optLong("updatedAt") <= person.optLong("updatedAt")) continue;
+                // Saved before seats were marked (no "local" field): the fresh fetch wins, so an
+                // "away" an older version wrote with the phone's clock can't outlast the server.
+                if (seen == null || !seen.has("local") || seen.optLong("updatedAt") <= person.optLong("updatedAt")) continue;
                 person.put("state", seen.opt("state"));
                 person.put("startedAt", seen.opt("startedAt"));
                 person.put("pausedMs", seen.optLong("pausedMs"));
                 person.put("updatedAt", seen.optLong("updatedAt"));
+                person.put("local", seen.optBoolean("local", false));
             }
         }
     }
@@ -226,15 +238,43 @@ final class HomeWidgetStore {
         return trimmed;
     }
 
-    /** A room-mate started, paused, resumed or stopped (silent push, see hub_widget_push.sql). */
+    /**
+     * Someone in your rooms started, paused, resumed or stopped (silent push,
+     * see hub_widget_push.sql). That includes you, from another device such as
+     * the website, so your seat follows a session wherever it runs. A session on
+     * this phone is never overridden by news about you from elsewhere.
+     */
     static synchronized boolean applyFocusStatus(Context ctx, Map<String, String> data) {
+        String member = data.get("member");
+        if (member != null && member.equals(selfId(ctx)) && SessionNotificationStore.sessionObject(ctx) != null) return false;
+        return apply(ctx, data, false);
+    }
+
+    /** Your seat from this phone's own session (start, pause, resume or its end): see HomeWidgets.showSelfInRooms. */
+    static synchronized boolean applySelfStatus(Context ctx, Map<String, String> data) {
+        return apply(ctx, data, true);
+    }
+
+    private static boolean apply(Context ctx, Map<String, String> data, boolean force) {
         JSONObject snapshot = stored(ctx);
+        if (snapshot == null || data.get("member") == null || data.get("state") == null) return false;
+        boolean changed = setMember(snapshot.optJSONArray("rooms"), data, force);
+        if (changed) prefs(ctx).edit().putString(KEY_SNAPSHOT, snapshot.toString()).apply();
+        return changed;
+    }
+
+    /**
+     * Writes one member's state into every room they share. From the server
+     * (force false), an older update never wins, but it always replaces a seat
+     * this phone wrote itself (marked local), whatever the two clocks say. This
+     * phone's own writes (force true) are provisional until the server's arrive.
+     */
+    private static boolean setMember(JSONArray rooms, Map<String, String> data, boolean force) {
         String member = data.get("member");
         String state = data.get("state");
-        if (snapshot == null || member == null || state == null) return false;
+        if (member == null || state == null) return false;
         long updatedAt = parseLong(data.get("updated_at"));
         long startedAt = parseLong(data.get("started_at"));
-        JSONArray rooms = snapshot.optJSONArray("rooms");
         boolean changed = false;
         try {
             for (int r = 0; rooms != null && r < rooms.length(); r++) {
@@ -242,19 +282,46 @@ final class HomeWidgetStore {
                 for (int m = 0; members != null && m < members.length(); m++) {
                     JSONObject person = members.getJSONObject(m);
                     // Pushes can arrive out of order; an older one never wins.
-                    if (!member.equals(person.optString("id")) || person.optLong("updatedAt") > updatedAt) continue;
+                    if (!member.equals(person.optString("id"))) continue;
+                    if (!force && !person.optBoolean("local", false) && person.optLong("updatedAt") > updatedAt) continue;
                     person.put("state", state);
                     person.put("startedAt", startedAt > 0 ? startedAt : JSONObject.NULL);
                     person.put("pausedMs", Math.max(0, parseLong(data.get("paused_ms"))));
                     person.put("updatedAt", updatedAt);
+                    person.put("local", force);
                     changed = true;
                 }
             }
-            if (changed) prefs(ctx).edit().putString(KEY_SNAPSHOT, snapshot.toString()).apply();
         } catch (Exception e) {
             return false;
         }
         return changed;
+    }
+
+    /**
+     * Your seat as this phone's session shows it, in the push's terms, or null
+     * with no session. A paused seat's time is the moment the pause began, which
+     * is how the widget reads it (HomeWidgets.room).
+     */
+    static Map<String, String> selfStatus(JSONObject session) {
+        if (session == null) return null;
+        boolean paused = session.optBoolean("isPaused", false);
+        long now = System.currentTimeMillis();
+        Map<String, String> status = new java.util.HashMap<>();
+        status.put("state", paused ? "paused" : "focusing");
+        status.put("started_at", String.valueOf(session.optLong("startTime")));
+        status.put("paused_ms", String.valueOf(Math.max(0, session.optLong("pausedDuration"))));
+        status.put("updated_at", String.valueOf(paused ? session.optLong("pauseStart", now) : now));
+        return status;
+    }
+
+    /** The phone session your seat last showed, "" for none. */
+    static String selfSessionKey(Context ctx) {
+        return prefs(ctx).getString(KEY_SELF_SESSION, "");
+    }
+
+    static void setSelfSessionKey(Context ctx, String key) {
+        prefs(ctx).edit().putString(KEY_SELF_SESSION, key).apply();
     }
 
     private static long parseLong(String value) {

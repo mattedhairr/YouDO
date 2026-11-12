@@ -69,6 +69,19 @@ try {
   check((await rows('select state from public.focus_status where user_id=$1', [id(2)]))[0].state === 'idle', 'a day-old start time reads as idle');
   await rows("select public.set_focus_status('paused', now() - interval '10 minutes', 120000)");
   check((await rows('select state from public.focus_status where user_id=$1', [id(2)]))[0].state === 'paused', 'pausing is shared');
+  // Sending the same pause again (an app reload, another device) keeps when it began.
+  const pausedRow = (await rows('select started_at from public.focus_status where user_id=$1', [id(2)]))[0];
+  await db.exec('reset role');
+  await db.query("update public.focus_status set updated_at = now() - interval '7 minutes' where user_id=$1", [id(2)]);
+  await as(2);
+  await rows('select public.set_focus_status($1, $2, $3)', ['paused', pausedRow.started_at, 120000]);
+  await db.exec('reset role');
+  check((await rows("select now() - updated_at > interval '6 minutes' as kept from public.focus_status where user_id=$1", [id(2)]))[0].kept, 'an unchanged status keeps its time (the pause start)');
+  await as(2);
+  await rows('select public.set_focus_status($1, $2, $3)', ['focusing', pausedRow.started_at, 300000]);
+  await db.exec('reset role');
+  check((await rows("select now() - updated_at < interval '1 minute' as fresh from public.focus_status where user_id=$1", [id(2)]))[0].fresh, 'a real change (resuming) takes a new time');
+  await as(2);
   await rows("select public.set_focus_status('idle', now(), 5000)");
   const idle = (await rows('select state, started_at, paused_ms from public.focus_status where user_id=$1', [id(2)]))[0];
   check(idle.state === 'idle' && idle.started_at === null && Number(idle.paused_ms) === 0, 'stopping clears the session details');
