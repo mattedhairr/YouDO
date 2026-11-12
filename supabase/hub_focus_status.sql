@@ -66,7 +66,16 @@ begin
     )
     on conflict (user_id) do update set
       state = excluded.state, started_at = excluded.started_at,
-      paused_ms = excluded.paused_ms, updated_at = excluded.updated_at;
+      paused_ms = excluded.paused_ms,
+      -- An unchanged status keeps its time: for a paused one that is when the
+      -- pause began, which room-mates' clocks stop at.
+      updated_at = case
+        when public.focus_status.state = excluded.state
+          and public.focus_status.started_at is not distinct from excluded.started_at
+          and public.focus_status.paused_ms = excluded.paused_ms
+        then public.focus_status.updated_at
+        else excluded.updated_at
+      end;
 end; $$;
 revoke execute on function public.set_focus_status(text, timestamptz, bigint) from public, anon;
 grant execute on function public.set_focus_status(text, timestamptz, bigint) to authenticated;

@@ -4,7 +4,9 @@
 -- When someone starts, pauses, resumes or stops a focus session, the phones of
 -- the people who share a room with them get a silent push: data only, nothing
 -- is shown. It lets the Room widget on the home screen light or clear that
--- person's dot within seconds, even while YouDO is closed. The push carries only
+-- person's dot within seconds, even while YouDO is closed. Their own phones get
+-- it too: a session started on the website lights your own seat on your phone
+-- (the phone keeps a session running on itself over it). The push carries only
 -- what room-mates can already read in focus_status (the state and its times),
 -- never the task.
 --
@@ -25,7 +27,7 @@ begin
   from public.squad_members mine
   join public.squad_members theirs on theirs.squad_id = mine.squad_id
   where mine.user_id = new.user_id and mine.status = 'accepted'
-    and theirs.status = 'accepted' and theirs.user_id <> new.user_id;
+    and theirs.status = 'accepted';
   if mates is null then return null; end if;
   perform private.dispatch_push(
     mates,
@@ -129,7 +131,16 @@ begin
     )
     on conflict (user_id) do update set
       state = excluded.state, started_at = excluded.started_at,
-      paused_ms = excluded.paused_ms, updated_at = excluded.updated_at;
+      paused_ms = excluded.paused_ms,
+      -- An unchanged status keeps its time: for a paused one that is when the
+      -- pause began, which room-mates' clocks stop at.
+      updated_at = case
+        when public.focus_status.state = excluded.state
+          and public.focus_status.started_at is not distinct from excluded.started_at
+          and public.focus_status.paused_ms = excluded.paused_ms
+        then public.focus_status.updated_at
+        else excluded.updated_at
+      end;
 end; $$;
 revoke execute on function public.set_focus_status_by_widget(text, text, timestamptz, bigint) from public;
 grant execute on function public.set_focus_status_by_widget(text, text, timestamptz, bigint) to anon, authenticated;
