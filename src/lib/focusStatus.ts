@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { STORAGE_KEYS } from './storageKeys';
 import type { ActiveSession } from '../types';
 
 export type FocusState = 'idle' | 'focusing' | 'paused';
@@ -103,4 +104,56 @@ export function subscribeFocusStatuses(userIds: string[], onChange: (status: Foc
   return () => {
     void supabase.removeChannel(channel);
   };
+}
+
+/**
+ * The session this device last told the room about (its own running one),
+ * per account. Kept across restarts, so a stop whose "idle" failed to send is
+ * still reported the next time the app opens.
+ */
+export interface FocusAnnounced {
+  userId: string;
+  startedAt: string;
+}
+
+/**
+ * Whether this device should tell the room about `share`. A device speaks
+ * only for its own session: it shares a running one, and says "idle" only when
+ * a session it announced has ended. A device with no session of its own stays
+ * quiet, so opening YouDO on the phone can't cancel a session running on the
+ * website, and signing in can't either.
+ */
+export function shouldShareFocus(share: FocusShare, announced: FocusAnnounced | null, userId: string): boolean {
+  if (share.state !== 'idle') return true;
+  return announced !== null && announced.userId === userId;
+}
+
+/** What to remember once `share` has reached the room. */
+export function announcedAfter(share: FocusShare, userId: string): FocusAnnounced | null {
+  return share.state === 'idle' || !share.startedAt ? null : { userId, startedAt: share.startedAt };
+}
+
+export function parseFocusAnnounced(raw: unknown): FocusAnnounced | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const row = raw as Record<string, unknown>;
+  return typeof row.userId === 'string' && row.userId && typeof row.startedAt === 'string' && row.startedAt
+    ? { userId: row.userId, startedAt: row.startedAt }
+    : null;
+}
+
+export function readFocusAnnounced(): FocusAnnounced | null {
+  try {
+    return parseFocusAnnounced(JSON.parse(localStorage.getItem(STORAGE_KEYS.focusAnnounced) ?? 'null'));
+  } catch {
+    return null;
+  }
+}
+
+export function saveFocusAnnounced(next: FocusAnnounced | null): void {
+  try {
+    if (next) localStorage.setItem(STORAGE_KEYS.focusAnnounced, JSON.stringify(next));
+    else localStorage.removeItem(STORAGE_KEYS.focusAnnounced);
+  } catch {
+    /* Restricted storage: this visit still shares; a later "idle" may be skipped. */
+  }
 }
