@@ -1,5 +1,6 @@
 import type { GoalNode, Task, TaskSession } from '../types';
 import { recomputeCompleted } from './goalTree';
+import { collapseDuplicatePlans } from './planningIntegrity';
 import { sanitizeSessionHistory } from './sessionStats';
 import { mergeStreakMeta } from './focusTrends';
 import { mergePacePrefs } from './paceBoard';
@@ -357,11 +358,15 @@ export function mergeWorkspaceThreeWay(base: WorkspaceSlice | null, local: Works
     if (!prior || row.deletedAt >= prior.deletedAt) trash.set(row.id, row);
   }
 
+  // Both devices may have planned the same Goal step: it keeps one unfinished card.
+  const planned = collapseDuplicatePlans({
+    goals: mergedGoals,
+    tasks: mergedTasks,
+    sessionHistory: mergeSessions(base?.sessionHistory, local.sessionHistory, remote.sessionHistory, localNewer),
+  });
   return {
     slice: {
-      tasks: mergedTasks,
-      goals: mergedGoals,
-      sessionHistory: mergeSessions(base?.sessionHistory, local.sessionHistory, remote.sessionHistory, localNewer),
+      ...planned,
       recentlyDeletedGoals: [...trash.values()].sort((a, b) => b.deletedAt - a.deletedAt).slice(0, 20),
       deletionLedger,
       ...mergeSettings(base, local, remote),

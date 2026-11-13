@@ -50,6 +50,10 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Settled in v8.5.3: an unchanged status keeps its `updated_at`.
 
+## Waiting for the next release (committed on `fixes`, not pushed)
+
+- **One card per Goal step.** A step planned on two devices before they synced (or one that lost its link) left two unfinished cards, such as Chapter - 4 on both 11 and 12 Nov in Backlog. Now any extra card is folded into one (the step's current card, or the newest), keeping its missed date and focus sittings, after every sync and whenever cards change; planning also reuses an unlinked unfinished card. Phone check: after updating, the two Chapter - 4 cards become one (12 Nov), and its timeline still shows 11 Nov as missed.
+
 ## Still to check from v8.5.3: your seat on your own widget
 
 Found on 2026-11-12 with USB debugging: a session on the website never reached the phone's own Room widget. The server pushed focus changes to room-mates only, and the phone wrote "away" into your seat at startup (stamped with its own clock, so it outlived the server's "focusing"). Now your own phones get the push too; the phone speaks only for its own session (a session there always wins; its own writes are provisional and any server update replaces them; entries from older versions give way to the first fresh fetch). Also: an unchanged status keeps its time (paused clocks no longer jump), and widgets keep a session live for 12 hours, as the app (was 4). The Java compiled in CI; the flow was not seen on a phone yet.

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { GoalNode, Task } from '../types';
+import type { GoalNode, Task, TaskSession } from '../types';
+import { mergeWorkspaceThreeWay } from './syncMerge3';
 import { pathTitles } from './goalTree';
 import { taskOccurrenceOnDate, taskTimelineDates } from './taskTimeline';
 import {
   activePlansForDeletedBranch,
   appendGoalChild,
   buildGoalPlanTask,
+  collapseDuplicatePlans,
+  currentGoalPlan,
   goalDeletionLocation,
   isValidGoalPlanSlice,
   removeGoalBranch,
@@ -119,5 +122,83 @@ describe('planning a full endpoint after a sliced backlog card', () => {
   it('keeps a deliberate partial slice and its completed-step projection', () => {
     const planned = buildGoalPlanTask(leaf, '2026-09-25', [1], null, 'new', 2, 3);
     expect(planned).toMatchObject({ steps: ['Solve'], progress: 0, stepSlice: [1] });
+  });
+});
+
+describe('one unfinished card per Goal step', () => {
+  const step = (todayTaskId: string | null): GoalNode => ({
+    id: 'ch4', kind: 'node', title: 'Chapter - 4', createdAt: 1,
+    children: [], steps: ['PYQ'], stepDone: [false], todayTaskId,
+  });
+  const root = (todayTaskId: string | null): GoalNode => ({
+    id: 'gate', kind: 'goal', title: 'GATE 2027', createdAt: 1, children: [step(todayTaskId)],
+  });
+  const card = (id: string, targetDate: string, extra: Partial<Task> = {}): Task => ({
+    id, title: 'Chapter - 4', description: '', priority: 'medium', targetDate, deadline: null,
+    steps: ['PYQ'], progress: 0, createdAt: Date.parse(targetDate), order: 0, goalNodeId: 'ch4', ...extra,
+  });
+  const sitting = (id: string, taskId: string, startTime: number): TaskSession => ({
+    id, taskId, startTime, endTime: startTime + 60000, pausedDuration: 0, pauses: [], netFocusMs: 60000,
+    wallClockStart: '9:00 AM', wallClockEnd: '9:01 AM', completed: false, completedStepIndices: [],
+  });
+  const today = '2026-11-13';
+
+  it('keeps the step\'s current card and folds in the other\'s missed date and sittings', () => {
+    const work = {
+      goals: [root('b')],
+      tasks: [card('a', '2026-11-11'), card('b', '2026-11-12', { pastFailedNativeDates: ['2026-11-10'] })],
+      sessionHistory: { a: [sitting('s1', 'a', 1)], b: [sitting('s2', 'b', 2)] },
+    };
+    const out = collapseDuplicatePlans(work, today);
+    expect(out.tasks.map((t) => t.id)).toEqual(['b']);
+    expect(out.tasks[0].targetDate).toBe('2026-11-12');
+    expect(out.tasks[0].pastFailedNativeDates).toEqual(['2026-11-10', '2026-11-11']);
+    expect(out.sessionHistory.a).toBeUndefined();
+    expect(out.sessionHistory.b.map((s) => [s.id, s.taskId])).toEqual([['s1', 'b'], ['s2', 'b']]);
+    expect(out.goals[0].children[0].todayTaskId).toBe('b');
+  });
+
+  it('keeps the newest card when the step points at neither, and relinks it', () => {
+    const out = collapseDuplicatePlans({
+      goals: [root(null)], tasks: [card('a', '2026-11-12'), card('b', '2026-11-11')], sessionHistory: {},
+    }, today);
+    expect(out.tasks.map((t) => t.id)).toEqual(['a']);
+    expect(out.tasks[0].pastFailedNativeDates).toEqual(['2026-11-11']);
+    expect(out.goals[0].children[0].todayTaskId).toBe('a');
+  });
+
+  it('never drops the card of a running sitting', () => {
+    const out = collapseDuplicatePlans({
+      goals: [root('b')], tasks: [card('a', '2026-11-11'), card('b', '2026-11-12')], sessionHistory: {},
+    }, today, 'a');
+    expect(out.tasks.map((t) => t.id)).toEqual(['a']);
+    expect(out.goals[0].children[0].todayTaskId).toBe('a');
+  });
+
+  it('leaves finished history cards and unlinked cards alone', () => {
+    const work = {
+      goals: [root('b')],
+      tasks: [card('a', '2026-11-11', { progress: 1 }), card('b', '2026-11-12'), card('c', '2026-11-12', { goalNodeId: undefined })],
+      sessionHistory: {},
+    };
+    expect(collapseDuplicatePlans(work, today)).toBe(work);
+  });
+
+  it('cleans up two devices that planned the same step before syncing', () => {
+    const base = { tasks: [], goals: [root(null)], sessionHistory: {}, recentlyDeletedGoals: [] };
+    const phone = { ...base, goals: [root('a')], tasks: [card('a', '2026-11-11')], updatedAt: 1 };
+    const web = { ...base, goals: [root('b')], tasks: [card('b', '2026-11-12')], updatedAt: 2 };
+    const { slice } = mergeWorkspaceThreeWay(base, phone, web, 3);
+    const open = slice.tasks.filter((t) => t.goalNodeId === 'ch4');
+    expect(open.map((t) => t.id)).toEqual(['b']);
+    expect(open[0].pastFailedNativeDates).toEqual(['2026-11-11']);
+    expect(slice.goals[0].children[0].todayTaskId).toBe('b');
+  });
+
+  it('plans onto an unfinished card that lost its link instead of making another', () => {
+    const lost = card('a', '2026-11-11');
+    expect(currentGoalPlan([lost], step(null))?.id).toBe('a');
+    expect(currentGoalPlan([card('done', '2026-11-10', { progress: 1 }), lost], step('done'))?.id).toBe('a');
+    expect(currentGoalPlan([card('done', '2026-11-10', { progress: 1 })], step('done'))?.id).toBe('done');
   });
 });

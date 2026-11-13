@@ -1,4 +1,5 @@
-import type { GoalNode, Task } from '../types';
+import type { GoalNode, Task, TaskSession } from '../types';
+import { todayISO } from './dates';
 import {
   collectDescendantIds,
   countSlicedDone,
@@ -48,6 +49,14 @@ export function removeGoalBranch(goals: GoalNode[], rootId: string, nodeId: stri
 export function activePlansForDeletedBranch(node: GoalNode, tasks: Task[]): Task[] {
   const ids = new Set(collectDescendantIds(node));
   return tasks.filter((task) => !!task.goalNodeId && ids.has(task.goalNodeId) && !isTaskComplete(task));
+}
+
+/** The card a step plans onto: its linked one, or an unfinished card that lost its link. */
+export function currentGoalPlan(tasks: Task[], node: GoalNode): Task | undefined {
+  const linked = tasks.filter((task) => task.goalNodeId === node.id);
+  const pointed = linked.find((task) => task.id === node.todayTaskId);
+  if (pointed && !isTaskComplete(pointed)) return pointed;
+  return linked.find((task) => !isTaskComplete(task)) ?? pointed;
 }
 
 /** Replanning unfinished work keeps its identity and any earlier failed dates. */
@@ -126,4 +135,84 @@ export function restoreDeletedBranch(
     nextGoals = [...goals, snapshot.node];
   }
   return { goals: nextGoals.map(recomputeCompleted), tasks: [...tasks, ...restoredTasks] };
+}
+
+export interface PlannedWork {
+  goals: GoalNode[];
+  tasks: Task[];
+  sessionHistory: Record<string, TaskSession[]>;
+}
+
+/**
+ * A Goal step has at most one unfinished dated card. Two devices that plan the
+ * same step before they sync (or a step that lost its link) can leave two; they
+ * become one: the step's current card (or the newest), keeping the other's
+ * missed dates and focus sittings. `keepTaskId` (a running sitting) always stays.
+ * Returns the same object when nothing needed fixing.
+ */
+export function collapseDuplicatePlans<T extends PlannedWork>(work: T, today = todayISO(), keepTaskId?: string | null): T {
+  const pointers = new Map<string, string | null | undefined>();
+  const visit = (node: GoalNode) => {
+    pointers.set(node.id, node.todayTaskId);
+    node.children?.forEach(visit);
+  };
+  work.goals.forEach(visit);
+
+  const openByNode = new Map<string, Task[]>();
+  for (const task of work.tasks) {
+    if (!task.goalNodeId || !pointers.has(task.goalNodeId) || isTaskComplete(task)) continue;
+    openByNode.set(task.goalNodeId, [...(openByNode.get(task.goalNodeId) ?? []), task]);
+  }
+
+  const replaced = new Map<string, Task>();
+  const dropped = new Map<string, string>(); // dropped id -> kept id
+  const repoint = new Map<string, string>(); // node id -> kept id
+  for (const [nodeId, cards] of openByNode) {
+    if (cards.length < 2) continue;
+    const pointer = pointers.get(nodeId);
+    const kept = cards.find((card) => card.id === keepTaskId)
+      ?? cards.find((card) => card.id === pointer)
+      ?? [...cards].sort((a, b) =>
+        (b.targetDate ?? '').localeCompare(a.targetDate ?? '') || b.createdAt - a.createdAt)[0];
+    const missed = new Set(kept.pastFailedNativeDates ?? []);
+    const backlogMissed = new Set(kept.pastFailedBacklogDates ?? []);
+    let resumeNote = kept.resumeNote;
+    for (const card of cards) {
+      if (card.id === kept.id) continue;
+      dropped.set(card.id, kept.id);
+      card.pastFailedNativeDates?.forEach((date) => missed.add(date));
+      card.pastFailedBacklogDates?.forEach((date) => backlogMissed.add(date));
+      const date = card.originalTargetDate || card.targetDate;
+      if (date && date < today && date !== (kept.originalTargetDate || kept.targetDate)) missed.add(date);
+      resumeNote ||= card.resumeNote;
+    }
+    replaced.set(kept.id, {
+      ...kept,
+      ...(missed.size ? { pastFailedNativeDates: [...missed].sort() } : {}),
+      ...(backlogMissed.size ? { pastFailedBacklogDates: [...backlogMissed].sort() } : {}),
+      ...(resumeNote ? { resumeNote } : {}),
+    });
+    if (pointer !== kept.id) repoint.set(nodeId, kept.id);
+  }
+  if (dropped.size === 0) return work;
+
+  const tasks = work.tasks
+    .filter((task) => !dropped.has(task.id))
+    .map((task) => replaced.get(task.id) ?? task);
+  let goals = work.goals;
+  for (const [nodeId, taskId] of repoint) {
+    goals = goals.map((root) => updateNode(root, nodeId, (node) => ({ ...node, todayTaskId: taskId })));
+  }
+  const sessionHistory = { ...work.sessionHistory };
+  for (const [from, to] of dropped) {
+    const moved = sessionHistory[from];
+    if (!moved) continue;
+    delete sessionHistory[from];
+    const seen = new Set((sessionHistory[to] ?? []).map((session) => session.id));
+    sessionHistory[to] = [
+      ...(sessionHistory[to] ?? []),
+      ...moved.filter((session) => !seen.has(session.id)).map((session) => ({ ...session, taskId: to })),
+    ].sort((a, b) => a.startTime - b.startTime);
+  }
+  return { ...work, goals, tasks, sessionHistory };
 }
