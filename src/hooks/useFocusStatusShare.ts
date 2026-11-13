@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { ActiveSession, TaskSession } from '../types';
 import { focusShareFromSession, focusShareKey } from '../lib/focusShare';
+import { discardedSessionStarts } from '../lib/sessionPersistence';
 
 type FocusLib = typeof import('../lib/focusStatus');
 type ShareQueue = ReturnType<FocusLib['createFocusShareQueue']>;
@@ -24,8 +25,9 @@ const RECHECK_MS = 15_000;
  *
  * With no session here, the app also checks your status when it opens or comes
  * back: if the room still shows a session that is already in your history (it
- * ended, on any device), it says "idle" (isEndedOwnStatus). That clears a
- * status left stuck, for instance by an older version.
+ * ended, on any device) or was discarded here, it says "idle"
+ * (isEndedOwnStatus). That clears a status left stuck, for instance by an
+ * older version.
  *
  * The sending code loads on first use, outside the first screen's budget;
  * calls keep their order while it loads. Nothing is shared until ready: a
@@ -83,7 +85,9 @@ export function useFocusStatusShare(
     void load().then(async ({ focus, push }) => {
       const status = (await focus.fetchFocusStatuses([owner]))[owner];
       const stillIdleHere = () => userRef.current === owner && !sessionRef.current;
-      if (!stillIdleHere() || !focus.isEndedOwnStatus(status, startsRef.current)) return;
+      // Ended here or anywhere: a sitting in the synced history, or discarded on this device.
+      const ended = new Set([...startsRef.current, ...discardedSessionStarts()]);
+      if (!stillIdleHere() || !focus.isEndedOwnStatus(status, ended)) return;
       await push({
         share: { state: 'idle', startedAt: null, pausedMs: 0 },
         userId: owner,

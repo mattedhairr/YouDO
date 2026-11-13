@@ -29,6 +29,16 @@ export function markDiscardedSession(session: ActiveSession, storage: Pick<Stora
   storage.setItem(STORAGE_KEYS.discardedSessions, JSON.stringify(records.slice(-MAX_DISCARDED_SESSIONS)));
 }
 
+/** Start times of sessions discarded on this device by this account (none if the record is unreadable). */
+export function discardedSessionStarts(storage: Pick<Storage, 'getItem'> = localStorage): number[] {
+  try {
+    const ownerId = storage.getItem(STORAGE_KEYS.workspaceOwner);
+    return readDiscardedSessions(storage).filter(record => record.ownerId === ownerId).map(record => record.startTime);
+  } catch {
+    return [];
+  }
+}
+
 export function wasSessionDiscarded(session: ActiveSession, storage: Pick<Storage, 'getItem'> = localStorage): boolean {
   const ownerId = storage.getItem(STORAGE_KEYS.workspaceOwner);
   return readDiscardedSessions(storage).some(record => record.ownerId === ownerId
