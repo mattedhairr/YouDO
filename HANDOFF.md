@@ -51,6 +51,10 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Settled in v8.5.3: an unchanged status keeps its `updated_at`.
 
+## Waiting for the next release (committed on `fixes`, not pushed)
+
+- **A stuck status clears itself.** After installing v8.5.4 the room still showed a session stopped earlier (under v8.5.3) as focusing: v8.5.4 stops new races but did not repair a status already stuck, because the app believed its "idle" had been sent. Now, with no session on the device, the app checks your status when it opens or comes back, and when a newly synced sitting arrives: if the room shows a session already in your history (ended, on any device), it says "idle" (`isEndedOwnStatus` in `src/lib/focusStatus.ts`). A session still running elsewhere has no sitting yet, so it is left alone. Phone check: a stuck "You · focusing" clears within seconds of opening YouDO; a session running on the website stays.
+
 ## Still to check from v8.5.4 (released at once, by the owner's choice: the stuck "focusing" was serious)
 
 - **One card per Goal step.** A step planned on two devices before they synced (or one that lost its link) left two unfinished cards, such as Chapter - 4 on both 11 and 12 Nov in Backlog. Now any extra card is folded into one (the step's current card, or the newest), keeping its missed date and focus sittings, after every sync and whenever cards change; planning also reuses an unlinked unfinished card. Phone check: after updating, the two Chapter - 4 cards become one (12 Nov), and its timeline still shows 11 Nov as missed.
