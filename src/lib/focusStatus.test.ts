@@ -5,13 +5,16 @@ vi.mock('./supabase', () => ({ supabase: { rpc: vi.fn(), from: vi.fn(), channel:
 import {
   FOCUS_STATUS_MAX_AGE_MS,
   announcedAfter,
+  createFocusShareQueue,
   focusElapsedMs,
   focusShareFromSession,
   focusShareKey,
   isLiveFocus,
   parseFocusAnnounced,
   shouldShareFocus,
+  type FocusAnnounced,
   type FocusShare,
+  type FocusState,
   type FocusStatus,
 } from './focusStatus';
 import type { ActiveSession } from '../types';
@@ -127,5 +130,102 @@ describe('a device speaks only for its own session', () => {
     expect(parseFocusAnnounced({ userId: '', startedAt: 'x' })).toBeNull();
     expect(parseFocusAnnounced({ userId: 'me' })).toBeNull();
     expect(parseFocusAnnounced('nope')).toBeNull();
+  });
+});
+
+describe('status writes go out one at a time, newest last', () => {
+  const focusing: FocusShare = { state: 'focusing', startedAt: '2026-11-13T08:00:00.000Z', pausedMs: 0 };
+  const paused: FocusShare = { state: 'paused', startedAt: focusing.startedAt, pausedMs: 0 };
+  const idle: FocusShare = { state: 'idle', startedAt: null, pausedMs: 0 };
+
+  /** A fake server: each write lands only when the test lets it. */
+  function setup(initial: FocusAnnounced | null = null) {
+    const landed: FocusState[] = [];
+    const pending: Array<(ok: boolean) => void> = [];
+    let announced = initial;
+    const push = createFocusShareQueue({
+      send: (share) => new Promise<boolean>((resolve) => pending.push((ok) => {
+        if (ok) landed.push(share.state);
+        resolve(ok);
+      })),
+      readAnnounced: () => announced,
+      saveAnnounced: (next) => { announced = next; },
+    });
+    const done: string[] = [];
+    const job = (share: FocusShare, userId = 'u1', current = () => true) =>
+      push({ share, userId, current, done: () => done.push(share.state) });
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+    return { landed, pending, done, job, flush, announced: () => announced };
+  }
+
+  it('a stop made while "focusing" is still on its way lands last', async () => {
+    const t = setup({ userId: 'u1', startedAt: focusing.startedAt! });
+    void t.job(focusing); // coming back to the app
+    void t.job(idle); // Stop, right away
+    expect(t.pending).toHaveLength(1); // the stop waits for the write in flight
+    t.pending[0](true);
+    await t.flush();
+    expect(t.pending).toHaveLength(2);
+    t.pending[1](true);
+    await t.flush();
+    expect(t.landed).toEqual(['focusing', 'idle']);
+    expect(t.announced()).toBeNull();
+  });
+
+  it('a stop right after a start still says idle once the start has landed', async () => {
+    const t = setup(null);
+    void t.job(focusing);
+    void t.job(idle);
+    t.pending[0](true);
+    await t.flush();
+    t.pending[1](true);
+    await t.flush();
+    expect(t.landed).toEqual(['focusing', 'idle']);
+    expect(t.done).toEqual(['focusing', 'idle']);
+  });
+
+  it('only the newest waiting change is sent', async () => {
+    const t = setup({ userId: 'u1', startedAt: focusing.startedAt! });
+    void t.job(focusing);
+    void t.job(paused);
+    void t.job(idle);
+    t.pending[0](true);
+    await t.flush();
+    t.pending[1](true);
+    await t.flush();
+    expect(t.landed).toEqual(['focusing', 'idle']);
+    expect(t.pending).toHaveLength(2);
+  });
+
+  it('a failed write is not marked sent, so it is tried again later', async () => {
+    const t = setup({ userId: 'u1', startedAt: focusing.startedAt! });
+    void t.job(idle);
+    t.pending[0](false);
+    await t.flush();
+    expect(t.done).toEqual([]);
+    expect(t.announced()).not.toBeNull();
+    void t.job(idle);
+    t.pending[1](true);
+    await t.flush();
+    expect(t.landed).toEqual(['idle']);
+  });
+
+  it('a device with no session of its own still says nothing', async () => {
+    const t = setup(null);
+    await t.job(idle);
+    expect(t.pending).toHaveLength(0);
+    expect(t.done).toEqual(['idle']);
+  });
+
+  it('drops a change meant for an account that signed out meanwhile', async () => {
+    const t = setup(null);
+    let signedIn = true;
+    void t.job(focusing, 'u1', () => signedIn);
+    void t.job(focusing, 'u1', () => signedIn);
+    signedIn = false;
+    t.pending[0](true);
+    await t.flush();
+    expect(t.pending).toHaveLength(1);
+    expect(t.done).toEqual([]);
   });
 });

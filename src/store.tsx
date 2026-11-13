@@ -101,6 +101,8 @@ import {
   activePlansForDeletedBranch,
   appendGoalChild,
   buildGoalPlanTask,
+  collapseDuplicatePlans,
+  currentGoalPlan,
   goalDeletionLocation,
   isValidGoalPlanSlice,
   removeGoalBranch,
@@ -409,6 +411,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!sameTasks(rawTasks, cleanedTasks)) setTasks(cleanedTasks);
     if (!sameTree(rawGoals, cleanedGoals)) setGoals(cleanedGoals);
   }, [setGoals, setTasks]);
+
+  // A Goal step keeps one unfinished card, whichever way a second one arrived
+  // (two devices planning it before they synced, a pulled or restored copy).
+  useEffect(() => {
+    const work = { goals, tasks, sessionHistory: sessionHistoryRef.current };
+    const fixed = collapseDuplicatePlans(work, todayISO(), activeSessionRef.current?.taskId);
+    if (fixed === work) return;
+    setSessionHistory(fixed.sessionHistory);
+    setGoals(fixed.goals);
+    setTasks(fixed.tasks);
+  }, [goals, tasks, activeSessionRef, setGoals, setTasks, setSessionHistory]);
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
@@ -814,9 +827,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const masterSteps = target.steps ?? [];
       const slice = stepSlice ?? masterSteps.map((_, i) => i);
       if (!isValidGoalPlanSlice(target, slice)) return;
-      const existing = target.todayTaskId
-        ? tasksRef.current.find((task) => task.id === target.todayTaskId && task.goalNodeId === target.id)
-        : undefined;
+      const existing = currentGoalPlan(tasksRef.current, target);
       const rescheduled = existing
         ? rescheduleExistingGoalPlan(existing, targetDate, todayISO())
         : null;
@@ -869,17 +880,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const masterSteps = target.steps ?? [];
         const slice = masterSteps.map((_, i) => i);
 
-        const existing = target.todayTaskId
-          ? tasksRef.current.find((task) => task.id === target.todayTaskId && task.goalNodeId === target.id)
-          : undefined;
+        const existing = currentGoalPlan(tasksRef.current, target);
         const rescheduled = existing
           ? rescheduleExistingGoalPlan(existing, targetDate, todayISO())
           : null;
         const taskId = rescheduled?.id ?? uid('task');
-        if (target.todayTaskId) {
-          const old = existing;
-          if (old && !isTaskComplete(old)) replaceIds.add(target.todayTaskId);
-        }
+        if (existing && !isTaskComplete(existing)) replaceIds.add(existing.id);
         const plannedTask = buildGoalPlanTask(
           target, targetDate, slice, rescheduled, taskId,
           rescheduled?.order ?? orderBase++,
