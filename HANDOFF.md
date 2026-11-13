@@ -53,6 +53,7 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 ## Waiting for the next release (committed on `fixes`, not pushed)
 
 - **One card per Goal step.** A step planned on two devices before they synced (or one that lost its link) left two unfinished cards, such as Chapter - 4 on both 11 and 12 Nov in Backlog. Now any extra card is folded into one (the step's current card, or the newest), keeping its missed date and focus sittings, after every sync and whenever cards change; planning also reuses an unlinked unfinished card. Phone check: after updating, the two Chapter - 4 cards become one (12 Nov), and its timeline still shows 11 Nov as missed.
+- **A stop can't be overtaken.** Seen 2026-11-13: after a stop the room (and your Room widget) kept showing you focusing. Since v8.5.2 the app re-sends "focusing" when it comes back to the front; a Stop tapped right then sent "idle" while that write was still on its way, and when "focusing" landed last the server kept it, with nothing left to correct it. Now a device's status writes go one at a time, newest last (`createFocusShareQueue` in `src/lib/focusStatus.ts`), which also makes a stop right after a start say "idle". The sending code now loads after the first screen (`src/lib/focusShare.ts` keeps the small part it needs). Phone check: open YouDO from the background mid-session and stop at once; within seconds both your widget and Anjali's show you away.
 
 ## Still to check from v8.5.3: your seat on your own widget
 

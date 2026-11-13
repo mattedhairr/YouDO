@@ -1,8 +1,6 @@
 import { supabase } from './supabase';
 import { STORAGE_KEYS } from './storageKeys';
-import type { ActiveSession } from '../types';
-
-export type FocusState = 'idle' | 'focusing' | 'paused';
+import type { FocusShare, FocusState } from './focusShare';
 
 /** What room-mates see: whether you are focusing, and for how long. Never the task. */
 export interface FocusStatus {
@@ -13,25 +11,7 @@ export interface FocusStatus {
   updatedAt: string;
 }
 
-export interface FocusShare {
-  state: FocusState;
-  startedAt: string | null;
-  pausedMs: number;
-}
-
-/** The share for the current session, rounded so heartbeats do not cause writes. */
-export function focusShareFromSession(session: ActiveSession | null | undefined): FocusShare {
-  if (!session) return { state: 'idle', startedAt: null, pausedMs: 0 };
-  return {
-    state: session.isPaused ? 'paused' : 'focusing',
-    startedAt: new Date(session.startTime).toISOString(),
-    pausedMs: Math.max(0, Math.round(session.pausedDuration / 1000) * 1000),
-  };
-}
-
-export function focusShareKey(share: FocusShare): string {
-  return `${share.state}|${share.startedAt ?? ''}|${share.pausedMs}`;
-}
+export { focusShareFromSession, focusShareKey, type FocusShare, type FocusState } from './focusShare';
 
 /** Focused time so far for a live status (0 when idle). */
 export function focusElapsedMs(status: Pick<FocusStatus, 'state' | 'startedAt' | 'pausedMs' | 'updatedAt'>, now = Date.now()): number {
@@ -156,4 +136,68 @@ export function saveFocusAnnounced(next: FocusAnnounced | null): void {
   } catch {
     /* Restricted storage: this visit still shares; a later "idle" may be skipped. */
   }
+}
+
+export interface FocusShareJob {
+  share: FocusShare;
+  userId: string;
+  /** False once the account changed: the job is dropped. */
+  current: () => boolean;
+  /** The share reached the room, or there was nothing for this device to say. */
+  done: () => void;
+}
+
+export interface FocusShareDeps {
+  send: (share: FocusShare) => Promise<boolean>;
+  readAnnounced: () => FocusAnnounced | null;
+  saveAnnounced: (next: FocusAnnounced | null) => void;
+}
+
+/**
+ * Sends a device's status one write at a time, in order. Two writes in flight
+ * at once could reach the server in either order: a "focusing" sent when the
+ * app came back, landing after the "idle" of a stop made right then, left you
+ * focusing in every room (and on your widget) with nothing to correct it. A
+ * change made while a write is in flight waits for it, and only the newest
+ * waiting change is sent, so the room always ends on this device's latest
+ * state. Whether this device should speak is decided just before sending, so
+ * an "idle" right after a start still goes out once the start has landed.
+ */
+export function createFocusShareQueue(deps: FocusShareDeps = {
+  send: setFocusStatus,
+  readAnnounced: readFocusAnnounced,
+  saveAnnounced: saveFocusAnnounced,
+}): (job: FocusShareJob) => Promise<void> {
+  let waiting: FocusShareJob | null = null;
+  let busy = false;
+  let idle: Promise<void> = Promise.resolve();
+  const drain = async () => {
+    try {
+      while (waiting) {
+        const job = waiting;
+        waiting = null;
+        if (!job.current()) continue;
+        if (!shouldShareFocus(job.share, deps.readAnnounced(), job.userId)) {
+          // No session of ours to report: leave the room's status to the device that has one.
+          job.done();
+          continue;
+        }
+        const ok = await deps.send(job.share).catch(() => false);
+        if (!ok || !job.current()) continue;
+        deps.saveAnnounced(announcedAfter(job.share, job.userId));
+        job.done();
+      }
+    } finally {
+      busy = false;
+    }
+  };
+  // The promise settles once nothing is waiting.
+  return (job) => {
+    waiting = job;
+    if (!busy) {
+      busy = true;
+      idle = drain();
+    }
+    return idle;
+  };
 }
