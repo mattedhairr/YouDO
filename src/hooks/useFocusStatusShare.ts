@@ -5,6 +5,9 @@ import { focusShareFromSession, focusShareKey } from '../lib/focusShare';
 type FocusLib = typeof import('../lib/focusStatus');
 type ShareQueue = ReturnType<FocusLib['createFocusShareQueue']>;
 
+/** A second look after a stop, for a status write that was still on its way. */
+const RECHECK_MS = 15_000;
+
 /**
  * Shares "focusing / paused / idle" with room-mates when a session starts,
  * pauses, resumes or stops — not on every heartbeat.
@@ -99,10 +102,15 @@ export function useFocusStatusShare(
   }, [userId, key, ready]);
 
   // With no session here: on opening, and when a newly synced sitting arrives.
+  // Once more a little later: a pause or resume tapped on the notification is
+  // posted by Android itself (FocusStatusPoster), outside this queue, so it can
+  // land just after the stop that followed it.
   const idleHere = share.state === 'idle';
   useEffect(() => {
     if (!userId || !ready || !idleHere) return;
     clearEnded(userId);
+    const again = window.setTimeout(() => clearEnded(userId), RECHECK_MS);
+    return () => window.clearTimeout(again);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, ready, idleHere, sittingStarts.size]);
 
