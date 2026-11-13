@@ -30,6 +30,19 @@ export function isLiveFocus(status: FocusStatus, now = Date.now()): boolean {
   return now - Date.parse(status.startedAt) < FOCUS_STATUS_MAX_AGE_MS;
 }
 
+/**
+ * Whether your own room status shows a session that has already ended: it is
+ * live (focusing or paused), yet a sitting with that very start is recorded in
+ * your history, which syncs from every device. A session whose "idle" never
+ * reached the server (an older version could lose it) stays stuck that way
+ * until it expires; a device with no session of its own clears it. A session
+ * still running elsewhere has no sitting yet, so it is never cleared.
+ */
+export function isEndedOwnStatus(status: FocusStatus | undefined, sittingStarts: ReadonlySet<number>, now = Date.now()): boolean {
+  if (!status || !status.startedAt || !isLiveFocus(status, now)) return false;
+  return sittingStarts.has(Date.parse(status.startedAt));
+}
+
 export async function setFocusStatus(share: FocusShare): Promise<boolean> {
   try {
     const { error } = await supabase.rpc('set_focus_status', {
@@ -141,6 +154,8 @@ export function saveFocusAnnounced(next: FocusAnnounced | null): void {
 export interface FocusShareJob {
   share: FocusShare;
   userId: string;
+  /** Sent even with no session announced here (clearing an ended session, see isEndedOwnStatus). */
+  force?: boolean;
   /** False once the account changed: the job is dropped. */
   current: () => boolean;
   /** The share reached the room, or there was nothing for this device to say. */
@@ -177,7 +192,7 @@ export function createFocusShareQueue(deps: FocusShareDeps = {
         const job = waiting;
         waiting = null;
         if (!job.current()) continue;
-        if (!shouldShareFocus(job.share, deps.readAnnounced(), job.userId)) {
+        if (!job.force && !shouldShareFocus(job.share, deps.readAnnounced(), job.userId)) {
           // No session of ours to report: leave the room's status to the device that has one.
           job.done();
           continue;

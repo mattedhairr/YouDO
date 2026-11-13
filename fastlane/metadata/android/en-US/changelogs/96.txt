@@ -1,0 +1,1 @@
+If your room still shows you focusing on a session that has already ended, opening YouDO now sets you to away within seconds, on your widget and on your room-mates'. A pause or resume tapped on the notification just before stopping, or a discarded session, can no longer leave you shown as focusing.

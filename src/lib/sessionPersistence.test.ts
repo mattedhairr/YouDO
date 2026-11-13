@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ActiveSession } from '../types';
 import { finalizeSession } from './sessionStats';
-import { createSessionJournal, markDiscardedSession, nativeSessionIsFinished, persistSessionRecord, selectNativeSession, wasSessionDiscarded } from './sessionPersistence';
+import { createSessionJournal, discardedSessionStarts, markDiscardedSession, nativeSessionIsFinished, persistSessionRecord, selectNativeSession, wasSessionDiscarded } from './sessionPersistence';
 import { STORAGE_KEYS } from './storageKeys';
 import { mergeSessionHistories } from './syncMerge';
 
@@ -44,10 +44,13 @@ describe('focus persistence safeguards', () => {
     markDiscardedSession(active, storage);
     journal.write(null);
     expect(wasSessionDiscarded(active, storage)).toBe(true);
+    expect(discardedSessionStarts(storage)).toEqual([active.startTime]);
     expect(selectNativeSession(journal.read(), active, {}, wasSessionDiscarded(active, storage))).toBeNull();
     expect(storage.getItem(STORAGE_KEYS.sessionHistory)).toBeNull();
     storage.setItem(STORAGE_KEYS.workspaceOwner, 'another-account');
     expect(wasSessionDiscarded(active, storage)).toBe(false);
+    expect(discardedSessionStarts(storage)).toEqual([]);
+    expect(discardedSessionStarts(memoryStorage({ [STORAGE_KEYS.discardedSessions]: 'not json' }))).toEqual([]);
   });
   it('does not clear the sitting when a durable discard marker cannot be written', () => {
     const storage = memoryStorage({ [STORAGE_KEYS.workspaceOwner]: 'tester' });

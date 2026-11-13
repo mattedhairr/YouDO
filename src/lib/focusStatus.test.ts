@@ -9,6 +9,7 @@ import {
   focusElapsedMs,
   focusShareFromSession,
   focusShareKey,
+  isEndedOwnStatus,
   isLiveFocus,
   parseFocusAnnounced,
   shouldShareFocus,
@@ -227,5 +228,36 @@ describe('status writes go out one at a time, newest last', () => {
     await t.flush();
     expect(t.pending).toHaveLength(1);
     expect(t.done).toEqual([]);
+  });
+});
+
+describe('a status left stuck on an ended session is cleared', () => {
+  const start = NOW - 150 * MIN;
+  const stuck = status({ startedAt: new Date(start).toISOString(), updatedAt: new Date(start).toISOString() });
+
+  it('is ended when a sitting with that start is in your history', () => {
+    expect(isEndedOwnStatus(stuck, new Set([start]), NOW)).toBe(true);
+    expect(isEndedOwnStatus({ ...stuck, state: 'paused' }, new Set([start]), NOW)).toBe(true);
+  });
+
+  it('never clears a session still running elsewhere (no sitting yet), idle, or expired', () => {
+    expect(isEndedOwnStatus(stuck, new Set([start - MIN]), NOW)).toBe(false);
+    expect(isEndedOwnStatus({ ...stuck, state: 'idle' }, new Set([start]), NOW)).toBe(false);
+    expect(isEndedOwnStatus(undefined, new Set([start]), NOW)).toBe(false);
+    expect(isEndedOwnStatus(stuck, new Set([start]), start + FOCUS_STATUS_MAX_AGE_MS + 1)).toBe(false);
+  });
+
+  it('sends "idle" even though this device announced nothing', async () => {
+    const landed: string[] = [];
+    const push = createFocusShareQueue({
+      send: async (share) => { landed.push(share.state); return true; },
+      readAnnounced: () => null,
+      saveAnnounced: () => {},
+    });
+    const idle: FocusShare = { state: 'idle', startedAt: null, pausedMs: 0 };
+    await push({ share: idle, userId: 'u1', current: () => true, done: () => {} });
+    expect(landed).toEqual([]);
+    await push({ share: idle, userId: 'u1', force: true, current: () => true, done: () => {} });
+    expect(landed).toEqual(['idle']);
   });
 });
