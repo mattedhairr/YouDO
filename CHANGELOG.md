@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.5.4] - 2026-11-13 - Stops That Stick
+
+- **Stopping always shows** — After you stop a session, your room and Room widgets show you as away within seconds, even if you stopped right after opening YouDO. Before, a stop made at that moment could leave you "focusing" for everyone.
+- **A quick start and stop** — Stopping a session a moment after starting it now also clears your status in the room.
+- **One card per goal step** — A step planned on two devices before they synced no longer shows twice in Backlog. The extra card is folded into one, keeping its missed date and focus time.
+- **Android APK** — versionName **8.5.4**, versionCode **95**. Installs over v8.5.3 (94).
+
+---
+
 ## [v8.5.3] - 2026-11-12 - Your Seat Follows You
 
 - **Your widget sees every session** — Start a session on the website and the Room widget on your phone shows you focusing within seconds, even with YouDO closed.

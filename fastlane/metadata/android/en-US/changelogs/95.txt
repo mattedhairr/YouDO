@@ -1,0 +1,1 @@
+Stopping a session now always shows you as away in your room and on Room widgets, even if you stopped right after opening YouDO or right after starting. A goal step planned on two devices before they synced no longer appears twice in Backlog: the extra card is folded into one, keeping its missed date and focus time.
