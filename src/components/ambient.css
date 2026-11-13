@@ -228,42 +228,62 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
   width: 100%;
   height: 100%;
 }
-/* The Milky Way: two layers 130% the size of the sky, drifting apart very
-   slowly in different directions so their overlap keeps changing. Moved and
-   faded by the compositor (transform, opacity): smooth at the screen's own
-   refresh rate, never redrawn, and no pixel holds the same light for long. */
-.focus-sky-milky {
-  position: absolute;
-  inset: 0;
-  opacity: 0.55;
-  transition: opacity 0.6s linear;
-}
-.focus-sky-layer {
-  position: absolute;
-  left: -15%;
-  top: -15%;
-  width: 130%;
-  height: 130%;
-  /* The app caps canvases at 100% wide; these must overhang so drifting never shows an edge. */
-  max-width: none;
-  opacity: 0;
-  transition: opacity 2.5s ease;
-  will-change: transform;
-}
-.focus-sky-layer.is-ready { opacity: 1; }
-.focus-sky-layer.is-a { animation: focus-sky-drift-a 240s ease-in-out infinite alternate; }
-.focus-sky-layer.is-b { animation: focus-sky-drift-b 330s ease-in-out infinite alternate; }
-@keyframes focus-sky-drift-a {
-  from { transform: translate3d(-4%, -2.5%, 0) rotate(-1.2deg); }
-  to { transform: translate3d(4%, 2.5%, 0) rotate(1.2deg); }
-}
-@keyframes focus-sky-drift-b {
-  from { transform: translate3d(3.5%, -3%, 0) rotate(1.5deg); }
-  to { transform: translate3d(-3.5%, 3%, 0) rotate(-1.5deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .focus-sky-layer.is-a,
-  .focus-sky-layer.is-b { animation: none; }
-  .focus-sky-layer { transition: none; }
-}
 .ambient-screen.is-resting .focus-sky { opacity: 0.85; transition: opacity 4s ease; }
+
+/* The graha of the day (GrahaOfTheDay.tsx): a small planet in the sky, moving
+   slowly through the day, and the card a tap opens. */
+.graha-button {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  transform: translate(-50%, -50%);
+  opacity: 0.88;
+  transition: left 60s linear, top 60s linear, opacity 4s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.graha-button:focus-visible { outline: 2px solid color-mix(in srgb, var(--ambient-ink) 60%, transparent); outline-offset: 2px; }
+.ambient-screen.is-resting .graha-button { opacity: 0.7; }
+.graha-card {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: max(22px, env(safe-area-inset-bottom, 0px));
+  width: min(384px, calc(100% - 28px));
+  box-sizing: border-box;
+  transform: translateX(-50%);
+  padding: 16px 16px 12px;
+  border: 1px solid color-mix(in srgb, var(--ambient-ink) 22%, transparent);
+  border-radius: 22px;
+  background: rgba(24, 21, 17, 0.84);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  color: #eee6d8;
+  text-align: left;
+  animation: graha-card-in 0.35s ease both;
+}
+@media (orientation: landscape) {
+  .graha-card { left: auto; right: max(24px, env(safe-area-inset-right, 0px)); bottom: 20px; width: min(360px, 44%); transform: none; animation-name: graha-card-in-side; }
+}
+@keyframes graha-card-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes graha-card-in-side { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .graha-card { animation: none; } .graha-button { transition: none; } }
+.graha-card-head { display: flex; align-items: center; gap: 12px; }
+.graha-card-planet { display: grid; place-items: center; width: 46px; height: 46px; flex: none; border-radius: 50%; overflow: hidden; }
+.graha-card-name { font-size: 18px; line-height: 1.2; color: var(--ambient-ink); }
+.graha-card-name [lang='sa'] { font-family: 'Nirmala UI', 'Noto Sans Devanagari', 'Kohinoor Devanagari', serif; }
+.graha-card-sub { margin-top: 2px; font-size: 12.5px; color: #b8ab96; }
+.graha-card-fact { margin: 12px 0 8px; font-size: 14.5px; line-height: 1.45; color: #f1ebe0; }
+.graha-card-source { font-size: 11.5px; color: #8f8574; }
+.graha-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.graha-card-dots { display: flex; gap: 5px; }
+.graha-card-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); }
+.graha-card-dots i.is-on { background: var(--ambient-ink); }
+.graha-card-more { padding: 6px 2px; border: 0; background: none; font-size: 13px; font-weight: 600; color: var(--ambient-ink); }

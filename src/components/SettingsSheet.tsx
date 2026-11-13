@@ -1,6 +1,6 @@
 import { useUiPrefs } from '../hooks/useUiPrefs';
 import { setSettingsBackHandler } from '../lib/settingsBack';
-import { ambientAutoOpenEnabled, ambientSkyEnabled, setAmbientAutoOpen, setAmbientSky } from '../lib/ambient';
+import { ambientAutoOpenEnabled, ambientGrahaEnabled, ambientSkyEnabled, setAmbientAutoOpen, setAmbientGraha, setAmbientSky } from '../lib/ambient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -219,6 +219,7 @@ export default function SettingsSheet({
   const [page, setPage] = useState<SettingsPage>(() => initialPage(focusSection, initialTab));
   const [ambientAutoOpen, setAmbientAutoOpenState] = useState(ambientAutoOpenEnabled);
   const [ambientSky, setAmbientSkyState] = useState(ambientSkyEnabled);
+  const [ambientGraha, setAmbientGrahaState] = useState(ambientGrahaEnabled);
   const [highlightBoard, setHighlightBoard] = useState(focusSection === 'public-board');
   const contentRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<SettingsTab, HTMLButtonElement | null>>>({});
@@ -2933,6 +2934,25 @@ export default function SettingsSheet({
                 label="Show the Focus Sky on the ambient clock"
               />
             </div>
+            {ambientSky && (
+              <div className="flex items-start justify-between gap-3 mt-3 pt-3 border-t border-subtle">
+                <div className="min-w-0 flex-1 pl-12">
+                  <h3 className="text-xs font-semibold text-content-primary">Graha of the day</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
+                    The planet the weekday is named after, in the sky. Tap it for a story or fact.
+                  </p>
+                </div>
+                <Toggle
+                  checked={ambientGraha}
+                  onChange={() => {
+                    const next = !ambientGraha;
+                    setAmbientGraha(next);
+                    setAmbientGrahaState(next);
+                  }}
+                  label="Show the graha of the day in the Focus Sky"
+                />
+              </div>
+            )}
             <details className="group mt-3 pt-3 border-t border-subtle">
               <summary className="flex items-center justify-between gap-2 cursor-pointer list-none text-[11px] font-semibold text-primary [&::-webkit-details-marker]:hidden">
                 How the ambient screen works
@@ -2942,10 +2962,10 @@ export default function SettingsSheet({
                 <li><b className="text-content-primary">Open it</b> by turning the phone sideways in a session, or with the Ambient button on the running card. The screen stays on.</li>
                 <li><b className="text-content-primary">Tap anywhere</b> for the buttons: pause or resume, stop, focus sound and minimise, with this sitting's pauses along the top. They fade after a few seconds.</li>
                 <li><b className="text-content-primary">The music note</b> opens the focus sounds: pick one, set the volume, or let it play with the screen off.</li>
-                <li><b className="text-content-primary">Stars:</b> each day has its own sky. Every bit of today's focus lights a star; the whole sky is lit when you reach your daily bar, however long the bar is. Paused time adds none.</li>
-                <li><b className="text-content-primary">Constellation:</b> when you reach your bar, today's brightest stars join into a shape of their own, different every day. Each extra 15 minutes adds one more star to it.</li>
-                <li><b className="text-content-primary">Milky Way:</b> a faint river of light with its own shape each day. It glows a little brighter with your focus sound and as you near your bar, and fades when you pause.</li>
-                <li><b className="text-content-primary">Easy on the screen:</b> true black, dim stars, soft edges and a slow, constant drift keep it from marking the display. Reduce motion keeps everything still.</li>
+                <li><b className="text-content-primary">Stars:</b> each day has its own sky, never the same twice. Each 1/36 of your daily bar lights a star (every 13 minutes with an 8h bar), anywhere in the sky; all 36 shine when you reach the bar. Paused time adds none.</li>
+                <li><b className="text-content-primary">Constellation:</b> when you reach your bar, seven of today's brightest stars join into a shape of their own, away from the timer. Each extra 15 minutes adds one more star to it, up to twelve.</li>
+                <li><b className="text-content-primary">Graha of the day:</b> the planet the weekday is named after (Sunday the Sun, Monday the Moon, and so on) moves slowly across the sky through the day. Tap it for a story or fact with its source; it closes by itself.</li>
+                <li><b className="text-content-primary">Easy on the screen:</b> true black, small dim stars, and a slow drift of the whole face and of the sky keep any pixel from holding the same light for long, so nothing marks the display. Reduce motion keeps the sky still.</li>
               </ul>
             </details>
           </div>

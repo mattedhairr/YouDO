@@ -18,28 +18,57 @@ A night sky behind the timer (`src/components/FocusSky.tsx`, logic in
 `src/lib/focusSky.ts`). On by default; Settings → Focus and streak → Focus Sky
 turns it off.
 
-- **Star map:** each day's map comes from the date (`skySeed`), so it is the
-  same all day and different every day. Stars mostly stay off the timer.
-- **Stars:** the sky holds 240, spread across the daily bar (`skyProgress`):
-  with a 4h bar each star is a minute, with an 8h bar two. Today's focus is
-  the finished sittings (`streakByDate`) plus the running one. Paused time adds
-  none. New stars fade in over 2 seconds.
-- **Constellation:** at the bar, the 10 brightest lit stars beside the timer
-  (its real box, measured on screen) are joined to nearest neighbours, left and
-  right separately. Links that are long or would cross the timer are dropped.
-  Every 15 minutes past the bar adds one more star (up to 30). The lines draw
-  over 3.5 seconds the first time.
-- **Milky Way:** a faint, uneven band of light with dust lanes and knots
-  (fractal noise, `milkyWayLevel`). The date sets its angle, width, curve and
-  texture (`milkyWay`), so each day has its own. Two layers, each drawn once
-  in small slices (no stutter on opening), 130% the size of the sky, drift
-  apart slowly in different directions (CSS animations, 240 s and 330 s), so
-  their overlap keeps changing. Brightness (`milkyWayGlow`) is set 4 times a
-  second and eased by a CSS transition: quieter with no sound, brighter as the
-  day nears the bar, breathing with the music (`focusSoundPlayer.meter()`),
-  nearly gone in a pause.
-- **Burn-in:** the band peaks under 10% brightness, has only soft edges, never
-  stops moving, and leaves more than half the screen fully off (tested).
+- **Every day its own sky:** the date (`skySeed`, then a well-mixed generator,
+  `skyRandom`) sets where the stars are and the order they light in. It is the
+  same all day and differs every day (tested over 120 days).
+- **Few stars, spread evenly:** 36 earned stars (`starMap`), placed by
+  best-candidate sampling, so there are no clumps and no empty halves, over the
+  whole screen except a thin margin and the top line. The timer gets fewer
+  (candidates there count as crowded), but it is not fenced off, so stars never
+  pile up at the edges. They light in a shuffled order, so the first ones land
+  anywhere. A few are bright with a soft halo; most are dim; bluish, white or
+  warm. A faint dust of 45 distant stars (`dustMap`) is there from the start.
+- **Filled by focus:** one star per 1/36 of the daily bar (`skyProgress`): every
+  13⅓ minutes with an 8h bar. Today's focus is the finished sittings
+  (`streakByDate`) plus the running one. Paused time adds none. New stars fade
+  in over 2 seconds.
+- **Constellation:** at the bar, the 7 brightest lit stars clear of the timer
+  (its real box, measured on screen), of the top line and of the controls'
+  area (`constellationArea`: the side columns in landscape, the sides and the
+  band above the timer in portrait) are joined to nearest neighbours. Links
+  that are long or would cross the timer are dropped; across the timer it
+  starts a second group. Every 15 minutes past the bar adds one star (up to
+  12). The lines draw over 3.5 seconds the first time.
+- **Burn-in:** besides the face's drift, the whole sky sways about a point
+  above the screen (`skySway`, ±1.5° over three hours): every star moves a few
+  dozen pixels back and forth. It is redrawn every 20 seconds (well under a
+  pixel each time), with no animation in between. Stars are small and dim on
+  true black.
 - **Reduce motion:** stars appear without fading, lines without drawing, and
-  the Milky Way holds still.
-- **Cost:** it loads with the ambient screen, not the first screen.
+  the sky does not sway.
+- **Cost:** it loads with the ambient screen, not the first screen, and draws
+  three times a minute.
+
+## Graha of the day
+
+The planet the weekday is named after (`src/lib/graha.ts`,
+`src/components/GrahaOfTheDay.tsx`, drawn by `src/lib/grahaArt.ts`):
+Ravivāra the Sun, Somavāra the Moon (in its phase that day), Maṅgalavāra
+Mars, Budhavāra Mercury, Guruvāra Jupiter, Śukravāra Venus, Śanivāra Saturn.
+Shown with the Focus Sky; Settings → Focus and streak → Graha of the day
+turns it off.
+
+- **Place:** small, near the top right in portrait and up the right side in
+  landscape, clear of the top line and the timer (`grahaPosition`). It moves
+  slowly from 6:00 to midnight, updated every minute with a one-minute glide,
+  so it never sits on one spot.
+- **Tap:** a card with its name (Devanagari and IAST), the weekday, one story
+  or fact and its source, and "Another". It closes after 10 seconds without a
+  tap, or with a tap anywhere else, and hides the buttons while open. Each week
+  the same weekday opens with the next fact (`firstFact`).
+- **Facts:** short and sourced: stories from named texts (Ṛgveda, Mahābhārata,
+  Purāṇas), each graha's verse of the Navagraha Stotra (attributed to Vyāsa;
+  our own translations), Jyotiṣa where it explains the calendar, and
+  astronomy. No predictions or remedies.
+- **Later:** a nebula behind the stars was mocked (a GPU shader of glowing,
+  slowly changing gas) and set aside for a later release.
