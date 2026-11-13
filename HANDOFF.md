@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-13**, while releasing **v8.5.4**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-13**, while releasing **v8.5.5**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.5.4, versionCode 95 (released 2026-11-13). Before it: v8.5.3, versionCode 94, released 2026-11-12.
+- **Latest release:** v8.5.5, versionCode 96 (released 2026-11-13). Before it: v8.5.4, versionCode 95, the same day.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -17,7 +17,7 @@ Last updated **2026-11-13**, while releasing **v8.5.4**. Read this file first wh
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
   - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
   - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success);
-  - v8.5.4 had no server changes.
+  - v8.5.4 and v8.5.5 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -51,7 +51,7 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Settled in v8.5.3: an unchanged status keeps its `updated_at`.
 
-## Waiting for the next release (committed on `fixes`, not pushed)
+## Still to check from v8.5.5 (released without a phone test, by the owner's choice)
 
 - **A stuck status clears itself.** After installing v8.5.4 the room still showed a session stopped earlier (under v8.5.3) as focusing: v8.5.4 stops new races but did not repair a status already stuck, because the app believed its "idle" had been sent. Now, with no session on the device, the app checks your status when it opens or comes back, and when a newly synced sitting arrives: if the room shows a session already in your history (ended, on any device), it says "idle" (`isEndedOwnStatus` in `src/lib/focusStatus.ts`). A session still running elsewhere has no sitting yet, so it is left alone. It looks once more 15 s after a stop, because a pause or resume tapped on the notification is posted by Android itself (outside the app's in-order queue) and can land just after the stop. A session discarded on the device counts as ended there too (its local discard record); only another device, which never hears of a discard, would leave it to expire (12 h). Phone check: a stuck "You · focusing" clears within seconds of opening YouDO; a session running on the website stays.
 

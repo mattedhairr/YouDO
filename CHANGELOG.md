@@ -17,6 +17,15 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.5.5] - 2026-11-13 - No Stuck Sessions
+
+- **Stuck status clears itself** — If your room still shows you focusing on a session that has already ended, opening YouDO now sets you to away within seconds, on your widget and on your room-mates'.
+- **Notification taps covered** — A pause or resume tapped on the notification just before stopping can no longer leave you shown as focusing.
+- **Discarded sessions too** — A discarded session's status is cleared the same way on the device you discarded it on.
+- **Android APK** — versionName **8.5.5**, versionCode **96**. Installs over v8.5.4 (95).
+
+---
+
 ## [v8.5.4] - 2026-11-13 - Stops That Stick
 
 - **Stopping always shows** — After you stop a session, your room and Room widgets show you as away within seconds, even if you stopped right after opening YouDO. Before, a stop made at that moment could leave you "focusing" for everyone.
