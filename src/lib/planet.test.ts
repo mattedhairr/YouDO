@@ -35,8 +35,13 @@ describe('planet of the day', () => {
     expect(moonLayout(4, '2026-11-19')).toEqual(moonLayout(4, '2026-11-19'));
     expect(moonLayout(4, '2026-11-26')).not.toEqual(moonLayout(4, '2026-11-19'));
     for (const m of moonLayout(4, '2026-11-19')) {
-      expect(Math.abs(m.dx)).toBeGreaterThan(0.9); // outside the planet
-      expect(Math.abs(m.dx)).toBeLessThan(4); // and close to it
+      expect(Math.abs(m.dx)).toBeGreaterThan(1.3); // outside the planet
+      expect(Math.abs(m.dx)).toBeLessThanOrEqual(4); // and close to it
+    }
+    // Jupiter's moons keep their real order outward, every day.
+    for (let d = 1; d <= 28; d++) {
+      const reach = moonLayout(4, '2026-11-' + String(d).padStart(2, '0')).map((m) => Math.hypot(m.dx, m.dy));
+      expect([...reach].sort((a, b) => a - b)).toEqual(reach);
     }
   });
 
@@ -70,5 +75,18 @@ describe('planet of the day', () => {
     const at8pm = Array.from({ length: 10 }, (_, i) => planetPosition(day(i), 20 * 60, true).x.toFixed(2));
     expect(new Set(at8pm).size).toBeGreaterThan(6);
     expect(planetPosition('2026-11-14', 600, true)).toEqual(planetPosition('2026-11-14', 600, true));
+  });
+});
+
+describe('the tap ring around Saturn', () => {
+  it('clears its rings, and Titan sits outside both', () => {
+    const saturn = PLANETS[6];
+    expect(saturn.ring).toBeGreaterThan(2.25 + 0.3); // its rings reach 2.25 radii
+    for (let d = 1; d <= 28; d++) {
+      for (const titan of moonLayout(6, `2026-11-${String(d).padStart(2, '0')}`)) {
+        expect(Math.hypot(titan.dx, titan.dy)).toBeGreaterThan(saturn.ring + 0.5);
+      }
+    }
+    for (const i of [0, 1, 2, 3, 4, 5]) expect(PLANETS[i].ring).toBe(2.15);
   });
 });

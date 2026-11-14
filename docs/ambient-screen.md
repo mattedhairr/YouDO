@@ -66,8 +66,9 @@ Sky; Settings → Focus and streak → Planet of the day turns it off.
   left, without sliding across. It never stands still.
 - **In front of the stars:** its disc is solid and drawn above the sky, so a
   constellation line passing behind it is covered by it.
-- **Tap:** a short telescope moment, about 4 seconds: a thin ring with
-  viewfinder ticks focuses in, the planet's real moons come out (Jupiter's
+- **Tap:** a short telescope moment, about 4 seconds: the planet zooms in
+  (2.2×, drawn sharp at that size), a thin ring with viewfinder ticks focuses
+  in around it (wider for Saturn, clear of its rings), the planet's real moons come out (Jupiter's
   four large moons, Saturn's Titan, Mars's two; placed differently each day,
   as they really move), and its name appears beside it with "Friday's
   planet", "Sunday's star" or, for the Moon, the day's phase. Then it all fades

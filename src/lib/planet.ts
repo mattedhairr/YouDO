@@ -10,20 +10,24 @@ export interface DayPlanet {
   name: string;
   /** "Friday's planet", "Sunday's star". */
   role: string;
-  /** Its brightest moons: how many to show, and how far out (in planet radii). */
-  moons: { distance: number; size: number }[];
+  /** The tap ring's radius, in planet radii: wider for Saturn, to clear its rings. */
+  ring: number;
+  /** Its brightest moons, in order outward: how far out they can be (in planet radii) and how big. */
+  moons: { near: number; far: number; size: number }[];
 }
 
 /** Indexed by the JavaScript weekday: 0 is Sunday. */
 export const PLANETS: DayPlanet[] = [
-  { name: 'Sun', role: 'Sunday’s star', moons: [] },
-  { name: 'Moon', role: 'Monday', moons: [] },
-  { name: 'Mars', role: 'Tuesday’s planet', moons: [{ distance: 1.8, size: 0.7 }, { distance: 2.6, size: 0.6 }] }, // Phobos, Deimos
-  { name: 'Mercury', role: 'Wednesday’s planet', moons: [] },
+  { name: 'Sun', role: 'Sunday’s star', ring: 2.15, moons: [] },
+  { name: 'Moon', role: 'Monday', ring: 2.15, moons: [] },
+  // Phobos, Deimos
+  { name: 'Mars', role: 'Tuesday’s planet', ring: 2.15, moons: [{ near: 1.5, far: 1.8, size: 0.7 }, { near: 2.25, far: 2.7, size: 0.6 }] },
+  { name: 'Mercury', role: 'Wednesday’s planet', ring: 2.15, moons: [] },
   // Io, Europa, Ganymede, Callisto
-  { name: 'Jupiter', role: 'Thursday’s planet', moons: [{ distance: 1.8, size: 0.9 }, { distance: 2.3, size: 0.85 }, { distance: 3.0, size: 1.1 }, { distance: 3.9, size: 1 }] },
-  { name: 'Venus', role: 'Friday’s planet', moons: [] },
-  { name: 'Saturn', role: 'Saturday’s planet', moons: [{ distance: 3.2, size: 1.1 }] }, // Titan
+  { name: 'Jupiter', role: 'Thursday’s planet', ring: 2.15, moons: [{ near: 1.45, far: 1.85, size: 0.9 }, { near: 1.95, far: 2.4, size: 0.85 }, { near: 2.6, far: 3.1, size: 1.1 }, { near: 3.35, far: 4, size: 1 }] },
+  { name: 'Venus', role: 'Friday’s planet', ring: 2.15, moons: [] },
+  // Titan, always outside the rings (which reach 2.25 radii) and the tap ring
+  { name: 'Saturn', role: 'Saturday’s planet', ring: 2.75, moons: [{ near: 3.5, far: 3.9, size: 1.1 }] },
 ];
 
 /** The weekday (0 is Sunday) of a local date key, "YYYY-MM-DD". */
@@ -79,7 +83,7 @@ export function moonLayout(index: number, dateKey: string): { dx: number; dy: nu
   const tilt = index === 6 ? -0.38 : 0.03; // Saturn's rings are tilted; Jupiter's moons lie almost flat
   return PLANETS[index].moons.map((moon) => {
     const side = next() < 0.5 ? -1 : 1;
-    const reach = moon.distance * (0.55 + 0.45 * next()) * side;
+    const reach = (moon.near + (moon.far - moon.near) * next()) * side;
     return { dx: reach * Math.cos(tilt), dy: reach * Math.sin(tilt), size: moon.size };
   });
 }

@@ -259,34 +259,46 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
   -webkit-tap-highlight-color: transparent;
 }
 .planet-button:focus-visible { outline: 2px solid color-mix(in srgb, var(--ambient-ink) 60%, transparent); outline-offset: 2px; }
-.planet-look {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  animation: planet-look-in 0.5s ease both;
+/* The planet with its ring and moons: a tap zooms them in together, then back. */
+.planet-zoom {
+  position: relative;
+  display: block;
+  width: 36px;
+  height: 36px;
+  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.planet-look.is-leaving { opacity: 0; transition: opacity 0.6s ease; }
+.planet-zoom canvas { display: block; }
+.planet-zoom.is-zoomed { transform: scale(2.2); }
 @keyframes planet-look-in { from { opacity: 0; } }
 .planet-look-ring {
   position: absolute;
   left: 50%;
   top: 50%;
   margin: -30px 0 0 -30px;
+  /* The app caps images at their box's width; the ring is wider than the planet's. */
+  max-width: none;
   overflow: visible;
+  pointer-events: none;
   stroke: color-mix(in srgb, var(--ambient-ink) 60%, transparent);
   stroke-width: 0.9;
-  animation: planet-focus 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: planet-focus 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition: opacity 0.6s ease;
 }
 @keyframes planet-focus { from { opacity: 0; transform: scale(1.4); } }
 .planet-look-moon {
   position: absolute;
   left: 50%;
   top: 50%;
-  margin: -1px 0 0 -1px;
+  translate: -50% -50%;
   border-radius: 50%;
-  background: rgba(235, 232, 225, 0.9);
+  background: rgba(235, 232, 225, 0.92);
+  pointer-events: none;
   animation: planet-look-in 0.5s ease both;
+  transition: opacity 0.6s ease;
 }
+.planet-zoom.is-leaving .planet-look-ring,
+.planet-zoom.is-leaving .planet-look-moon,
+.planet-look-name.is-leaving { opacity: 0; transition: opacity 0.6s ease; }
 .planet-look-name {
   position: absolute;
   top: 50%;
@@ -304,5 +316,6 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
 .planet-look-name span { margin-top: 1px; font-size: 11px; color: rgba(160, 150, 132, 0.95); }
 @media (prefers-reduced-motion: reduce) {
   .planet-day { animation: none; transition: none; }
-  .planet-look, .planet-look-ring, .planet-look-moon, .planet-look-name { animation: none; }
+  .planet-zoom { transition: none; }
+  .planet-look-ring, .planet-look-moon, .planet-look-name { animation: none; }
 }

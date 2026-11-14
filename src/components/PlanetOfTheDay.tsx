@@ -15,6 +15,8 @@ const MOVE_MS = 60_000;
 /** Drawn size of the planet's canvas, and the planet's radius in it. */
 const CANVAS = 36;
 const RADIUS = [8.5, 7.5, 7.5, 7.5, 7.5, 7.5, 6.5];
+/** How much a tap enlarges the planet (drawn sharp at that size). */
+const ZOOM = 2.2;
 
 const minutesNow = () => {
   const d = new Date();
@@ -27,7 +29,8 @@ function PlanetCanvas({ index, phase }: { index: number; phase: number }) {
     const canvas = ref.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    // Drawn for its zoomed size too, so it stays sharp when a tap enlarges it.
+    const dpr = Math.min(window.devicePixelRatio || 1, 3) * ZOOM;
     canvas.width = Math.round(CANVAS * dpr);
     canvas.height = Math.round(CANVAS * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -81,9 +84,11 @@ export default function PlanetOfTheDay({ dateKey }: Props) {
   };
 
   const r = RADIUS[index];
+  const ring = planet.ring * r;
   // The name goes on the side with room, past the moons.
   const onLeft = place.x > 0.6;
-  const gap = r * (moons.length ? 4.4 : 3) + 4;
+  // Past the zoomed planet, its ring and its moons.
+  const gap = Math.max(ring + 3, ...moons.map((m) => Math.abs(m.dx) * r)) * ZOOM + 6;
 
   return (
     <div
@@ -101,30 +106,39 @@ export default function PlanetOfTheDay({ dateKey }: Props) {
           startLook();
         }}
       >
-        <PlanetCanvas index={index} phase={phase} />
+        {/* The planet, its ring and its moons zoom in together for the moment. */}
+        <span className={`planet-zoom ${look === 'on' ? 'is-zoomed' : ''} ${look === 'leaving' ? 'is-leaving' : ''}`}>
+          <PlanetCanvas index={index} phase={phase} />
+          {look !== 'off' && (
+            <>
+              <svg className="planet-look-ring" width="60" height="60" viewBox="-30 -30 60 60" aria-hidden>
+                <circle r={ring} fill="none" vectorEffect="non-scaling-stroke" />
+                {[45, 135, 225, 315].map((deg) => {
+                  const a = (deg * Math.PI) / 180;
+                  return (
+                    <line key={deg} vectorEffect="non-scaling-stroke" x1={Math.cos(a) * ring} y1={Math.sin(a) * ring} x2={Math.cos(a) * (ring + 3)} y2={Math.sin(a) * (ring + 3)} />
+                  );
+                })}
+              </svg>
+              {moons.map((moon, i) => (
+                <i
+                  key={i}
+                  className="planet-look-moon"
+                  style={{ transform: `translate(${moon.dx * r}px, ${moon.dy * r}px)`, width: moon.size * 1.2, height: moon.size * 1.2, animationDelay: `${0.3 + i * 0.12}s` }}
+                />
+              ))}
+            </>
+          )}
+        </span>
       </button>
       {look !== 'off' && (
-        <div className={`planet-look ${look === 'leaving' ? 'is-leaving' : ''}`} aria-hidden>
-          <svg className="planet-look-ring" width="60" height="60" viewBox="-30 -30 60 60">
-            <circle r={r * 2.15} fill="none" />
-            {[45, 135, 225, 315].map((deg) => {
-              const a = (deg * Math.PI) / 180;
-              return (
-                <line key={deg} x1={Math.cos(a) * r * 2.15} y1={Math.sin(a) * r * 2.15} x2={Math.cos(a) * r * 2.6} y2={Math.sin(a) * r * 2.6} />
-              );
-            })}
-          </svg>
-          {moons.map((moon, i) => (
-            <i
-              key={i}
-              className="planet-look-moon"
-              style={{ transform: `translate(${moon.dx * r}px, ${moon.dy * r}px)`, width: moon.size * 2, height: moon.size * 2, animationDelay: `${0.25 + i * 0.12}s` }}
-            />
-          ))}
-          <div className={`planet-look-name ${onLeft ? 'on-left' : ''}`} style={onLeft ? { right: `calc(50% + ${gap}px)` } : { left: `calc(50% + ${gap}px)` }}>
-            <b>{planet.name}</b>
-            <span>{subtitle}</span>
-          </div>
+        <div
+          className={`planet-look-name ${onLeft ? 'on-left' : ''} ${look === 'leaving' ? 'is-leaving' : ''}`}
+          style={onLeft ? { right: `calc(50% + ${gap}px)` } : { left: `calc(50% + ${gap}px)` }}
+          aria-hidden
+        >
+          <b>{planet.name}</b>
+          <span>{subtitle}</span>
         </div>
       )}
     </div>
