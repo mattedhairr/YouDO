@@ -49,26 +49,30 @@ turns it off.
 - **Cost:** it loads with the ambient screen, not the first screen, and draws
   three times a minute.
 
-## Graha of the day
+## Planet of the day
 
-The planet the weekday is named after (`src/lib/graha.ts`,
-`src/components/GrahaOfTheDay.tsx`, drawn by `src/lib/grahaArt.ts`):
-Ravivāra the Sun, Somavāra the Moon (in its phase that day), Maṅgalavāra
-Mars, Budhavāra Mercury, Guruvāra Jupiter, Śukravāra Venus, Śanivāra Saturn.
-Shown with the Focus Sky; Settings → Focus and streak → Graha of the day
-turns it off.
+The body the weekday is named after, in many languages (`src/lib/planet.ts`,
+`src/components/PlanetOfTheDay.tsx`, drawn by `src/lib/planetArt.ts`): Sunday
+the Sun, Monday the Moon (in its phase that day), Tuesday Mars, Wednesday
+Mercury, Thursday Jupiter, Friday Venus, Saturday Saturn. Shown with the Focus
+Sky; Settings → Focus and streak → Planet of the day turns it off.
 
-- **Place:** small, near the top right in portrait and up the right side in
-  landscape, clear of the top line and the timer (`grahaPosition`). It moves
-  slowly from 6:00 to midnight, updated every minute with a one-minute glide,
-  so it never sits on one spot.
-- **Tap:** a card with its name (Devanagari and IAST), the weekday, one story
-  or fact and its source, and "Another". It closes after 10 seconds without a
-  tap, or with a tap anywhere else, and hides the buttons while open. Each week
-  the same weekday opens with the next fact (`firstFact`).
-- **Facts:** short and sourced: stories from named texts (Ṛgveda, Mahābhārata,
-  Purāṇas), each graha's verse of the Navagraha Stotra (attributed to Vyāsa;
-  our own translations), Jyotiṣa where it explains the calendar, and
-  astronomy. No predictions or remedies.
+- **Place:** it crosses the sky once a day, left to right, on an arc above the
+  timer, clear of the top line and the label above the digits
+  (`planetPosition`), like a planet rising and setting. Where the crossing
+  starts depends on the date, so it is somewhere else at the same hour each
+  day. It moves a step each minute and glides there over that minute (about
+  14 px an hour); at the right edge it fades out and comes back in at the
+  left, without sliding across. It never stands still.
+- **In front of the stars:** its disc is solid and drawn above the sky, so a
+  constellation line passing behind it is covered by it.
+- **Tap:** a short telescope moment, about 4 seconds: a thin ring with
+  viewfinder ticks focuses in, the planet's real moons come out (Jupiter's
+  four large moons, Saturn's Titan, Mars's two; placed differently each day,
+  as they really move), and its name appears beside it with "Friday's
+  planet", "Sunday's star" or, for the Moon, the day's phase. Then it all fades
+  away. The tap does not bring up the clock's buttons. Screen readers hear the
+  name; with reduce motion nothing zooms or glides.
+- **A new day** (a sitting past midnight) brings its own planet, fading in.
 - **Later:** a nebula behind the stars was mocked (a GPU shader of glowing,
   slowly changing gas) and set aside for a later release.

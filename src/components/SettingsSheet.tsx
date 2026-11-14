@@ -1,6 +1,6 @@
 import { useUiPrefs } from '../hooks/useUiPrefs';
 import { setSettingsBackHandler } from '../lib/settingsBack';
-import { ambientAutoOpenEnabled, ambientGrahaEnabled, ambientSkyEnabled, setAmbientAutoOpen, setAmbientGraha, setAmbientSky } from '../lib/ambient';
+import { ambientAutoOpenEnabled, ambientPlanetEnabled, ambientSkyEnabled, setAmbientAutoOpen, setAmbientPlanet, setAmbientSky } from '../lib/ambient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -219,7 +219,7 @@ export default function SettingsSheet({
   const [page, setPage] = useState<SettingsPage>(() => initialPage(focusSection, initialTab));
   const [ambientAutoOpen, setAmbientAutoOpenState] = useState(ambientAutoOpenEnabled);
   const [ambientSky, setAmbientSkyState] = useState(ambientSkyEnabled);
-  const [ambientGraha, setAmbientGrahaState] = useState(ambientGrahaEnabled);
+  const [ambientPlanet, setAmbientPlanetState] = useState(ambientPlanetEnabled);
   const [highlightBoard, setHighlightBoard] = useState(focusSection === 'public-board');
   const contentRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<SettingsTab, HTMLButtonElement | null>>>({});
@@ -2937,19 +2937,19 @@ export default function SettingsSheet({
             {ambientSky && (
               <div className="flex items-start justify-between gap-3 mt-3 pt-3 border-t border-subtle">
                 <div className="min-w-0 flex-1 pl-12">
-                  <h3 className="text-xs font-semibold text-content-primary">Graha of the day</h3>
+                  <h3 className="text-xs font-semibold text-content-primary">Planet of the day</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
-                    The planet the weekday is named after, in the sky. Tap it for a story or fact.
+                    The planet the weekday is named after, crossing the sky. Tap it to see its name and moons.
                   </p>
                 </div>
                 <Toggle
-                  checked={ambientGraha}
+                  checked={ambientPlanet}
                   onChange={() => {
-                    const next = !ambientGraha;
-                    setAmbientGraha(next);
-                    setAmbientGrahaState(next);
+                    const next = !ambientPlanet;
+                    setAmbientPlanet(next);
+                    setAmbientPlanetState(next);
                   }}
-                  label="Show the graha of the day in the Focus Sky"
+                  label="Show the planet of the day in the Focus Sky"
                 />
               </div>
             )}
@@ -2964,7 +2964,7 @@ export default function SettingsSheet({
                 <li><b className="text-content-primary">The music note</b> opens the focus sounds: pick one, set the volume, or let it play with the screen off.</li>
                 <li><b className="text-content-primary">Stars:</b> each day has its own sky, never the same twice. Each 1/36 of your daily bar lights a star (every 13 minutes with an 8h bar), anywhere in the sky; all 36 shine when you reach the bar. Paused time adds none.</li>
                 <li><b className="text-content-primary">Constellation:</b> when you reach your bar, seven of today's brightest stars join into a shape of their own, away from the timer. Each extra 15 minutes adds one more star to it, up to twelve.</li>
-                <li><b className="text-content-primary">Graha of the day:</b> the planet the weekday is named after (Sunday the Sun, Monday the Moon, and so on) moves slowly across the sky through the day. Tap it for a story or fact with its source; it closes by itself.</li>
+                <li><b className="text-content-primary">Planet of the day:</b> the one the weekday is named after (Sunday the Sun, Monday the Moon, Saturday Saturn, and so on) crosses the sky once a day, starting somewhere new each day. Tap it to see its name and moons for a moment.</li>
                 <li><b className="text-content-primary">Easy on the screen:</b> true black, small dim stars, and a slow drift of the whole face and of the sky keep any pixel from holding the same light for long, so nothing marks the display. Reduce motion keeps the sky still.</li>
               </ul>
             </details>

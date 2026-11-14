@@ -230,11 +230,22 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
 }
 .ambient-screen.is-resting .focus-sky { opacity: 0.85; transition: opacity 4s ease; }
 
-/* The graha of the day (GrahaOfTheDay.tsx): a small planet in the sky, moving
-   slowly through the day, and the card a tap opens. */
-.graha-button {
+/* The planet of the day (PlanetOfTheDay.tsx): small, crossing the sky once a
+   day, gliding a step each minute. A tap is a short telescope moment: a ring
+   focuses in, its moons come out, its name appears, and all of it fades away. */
+.planet-day {
   position: absolute;
   z-index: 1;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  transition: left 60s linear, top 60s linear, opacity 60s linear;
+  animation: planet-in 2s ease both;
+}
+.planet-day.is-jumping { transition: none; }
+@keyframes planet-in { from { opacity: 0; } }
+.ambient-screen.is-resting .planet-button { opacity: 0.75; }
+.planet-button {
   display: grid;
   place-items: center;
   width: 44px;
@@ -243,47 +254,55 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
   border: 0;
   border-radius: 50%;
   background: none;
-  transform: translate(-50%, -50%);
-  opacity: 0.88;
-  transition: left 60s linear, top 60s linear, opacity 4s ease;
+  opacity: 0.92;
+  transition: opacity 4s ease;
   -webkit-tap-highlight-color: transparent;
 }
-.graha-button:focus-visible { outline: 2px solid color-mix(in srgb, var(--ambient-ink) 60%, transparent); outline-offset: 2px; }
-.ambient-screen.is-resting .graha-button { opacity: 0.7; }
-.graha-card {
+.planet-button:focus-visible { outline: 2px solid color-mix(in srgb, var(--ambient-ink) 60%, transparent); outline-offset: 2px; }
+.planet-look {
   position: absolute;
-  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  animation: planet-look-in 0.5s ease both;
+}
+.planet-look.is-leaving { opacity: 0; transition: opacity 0.6s ease; }
+@keyframes planet-look-in { from { opacity: 0; } }
+.planet-look-ring {
+  position: absolute;
   left: 50%;
-  bottom: max(22px, env(safe-area-inset-bottom, 0px));
-  width: min(384px, calc(100% - 28px));
-  box-sizing: border-box;
-  transform: translateX(-50%);
-  padding: 16px 16px 12px;
-  border: 1px solid color-mix(in srgb, var(--ambient-ink) 22%, transparent);
-  border-radius: 22px;
-  background: rgba(24, 21, 17, 0.84);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
-  color: #eee6d8;
+  top: 50%;
+  margin: -30px 0 0 -30px;
+  overflow: visible;
+  stroke: color-mix(in srgb, var(--ambient-ink) 60%, transparent);
+  stroke-width: 0.9;
+  animation: planet-focus 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes planet-focus { from { opacity: 0; transform: scale(1.4); } }
+.planet-look-moon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -1px 0 0 -1px;
+  border-radius: 50%;
+  background: rgba(235, 232, 225, 0.9);
+  animation: planet-look-in 0.5s ease both;
+}
+.planet-look-name {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(-50%);
+  white-space: nowrap;
   text-align: left;
-  animation: graha-card-in 0.35s ease both;
+  /* Reads cleanly over a constellation line or a star. */
+  text-shadow: 0 0 6px #000, 0 0 2px #000;
+  animation: planet-look-in 0.6s 0.2s ease both;
 }
-@media (orientation: landscape) {
-  .graha-card { left: auto; right: max(24px, env(safe-area-inset-right, 0px)); bottom: 20px; width: min(360px, 44%); transform: none; animation-name: graha-card-in-side; }
+.planet-look-name.on-left { text-align: right; }
+.planet-look-name b { font-size: 14px; font-weight: 600; color: rgba(240, 234, 224, 0.95); }
+.planet-look-name span { margin-top: 1px; font-size: 11px; color: rgba(160, 150, 132, 0.95); }
+@media (prefers-reduced-motion: reduce) {
+  .planet-day { animation: none; transition: none; }
+  .planet-look, .planet-look-ring, .planet-look-moon, .planet-look-name { animation: none; }
 }
-@keyframes graha-card-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
-@keyframes graha-card-in-side { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .graha-card { animation: none; } .graha-button { transition: none; } }
-.graha-card-head { display: flex; align-items: center; gap: 12px; }
-.graha-card-planet { display: grid; place-items: center; width: 46px; height: 46px; flex: none; border-radius: 50%; overflow: hidden; }
-.graha-card-name { font-size: 18px; line-height: 1.2; color: var(--ambient-ink); }
-.graha-card-name [lang='sa'] { font-family: 'Nirmala UI', 'Noto Sans Devanagari', 'Kohinoor Devanagari', serif; }
-.graha-card-sub { margin-top: 2px; font-size: 12.5px; color: #b8ab96; }
-.graha-card-fact { margin: 12px 0 8px; font-size: 14.5px; line-height: 1.45; color: #f1ebe0; }
-.graha-card-source { font-size: 11.5px; color: #8f8574; }
-.graha-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
-.graha-card-dots { display: flex; gap: 5px; }
-.graha-card-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); }
-.graha-card-dots i.is-on { background: var(--ambient-ink); }
-.graha-card-more { padding: 6px 2px; border: 0; background: none; font-size: 13px; font-weight: 600; color: var(--ambient-ink); }

@@ -10,10 +10,10 @@ import { setBackStep } from '../lib/backSteps';
 import { computeNetFocusMs } from '../lib/sessionStats';
 import { sessionClockLabel } from '../lib/sessionClock';
 import FocusSoundPicker from './FocusSoundPicker';
-import { ambientClockDriftRange, ambientDigits, ambientDrift, ambientGrahaEnabled, ambientSkyEnabled, formatAmbientTimer } from '../lib/ambient';
+import { ambientClockDriftRange, ambientDigits, ambientDrift, ambientPlanetEnabled, ambientSkyEnabled, formatAmbientTimer } from '../lib/ambient';
 import { todayISO } from '../lib/dates';
 import FocusSky from './FocusSky';
-import GrahaOfTheDay from './GrahaOfTheDay';
+import PlanetOfTheDay from './PlanetOfTheDay';
 import '@fontsource/quicksand/600.css';
 import './ambient.css';
 
@@ -93,7 +93,7 @@ export function AmbientScreen({
   barHours = 4,
 }: Props) {
   const [skyOn] = useState(ambientSkyEnabled);
-  const [grahaOn] = useState(ambientGrahaEnabled);
+  const [planetOn] = useState(ambientPlanetEnabled);
   const [elapsed, setElapsed] = useState(0);
   const [now, setNow] = useState(() => new Date());
   const [controls, setControls] = useState(true);
@@ -208,16 +208,8 @@ export function AmbientScreen({
           style={{ transform: `translate3d(${drift.x}px, ${drift.y}px, 0)` }}
         >
           {skyOn && <FocusSky focusMs={todayFocusMs + elapsed * 1000} barHours={barHours} dateKey={todayISO()} />}
-          {skyOn && grahaOn && (
-            <GrahaOfTheDay
-              dateKey={todayISO()}
-              onOpen={() => {
-                window.clearTimeout(hideTimer.current);
-                setControls(false);
-                setSoundsOpen(false);
-              }}
-            />
-          )}
+          {/* A new day brings its own planet, fading in (keyed by the date). */}
+          {skyOn && planetOn && <PlanetOfTheDay key={todayISO()} dateKey={todayISO()} />}
           <div className="ambient-top">
             <span>{clock}</span>
             <span>

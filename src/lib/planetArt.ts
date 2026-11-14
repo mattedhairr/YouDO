@@ -1,7 +1,8 @@
 /**
- * Draws the seven grahas (graha.ts) on a canvas: small, softly lit spheres,
- * recognisable at a glance. Index 0 is the Sun, as in GRAHAS. `phase` (0–1,
- * 0 new, 0.5 full) shapes the Moon.
+ * Draws the seven bodies of the week (planet.ts) on a canvas: small, softly
+ * lit spheres, recognisable at a glance, each disc solid so it covers anything
+ * behind it. Index 0 is the Sun, as in PLANETS. `phase` (0–1, 0 new, 0.5 full)
+ * shapes the Moon.
  */
 
 function seeded(seed: number) {
@@ -9,7 +10,7 @@ function seeded(seed: number) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-export function drawGraha(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, index: number, phase = 0.5): void {
+export function drawPlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, index: number, phase = 0.5): void {
   const light = -0.6; // lit from the upper left
   ctx.save();
   const glow = (rgb: string, alpha: number, reach: number) => {
@@ -55,12 +56,12 @@ export function drawGraha(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   };
 
   if (index === 0) {
-    // Sūrya
+    // Sun
     glow('255,190,90', 0.32, 3);
     glow('255,220,150', 0.5, 1.7);
     disc([[0, '#fff6dc'], [0.55, '#ffd27a'], [1, '#f39a2e']]);
   } else if (index === 1) {
-    // Chandra, in today's phase
+    // Moon, in today's phase
     glow('220,225,240', 0.1, 2.2);
     disc([[0, '#f3f1ea'], [1, '#bdb8ad']]);
     ctx.save();
@@ -76,7 +77,7 @@ export function drawGraha(ctx: CanvasRenderingContext2D, cx: number, cy: number,
     ctx.fill();
     ctx.restore();
   } else if (index === 2) {
-    // Maṅgala
+    // Mars
     glow('255,110,70', 0.12, 2);
     disc([[0, '#f0a070'], [0.6, '#c45a32'], [1, '#7e2e18']]);
     ctx.save();
@@ -89,7 +90,7 @@ export function drawGraha(ctx: CanvasRenderingContext2D, cx: number, cy: number,
     ctx.restore();
     shade();
   } else if (index === 3) {
-    // Budha
+    // Mercury
     glow('210,200,190', 0.08, 1.8);
     disc([[0, '#d8d2ca'], [1, '#7d766e']]);
     ctx.save();
@@ -98,7 +99,7 @@ export function drawGraha(ctx: CanvasRenderingContext2D, cx: number, cy: number,
     ctx.restore();
     shade(0.9);
   } else if (index === 4) {
-    // Bṛhaspati
+    // Jupiter
     glow('240,210,170', 0.1, 2);
     disc([[0, '#f2e2c6'], [1, '#b08d64']]);
     ctx.save();
@@ -116,12 +117,12 @@ export function drawGraha(ctx: CanvasRenderingContext2D, cx: number, cy: number,
     ctx.restore();
     shade(0.8);
   } else if (index === 5) {
-    // Śukra
+    // Venus
     glow('255,248,225', 0.25, 2.6);
     disc([[0, '#fffaf0'], [0.6, '#f1e3bf'], [1, '#c9b07c']]);
     shade(0.75);
   } else {
-    // Śani, with its rings: the far half behind, the near half in front
+    // Saturn, with its rings: the far half behind, the near half in front
     const ring = (front: boolean) => {
       ctx.save();
       ctx.translate(cx, cy);
