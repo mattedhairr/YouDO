@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.6.0] - 2026-11-16 - A Calmer Sky
+
+- **A cleaner Focus Sky** — Far fewer stars, spread evenly across the whole sky instead of along the edges, in real star colours, with a different arrangement every day.
+- **A neater constellation** — Reaching your daily bar draws 7 stars (up to 12 as you keep going), kept clear of the timer and buttons.
+- **Planet of the day** — The weekday's planet, from the Sun on Sunday to Saturn on Saturday, crosses the sky once a day. Tap it to zoom in and see its name and moons for a moment. Turn it off in Settings → Focus and streak.
+- **Easy on the screen** — The whole sky turns very slowly, so no star stays on the same pixels. The faint band along the bottom is gone.
+- **Android APK** — versionName **8.6.0**, versionCode **97**. Installs over v8.5.5 (96).
+
+---
+
 ## [v8.5.5] - 2026-11-13 - No Stuck Sessions
 
 - **Stuck status clears itself** — If your room still shows you focusing on a session that has already ended, opening YouDO now sets you to away within seconds, on your widget and on your room-mates'.
