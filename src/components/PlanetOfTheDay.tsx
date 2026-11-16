@@ -12,8 +12,12 @@ const LOOK_MS = 4000;
 const LEAVE_MS = 600;
 /** The planet's place is updated this often, gliding there over the same time. */
 const MOVE_MS = 60_000;
-/** Drawn size of the planet's canvas, and the planet's radius in it. */
-const CANVAS = 36;
+/**
+ * The planet's canvas, centred on its 36px place (.planet-zoom) but wider than
+ * it, so the Sun's and Venus's glow fades out before the edges (the Sun's
+ * reaches 3 radii); and the planet's radius in it.
+ */
+const DRAW = 64;
 const RADIUS = [8.5, 7.5, 7.5, 7.5, 7.5, 7.5, 6.5];
 /** How much a tap enlarges the planet (drawn sharp at that size). */
 const ZOOM = 2.2;
@@ -31,13 +35,13 @@ function PlanetCanvas({ index, phase }: { index: number; phase: number }) {
     if (!canvas || !ctx) return;
     // Drawn for its zoomed size too, so it stays sharp when a tap enlarges it.
     const dpr = Math.min(window.devicePixelRatio || 1, 3) * ZOOM;
-    canvas.width = Math.round(CANVAS * dpr);
-    canvas.height = Math.round(CANVAS * dpr);
+    canvas.width = Math.round(DRAW * dpr);
+    canvas.height = Math.round(DRAW * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, CANVAS, CANVAS);
-    drawPlanet(ctx, CANVAS / 2, CANVAS / 2, RADIUS[index], index, phase);
+    ctx.clearRect(0, 0, DRAW, DRAW);
+    drawPlanet(ctx, DRAW / 2, DRAW / 2, RADIUS[index], index, phase);
   }, [index, phase]);
-  return <canvas ref={ref} style={{ width: CANVAS, height: CANVAS }} aria-hidden />;
+  return <canvas ref={ref} style={{ width: DRAW, height: DRAW, margin: -DRAW / 2 }} aria-hidden />;
 }
 
 /**

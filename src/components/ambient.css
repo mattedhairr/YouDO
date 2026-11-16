@@ -267,7 +267,15 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
   height: 36px;
   transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.planet-zoom canvas { display: block; }
+/* Wider than the planet's place and centred on it, so a glow fades out instead of meeting a square edge. */
+.planet-zoom canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+}
 .planet-zoom.is-zoomed { transform: scale(2.2); }
 @keyframes planet-look-in { from { opacity: 0; } }
 .planet-look-ring {
