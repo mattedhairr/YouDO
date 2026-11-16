@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-13**, while releasing **v8.5.5**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-16**, while releasing **v8.6.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.5.5, versionCode 96 (released 2026-11-13). Before it: v8.5.4, versionCode 95, the same day.
+- **Latest release:** v8.6.0, versionCode 97 (released 2026-11-16). Before it: v8.5.5, versionCode 96, released 2026-11-13.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -17,7 +17,7 @@ Last updated **2026-11-13**, while releasing **v8.5.5**. Read this file first wh
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
   - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
   - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success);
-  - v8.5.4 and v8.5.5 had no server changes.
+  - v8.5.4, v8.5.5 and v8.6.0 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -50,6 +50,12 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Settled in v8.5.3: an unchanged status keeps its `updated_at`.
+
+## Still to check from v8.6.0 (tested by the owner on the phone from the `focus-sky-graha` test APKs)
+
+- **A calmer, truer Focus Sky, and the planet of the day.** The owner found the sky crowded (about 80 stars at 2h 43m of an 8h bar), bunched along the edges (a big box around the timer pushed 90% of stars there), and the Milky Way a "strip of smoke". Now: 36 stars at the bar (one per 13⅓ minutes on 8h), spread evenly anywhere and lit in a shuffled order, a few bright and most dim, in real star colours, plus a faint dust of distant stars; a different sky every day. The Milky Way is gone. The constellation at the bar is 7 stars (up to 12), clear of the timer, top line and controls. Burn-in: besides the face drift, the sky sways ±1.5° over three hours, redrawn every 20 s. New: the weekday's planet (Sunday the Sun … Saturday Saturn), crossing the sky once a day from a different place each day, drawn over constellation lines; a tap shows its name and real moons for about 4 seconds. Settings → Focus and streak → Planet of the day. How it works: [docs/ambient-screen.md](docs/ambient-screen.md). The mocked nebula (a GPU shader) is set aside for a later release, as the owner asked.
+- **Settled with the owner:** no religious facts or names, since users may follow any faith or none; English names only (it was first built as the "graha of the day" with sourced facts, then reworked).
+- **Fixed after the owner's phone test:** the Sun's glow was cut off in a square (it reached past its 36px canvas; the canvas is now 64px). **Still worth a look over time:** the sky in portrait and landscape (no line across the digits, stars not along the edges), the planet's tap in both, the Moon's phase on a Monday, a sitting past midnight, and the battery over a long sitting.
 
 ## Still to check from v8.5.5 (released without a phone test, by the owner's choice)
 

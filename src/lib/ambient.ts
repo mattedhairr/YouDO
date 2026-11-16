@@ -59,6 +59,23 @@ export function setAmbientAutoOpen(enabled: boolean): void {
   }
 }
 
+/** Settings → Focus and streak: the planet of the day in the Focus Sky (on by default). */
+export function ambientPlanetEnabled(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.ambientPlanet) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export function setAmbientPlanet(enabled: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ambientPlanet, String(enabled));
+  } catch {
+    /* Restricted storage: the default (on) stays. */
+  }
+}
+
 /** Settings → Focus and streak: the Focus Sky behind the ambient clock (on by default). */
 export function ambientSkyEnabled(): boolean {
   try {

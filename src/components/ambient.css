@@ -228,42 +228,102 @@ html:not(.dark) .ambient-screen { --ambient-ink: color-mix(in srgb, var(--primar
   width: 100%;
   height: 100%;
 }
-/* The Milky Way: two layers 130% the size of the sky, drifting apart very
-   slowly in different directions so their overlap keeps changing. Moved and
-   faded by the compositor (transform, opacity): smooth at the screen's own
-   refresh rate, never redrawn, and no pixel holds the same light for long. */
-.focus-sky-milky {
-  position: absolute;
-  inset: 0;
-  opacity: 0.55;
-  transition: opacity 0.6s linear;
-}
-.focus-sky-layer {
-  position: absolute;
-  left: -15%;
-  top: -15%;
-  width: 130%;
-  height: 130%;
-  /* The app caps canvases at 100% wide; these must overhang so drifting never shows an edge. */
-  max-width: none;
-  opacity: 0;
-  transition: opacity 2.5s ease;
-  will-change: transform;
-}
-.focus-sky-layer.is-ready { opacity: 1; }
-.focus-sky-layer.is-a { animation: focus-sky-drift-a 240s ease-in-out infinite alternate; }
-.focus-sky-layer.is-b { animation: focus-sky-drift-b 330s ease-in-out infinite alternate; }
-@keyframes focus-sky-drift-a {
-  from { transform: translate3d(-4%, -2.5%, 0) rotate(-1.2deg); }
-  to { transform: translate3d(4%, 2.5%, 0) rotate(1.2deg); }
-}
-@keyframes focus-sky-drift-b {
-  from { transform: translate3d(3.5%, -3%, 0) rotate(1.5deg); }
-  to { transform: translate3d(-3.5%, 3%, 0) rotate(-1.5deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .focus-sky-layer.is-a,
-  .focus-sky-layer.is-b { animation: none; }
-  .focus-sky-layer { transition: none; }
-}
 .ambient-screen.is-resting .focus-sky { opacity: 0.85; transition: opacity 4s ease; }
+
+/* The planet of the day (PlanetOfTheDay.tsx): small, crossing the sky once a
+   day, gliding a step each minute. A tap is a short telescope moment: a ring
+   focuses in, its moons come out, its name appears, and all of it fades away. */
+.planet-day {
+  position: absolute;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  transition: left 60s linear, top 60s linear, opacity 60s linear;
+  animation: planet-in 2s ease both;
+}
+.planet-day.is-jumping { transition: none; }
+@keyframes planet-in { from { opacity: 0; } }
+.ambient-screen.is-resting .planet-button { opacity: 0.75; }
+.planet-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  opacity: 0.92;
+  transition: opacity 4s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.planet-button:focus-visible { outline: 2px solid color-mix(in srgb, var(--ambient-ink) 60%, transparent); outline-offset: 2px; }
+/* The planet with its ring and moons: a tap zooms them in together, then back. */
+.planet-zoom {
+  position: relative;
+  display: block;
+  width: 36px;
+  height: 36px;
+  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Wider than the planet's place and centred on it, so a glow fades out instead of meeting a square edge. */
+.planet-zoom canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+}
+.planet-zoom.is-zoomed { transform: scale(2.2); }
+@keyframes planet-look-in { from { opacity: 0; } }
+.planet-look-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -30px 0 0 -30px;
+  /* The app caps images at their box's width; the ring is wider than the planet's. */
+  max-width: none;
+  overflow: visible;
+  pointer-events: none;
+  stroke: color-mix(in srgb, var(--ambient-ink) 60%, transparent);
+  stroke-width: 0.9;
+  animation: planet-focus 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition: opacity 0.6s ease;
+}
+@keyframes planet-focus { from { opacity: 0; transform: scale(1.4); } }
+.planet-look-moon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: rgba(235, 232, 225, 0.92);
+  pointer-events: none;
+  animation: planet-look-in 0.5s ease both;
+  transition: opacity 0.6s ease;
+}
+.planet-zoom.is-leaving .planet-look-ring,
+.planet-zoom.is-leaving .planet-look-moon,
+.planet-look-name.is-leaving { opacity: 0; transition: opacity 0.6s ease; }
+.planet-look-name {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  text-align: left;
+  /* Reads cleanly over a constellation line or a star. */
+  text-shadow: 0 0 6px #000, 0 0 2px #000;
+  animation: planet-look-in 0.6s 0.2s ease both;
+}
+.planet-look-name.on-left { text-align: right; }
+.planet-look-name b { font-size: 14px; font-weight: 600; color: rgba(240, 234, 224, 0.95); }
+.planet-look-name span { margin-top: 1px; font-size: 11px; color: rgba(160, 150, 132, 0.95); }
+@media (prefers-reduced-motion: reduce) {
+  .planet-day { animation: none; transition: none; }
+  .planet-zoom { transition: none; }
+  .planet-look-ring, .planet-look-moon, .planet-look-name { animation: none; }
+}
