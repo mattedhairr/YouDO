@@ -185,9 +185,78 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
     setPressingId(null);
   };
 
+  // Reordering by touch. Rows are not native drag items on touch screens (they
+  // lifted at the slightest movement), so a hold arms a drag instead: after the
+  // long press, moving the same finger carries the row (or the selected rows)
+  // and lifting it drops them where the outline shows. The page doesn't scroll
+  // while a drag is armed; a quick swipe still scrolls as before.
+  const touchDragRef = useRef<{ ids: string[]; startY: number; active: boolean; overId: string | null } | null>(null);
+  const autoScrollRef = useRef<{ frame: number; speed: number; el: HTMLElement | null }>({ frame: 0, speed: 0, el: null });
+
+  const stopAutoScroll = () => {
+    cancelAnimationFrame(autoScrollRef.current.frame);
+    autoScrollRef.current = { frame: 0, speed: 0, el: null };
+  };
+
+  const scrollParentOf = (el: HTMLElement | null): HTMLElement => {
+    for (let node = el?.parentElement ?? null; node; node = node.parentElement) {
+      const { overflowY } = getComputedStyle(node);
+      if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) return node;
+    }
+    return (document.scrollingElement as HTMLElement) ?? document.documentElement;
+  };
+
+  const armTouchDrag = (ids: string[], startY: number) => {
+    touchDragRef.current = { ids, startY, active: false, overId: null };
+  };
+
+  const endTouchDrag = (drop: boolean) => {
+    const drag = touchDragRef.current;
+    touchDragRef.current = null;
+    stopAutoScroll();
+    if (!drag?.active) return;
+    if (drop && drag.overId && !drag.ids.includes(drag.overId)) {
+      reorderGoalNodes(current ? current.id : null, drag.ids, drag.overId);
+    }
+    setDragIds([]);
+    setOverId(null);
+    // The long press selected the rows only to carry them; the move is done.
+    setSelected(new Set());
+    onSelectionChange([], []);
+  };
+
+  useEffect(() => {
+    // While a drag is armed, the finger moves the rows, not the page.
+    const blockScroll = (event: TouchEvent) => {
+      if (touchDragRef.current && event.cancelable) event.preventDefault();
+    };
+    document.addEventListener('touchmove', blockScroll, { passive: false });
+    return () => {
+      document.removeEventListener('touchmove', blockScroll);
+      cancelAnimationFrame(autoScrollRef.current.frame);
+    };
+  }, []);
+
   const handleNodePointerDown = (nodeId: string, e: React.PointerEvent) => {
-    if (selected.size > 0) return;
     if ((e.target as HTMLElement).closest('button, input, a')) return;
+    const touch = e.pointerType !== 'mouse';
+    const startY = e.clientY;
+
+    if (selected.size > 0) {
+      // With rows selected, a tap still selects or clears; holding a selected
+      // row and moving carries the whole selection.
+      if (!touch || !selected.has(nodeId)) return;
+      clearLongPress();
+      pointerStartRef.current = { x: e.clientX, y: e.clientY };
+      const ids = Array.from(selected);
+      longPressTimeoutRef.current = setTimeout(() => {
+        longPressTimeoutRef.current = null;
+        isLongPressTriggeredRef.current = true;
+        hapticTick();
+        armTouchDrag(ids, startY);
+      }, 380);
+      return;
+    }
 
     clearLongPress();
     pointerStartRef.current = { x: e.clientX, y: e.clientY };
@@ -199,10 +268,44 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
       isLongPressTriggeredRef.current = true;
       hapticTick();
       toggleSelect(nodeId);
+      if (touch) armTouchDrag([nodeId], startY);
     }, 380);
   };
 
   const handleNodePointerMove = (e: React.PointerEvent) => {
+    const drag = touchDragRef.current;
+    if (drag) {
+      if (!drag.active) {
+        if (Math.abs(e.clientY - drag.startY) < 6) return;
+        drag.active = true;
+        setPressingId(null);
+        setDragIds(drag.ids);
+      }
+      const row = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-goal-row]');
+      const id = row?.dataset.goalRow ?? null;
+      if (id !== drag.overId) {
+        drag.overId = id;
+        setOverId(id && !drag.ids.includes(id) ? id : null);
+      }
+      // Near the top or bottom of the screen, the list scrolls so a row can travel far.
+      const edge = 110;
+      const speed = e.clientY < edge ? -Math.ceil((edge - e.clientY) / 10) : e.clientY > window.innerHeight - edge ? Math.ceil((e.clientY - (window.innerHeight - edge)) / 10) : 0;
+      autoScrollRef.current.speed = speed;
+      if (speed && !autoScrollRef.current.frame) {
+        autoScrollRef.current.el = scrollParentOf(e.currentTarget as HTMLElement);
+        const step = () => {
+          const auto = autoScrollRef.current;
+          if (!auto.speed || !auto.el || !touchDragRef.current) {
+            auto.frame = 0;
+            return;
+          }
+          auto.el.scrollTop += auto.speed;
+          auto.frame = requestAnimationFrame(step);
+        };
+        autoScrollRef.current.frame = requestAnimationFrame(step);
+      }
+      return;
+    }
     if (!pointerStartRef.current || !longPressTimeoutRef.current) return;
     const dist = Math.hypot(e.clientX - pointerStartRef.current.x, e.clientY - pointerStartRef.current.y);
     if (dist > 10) {
@@ -210,7 +313,13 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
     }
   };
 
-  const handleNodePointerUpOrCancel = () => {
+  const handleNodePointerUp = () => {
+    endTouchDrag(true);
+    clearLongPress();
+  };
+
+  const handleNodePointerCancel = () => {
+    endTouchDrag(false);
     clearLongPress();
   };
 
@@ -756,12 +865,13 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
               id={`goal-node-${child.id}`}
               role={canDrill || selected.size > 0 ? 'button' : undefined}
               tabIndex={canDrill || selected.size > 0 ? 0 : undefined}
+              data-goal-row={child.id}
               draggable={!coarsePointer}
               onContextMenu={coarsePointer ? (e) => e.preventDefault() : undefined}
               onPointerDown={(e) => handleNodePointerDown(child.id, e)}
               onPointerMove={handleNodePointerMove}
-              onPointerUp={handleNodePointerUpOrCancel}
-              onPointerCancel={handleNodePointerUpOrCancel}
+              onPointerUp={handleNodePointerUp}
+              onPointerCancel={handleNodePointerCancel}
               onDragStart={(e) => {
                 clearLongPress();
                 const idsToDrag = selected.has(child.id) ? Array.from(selected) : [child.id];
@@ -811,7 +921,9 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                   : isSelected
                     ? 'is-selected'
                     : 'hover:bg-elevated'
-              } ${overId === child.id && !dragIds.includes(child.id) ? 'ring-2 ring-primary z-10' : ''}`}
+              } ${overId === child.id && !dragIds.includes(child.id) ? 'ring-2 ring-primary z-10' : ''} ${
+                dragIds.includes(child.id) ? 'opacity-60' : ''
+              }`}
             >
               {selected.size > 0 && (
                 <input
