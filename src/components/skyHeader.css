@@ -1,0 +1,201 @@
+/* The sky header (SkyHeader.tsx). It runs to the frame's edges and melts
+   into the page at the top and bottom, and at the sides on wide screens. */
+:root {
+  --sky-top: max(0.875rem, calc(var(--safe-area-top) + 0.5rem));
+}
+
+.sky-header {
+  position: relative;
+  margin: 0 -1rem;
+  overflow: hidden;
+  background: var(--sky-bg, #000);
+  color: #fff;
+  isolation: isolate;
+  transition: height 0.45s var(--ease-out);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent);
+  animation: sky-in 0.5s ease both;
+}
+@keyframes sky-in { from { opacity: 0; } }
+@media (min-width: 449px) {
+  .sky-header {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent), linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent), linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent);
+    mask-composite: intersect;
+  }
+}
+
+.sky-scene { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.sky-art-wrap { position: absolute; left: 0; right: 0; bottom: 0; }
+.sky-art { display: block; overflow: visible; }
+/* The ranges sink at their own speeds as the header folds away. */
+.sky-fold-sink { transform: translateY(calc(var(--fold, 0) * var(--sink, 0) * 70px)); }
+.sky-planet { position: absolute; pointer-events: none; }
+.sky-photo { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+/* Over a photo, a soft shade keeps the words readable. */
+.sky-header.has-photo .sky-scene::after,
+.sky-bar.has-photo .sky-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.1) 60%), linear-gradient(180deg, rgba(0, 0, 0, 0.25), transparent 40%, rgba(0, 0, 0, 0.5));
+}
+
+.sky-content {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: var(--sky-top);
+  bottom: 0;
+  opacity: calc(1 - var(--fold, 0) * 1.8);
+  transform: translateY(calc(var(--fold, 0) * -18px));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 16px rgba(0, 0, 0, 0.35);
+}
+.sky-top { display: flex; align-items: center; justify-content: space-between; height: 24px; }
+.sky-mark {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.sky-mark:active { transform: scale(0.95); }
+.sky-mark-ou { color: rgba(255, 255, 255, 0.7); font-weight: 600; }
+.sky-date { font-size: 10.5px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.78); }
+
+.sky-mid { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 13px; }
+.sky-hello { min-width: 0; }
+.sky-hello small { display: block; font-size: 12.5px; font-weight: 550; color: rgba(255, 255, 255, 0.82); }
+.sky-hello h1 {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 34px;
+  font-weight: 760;
+  letter-spacing: -0.032em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sky-sub { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 550; color: rgba(255, 255, 255, 0.8); }
+
+.sky-count {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 48%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  text-align: right;
+  text-shadow: inherit;
+}
+.sky-count-n { font-family: var(--font-display); font-size: 32px; line-height: 33px; font-weight: 760; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.sky-count-l {
+  max-width: 100%;
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.8);
+}
+.sky-count-l b { color: color-mix(in srgb, var(--primary) 70%, #fff); }
+.sky-dots { display: flex; gap: 4px; margin-top: 6px; }
+.sky-dots i { width: 5px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.32); transition: width 0.3s var(--ease-out), background 0.3s; }
+.sky-dots i.on { width: 14px; background: color-mix(in srgb, var(--primary) 70%, #fff); }
+
+.sky-quote { position: absolute; left: 0; right: 0; bottom: 30px; display: flex; align-items: flex-end; gap: 10px; }
+.sky-quote p {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 17.5px;
+  color: rgba(255, 255, 255, 0.9);
+}
+.sky-quote.is-open p { -webkit-line-clamp: 12; }
+.sky-quote p::before { content: '\201C'; margin-right: 2px; font-size: 16px; font-style: normal; vertical-align: -1px; color: var(--primary); }
+.sky-quote cite {
+  margin-left: 6px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.5);
+}
+.sky-more { flex: none; padding: 4px 0 1px; border: 0; background: none; font-size: 11px; font-weight: 650; color: color-mix(in srgb, var(--primary) 70%, #fff); }
+
+/* The slim bar the header folds into. */
+.sky-bar {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 50%;
+  width: min(100%, 28rem);
+  height: calc(var(--sky-top) + 56px);
+  overflow: hidden;
+  background: var(--sky-bg, #000);
+  color: #fff;
+  isolation: isolate;
+  transform: translateX(-50%);
+  opacity: calc((var(--fold, 0) - 0.55) * 2.4);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 18px), transparent);
+}
+.sky-bar[data-shown='true'] { pointer-events: auto; }
+.sky-bar-content {
+  position: absolute;
+  left: 18px;
+  right: 16px;
+  top: var(--sky-top);
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+.sky-bar-title { display: flex; align-items: baseline; gap: 9px; min-width: 0; overflow: hidden; font-family: var(--font-display); font-size: 16px; font-weight: 720; letter-spacing: -0.02em; white-space: nowrap; text-overflow: ellipsis; }
+.sky-bar-title small { font-family: var(--font-sans); font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.72); }
+.sky-bar-pill {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: none;
+}
+.sky-bar-pill b { color: color-mix(in srgb, var(--primary) 70%, #fff); font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-header { animation: none; transition: none; }
+  .sky-dots i { transition: none; }
+}

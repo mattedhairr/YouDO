@@ -34,6 +34,8 @@ export const STORAGE_KEYS = {
   ambientTipSeen: 'youdo-ambient-tip-seen-v1',
   ambientSky: 'youdo-ambient-sky-v1',
   ambientPlanet: 'youdo-ambient-planet-v1',
+  /** Settings → Appearance → Header background: the sky or the user's photo, and how the photo sits. The photo itself is in IndexedDB. */
+  headerBackground: 'youdo-header-background-v1',
   focusAnnounced: 'youdo-focus-announced-v1',
   focusSounds: 'youdo-focus-sounds-v1',
   ownSounds: 'youdo-own-sounds-v1',

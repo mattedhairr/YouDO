@@ -59,6 +59,7 @@ const BlueprintStudio = lazy(() => import('./components/BlueprintStudio'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
 const HubView = lazy(() => import('./components/HubView'));
 const SettingsSheet = lazy(() => import('./components/SettingsSheet'));
+const SkyHeader = lazy(() => import('./components/SkyHeader'));
 const AdminHubSheet = lazy(() => import('./components/AdminHubSheet'));
 // Only shown during a session; keeps its font and sound picker out of the first load.
 const HelpCenterSheet = lazy(() => import('./components/HelpCenterSheet'));
@@ -1405,64 +1406,17 @@ function AppInner() {
           </div>
         </header>
         ) : (
-        <header className="app-header shrink-0">
-          <div className="app-header-row">
-            {/* The date and the day's tally sit beside the large title, not above and below it. */}
-            <div className="app-title-line min-w-0">
-              <h1 className="app-large-title">
-                {view === 'goals' ? 'Goals' : view === 'calendar' ? 'Calendar' : view === 'board' ? 'Hub' : 'Today'}
-              </h1>
-              {view === 'tasks' && (
-                <div className="app-title-meta min-w-0">
-                  <span className="app-header-date">
-                    {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-                  </span>
-                  <span
-                    className="app-header-subtitle"
-                    aria-label={`Today progress ${todayDone} of ${todayCount}, ${todayProgress} percent`}
-                  >
-                    {todayCount === 0 ? 'Nothing planned yet' : `${todayDone} of ${todayCount} done · ${todayProgress}%`}
-                  </span>
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => openHelp()}
-              className="app-header-brand"
-              aria-label="Open YouDO guide"
-              title="Guide"
-            >
-              <YouDoWordmark />
-            </button>
-          </div>
-          {/* Today's progress, a thin glowing bar over the quote. */}
-          {view === 'tasks' && (
-            <div className="today-bar" aria-hidden="true">
-              {todayProgress > 0 && <span className="today-bar-fill" style={{ width: `${todayProgress}%` }} />}
-            </div>
-          )}
-          {randomQuote && view === 'tasks' && (
-            <blockquote className="quote-ticker">
-              <div
-                className={`quote-ticker-track ${
-                  randomQuote.text.length >= 80
-                    ? 'quote-ticker-track-fast'
-                    : randomQuote.text.length >= 60
-                      ? 'quote-ticker-track-medium'
-                      : 'quote-ticker-track-steady'
-                }`}
-              >
-                {[0, 1].map((copy) => (
-                  <p key={copy} className="quote-ticker-item" aria-hidden={copy === 1}>
-                    “{randomQuote.text}”
-                    {randomQuote.author !== 'Unknown' && <cite>{' — '}{randomQuote.author}</cite>}
-                  </p>
-                ))}
-              </div>
-            </blockquote>
-          )}
-        </header>
+        <Suspense fallback={<div aria-hidden style={{ height: `calc(max(0.875rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) + ${view === 'tasks' ? 178 : 114}px)` }} />}>
+          <SkyHeader
+            view={view === 'goals' || view === 'calendar' || view === 'board' ? view : 'tasks'}
+            name={typeof activityUser?.user_metadata?.full_name === 'string' && activityUser.user_metadata.full_name.trim() ? activityUser.user_metadata.full_name.trim().split(/\s+/)[0] : null}
+            quote={randomQuote}
+            goals={goals}
+            focusMs={streakByDate.get(todayISO()) ?? 0}
+            barHours={streakMeta.barHours}
+            onOpenGuide={() => openHelp()}
+          />
+        </Suspense>
         )}
 
         {/* Main View Area */}

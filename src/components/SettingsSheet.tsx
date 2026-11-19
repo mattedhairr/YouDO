@@ -82,6 +82,7 @@ import { localISODate, todayISO } from '../lib/dates';
 import { checkAppUpdateStatus, type AppRelease } from '../lib/appUpdate';
 import UpdateAction from './UpdateAction';
 import { APP_VERSION } from '../lib/version';
+import HeaderBackgroundSettings from './HeaderBackgroundSettings';
 import SignedInDevices from './SignedInDevices';
 import SupportSheet from './SupportSheet';
 import AppIconPicker from './AppIconPicker';
@@ -2048,6 +2049,7 @@ export default function SettingsSheet({
               </div>
               <Toggle checked={legacyStyle} onChange={() => setUiPref('legacyStyle', !legacyStyle)} label="Classic look" />
             </div>
+            {!legacyStyle && <HeaderBackgroundSettings />}
           </div>
         </section>
 
