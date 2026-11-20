@@ -38,6 +38,12 @@ export const STORAGE_KEYS = {
   headerBackground: 'youdo-header-background-v1',
   /** Settings → Appearance → Sky location: a state's id, or "auto" (the phone's clock). */
   skyPlace: 'youdo-sky-place-v1',
+  /** The header asked once to set the sky's place (India); "true" after a choice or "Not now". */
+  skyPlaceInviteDone: 'youdo-sky-place-invite-done-v1',
+  /** The header's weather for the day ({ date, weather }), set with its button. */
+  skyWeather: 'youdo-sky-weather-v1',
+  /** Settings → Appearance: show the header's weather button ("false" hides it and keeps the sky clear). */
+  skyWeatherButton: 'youdo-sky-weather-button-v1',
   focusAnnounced: 'youdo-focus-announced-v1',
   focusSounds: 'youdo-focus-sounds-v1',
   ownSounds: 'youdo-own-sounds-v1',

@@ -205,3 +205,88 @@ html:not(.dark) .sky-header { --sky-fade: 10px; }
   .sky-header { animation: none; transition: none; }
   .sky-dots i { transition: none; }
 }
+
+/* The weather (SkyWeather.tsx): clouds drift in a strip two tiles wide, so
+   the motion is a plain transform; rain is a small canvas. */
+.sky-weather { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* On its own GPU layer, so the slow drift glides by fractions of a pixel instead of stepping. */
+.sky-cloud { position: absolute; left: 0; max-width: none; animation: sky-drift linear infinite; will-change: transform; backface-visibility: hidden; transform: translate3d(0, 0, 0); }
+@keyframes sky-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+.sky-weather.is-still .sky-cloud { animation: none; }
+.sky-rain { position: absolute; left: 0; top: 0; max-width: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sky-cloud { animation: none; }
+}
+
+/* The top row's right side: the invite to set the sky's place, the date (or,
+   for a moment, the weather just chosen) and the weather button. */
+.sky-top-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sky-invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 55%, transparent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-shadow: none;
+  animation: sky-invite-in 0.6s 0.8s var(--ease-out) both;
+}
+@keyframes sky-invite-in { from { opacity: 0; transform: translateY(-4px); } }
+.sky-weather-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -2px -4px -2px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.sky-weather-btn:active { transform: scale(0.92); }
+.sky-weather-btn svg { animation: sky-icon-in 0.35s var(--ease-out) both; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.35)); }
+@keyframes sky-icon-in { from { opacity: 0; transform: scale(0.6) rotate(-20deg); } }
+.sky-weather-name { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; animation: sky-icon-in 0.3s var(--ease-out) both; }
+
+/* Android 15 and later keep the status bar black: the sky fades in from it. */
+.sky-header.has-top-fade::before,
+.sky-bar.has-top-fade::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 24px;
+  background: linear-gradient(180deg, #000, rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+/* The place picker the invite opens. */
+.sky-picker { padding: 6px 4px 4px; }
+.sky-picker h2 { margin: 0; font-size: 18px; font-weight: 750; color: var(--text-primary); }
+.sky-picker p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-secondary); }
+.sky-picker-list { max-height: 46vh; overflow-y: auto; border-radius: 14px; background: var(--bg-surface); }
+.sky-picker-list button {
+  display: block;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  background: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+}
+.sky-picker-list button:first-child { border-top: 0; }
+.sky-picker-list button:active { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.sky-picker-later { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 0; background: none; color: var(--text-secondary); font-size: 12.5px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .sky-invite, .sky-weather-btn svg, .sky-weather-name { animation: none; }
+}

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Cloud, CloudRain, MapPin, Moon, Sun } from 'lucide-react';
 import { ambientPlanetEnabled } from '../lib/ambient';
 import type { AppQuote } from '../lib/appQuotes';
 import { todayISO } from '../lib/dates';
@@ -28,8 +29,11 @@ import {
 } from '../lib/headerSky';
 import type { GoalNode } from '../types';
 import { moonPhase, weekdayOf } from '../lib/planet';
-import { loadSkyPlace, SKY_PLACE_EVENT, sunDayForPlace } from '../lib/skyPlaces';
-import type { SunDay } from '../lib/sunPath';
+import { deviceTimeZone, isIndiaTimeZone, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACE_EVENT, SKY_PLACES, skyInviteDone, sunDayForPlace } from '../lib/skyPlaces';
+import { loadDayWeather, nextWeather, saveDayWeather, SKY_WEATHER_EVENT, weatherButtonEnabled, weatherColors, type Weather } from '../lib/weather';
+import Overlay from './Overlay';
+import SkyWeather from './SkyWeather';
+import { sunAltitude, type SunDay } from '../lib/sunPath';
 import { drawPlanet } from '../lib/planetArt';
 import './skyHeader.css';
 
@@ -66,6 +70,17 @@ const QUOTE_OPEN_MS = 9000;
 const TITLES: Record<Exclude<SkyHeaderView, 'tasks'>, string> = { goals: 'Goals', calendar: 'Calendar', board: 'Hub' };
 
 const rgb = (t: [number, number, number]) => `rgb(${t[0]},${t[1]},${t[2]})`;
+/**
+ * From Android 15 an app targeting it is drawn edge to edge and the system
+ * ignores status bar colours: the strip behind the clock stays black. There
+ * the sky fades in from black instead of meeting it in a hard line.
+ */
+const statusBarIsBlack = (() => {
+  if (Capacitor.getPlatform() !== 'android') return false;
+  const m = navigator.userAgent.match(/Android (\d+)/);
+  return Boolean(m && Number(m[1]) >= 15);
+})();
+
 /** "rgba(22,36,74,1)" → "#16244a", for the status bar. */
 const hexOf = (c: string) => '#' + (c.match(/[\d.]+/g) ?? []).slice(0, 3).map((v) => Math.round(Number(v)).toString(16).padStart(2, '0')).join('');
 /** A light colour wants dark status bar icons. */
@@ -126,7 +141,7 @@ function useHeaderBackground(): { prefs: HeaderBackground; photoUrl: string | nu
   return { prefs, photoUrl };
 }
 
-function PlanetMark({ index, phase, x, top }: { index: number; phase: number; x: number; top: number }) {
+function PlanetMark({ index, phase, x, top, opacity = 1 }: { index: number; phase: number; x: number; top: number; opacity?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const size = 34;
   useEffect(() => {
@@ -140,16 +155,17 @@ function PlanetMark({ index, phase, x, top }: { index: number; phase: number; x:
     ctx.clearRect(0, 0, size, size);
     drawPlanet(ctx, size / 2, size / 2, 7, index, phase);
   }, [index, phase]);
-  return <canvas ref={ref} className="sky-planet" style={{ left: x - size / 2, top: `calc(var(--sky-top) + ${top - size / 2}px)`, width: size, height: size }} aria-hidden />;
+  return <canvas ref={ref} className="sky-planet" style={{ left: x - size / 2, top: `calc(var(--sky-top) + ${top - size / 2}px)`, width: size, height: size, opacity }} aria-hidden />;
 }
 
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-function SkyArt({ width, height, hour, day, stars, lines, dust, night, lift, folded, quoteShade, quiet }: {
+function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, lift, folded, quoteShade, quiet }: {
   width: number;
   height: number;
   hour: number;
   /** The real sun's day at the chosen place (sunPath.ts). */
   day: SunDay;
+  weather: Weather;
   stars: HeaderStar[];
   lines: [HeaderStar, HeaderStar][];
   dust: { x: number; y: number; opacity: number }[];
@@ -162,7 +178,10 @@ function SkyArt({ width, height, hour, day, stars, lines, dust, night, lift, fol
   /** Where words sit (scene coordinates): the bright ridge lines fade out there. */
   quiet?: { x: number; y: number; w: number; h: number }[];
 }) {
-  const colors = useMemo(() => skyColors(hour, day), [hour, day]);
+  const colors = useMemo(() => weatherColors(skyColors(hour, day), weather, night), [hour, day, weather, night]);
+  // Behind cloud the sun is a dim glow and only a few stars show; in rain neither does.
+  const sunShows = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.3 : 0;
+  const starsShow = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.3 : 0;
   const valley = width * 0.54;
   const ridges = useMemo(() => RIDGES.map((r) => ridgeLine(r.seed, width, r.base - lift, r.amp, valley, r.rough)), [width, valley, lift]);
   const sun = sunState(hour, day);
@@ -203,8 +222,8 @@ function SkyArt({ width, height, hour, day, stars, lines, dust, night, lift, fol
         <filter id="sky-soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3" /></filter>
       </defs>
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-grad)" />
-      {night > 0.01 && (
-        <g opacity={night}>
+      {night > 0.01 && starsShow > 0 && (
+        <g opacity={night * starsShow}>
           {dust.map((d, i) => <circle key={`d${i}`} cx={d.x} cy={d.y} r={0.38} fill="#fff" opacity={d.opacity} />)}
           {lines.map(([a, b], i) => <line key={`c${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(236,214,170,.42)" strokeWidth={0.7} strokeLinecap="round" />)}
           {stars.map((s, i) => (
@@ -215,8 +234,8 @@ function SkyArt({ width, height, hour, day, stars, lines, dust, night, lift, fol
           ))}
         </g>
       )}
-      {sun.visible && !folded && (
-        <g className="sky-fold-sink" style={{ ['--sink' as string]: '0.2' }}>
+      {sun.visible && !folded && sunShows > 0 && (
+        <g className="sky-fold-sink" style={{ ['--sink' as string]: '0.2' }} opacity={sunShows}>
           <ellipse cx={sunX} cy={sunY} rx={190} ry={120} fill="url(#sky-sunglow)" />
           {low > 0.35 && <ellipse cx={sunX} cy={sunY + 10} rx={260} ry={30} fill="url(#sky-horizon)" opacity={(low - 0.35) / 0.65} />}
           <circle cx={sunX} cy={sunY} r={sunR * 2.6} fill="url(#sky-corona)" />
@@ -256,6 +275,30 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     window.addEventListener(SKY_PLACE_EVENT, onPlace);
     return () => window.removeEventListener(SKY_PLACE_EVENT, onPlace);
   }, []);
+  const [dayWeather, setDayWeather] = useState<Weather>(() => loadDayWeather(dateKey));
+  const [weatherOn, setWeatherOn] = useState(weatherButtonEnabled);
+  const [weatherFlash, setWeatherFlash] = useState<string | null>(null);
+  const [inviteDone, setInviteDone] = useState(skyInviteDone);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  useEffect(() => {
+    const onWeather = () => {
+      setDayWeather(loadDayWeather(dateKey));
+      setWeatherOn(weatherButtonEnabled());
+    };
+    const onPlace = () => setInviteDone(skyInviteDone());
+    onWeather();
+    window.addEventListener(SKY_WEATHER_EVENT, onWeather);
+    window.addEventListener(SKY_PLACE_EVENT, onPlace);
+    return () => {
+      window.removeEventListener(SKY_WEATHER_EVENT, onWeather);
+      window.removeEventListener(SKY_PLACE_EVENT, onPlace);
+    };
+  }, [dateKey]);
+  useEffect(() => {
+    if (!weatherFlash) return;
+    const id = window.setTimeout(() => setWeatherFlash(null), 1600);
+    return () => window.clearTimeout(id);
+  }, [weatherFlash]);
   const utcOffset = -now.getTimezoneOffset() / 60;
   const day = useMemo(() => sunDayForPlace(placeId, dateKey, utcOffset), [placeId, dateKey, utcOffset]);
   const deadlines: DeadlineGoal[] = useMemo(() => upcomingDeadlines(goals, dateKey), [goals, dateKey]);
@@ -280,7 +323,11 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const [quoteLong, setQuoteLong] = useState(false);
   const { prefs, photoUrl } = useHeaderBackground();
   const photo = prefs.mode === 'photo' && photoUrl ? photoUrl : null;
-  const skyTop = photo ? '#000000' : hexOf(skyColors(hour, day).sky[0]);
+  const night = nightness(hour, day);
+  const weather: Weather = weatherOn && !photo ? dayWeather : 'clear';
+  const skyNow = useMemo(() => weatherColors(skyColors(hour, day), weather, night), [hour, day, weather, night]);
+  const skyTop = photo ? '#000000' : hexOf(skyNow.sky[0]);
+  const [folded, setFolded] = useState(false);
 
   // Android's status bar is a solid strip above the page: it takes the sky's
   // top colour, so the scene runs on under the clock. While a sheet is open
@@ -346,6 +393,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
         bar.style.setProperty('--fold', fold.toFixed(3));
         bar.dataset.shown = String(fold > FOLD_SHOW);
       }
+      setFolded(fold > 0.8);
       if (fold > 0.2) setQuoteOpen(false);
     };
     const onScroll = (event: Event) => {
@@ -387,7 +435,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     return () => window.clearTimeout(id);
   }, [quoteOpen]);
 
-  const night = nightness(hour, day);
   const progress = skyProgress(focusMs, barHours);
   const nameBox = { right: today ? 175 : 210, top: 62, bottom: 122 };
   const nearText = (x: number, y: number) =>
@@ -404,11 +451,15 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey, width, progress.lit, progress.constellationSize, today, deadlines.length]);
   const dust = useMemo(() => dustStars(dateKey, width), [dateKey, width]);
+  const sunHeight = Math.max(0, sunAltitude(day, hour));
   const planetIndex = weekdayOf(dateKey);
   const showPlanet = night > 0.05 && planetIndex !== 0 && ambientPlanetEnabled();
   const phase = useMemo(() => moonPhase(dateKey), [dateKey]);
 
   const deadline = deadlines.length ? deadlines[goalIndex % deadlines.length] : null;
+  const showInvite = !photo && placeId === 'auto' && !inviteDone && isIndiaTimeZone(deviceTimeZone());
+  const WeatherIcon = weather === 'cloudy' ? Cloud : weather === 'rainy' ? CloudRain : night > 0.5 ? Moon : Sun;
+  const weatherName = weather === 'cloudy' ? 'Cloudy' : weather === 'rainy' ? 'Rainy' : 'Clear';
   const dateText = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   const hello = greeting(hour);
   const title = today ? name ?? 'Today' : TITLES[view];
@@ -420,7 +471,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ...(today && deadline ? [{ x: width - 178, y: OFFSET - quoteExtra + 30, w: 172, h: 56 }] : []),
   ];
 
-  const scene = (folded: boolean) =>
+  const scene = (isBar: boolean) =>
     photo ? (
       <img
         className="sky-photo"
@@ -430,10 +481,11 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
       />
     ) : (
       <>
-        <div className="sky-art-wrap" style={{ height: folded ? BAR + OFFSET + 30 : height + OFFSET }}>
-          <SkyArt width={width} height={folded ? BAR + OFFSET + 30 : height + OFFSET} hour={hour} day={day} stars={stars} lines={lines} dust={dust} night={night} lift={lift} folded={folded} quoteShade={today && Boolean(quote) && !folded} quiet={folded ? [] : quietZones} />
+        <div className="sky-art-wrap" style={{ height: isBar ? BAR + OFFSET + 30 : height + OFFSET }}>
+          <SkyArt width={width} height={isBar ? BAR + OFFSET + 30 : height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={night} lift={lift} folded={isBar} quoteShade={today && Boolean(quote) && !isBar} quiet={isBar ? [] : quietZones} />
+          <SkyWeather weather={weather} dateKey={dateKey} width={width} height={isBar ? BAR + OFFSET + 30 : height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={isBar || folded} noRain={isBar} />
         </div>
-        {!folded && showPlanet && <PlanetMark index={planetIndex} phase={phase} x={width * 0.54} top={74 - OFFSET + quoteExtra} />}
+        {!isBar && showPlanet && weather !== 'rainy' && <PlanetMark index={planetIndex} phase={phase} x={width * 0.54} top={74 - OFFSET + quoteExtra} opacity={weather === 'cloudy' ? 0.35 : 1} />}
       </>
     );
 
@@ -458,8 +510,8 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     <>
       <header
         ref={rootRef}
-        className={`sky-header ${photo ? 'has-photo' : ''}`}
-        style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, ['--sky-bg' as string]: photo ? '#000' : skyColors(hour, day).sky[0] }}
+        className={`sky-header ${photo ? 'has-photo' : ''} ${statusBarIsBlack ? 'has-top-fade' : ''}`}
+        style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, ['--sky-bg' as string]: photo ? '#000' : skyNow.sky[0] }}
       >
         <div className="sky-scene">{scene(false)}</div>
         <div className="sky-content">
@@ -471,7 +523,28 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
               </svg>
               <span className="sky-mark-ou">ou</span>DO
             </button>
-            <span className="sky-date">{dateText}</span>
+            <div className="sky-top-right">
+              {showInvite && (
+                <button type="button" className="sky-invite" onClick={() => setPickerOpen(true)}>
+                  <MapPin size={11} strokeWidth={2.4} aria-hidden /> Set your sky
+                </button>
+              )}
+              {weatherFlash ? <span className="sky-weather-name">{weatherFlash}</span> : <span className="sky-date">{dateText}</span>}
+              {weatherOn && !photo && (
+                <button
+                  type="button"
+                  className="sky-weather-btn"
+                  onClick={() => {
+                    const next = nextWeather(dayWeather);
+                    saveDayWeather(dateKey, next);
+                    setWeatherFlash(next === 'cloudy' ? 'Cloudy' : next === 'rainy' ? 'Rainy' : 'Clear');
+                  }}
+                  aria-label={`Today's weather: ${weatherName}. Tap to change`}
+                >
+                  <WeatherIcon key={weather + (night > 0.5 ? 'n' : 'd')} size={15} strokeWidth={2.2} aria-hidden />
+                </button>
+              )}
+            </div>
           </div>
           <div className="sky-mid">
             <div className="sky-hello">
@@ -496,7 +569,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
           )}
         </div>
       </header>
-      <div ref={barRef} className={`sky-bar ${photo ? 'has-photo' : ''}`} data-shown="false" style={{ ['--sky-bg' as string]: photo ? '#000' : skyColors(hour, day).sky[0] }} aria-hidden={false}>
+      <div ref={barRef} className={`sky-bar ${photo ? 'has-photo' : ''} ${statusBarIsBlack ? 'has-top-fade' : ''}`} data-shown="false" style={{ ['--sky-bg' as string]: photo ? '#000' : skyNow.sky[0] }} aria-hidden={false}>
         <div className="sky-scene">{scene(true)}</div>
         <div className="sky-bar-content">
           <span className="sky-bar-title">
@@ -508,6 +581,37 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
           )}
         </div>
       </div>
+      <Overlay open={pickerOpen} onClose={() => setPickerOpen(false)} align="bottom">
+        <div className="sky-picker">
+          <h2>Where is your sky?</h2>
+          <p>Pick your state for the real sunrise and sunset. It's worked out on the phone; no location access.</p>
+          <div className="sky-picker-list">
+            {SKY_PLACES.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  saveSkyPlace(p.id);
+                  setSkyInviteDone();
+                  setPickerOpen(false);
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="sky-picker-later"
+            onClick={() => {
+              setSkyInviteDone();
+              setPickerOpen(false);
+            }}
+          >
+            Not now (it stays in Settings → Appearance)
+          </button>
+        </div>
+      </Overlay>
     </>
   );
 }

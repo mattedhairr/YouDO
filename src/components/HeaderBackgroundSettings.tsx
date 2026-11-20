@@ -10,7 +10,9 @@ import {
   saveHeaderPhoto,
   type HeaderBackground,
 } from '../lib/headerBackground';
-import { formatClock, loadSkyPlace, saveSkyPlace, SKY_PLACES, sunDayForPlace } from '../lib/skyPlaces';
+import { automaticPlace, deviceTimeZone, formatClock, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACES, standardOffsetHours, sunDayForPlace } from '../lib/skyPlaces';
+import { setWeatherButton, weatherButtonEnabled } from '../lib/weather';
+import Toggle from './Toggle';
 import { todayISO } from '../lib/dates';
 
 /**
@@ -26,6 +28,10 @@ export default function HeaderBackgroundSettings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [placeId, setPlaceId] = useState(loadSkyPlace);
   const today = sunDayForPlace(placeId, todayISO(), -new Date().getTimezoneOffset() / 60);
+  const zone = deviceTimeZone();
+  const auto = automaticPlace(zone, standardOffsetHours(new Date().getFullYear()));
+  const autoLabel = auto.city ? `Automatic · ${auto.city}` : zone === 'Asia/Kolkata' || zone === 'Asia/Calcutta' ? 'Automatic · central India' : 'Automatic (from the phone’s time zone)';
+  const [weatherButton, setWeatherButtonState] = useState(weatherButtonEnabled);
 
   useEffect(() => {
     let url: string | null = null;
@@ -117,18 +123,37 @@ export default function HeaderBackgroundSettings() {
             onChange={(e) => {
               setPlaceId(e.target.value);
               saveSkyPlace(e.target.value);
+              setSkyInviteDone();
             }}
             className="mt-1 w-full min-h-10 rounded-xl border border-subtle bg-surface px-3 text-[12.5px] font-semibold text-content-primary"
           >
-            <option value="auto">Automatic (from the phone’s time zone)</option>
+            <option value="auto">{autoLabel}</option>
             {SKY_PLACES.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
           <span className="mt-1.5 block text-[10.5px] text-content-muted">
             Today: sunrise {formatClock(today.sunrise)} · sunset {formatClock(today.sunset)}. Worked out on the phone; no location access.
+            {placeId === 'auto' && !auto.city && ' Pick your state for the exact times.'}
           </span>
         </label>
+      )}
+
+      {!photoMode && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h4 className="text-[11.5px] font-semibold text-content-primary">Weather button</h4>
+            <p className="text-[10.5px] text-content-secondary">A button in the header sets today’s sky: clear, cloudy or rainy.</p>
+          </div>
+          <Toggle
+            checked={weatherButton}
+            onChange={() => {
+              setWeatherButtonState(!weatherButton);
+              setWeatherButton(!weatherButton);
+            }}
+            label="Weather button"
+          />
+        </div>
       )}
 
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => void choose(e.target.files?.[0])} />

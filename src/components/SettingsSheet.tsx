@@ -1990,6 +1990,8 @@ export default function SettingsSheet({
               <AppIconPicker />
             </div>
 
+            {!legacyStyle && <HeaderBackgroundSettings />}
+
             <div className="settings-data-row p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
@@ -2049,7 +2051,6 @@ export default function SettingsSheet({
               </div>
               <Toggle checked={legacyStyle} onChange={() => setUiPref('legacyStyle', !legacyStyle)} label="Classic look" />
             </div>
-            {!legacyStyle && <HeaderBackgroundSettings />}
           </div>
         </section>
 

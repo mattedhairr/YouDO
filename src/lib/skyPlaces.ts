@@ -1,12 +1,16 @@
 import { STORAGE_KEYS } from './storageKeys';
 import { sunDay, type SunDay } from './sunPath';
+import { TZ_ALIASES, TZ_COORDINATES } from './tzCoordinates';
 
 /**
  * Settings → Appearance → Sky location: where the header's sun rises and
  * sets. India shares one clock but spans two hours of sunrise east to west,
  * and its north has much shorter winter days than its south, so a state is
  * worth picking. Each place is its capital or main city; nothing else about
- * the user's location is used or needed. "auto" goes by the phone's clock.
+ * the user's location is used or needed. "auto" goes by the phone's time
+ * zone: anywhere else in the world its main city is close enough (a phone on
+ * "Europe/London" gets London's sun); India's one zone spans the country, so
+ * there it means central India until a state is chosen.
  */
 export interface SkyPlace {
   id: string;
@@ -76,15 +80,55 @@ export function saveSkyPlace(id: string): void {
   window.dispatchEvent(new CustomEvent(SKY_PLACE_EVENT));
 }
 
+const INDIA_ZONES = new Set(['Asia/Kolkata', 'Asia/Calcutta']);
+/** Central India: the middle of the country's one time zone. */
+const CENTRAL_INDIA: [number, number] = [23.5, 82.5];
+
+/** The phone's time zone name, such as "Europe/London" (empty if unknown). */
+export function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  } catch {
+    return '';
+  }
+}
+
+/** Is the phone's zone India's, where only a chosen state gives an exact sky? */
+export function isIndiaTimeZone(timeZone: string): boolean {
+  return INDIA_ZONES.has(timeZone);
+}
+
+/**
+ * Where "automatic" puts the sun: the time zone's main city; central India for
+ * India's zone; otherwise, for a zone not in the table, the middle of its
+ * standard (winter) offset at a mid latitude. `standardOffsetHours` leaves out
+ * summer time, so the noon sun is not an hour off in summer.
+ */
+export function automaticPlace(timeZone: string, standardOffsetHours: number): { lat: number; lon: number; city: string | null } {
+  if (isIndiaTimeZone(timeZone)) return { lat: CENTRAL_INDIA[0], lon: CENTRAL_INDIA[1], city: null };
+  const zone = TZ_COORDINATES[timeZone] ? timeZone : TZ_ALIASES[timeZone];
+  const coords = zone ? TZ_COORDINATES[zone] : undefined;
+  if (zone && coords) return { lat: coords[0], lon: coords[1], city: zone.split('/').pop()!.replace(/_/g, ' ') };
+  return { lat: 23.5, lon: standardOffsetHours * 15, city: null };
+}
+
+/** The clock's offset without summer time: the smaller of January's and July's. */
+export function standardOffsetHours(year: number): number {
+  const jan = -new Date(year, 0, 1).getTimezoneOffset();
+  const jul = -new Date(year, 6, 1).getTimezoneOffset();
+  return Math.min(jan, jul) / 60;
+}
+
 /**
  * The sun's day for a place id on a date. `utcOffsetHours` is the phone's
- * clock offset (India: 5.5). "auto" (or an unknown id) puts the sun over the
- * middle of the clock's zone, at a latitude typical of India.
+ * clock offset now (India: 5.5; with summer time where it applies). "auto"
+ * (or an unknown id) goes by `timeZone` (automaticPlace).
  */
-export function sunDayForPlace(placeId: string, dateKey: string, utcOffsetHours: number): SunDay {
+export function sunDayForPlace(placeId: string, dateKey: string, utcOffsetHours: number, timeZone = deviceTimeZone()): SunDay {
   const place = SKY_PLACES.find((p) => p.id === placeId);
   if (place) return sunDay(dateKey, place.lat, place.lon, utcOffsetHours);
-  return sunDay(dateKey, 23.5, utcOffsetHours * 15, utcOffsetHours);
+  const auto = automaticPlace(timeZone, standardOffsetHours(Number(dateKey.slice(0, 4)) || new Date().getFullYear()));
+  return sunDay(dateKey, auto.lat, auto.lon, utcOffsetHours);
 }
 
 /** "6:47 am"-style, for the setting's preview line. */
@@ -94,4 +138,22 @@ export function formatClock(hours: number): string {
   const m = total % 60;
   const suffix = h < 12 ? 'am' : 'pm';
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+/** The header's one-time invite to set the sky's place (India): done after a choice or "Not now". */
+export function skyInviteDone(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.skyPlaceInviteDone) === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function setSkyInviteDone(): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.skyPlaceInviteDone, 'true');
+  } catch {
+    /* Restricted storage: it may ask again next time. */
+  }
+  window.dispatchEvent(new CustomEvent(SKY_PLACE_EVENT));
 }
