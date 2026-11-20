@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-20**, while releasing **v8.7.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-20**, while releasing **v8.8.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.7.0, versionCode 98 (released 2026-11-20). Before it: v8.6.0, versionCode 97, released 2026-11-16.
+- **Latest release:** v8.8.0, versionCode 99 (released 2026-11-20). Before it: v8.7.0, versionCode 98, released the same day.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -17,7 +17,7 @@ Last updated **2026-11-20**, while releasing **v8.7.0**. Read this file first wh
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
   - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
   - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success);
-  - v8.5.4, v8.5.5, v8.6.0 and v8.7.0 had no server changes.
+  - v8.5.4, v8.5.5, v8.6.0, v8.7.0 and v8.8.0 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -50,6 +50,14 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Settled in v8.5.3: an unchanged status keeps its `updated_at`.
+
+## Still to check from v8.8.0 (released without a test APK, by the owner's choice)
+
+Tried in the browser at phone width (production build), never on a phone.
+- **The Summit** (Settings → Appearance → Header background → Summit; `src/lib/summit.ts`). One mountain for the goal the countdown shows: a flag on the peak is its deadline, the trail runs from its start date (or the day it was made; a creation time before 2020 counts as unknown, and then the trail is all dotted with no dot for today) and is gold up to today. Tapping the countdown switches goals and the trail follows. Shade on the side away from the sun, a rose glow on the peak while the sun is low, silver snow at night; the flag stirs (still with reduced motion). The card is taller on Today (210) and on the tabs (124). A goal with no deadline shows the mountain alone. Phone check: the trail for a real goal, several goals, dawn, noon, dusk and night, a reached bar's constellation (never seen: no test data with focus), light mode, a narrow phone.
+- **The sun and the night sky** (both header styles). The glare is a soft wash with no rays; a faint lens flare (discs, hexagons, a rainbow ring) only within about 1¼ hours of solar noon on days the noon sun is above about 20° (`lensFlare`). The quote sits at the bottom with its closing mark. Glows use Gaussian stops (`softStops`). Venus's and the Sun's planet glow are smaller; faint background stars: header 28 (was 110), focus screen 18 (was 45). Phone check: noon glare and flare, the planet on a Friday and a Sunday, the night sky with and without focus.
+- **Glass on every tap** (`TabPill.tsx`). A tap lifts the pill into the glass bubble for the journey, as a slide does. Phone check: tap between near and far tabs, quick double taps, the Hub's switch.
+- **Smoother** (reported as lag after v8.7.0). The sideways-swipe listener was blocking (`passive: false` on the whole app), so every scroll waited for JavaScript; it is passive again (a sideways drag is locked to the horizontal by the browser). The header no longer uses blur filters, scrolling fades only the words' layer (the ranges no longer sink as it folds), and a new tab sets the header's height at once. Phone check: scroll Today and Goals right after switching tabs, swipe between tabs (the list should not scroll along), and a long-press drag on Goals still holds the page still.
 
 ## Still to check from v8.7.0 (released without a final test APK, by the owner's choice; earlier parts were tried on the phone from `fixes` test APKs)
 
