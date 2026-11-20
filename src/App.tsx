@@ -1412,23 +1412,17 @@ function AppInner() {
                   </button>
                 </div>
                 ) : (
-                <div className="ios-segmented w-full" role="group" aria-label="Today list">
-                  <button
-                    type="button"
-                    aria-pressed={todaySubTab === 'today'}
-                    onClick={() => startTransition(() => setTodaySubTab('today'))}
-                  >
-                    <span>Scheduled</span>
-                    <span className="ios-segmented-count">{openTodayCount}</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={todaySubTab === 'backlog'}
-                    onClick={() => startTransition(() => setTodaySubTab('backlog'))}
-                  >
-                    <span>Backlog</span>
-                    <span className={`ios-segmented-count ${openBacklogCount > 0 ? 'is-alert' : ''}`}>{openBacklogCount}</span>
-                  </button>
+                // The switch itself is the Today tab in the bottom bar (tap it again,
+                // or swipe up or down on it), as on the Hub; this line says which
+                // list is showing.
+                <div className="today-list-title" aria-live="polite">
+                  <span>{todaySubTab === 'today' ? 'Scheduled' : 'Backlog'}</span>
+                  {todaySubTab === 'today' ? (
+                    <span>{openTodayCount > 0 ? `${openTodayCount} to do` : sortedTasks.length > 0 ? 'All done' : 'Nothing yet'}</span>
+                  ) : (
+                    // With overdue cards, the summary card below gives the count.
+                    openBacklogCount === 0 && <span>All clear</span>
+                  )}
                 </div>
                 )}
 
@@ -1800,6 +1794,9 @@ function AppInner() {
         <CommandBar view={view}
           onNavigate={handlePrimaryNavigate}
           onSettings={openSettings}
+          todaySubTab={todaySubTab}
+          onSetTodaySubTab={legacyStyle ? undefined : (tab) => startTransition(() => setTodaySubTab(tab))}
+          backlogCount={openBacklogCount}
           hubSubTab={hubSubTab}
           onToggleHubSubTab={toggleHubSubTab}
           onSetHubSubTab={setHubSubTab}

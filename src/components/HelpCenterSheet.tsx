@@ -112,6 +112,7 @@ const USER_GUIDE_STEPS = [
       'Today shows only what you scheduled for this date.',
       'Tap a card to start a timed focus session.',
       'If the day ends undone, YouDO moves it to Backlog. You do not move it yourself.',
+      'Tap the Today tab again, or swipe up or down on it, to switch between Scheduled and Backlog. While Scheduled shows, the red number on it counts Backlog. (Classic Look: the switch above the list.)',
       'During a session, turn the phone sideways or tap Ambient for a big full-screen clock.',
       'Pick a focus sound in Settings → Focus and streak; it plays with the session.',
     ],
