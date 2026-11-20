@@ -200,8 +200,9 @@ export function attachTabSwipe(frame: HTMLElement, options: TabSwipeOptions): ()
         page.style.willChange = 'transform, opacity';
       }
     }
-    // A sideways swipe: the page, not the list, follows the finger.
-    if (e.cancelable) e.preventDefault();
+    // A sideways swipe: the page follows the finger. The listener is passive
+    // (it never holds up scrolling); the browser locks a sideways drag to the
+    // horizontal on its own, so the list stays put.
     const dt = Math.max(1, now - last.t);
     last = { x: touch.clientX, t: now, v: (touch.clientX - last.x) / dt };
     target = swipeTarget(options.mode(), dx, options.index(), options.labels.length);
@@ -237,7 +238,9 @@ export function attachTabSwipe(frame: HTMLElement, options: TabSwipeOptions): ()
   };
 
   frame.addEventListener('touchstart', onStart, { passive: true });
-  frame.addEventListener('touchmove', onMove, { passive: false });
+  // Passive: a blocking touchmove on the whole app makes every scroll wait
+  // for JavaScript, which stutters whenever the app is busy drawing.
+  frame.addEventListener('touchmove', onMove, { passive: true });
   frame.addEventListener('touchend', onEnd, { passive: true });
   frame.addEventListener('touchcancel', onCancel, { passive: true });
   return () => {
