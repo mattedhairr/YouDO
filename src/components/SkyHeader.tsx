@@ -28,6 +28,8 @@ import {
 } from '../lib/headerSky';
 import type { GoalNode } from '../types';
 import { moonPhase, weekdayOf } from '../lib/planet';
+import { loadSkyPlace, SKY_PLACE_EVENT, sunDayForPlace } from '../lib/skyPlaces';
+import type { SunDay } from '../lib/sunPath';
 import { drawPlanet } from '../lib/planetArt';
 import './skyHeader.css';
 
@@ -142,10 +144,12 @@ function PlanetMark({ index, phase, x, top }: { index: number; phase: number; x:
 }
 
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-function SkyArt({ width, height, hour, stars, lines, dust, night, lift, folded, quoteShade, quiet }: {
+function SkyArt({ width, height, hour, day, stars, lines, dust, night, lift, folded, quoteShade, quiet }: {
   width: number;
   height: number;
   hour: number;
+  /** The real sun's day at the chosen place (sunPath.ts). */
+  day: SunDay;
   stars: HeaderStar[];
   lines: [HeaderStar, HeaderStar][];
   dust: { x: number; y: number; opacity: number }[];
@@ -158,10 +162,10 @@ function SkyArt({ width, height, hour, stars, lines, dust, night, lift, folded, 
   /** Where words sit (scene coordinates): the bright ridge lines fade out there. */
   quiet?: { x: number; y: number; w: number; h: number }[];
 }) {
-  const colors = useMemo(() => skyColors(hour), [hour]);
+  const colors = useMemo(() => skyColors(hour, day), [hour, day]);
   const valley = width * 0.54;
   const ridges = useMemo(() => RIDGES.map((r) => ridgeLine(r.seed, width, r.base - lift, r.amp, valley, r.rough)), [width, valley, lift]);
-  const sun = sunState(hour);
+  const sun = sunState(hour, day);
   const sunX = valley + sun.dx * width;
   const sunY = 134 - sun.rise;
   const sunR = 10 + (7.5 - 10) * sun.elevation;
@@ -246,6 +250,14 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const now = useNow();
   const hour = hourOf(now);
   const dateKey = todayISO();
+  const [placeId, setPlaceId] = useState(loadSkyPlace);
+  useEffect(() => {
+    const onPlace = () => setPlaceId(loadSkyPlace());
+    window.addEventListener(SKY_PLACE_EVENT, onPlace);
+    return () => window.removeEventListener(SKY_PLACE_EVENT, onPlace);
+  }, []);
+  const utcOffset = -now.getTimezoneOffset() / 60;
+  const day = useMemo(() => sunDayForPlace(placeId, dateKey, utcOffset), [placeId, dateKey, utcOffset]);
   const deadlines: DeadlineGoal[] = useMemo(() => upcomingDeadlines(goals, dateKey), [goals, dateKey]);
   const subtitle =
     view === 'goals'
@@ -268,7 +280,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const [quoteLong, setQuoteLong] = useState(false);
   const { prefs, photoUrl } = useHeaderBackground();
   const photo = prefs.mode === 'photo' && photoUrl ? photoUrl : null;
-  const skyTop = photo ? '#000000' : hexOf(skyColors(hour).sky[0]);
+  const skyTop = photo ? '#000000' : hexOf(skyColors(hour, day).sky[0]);
 
   // Android's status bar is a solid strip above the page: it takes the sky's
   // top colour, so the scene runs on under the clock. While a sheet is open
@@ -375,7 +387,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     return () => window.clearTimeout(id);
   }, [quoteOpen]);
 
-  const night = nightness(hour);
+  const night = nightness(hour, day);
   const progress = skyProgress(focusMs, barHours);
   const nameBox = { right: today ? 175 : 210, top: 62, bottom: 122 };
   const nearText = (x: number, y: number) =>
@@ -419,7 +431,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ) : (
       <>
         <div className="sky-art-wrap" style={{ height: folded ? BAR + OFFSET + 30 : height + OFFSET }}>
-          <SkyArt width={width} height={folded ? BAR + OFFSET + 30 : height + OFFSET} hour={hour} stars={stars} lines={lines} dust={dust} night={night} lift={lift} folded={folded} quoteShade={today && Boolean(quote) && !folded} quiet={folded ? [] : quietZones} />
+          <SkyArt width={width} height={folded ? BAR + OFFSET + 30 : height + OFFSET} hour={hour} day={day} stars={stars} lines={lines} dust={dust} night={night} lift={lift} folded={folded} quoteShade={today && Boolean(quote) && !folded} quiet={folded ? [] : quietZones} />
         </div>
         {!folded && showPlanet && <PlanetMark index={planetIndex} phase={phase} x={width * 0.54} top={74 - OFFSET + quoteExtra} />}
       </>
@@ -447,7 +459,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
       <header
         ref={rootRef}
         className={`sky-header ${photo ? 'has-photo' : ''}`}
-        style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, ['--sky-bg' as string]: photo ? '#000' : skyColors(hour).sky[0] }}
+        style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, ['--sky-bg' as string]: photo ? '#000' : skyColors(hour, day).sky[0] }}
       >
         <div className="sky-scene">{scene(false)}</div>
         <div className="sky-content">
@@ -484,7 +496,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
           )}
         </div>
       </header>
-      <div ref={barRef} className={`sky-bar ${photo ? 'has-photo' : ''}`} data-shown="false" style={{ ['--sky-bg' as string]: photo ? '#000' : skyColors(hour).sky[0] }} aria-hidden={false}>
+      <div ref={barRef} className={`sky-bar ${photo ? 'has-photo' : ''}`} data-shown="false" style={{ ['--sky-bg' as string]: photo ? '#000' : skyColors(hour, day).sky[0] }} aria-hidden={false}>
         <div className="sky-scene">{scene(true)}</div>
         <div className="sky-bar-content">
           <span className="sky-bar-title">

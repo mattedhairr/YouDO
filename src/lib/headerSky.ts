@@ -9,6 +9,7 @@
 
 import { skyRandom, skySeed, starMap, type SkyStar } from './focusSky';
 import { daysBetweenLocalISO } from './dates';
+import { sunAltitude, type SunDay } from './sunPath';
 
 type Rgba = [number, number, number, number];
 
@@ -38,10 +39,22 @@ const PALETTES: Record<'night' | 'morning' | 'day' | 'evening' | 'dusk', Palette
   dusk: { sky: ['#06061a', '#1a1534', '#3b2346', '#5a2f44'], layers: [['#33264a', '#2a1f3f'], ['#221a36', '#1a142b'], ['#14101f', '#0d0a15'], ['#08060c', '#030205']], rim: 'rgba(220,160,190,.4)', mist: 'rgba(200,150,190,.1)' },
 };
 
-/** When each sky is fully itself, in hours; between two, the colours blend. */
-const KEYS: [number, keyof typeof PALETTES][] = [
-  [0, 'night'], [5, 'night'], [6.4, 'morning'], [9.5, 'day'], [16, 'day'], [18.1, 'evening'], [19.5, 'dusk'], [20.9, 'night'], [24, 'night'],
-];
+/**
+ * When each sky is fully itself, in clock hours, set by the day's real
+ * sunrise (R) and sunset (S): dawn colours as the sun comes up, daylight a
+ * few hours later, golden light just before sunset, dusk after it, then night.
+ */
+function skyKeys(day: SunDay): [number, keyof typeof PALETTES][] {
+  const R = day.sunrise;
+  const S = day.sunset;
+  const mid = (R + S) / 2;
+  const keys: [number, keyof typeof PALETTES][] = [
+    [R - 1.3, 'night'], [R + 0.4, 'morning'], [Math.min(R + 3, mid), 'day'], [Math.max(S - 2, mid), 'day'],
+    [S - 0.1, 'evening'], [S + 0.7, 'dusk'], [S + 1.6, 'night'],
+  ];
+  const inside = keys.filter(([h]) => h > 0 && h < 24);
+  return [[0, 'night'], ...inside, [24, 'night']];
+}
 
 const clamp = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -69,13 +82,14 @@ export function hourOf(date: Date): number {
   return date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
 }
 
-/** The sky's colours at `hour` (0–24), blended smoothly between the five skies. */
-export function skyColors(hour: number): SkyColors {
+/** The sky's colours at `hour` (0–24) on `day`, blended smoothly between the five skies. */
+export function skyColors(hour: number, day: SunDay): SkyColors {
   const h = ((hour % 24) + 24) % 24;
+  const keys = skyKeys(day);
   let i = 0;
-  while (i < KEYS.length - 2 && h >= KEYS[i + 1][0]) i++;
-  const [h0, a] = KEYS[i];
-  const [h1, b] = KEYS[i + 1];
+  while (i < keys.length - 2 && h >= keys[i + 1][0]) i++;
+  const [h0, a] = keys[i];
+  const [h1, b] = keys[i + 1];
   const t = smooth(clamp((h - h0) / (h1 - h0)));
   const A = PALETTES[a];
   const B = PALETTES[b];
@@ -88,11 +102,13 @@ export function skyColors(hour: number): SkyColors {
 }
 
 /** 0 by day, 1 at night, easing through dusk and dawn: how much the stars show. */
-export function nightness(hour: number): number {
+export function nightness(hour: number, day: SunDay): number {
   const h = ((hour % 24) + 24) % 24;
-  if (h >= 20.9 || h < 5) return 1;
-  if (h >= 18.2) return smooth((h - 18.2) / 2.7);
-  if (h < 6.4) return 1 - smooth((h - 5) / 1.4);
+  const R = day.sunrise;
+  const S = day.sunset;
+  if (h >= S + 1.6 || h < R - 1.3) return 1;
+  if (h >= S - 0.1) return smooth((h - (S - 0.1)) / 1.7);
+  if (h < R + 0.1) return 1 - smooth((h - (R - 1.3)) / 1.4);
   return 0;
 }
 
@@ -102,16 +118,26 @@ export interface SunState {
   dx: number;
   /** Height above the base line, in pixels at full size (0 at rising and setting). */
   rise: number;
-  /** 0 on the horizon, 1 at noon. */
+  /** 0 on the horizon, 1 when high (45° and up): warm and low, or white and high. */
   elevation: number;
 }
 
-/** The sun rises in the valley at 6:00, is highest at 12:24 and sets there at 18:48. */
-export function sunState(hour: number): SunState {
-  const s = (hour - 6) / (18.8 - 6);
-  if (s <= 0 || s >= 1) return { visible: false, dx: 0, rise: 0, elevation: 0 };
-  const elevation = Math.sin(Math.PI * s);
-  return { visible: true, dx: (s - 0.5) * 0.32, rise: 104 * elevation, elevation };
+/**
+ * Where the sun is at `hour` on `day`: it rises on the valley's left at the
+ * real sunrise, crosses at solar noon and sets on the right at sunset; its
+ * height follows its real altitude (a low winter noon, a high summer one).
+ * Near the horizon the mountains hide it, as real ones would.
+ */
+export function sunState(hour: number, day: SunDay): SunState {
+  const altitude = sunAltitude(day, hour);
+  if (altitude < -1.5 || hour < day.sunrise - 0.3 || hour > day.sunset + 0.3) return { visible: false, dx: 0, rise: 0, elevation: 0 };
+  const s = (hour - day.sunrise) / (day.sunset - day.sunrise);
+  return {
+    visible: true,
+    dx: (s - 0.5) * 0.32,
+    rise: 100 * clamp(altitude / 70, -0.03, 1),
+    elevation: clamp(altitude / 45),
+  };
 }
 
 export function greeting(hour: number): string {

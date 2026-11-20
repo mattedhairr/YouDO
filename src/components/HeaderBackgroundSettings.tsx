@@ -10,6 +10,8 @@ import {
   saveHeaderPhoto,
   type HeaderBackground,
 } from '../lib/headerBackground';
+import { formatClock, loadSkyPlace, saveSkyPlace, SKY_PLACES, sunDayForPlace } from '../lib/skyPlaces';
+import { todayISO } from '../lib/dates';
 
 /**
  * Settings → Appearance → Header background: the dynamic sky, or the user's
@@ -22,6 +24,8 @@ export default function HeaderBackgroundSettings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const [placeId, setPlaceId] = useState(loadSkyPlace);
+  const today = sunDayForPlace(placeId, todayISO(), -new Date().getTimezoneOffset() / 60);
 
   useEffect(() => {
     let url: string | null = null;
@@ -104,6 +108,28 @@ export default function HeaderBackgroundSettings() {
           </button>
         ))}
       </div>
+
+      {!photoMode && (
+        <label className="block">
+          <span className="block text-[10.5px] font-semibold text-content-secondary">Sky location</span>
+          <select
+            value={placeId}
+            onChange={(e) => {
+              setPlaceId(e.target.value);
+              saveSkyPlace(e.target.value);
+            }}
+            className="mt-1 w-full min-h-10 rounded-xl border border-subtle bg-surface px-3 text-[12.5px] font-semibold text-content-primary"
+          >
+            <option value="auto">Automatic (from the phone’s time zone)</option>
+            {SKY_PLACES.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <span className="mt-1.5 block text-[10.5px] text-content-muted">
+            Today: sunrise {formatClock(today.sunrise)} · sunset {formatClock(today.sunset)}. Worked out on the phone; no location access.
+          </span>
+        </label>
+      )}
 
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => void choose(e.target.files?.[0])} />
 

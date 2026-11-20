@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { SKY_STARS } from './focusSky';
+import { sunDay } from './sunPath';
 import { dustStars, greeting, headerConstellation, headerStars, mixColor, nightness, ridgeLine, skyColors, sunState, upcomingDeadlines } from './headerSky';
 
 const channels = (c: string) => (c.match(/[\d.]+/g) ?? []).map(Number);
+// Delhi on 20 Nov 2026: sunrise 6:47, sunset 17:25 (timeanddate.com).
+const DAY = sunDay('2026-11-20', 28.61, 77.21, 5.5);
 
 describe('the header sky through the day', () => {
   it('changes smoothly: no jump between one minute and the next', () => {
     for (let m = 0; m < 24 * 60; m++) {
-      const a = skyColors(m / 60);
-      const b = skyColors((m + 1) / 60);
+      const a = skyColors(m / 60, DAY);
+      const b = skyColors((m + 1) / 60, DAY);
       a.sky.forEach((c, i) => {
         const x = channels(c);
         const y = channels(b.sky[i]);
@@ -18,31 +21,48 @@ describe('the header sky through the day', () => {
   });
 
   it('is the same sky at midnight from both sides, and wraps past 24h', () => {
-    expect(skyColors(0)).toEqual(skyColors(24));
-    expect(skyColors(25)).toEqual(skyColors(1));
+    expect(skyColors(0, DAY)).toEqual(skyColors(24, DAY));
+    expect(skyColors(25, DAY)).toEqual(skyColors(1, DAY));
   });
 
-  it('shows stars only at night, easing in at dusk and out at dawn', () => {
-    expect(nightness(12)).toBe(0);
-    expect(nightness(23)).toBe(1);
-    expect(nightness(2)).toBe(1);
-    const dusk = nightness(19.5);
+  it('shows stars only at night, easing in after sunset and out before sunrise', () => {
+    expect(nightness(12, DAY)).toBe(0);
+    expect(nightness(23, DAY)).toBe(1);
+    expect(nightness(2, DAY)).toBe(1);
+    const dusk = nightness(DAY.sunset + 0.6, DAY);
     expect(dusk).toBeGreaterThan(0);
     expect(dusk).toBeLessThan(1);
-    expect(nightness(6)).toBeGreaterThan(0);
-    expect(nightness(7)).toBe(0);
+    expect(nightness(DAY.sunrise - 0.5, DAY)).toBeGreaterThan(0);
+    expect(nightness(DAY.sunrise + 0.3, DAY)).toBe(0);
   });
 
-  it('has the sun up by day only, rising and setting in the valley', () => {
-    expect(sunState(3).visible).toBe(false);
-    expect(sunState(22).visible).toBe(false);
-    const noon = sunState(12.4);
+  it('turns to dusk colours after the real sunset, not at a fixed hour', () => {
+    // In June, Delhi's sun sets near 19:20: the sky at 18:30 is still day there, but dusk in November.
+    const june = sunDay('2026-06-21', 28.61, 77.21, 5.5);
+    expect(nightness(18.5, june)).toBe(0);
+    expect(nightness(18.5, DAY)).toBeGreaterThan(0.3);
+  });
+
+  it('has the sun up by day only, rising and setting in the valley at the real times', () => {
+    expect(sunState(3, DAY).visible).toBe(false);
+    expect(sunState(22, DAY).visible).toBe(false);
+    expect(sunState(DAY.sunset + 0.5, DAY).visible).toBe(false); // November: down by 6 pm
+    const noon = sunState(DAY.noon, DAY);
     expect(noon.visible).toBe(true);
-    expect(noon.elevation).toBeGreaterThan(0.99);
     expect(Math.abs(noon.dx)).toBeLessThan(0.01);
-    expect(sunState(6.3).elevation).toBeLessThan(0.1);
-    expect(sunState(6.3).dx).toBeLessThan(0);
-    expect(sunState(18.5).dx).toBeGreaterThan(0);
+    const morning = sunState(DAY.sunrise + 0.2, DAY);
+    expect(morning.visible).toBe(true);
+    expect(morning.elevation).toBeLessThan(0.1);
+    expect(morning.dx).toBeLessThan(0);
+    expect(sunState(DAY.sunset - 0.2, DAY).dx).toBeGreaterThan(0);
+  });
+
+  it('climbs with the real altitude: mid-morning well below noon, a winter noon lower than a summer one', () => {
+    const at930 = sunState(9.5, DAY);
+    const noon = sunState(DAY.noon, DAY);
+    expect(at930.rise).toBeLessThan(noon.rise * 0.75);
+    const june = sunDay('2026-06-21', 28.61, 77.21, 5.5);
+    expect(sunState(june.noon, june).rise).toBeGreaterThan(noon.rise + 30);
   });
 
   it('greets by the hour, and night owls with "Still at it"', () => {
