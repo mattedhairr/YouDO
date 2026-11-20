@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.7.0] - 2026-11-20 - A Sky Over Your Day
+
+- **A sky header** — Every tab opens with a small landscape whose sky follows the real sun for your place, with your earned focus stars at night, a greeting, a countdown to your nearest goal deadline and the day's quote. Tap the sun to replay today from dawn to now. Or use your own photo.
+- **Weather for the day** — A button beside the date makes the sky clear, cloudy or rainy, with drifting clouds and fine rain that differ every day.
+- **Today and Backlog from the tab** — Tap the Today tab again, or swipe up or down on it, to switch lists, as on the Hub; a red number shows what is overdue.
+- **Calmer swipes** — Swiping inside a Hub room or chat no longer jumps to another tab; inside a goal, swipe right to go back.
+- **Smaller fixes** — Goals can be reordered by touch again (long-press, then drag).
+- **Android APK** — versionName **8.7.0**, versionCode **98**. Installs over v8.6.0 (97).
+
+---
+
 ## [v8.6.0] - 2026-11-16 - A Calmer Sky
 
 - **A cleaner Focus Sky** — Far fewer stars, spread evenly across the whole sky instead of along the edges, in real star colours, with a different arrangement every day.

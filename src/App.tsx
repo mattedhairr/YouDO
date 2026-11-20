@@ -59,6 +59,7 @@ const BlueprintStudio = lazy(() => import('./components/BlueprintStudio'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
 const HubView = lazy(() => import('./components/HubView'));
 const SettingsSheet = lazy(() => import('./components/SettingsSheet'));
+const SkyHeader = lazy(() => import('./components/SkyHeader'));
 const AdminHubSheet = lazy(() => import('./components/AdminHubSheet'));
 // Only shown during a session; keeps its font and sound picker out of the first load.
 const HelpCenterSheet = lazy(() => import('./components/HelpCenterSheet'));
@@ -121,26 +122,6 @@ function YouDoWordmark() {
       </span>
     </span>
   );
-}
-
-function isInteractiveOrScrollable(el: HTMLElement | null): boolean {
-  while (el && el !== document.body) {
-    const tagName = el.tagName ? el.tagName.toLowerCase() : '';
-    if (tagName === 'textarea') return true;
-    if (tagName === 'input') {
-      const type = (el as HTMLInputElement).type;
-      if (!type || ['text', 'password', 'email', 'number', 'search', 'tel', 'url'].includes(type)) {
-        return true;
-      }
-    }
-    if (el.classList) {
-      if (el.classList.contains('no-swipe') || el.classList.contains('glass-nav') || el.classList.contains('dragging-card')) {
-        return true;
-      }
-    }
-    el = el.parentElement;
-  }
-  return false;
 }
 
 export default function App() {
@@ -1177,95 +1158,39 @@ function AppInner() {
     });
   }, [filteredTodayTasks, activeSession]);
 
-  const touchState = useRef<{
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-    startTime: number;
-    isHorizontal: boolean | null;
-    tracking: boolean;
-  }>({
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0,
-    startTime: 0,
-    isHorizontal: null,
-    tracking: false,
-  });
-
-  const onTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      if (sheetOpen || goalSheetOpen || blueprintStudioOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || briefingOpen) return;
-      const target = e.target as HTMLElement | null;
-      if (isInteractiveOrScrollable(target)) return;
-
-      const touch = e.touches[0];
-      touchState.current = {
-        startX: touch.clientX,
-        startY: touch.clientY,
-        currentX: touch.clientX,
-        currentY: touch.clientY,
-        startTime: Date.now(),
-        isHorizontal: null,
-        tracking: true,
-      };
-    },
-    [sheetOpen, goalSheetOpen, blueprintStudioOpen, settingsOpen, sliceNodes, showAmbient, stopDialogTask, recoverySessionPrompt, briefingOpen],
-  );
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchState.current.tracking) return;
-    const touch = e.touches[0];
-    touchState.current.currentX = touch.clientX;
-    touchState.current.currentY = touch.clientY;
-
-    const dx = touch.clientX - touchState.current.startX;
-    const dy = touch.clientY - touchState.current.startY;
-
-    if (touchState.current.isHorizontal === null) {
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        if (Math.abs(dy) >= Math.abs(dx)) {
-          touchState.current.isHorizontal = false;
-          touchState.current.tracking = false;
-        } else {
-          touchState.current.isHorizontal = true;
-        }
-      }
-    }
-  }, []);
-
-  const onTouchEnd = useCallback(
-    () => {
-      if (!touchState.current.tracking || touchState.current.isHorizontal !== true) {
-        touchState.current.tracking = false;
-        return;
-      }
-      touchState.current.tracking = false;
-
-      const dx = touchState.current.currentX - touchState.current.startX;
-      const dy = touchState.current.currentY - touchState.current.startY;
-      const dt = Date.now() - touchState.current.startTime;
-
-      if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.75 || dt > 750) return;
-
-      const currentIdx = tabs.indexOf(view);
-
-      if (dx <= -50) {
-        const nextIdx = Math.min(tabs.length - 1, currentIdx + 1);
-        if (nextIdx !== currentIdx) handleNavigateTab(tabs[nextIdx]);
-      } else if (dx >= 50) {
-        if (view === 'goals' && goalPathIds.length > 0) {
-          setGoalPathIds(goalPathIds.slice(0, -1));
-          return;
-        }
-        const prevIdx = Math.max(0, currentIdx - 1);
-        if (prevIdx !== currentIdx) handleNavigateTab(tabs[prevIdx]);
-      }
-    },
-    [view, goalPathIds, tabs, handleNavigateTab, setGoalPathIds],
-  );
+  // Sideways swipes (src/lib/tabSwipe.ts, loaded after the first screen):
+  // back one level inside a goal, tabs from a tab's main screen, never inside
+  // an overlay. The latest state is read through a ref.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const swipeStateRef = useRef({ blocked: false, view, depth: 0, back: () => {}, go: handleNavigateTab });
+  swipeStateRef.current = {
+    blocked: Boolean(sheetOpen || goalSheetOpen || blueprintStudioOpen || settingsOpen || sliceNodes.length > 0 || showAmbient || stopDialogTask || recoverySessionPrompt || briefingOpen),
+    view,
+    depth: view === 'goals' ? goalPathIds.length : 0,
+    back: () => setGoalPathIds(goalPathIds.slice(0, -1)),
+    go: handleNavigateTab,
+  };
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    let detach: (() => void) | null = null;
+    let cancelled = false;
+    void import('./lib/tabSwipe').then(({ attachTabSwipe }) => {
+      if (cancelled) return;
+      detach = attachTabSwipe(frame, {
+        enabled: () => !swipeStateRef.current.blocked,
+        mode: () => (swipeStateRef.current.depth > 0 ? 'back' : 'tabs'),
+        index: () => tabs.indexOf(swipeStateRef.current.view),
+        labels: tabs.map((t) => (t === 'tasks' ? 'Today' : t === 'goals' ? 'Goals' : t === 'calendar' ? 'Calendar' : 'Hub')),
+        onTab: (i) => swipeStateRef.current.go(tabs[i]),
+        onBack: () => swipeStateRef.current.back(),
+      });
+    });
+    return () => {
+      cancelled = true;
+      detach?.();
+    };
+  }, [tabs]);
 
   useEffect(() => {
     if (hasSeenHelp || recoverySessionPrompt || helpOpen) return;
@@ -1325,9 +1250,7 @@ function AppInner() {
       )}
       <div
         className={`app-frame relative min-h-screen w-full max-w-md mx-auto px-4 ${legacyStyle ? 'pb-28' : 'pb-36'} overflow-x-hidden`}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        ref={frameRef}
       >
         {/* Header */}
         {legacyStyle ? (
@@ -1405,64 +1328,17 @@ function AppInner() {
           </div>
         </header>
         ) : (
-        <header className="app-header shrink-0">
-          <div className="app-header-row">
-            {/* The date and the day's tally sit beside the large title, not above and below it. */}
-            <div className="app-title-line min-w-0">
-              <h1 className="app-large-title">
-                {view === 'goals' ? 'Goals' : view === 'calendar' ? 'Calendar' : view === 'board' ? 'Hub' : 'Today'}
-              </h1>
-              {view === 'tasks' && (
-                <div className="app-title-meta min-w-0">
-                  <span className="app-header-date">
-                    {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-                  </span>
-                  <span
-                    className="app-header-subtitle"
-                    aria-label={`Today progress ${todayDone} of ${todayCount}, ${todayProgress} percent`}
-                  >
-                    {todayCount === 0 ? 'Nothing planned yet' : `${todayDone} of ${todayCount} done · ${todayProgress}%`}
-                  </span>
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => openHelp()}
-              className="app-header-brand"
-              aria-label="Open YouDO guide"
-              title="Guide"
-            >
-              <YouDoWordmark />
-            </button>
-          </div>
-          {/* Today's progress, a thin glowing bar over the quote. */}
-          {view === 'tasks' && (
-            <div className="today-bar" aria-hidden="true">
-              {todayProgress > 0 && <span className="today-bar-fill" style={{ width: `${todayProgress}%` }} />}
-            </div>
-          )}
-          {randomQuote && view === 'tasks' && (
-            <blockquote className="quote-ticker">
-              <div
-                className={`quote-ticker-track ${
-                  randomQuote.text.length >= 80
-                    ? 'quote-ticker-track-fast'
-                    : randomQuote.text.length >= 60
-                      ? 'quote-ticker-track-medium'
-                      : 'quote-ticker-track-steady'
-                }`}
-              >
-                {[0, 1].map((copy) => (
-                  <p key={copy} className="quote-ticker-item" aria-hidden={copy === 1}>
-                    “{randomQuote.text}”
-                    {randomQuote.author !== 'Unknown' && <cite>{' — '}{randomQuote.author}</cite>}
-                  </p>
-                ))}
-              </div>
-            </blockquote>
-          )}
-        </header>
+        <Suspense fallback={<div aria-hidden style={{ marginTop: '0.5rem', height: `calc(max(0.875rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) + ${view === 'tasks' ? 178 : 114}px)` }} />}>
+          <SkyHeader
+            view={view === 'goals' || view === 'calendar' || view === 'board' ? view : 'tasks'}
+            name={typeof activityUser?.user_metadata?.full_name === 'string' && activityUser.user_metadata.full_name.trim() ? activityUser.user_metadata.full_name.trim().split(/\s+/)[0] : null}
+            quote={randomQuote}
+            goals={goals}
+            focusMs={streakByDate.get(todayISO()) ?? 0}
+            barHours={streakMeta.barHours}
+            onOpenGuide={() => openHelp()}
+          />
+        </Suspense>
         )}
 
         {/* Main View Area */}
@@ -1536,23 +1412,17 @@ function AppInner() {
                   </button>
                 </div>
                 ) : (
-                <div className="ios-segmented w-full" role="group" aria-label="Today list">
-                  <button
-                    type="button"
-                    aria-pressed={todaySubTab === 'today'}
-                    onClick={() => startTransition(() => setTodaySubTab('today'))}
-                  >
-                    <span>Scheduled</span>
-                    <span className="ios-segmented-count">{openTodayCount}</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={todaySubTab === 'backlog'}
-                    onClick={() => startTransition(() => setTodaySubTab('backlog'))}
-                  >
-                    <span>Backlog</span>
-                    <span className={`ios-segmented-count ${openBacklogCount > 0 ? 'is-alert' : ''}`}>{openBacklogCount}</span>
-                  </button>
+                // The switch itself is the Today tab in the bottom bar (tap it again,
+                // or swipe up or down on it), as on the Hub; this line says which
+                // list is showing.
+                <div className="today-list-title" aria-live="polite">
+                  <span>{todaySubTab === 'today' ? 'Scheduled' : 'Backlog'}</span>
+                  {todaySubTab === 'today' ? (
+                    <span>{openTodayCount > 0 ? `${openTodayCount} to do` : sortedTasks.length > 0 ? 'All done' : 'Nothing yet'}</span>
+                  ) : (
+                    // With overdue cards, the summary card below gives the count.
+                    openBacklogCount === 0 && <span>All clear</span>
+                  )}
                 </div>
                 )}
 
@@ -1924,6 +1794,9 @@ function AppInner() {
         <CommandBar view={view}
           onNavigate={handlePrimaryNavigate}
           onSettings={openSettings}
+          todaySubTab={todaySubTab}
+          onSetTodaySubTab={legacyStyle ? undefined : (tab) => startTransition(() => setTodaySubTab(tab))}
+          backlogCount={openBacklogCount}
           hubSubTab={hubSubTab}
           onToggleHubSubTab={toggleHubSubTab}
           onSetHubSubTab={setHubSubTab}

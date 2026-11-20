@@ -43,6 +43,14 @@ interface Props {
   syncAttention?: boolean;
   batch?: BatchMode;
   paste?: PasteMode;
+  /**
+   * Today's two lists, switched like the Hub's: tap Today again, or swipe up
+   * or down on it. Without onSetTodaySubTab the Today tab is a plain tab.
+   */
+  todaySubTab?: 'today' | 'backlog';
+  onSetTodaySubTab?: (tab: 'today' | 'backlog') => void;
+  /** Open cards in Backlog: shown on the Today tab while Scheduled is open. */
+  backlogCount?: number;
   hubSubTab?: 'social' | 'private';
   onToggleHubSubTab?: () => void;
   onSetHubSubTab?: (tab: 'social' | 'private') => void;
@@ -119,6 +127,9 @@ function ModernCommandBar({
   syncAttention = false,
   batch,
   paste,
+  todaySubTab = 'today',
+  onSetTodaySubTab,
+  backlogCount = 0,
   hubSubTab = 'social',
   onToggleHubSubTab,
   onSetHubSubTab,
@@ -129,13 +140,17 @@ function ModernCommandBar({
   adminPending = 0,
 }: Props) {
   const remainingToday = Math.max(0, todayCount - todayDone);
-  const hubTouchStartY = useRef<number | null>(null);
+  const switchTouchStartY = useRef<number | null>(null);
   const [{ liquidGlass }] = useUiPrefs();
   const adminHold = useAdminHold(onOpenAdminHub);
   const showAdminBadge = Boolean(onOpenAdminHub) && adminPending > 0;
 
+  // On Today the badge counts the other list: Backlog's open cards (red) while
+  // Scheduled is showing, what's left today (quiet) while Backlog is.
+  const todaySwitch = view === 'tasks' && Boolean(onSetTodaySubTab);
+  const todayBadge = !todaySwitch ? remainingToday : todaySubTab === 'today' ? backlogCount : remainingToday;
   const tabs: { id: View; label: string; icon: typeof Target; badge?: number; quietBadge?: boolean }[] = [
-    { id: 'tasks', label: 'Today', icon: CheckCircle2, badge: remainingToday > 0 ? remainingToday : undefined },
+    { id: 'tasks', label: 'Today', icon: CheckCircle2, badge: todayBadge > 0 ? todayBadge : undefined, quietBadge: todaySwitch && todaySubTab === 'backlog' },
     { id: 'goals', label: 'Goals', icon: Target, badge: goalsCount > 0 ? goalsCount : undefined, quietBadge: true },
     { id: 'calendar', label: 'Calendar', icon: CalendarDays },
     { id: 'board', label: 'Hub', icon: Users },
@@ -213,6 +228,15 @@ function ModernCommandBar({
                 const Icon = tab.icon;
                 const active = view === tab.id;
                 const isHubTab = tab.id === 'board';
+                const isTodaySwitch = tab.id === 'tasks' && active && todaySwitch;
+                const switches = (isHubTab && active) || isTodaySwitch;
+                // Which half of the two-list switch is showing: 0 the first, 1 the second.
+                const second = isTodaySwitch ? todaySubTab === 'backlog' : hubSubTab === 'private';
+                const setSecond = (on: boolean) => {
+                  if (isTodaySwitch) onSetTodaySubTab?.(on ? 'backlog' : 'today');
+                  else onSetHubSubTab?.(on ? 'private' : 'social');
+                };
+                const switchLabels = isTodaySwitch ? ['Today', 'Backlog'] : ['Public', 'Private'];
                 const hubIconDot = isHubTab && !active && showHubNavDot;
                 const hubStripPublicDot =
                   isHubTab && active && hubSubTab === 'private' && hubCommunityUnread > 0;
@@ -223,40 +247,43 @@ function ModernCommandBar({
                     key={tab.id}
                     type="button"
                     onClick={() => {
-                      if (isHubTab && active) {
+                      if (isTodaySwitch) {
+                        setSecond(!second);
+                      } else if (isHubTab && active) {
                         onToggleHubSubTab?.();
                       } else {
                         onNavigate(tab.id);
                       }
                     }}
                     onWheel={
-                      isHubTab && active
+                      switches
                         ? (e) => {
-                            if (e.deltaY > 5) onSetHubSubTab?.('private');
-                            else if (e.deltaY < -5) onSetHubSubTab?.('social');
+                            if (e.deltaY > 5) setSecond(true);
+                            else if (e.deltaY < -5) setSecond(false);
                           }
                         : undefined
                     }
                     onTouchStart={
-                      isHubTab && active
+                      switches
                         ? (e) => {
-                            hubTouchStartY.current = e.touches[0].clientY;
+                            switchTouchStartY.current = e.touches[0].clientY;
                           }
                         : undefined
                     }
                     onTouchEnd={
-                      isHubTab && active
+                      switches
                         ? (e) => {
-                            if (hubTouchStartY.current === null) return;
-                            const diff = e.changedTouches[0].clientY - hubTouchStartY.current;
-                            if (diff < -12) onSetHubSubTab?.('private');
-                            else if (diff > 12) onSetHubSubTab?.('social');
-                            hubTouchStartY.current = null;
+                            if (switchTouchStartY.current === null) return;
+                            const diff = e.changedTouches[0].clientY - switchTouchStartY.current;
+                            if (diff < -12) setSecond(true);
+                            else if (diff > 12) setSecond(false);
+                            switchTouchStartY.current = null;
                           }
                         : undefined
                     }
                     aria-current={active ? 'page' : undefined}
-                    title={isHubTab && active ? 'Scroll or tap to switch Public / Private' : undefined}
+                    aria-label={isTodaySwitch ? `Today, showing ${second ? 'Backlog' : 'Scheduled'}. Tap to switch` : undefined}
+                    title={isTodaySwitch ? 'Scroll or tap to switch Today / Backlog' : isHubTab && active ? 'Scroll or tap to switch Public / Private' : undefined}
                     className={`tab-bar-item ${active ? 'is-active' : ''}`}
                   >
                     <span className="relative inline-flex shrink-0">
@@ -269,20 +296,20 @@ function ModernCommandBar({
                       )}
                     </span>
                     
-                    {/* Rolling label for active Hub, static label for others */}
-                    {isHubTab && active ? (
+                    {/* Rolling label on a tab with two lists (Hub, Today), static label for others */}
+                    {switches ? (
                       <div className="h-[12px] overflow-hidden relative w-full">
                         <div
                           className="flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
                           style={{
-                            transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(-50%)',
+                            transform: second ? 'translateY(-50%)' : 'translateY(0%)',
                           }}
                         >
                           <span className="h-[12px] flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
-                            Public
+                            {switchLabels[0]}
                           </span>
                           <span className="h-[12px] flex items-center justify-center text-[10px] font-semibold text-primary shrink-0">
-                            Private
+                            {switchLabels[1]}
                           </span>
                         </div>
                       </div>
@@ -290,7 +317,7 @@ function ModernCommandBar({
                       <span className="tab-bar-label">{tab.label}</span>
                     )}
 
-                    {isHubTab && active && (
+                    {switches && (
                       <div
                         className="absolute right-2 top-3 bottom-3 w-[4px] pointer-events-none"
                         aria-hidden
@@ -311,7 +338,7 @@ function ModernCommandBar({
                           <div
                             className="absolute left-0 right-0 h-1/2 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] p-[1px]"
                             style={{
-                              transform: hubSubTab === 'social' ? 'translateY(0%)' : 'translateY(100%)',
+                              transform: second ? 'translateY(100%)' : 'translateY(0%)',
                             }}
                           >
                             <div className="w-full h-full rounded-full bg-primary" />

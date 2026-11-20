@@ -717,6 +717,28 @@ html.dark .ios-segmented > button[aria-selected='true'] { background: #636366; }
 }
 .ios-segmented-count.is-alert { background: var(--error); color: #ffffff; }
 
+/* Today's list title: which list is showing (the switch is the Today tab). */
+.today-list-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 4px 0;
+}
+.today-list-title > span:first-child {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.today-list-title > span:last-child {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Inset grouped list section header ──────────────────────────────────── */
 .ios-section-header {
   padding: 0 16px 6px;

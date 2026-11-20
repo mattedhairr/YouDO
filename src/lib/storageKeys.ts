@@ -34,6 +34,16 @@ export const STORAGE_KEYS = {
   ambientTipSeen: 'youdo-ambient-tip-seen-v1',
   ambientSky: 'youdo-ambient-sky-v1',
   ambientPlanet: 'youdo-ambient-planet-v1',
+  /** Settings → Appearance → Header background: the sky or the user's photo, and how the photo sits. The photo itself is in IndexedDB. */
+  headerBackground: 'youdo-header-background-v1',
+  /** Settings → Appearance → Sky location: a state's id, or "auto" (the phone's clock). */
+  skyPlace: 'youdo-sky-place-v1',
+  /** The header asked once to set the sky's place (India); "true" after a choice or "Not now". */
+  skyPlaceInviteDone: 'youdo-sky-place-invite-done-v1',
+  /** The header's weather for the day ({ date, weather }), set with its button. */
+  skyWeather: 'youdo-sky-weather-v1',
+  /** Settings → Appearance: show the header's weather button ("false" hides it and keeps the sky clear). */
+  skyWeatherButton: 'youdo-sky-weather-button-v1',
   focusAnnounced: 'youdo-focus-announced-v1',
   focusSounds: 'youdo-focus-sounds-v1',
   ownSounds: 'youdo-own-sounds-v1',

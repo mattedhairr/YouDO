@@ -1,0 +1,270 @@
+/* The sky header (SkyHeader.tsx): a card with rounded corners just under the
+   status bar, a little in from the screen's edges, so its sky never has to
+   melt into the status bar (black on Android 15 and later) or the page. */
+:root {
+  --sky-top: max(0.875rem, calc(var(--safe-area-top) + 0.5rem));
+}
+
+.sky-header {
+  position: relative;
+  margin: 0.5rem -0.375rem 0;
+  overflow: hidden;
+  border-radius: 26px;
+  background: var(--sky-bg, #000);
+  color: #fff;
+  isolation: isolate;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 30px rgba(0, 0, 0, 0.5);
+  transition: height 0.45s var(--ease-out);
+  animation: sky-in 0.5s ease both;
+}
+html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 26px rgba(40, 32, 18, 0.2); }
+@keyframes sky-in { from { opacity: 0; } }
+
+.sky-scene { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.sky-art-wrap { position: absolute; left: 0; right: 0; bottom: 0; }
+.sky-art { display: block; overflow: visible; }
+/* The ranges sink at their own speeds as the header folds away. */
+.sky-fold-sink { transform: translateY(calc(var(--fold, 0) * var(--sink, 0) * 70px)); }
+.sky-planet { position: absolute; pointer-events: none; }
+.sky-photo { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+/* Over a photo, a soft shade keeps the words readable. */
+.sky-header.has-photo .sky-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.1) 60%), linear-gradient(180deg, rgba(0, 0, 0, 0.25), transparent 40%, rgba(0, 0, 0, 0.5));
+}
+
+.sky-content {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: var(--sky-top);
+  bottom: 0;
+  opacity: calc(1 - var(--fold, 0) * 1.8);
+  transform: translateY(calc(var(--fold, 0) * -18px));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 16px rgba(0, 0, 0, 0.35);
+  /* Taps fall through the empty parts to the sun beneath; the words' own buttons keep theirs. */
+  pointer-events: none;
+}
+.sky-content button { pointer-events: auto; }
+.sky-top { display: flex; align-items: center; justify-content: space-between; height: 24px; }
+.sky-mark {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  gap: 1px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.sky-mark:active { transform: scale(0.95); }
+/* The "o" tucks in under the Y's right arm, as in the logo. */
+.sky-mark svg { margin-right: -3px; }
+.sky-mark-ou { color: rgba(255, 255, 255, 0.75); font-weight: 700; }
+.sky-date { font-size: 10.5px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.78); }
+
+.sky-mid { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.sky-hello { min-width: 0; }
+.sky-hello small { display: block; font-size: 12.5px; font-weight: 550; color: rgba(255, 255, 255, 0.82); }
+.sky-hello h1 {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 34px;
+  font-weight: 760;
+  letter-spacing: -0.032em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sky-sub { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 550; color: rgba(255, 255, 255, 0.8); }
+
+.sky-count {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 48%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  text-align: right;
+  text-shadow: inherit;
+}
+.sky-count-n { font-family: var(--font-display); font-size: 32px; line-height: 33px; font-weight: 760; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.sky-count-l {
+  max-width: 100%;
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.8);
+}
+.sky-count-l b { color: color-mix(in srgb, var(--primary) 70%, #fff); }
+.sky-dots { display: flex; gap: 4px; margin-top: 6px; }
+.sky-dots i { width: 5px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.32); transition: width 0.3s var(--ease-out), background 0.3s; }
+.sky-dots i.on { width: 14px; background: color-mix(in srgb, var(--primary) 70%, #fff); }
+
+.sky-quote { position: absolute; left: 0; right: 0; bottom: 30px; display: flex; align-items: flex-end; gap: 10px; }
+.sky-quote p {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 17.5px;
+  color: rgba(255, 255, 255, 0.9);
+}
+.sky-quote.is-open p { -webkit-line-clamp: 12; }
+.sky-quote p::before { content: '\201C'; margin-right: 2px; font-size: 16px; font-style: normal; vertical-align: -1px; color: var(--primary); }
+.sky-quote cite {
+  margin-left: 6px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.5);
+}
+.sky-more { flex: none; padding: 4px 0 1px; border: 0; background: none; font-size: 11px; font-weight: 650; color: color-mix(in srgb, var(--primary) 70%, #fff); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-header { animation: none; transition: none; }
+  .sky-dots i { transition: none; }
+}
+
+/* The weather (SkyWeather.tsx): clouds drift in a strip two tiles wide, so
+   the motion is a plain transform; rain is a small canvas. */
+.sky-weather { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+/* On its own GPU layer, so the slow drift glides by fractions of a pixel instead of stepping. */
+.sky-cloud { position: absolute; left: 0; max-width: none; animation: sky-drift linear infinite; will-change: transform; backface-visibility: hidden; transform: translate3d(0, 0, 0); }
+@keyframes sky-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+.sky-weather.is-still .sky-cloud { animation: none; }
+.sky-rain { position: absolute; left: 0; top: 0; max-width: none; }
+@media (prefers-reduced-motion: reduce) {
+  .sky-cloud { animation: none; }
+}
+
+/* The top row's right side: the invite to set the sky's place, the date (or,
+   for a moment, the weather just chosen) and the weather button. */
+.sky-top-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sky-invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 8px 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-shadow: none;
+  animation: sky-invite-in 0.6s 0.8s var(--ease-out) both;
+}
+@keyframes sky-invite-in { from { opacity: 0; transform: translateY(-4px); } }
+.sky-weather-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -2px -4px -2px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.sky-weather-btn:active { transform: scale(0.92); }
+.sky-weather-btn svg { animation: sky-icon-in 0.35s var(--ease-out) both; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.35)); }
+@keyframes sky-icon-in { from { opacity: 0; transform: scale(0.6) rotate(-20deg); } }
+.sky-weather-name { font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; animation: sky-icon-in 0.3s var(--ease-out) both; }
+
+/* The place picker the invite opens. */
+.sky-picker { padding: 6px 4px 4px; }
+.sky-picker h2 { margin: 0; font-size: 18px; font-weight: 750; color: var(--text-primary); }
+.sky-picker p { margin: 4px 0 12px; font-size: 12.5px; color: var(--text-secondary); }
+.sky-picker-list { max-height: 46vh; overflow-y: auto; border-radius: 14px; background: var(--bg-surface); }
+.sky-picker-list button {
+  display: block;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  background: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+}
+.sky-picker-list button:first-child { border-top: 0; }
+.sky-picker-list button:active { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.sky-picker-later { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 0; background: none; color: var(--text-secondary); font-size: 12.5px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .sky-invite, .sky-weather-btn svg, .sky-weather-name { animation: none; }
+}
+
+/* Tapping the sun plays today's sky from sunrise to now, then shows the sun's
+   path with its rising and setting times (SkyHeader.tsx). */
+.sky-sun-tap {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+.sky-sun-tap:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -6px; }
+.sky-lens { mix-blend-mode: screen; pointer-events: none; }
+/* The rays shimmer a little, as they do through a lens, never spinning. */
+.sky-ray-a { animation: sky-ray-shimmer 5.5s ease-in-out infinite alternate; }
+.sky-ray-b { animation: sky-ray-shimmer 7s ease-in-out -3s infinite alternate; }
+@keyframes sky-ray-shimmer { from { opacity: 1; } to { opacity: 0.45; } }
+.sky-sunpath { animation: sky-path 5.2s ease both; }
+.sky-path-words { position: absolute; inset: 0; pointer-events: none; }
+.sky-path-left {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(8, 14, 26, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: sky-path 5.2s ease both;
+}
+.sky-path-left b { font-size: 11px; font-weight: 700; color: #fff; }
+@keyframes sky-path { 0% { opacity: 0; } 10% { opacity: 1; } 86% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sky-ray-a, .sky-ray-b { animation: none; }
+}
