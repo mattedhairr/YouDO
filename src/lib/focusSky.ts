@@ -18,7 +18,7 @@
  * Positions are 0–1 fractions of the screen, so they fit any size.
  */
 export const SKY_STARS = 36;
-export const DUST_STARS = 45;
+export const DUST_STARS = 18;
 const BONUS_MS = 15 * 60_000;
 const BASE_CONSTELLATION = 7;
 const MAX_CONSTELLATION = 12;
@@ -132,8 +132,8 @@ export function dustMap(dateKey: string, aspect = 1): SkyStar[] {
   return spread(DUST_STARS, next, undefined, aspect).map(({ x, y }) => ({
     x,
     y,
-    size: 0.45 + 0.2 * next(),
-    brightness: 0.12 + 0.14 * next(),
+    size: 0.45 + 0.15 * next(),
+    brightness: 0.08 + 0.1 * next(),
     tint: TINTS[1],
   }));
 }

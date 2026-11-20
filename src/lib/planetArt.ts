@@ -15,7 +15,10 @@ export function drawPlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number
   ctx.save();
   const glow = (rgb: string, alpha: number, reach: number) => {
     const g = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * reach);
+    // Most of the light close to the disc, then a long fade to nothing: no rim.
     g.addColorStop(0, `rgba(${rgb},${alpha})`);
+    g.addColorStop(0.35, `rgba(${rgb},${+(alpha * 0.4).toFixed(3)})`);
+    g.addColorStop(0.7, `rgba(${rgb},${+(alpha * 0.1).toFixed(3)})`);
     g.addColorStop(1, `rgba(${rgb},0)`);
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -57,8 +60,8 @@ export function drawPlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number
 
   if (index === 0) {
     // Sun
-    glow('255,190,90', 0.32, 3);
-    glow('255,220,150', 0.5, 1.7);
+    glow('255,190,90', 0.2, 2.1);
+    glow('255,220,150', 0.36, 1.5);
     disc([[0, '#fff6dc'], [0.55, '#ffd27a'], [1, '#f39a2e']]);
   } else if (index === 1) {
     // Moon, in today's phase
@@ -118,7 +121,7 @@ export function drawPlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number
     shade(0.8);
   } else if (index === 5) {
     // Venus
-    glow('255,248,225', 0.25, 2.6);
+    glow('255,248,225', 0.12, 1.7);
     disc([[0, '#fffaf0'], [0.6, '#f1e3bf'], [1, '#c9b07c']]);
     shade(0.75);
   } else {
