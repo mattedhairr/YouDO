@@ -66,7 +66,7 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
 .sky-mark-ou { color: rgba(255, 255, 255, 0.75); font-weight: 700; }
 .sky-date { font-size: 10.5px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.78); }
 
-.sky-mid { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 13px; }
+.sky-mid { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 6px; }
 .sky-hello { min-width: 0; }
 .sky-hello small { display: block; font-size: 12.5px; font-weight: 550; color: rgba(255, 255, 255, 0.82); }
 .sky-hello h1 {
