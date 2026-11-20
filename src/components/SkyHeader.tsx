@@ -1,6 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
 import { Cloud, CloudRain, MapPin, Moon, Sun } from 'lucide-react';
 import { ambientPlanetEnabled } from '../lib/ambient';
 import type { AppQuote } from '../lib/appQuotes';
@@ -55,8 +53,8 @@ interface Props {
 /** Scene coordinates: the art is drawn as if the content started 36px down. */
 const OFFSET = 36;
 const HEIGHT = { today: 178, tab: 114 };
-const BAR = 38;
-const FOLD_SHOW = 0.55;
+/** How far the page scrolls before the header has folded away. */
+const FOLD_SPAN = 76;
 const RIDGES = [
   { seed: 3, base: 132, amp: 72, rough: 0.55, sink: 0.35 },
   { seed: 14, base: 148, amp: 54, rough: 0.55, sink: 0.6 },
@@ -70,24 +68,6 @@ const QUOTE_OPEN_MS = 9000;
 const TITLES: Record<Exclude<SkyHeaderView, 'tasks'>, string> = { goals: 'Goals', calendar: 'Calendar', board: 'Hub' };
 
 const rgb = (t: [number, number, number]) => `rgb(${t[0]},${t[1]},${t[2]})`;
-/**
- * From Android 15 an app targeting it is drawn edge to edge and the system
- * ignores status bar colours: the strip behind the clock stays black. There
- * the sky fades in from black instead of meeting it in a hard line.
- */
-const statusBarIsBlack = (() => {
-  if (Capacitor.getPlatform() !== 'android') return false;
-  const m = navigator.userAgent.match(/Android (\d+)/);
-  return Boolean(m && Number(m[1]) >= 15);
-})();
-
-/** "rgba(22,36,74,1)" → "#16244a", for the status bar. */
-const hexOf = (c: string) => '#' + (c.match(/[\d.]+/g) ?? []).slice(0, 3).map((v) => Math.round(Number(v)).toString(16).padStart(2, '0')).join('');
-/** A light colour wants dark status bar icons. */
-const isLight = (hex: string) => {
-  const n = parseInt(hex.slice(1), 16);
-  return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 150;
-};
 const transparentOf = (c: string) => c.replace(/[\d.]+\)$/, '0)');
 
 function useNow(): Date {
@@ -159,7 +139,7 @@ function PlanetMark({ index, phase, x, top, opacity = 1 }: { index: number; phas
 }
 
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, lift, folded, quoteShade, quiet }: {
+function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, lift, quoteShade, quiet }: {
   width: number;
   height: number;
   hour: number;
@@ -171,8 +151,6 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   dust: { x: number; y: number; opacity: number }[];
   night: number;
   lift: number;
-  /** The slim bar shows the sky only: its ranges stay far below. */
-  folded?: boolean;
   /** A calm band of mist behind the quote, at the foot of the scene. */
   quoteShade?: boolean;
   /** Where words sit (scene coordinates): the bright ridge lines fade out there. */
@@ -186,34 +164,40 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   const ridges = useMemo(() => RIDGES.map((r) => ridgeLine(r.seed, width, r.base - lift, r.amp, valley, r.rough)), [width, valley, lift]);
   const sun = sunState(hour, day);
   const sunX = valley + sun.dx * width;
-  const sunY = 134 - sun.rise;
-  const sunR = 10 + (7.5 - 10) * sun.elevation;
+  // Height on screen eases off as the sun climbs: low suns sit on the ridges, a
+  // high noon sun stays in the open sky under the top row.
+  const sunY = 134 - 70 * (1 - Math.exp(-Math.max(-3, sun.rise) / 45));
+  const sunR = 10 + (8.5 - 10) * sun.elevation;
+  // High in the sky the sun is white with a soft daylight bloom; low, warm with a corona.
+  const daylight = Math.min(1, Math.max(0, (sun.elevation - 0.15) / 0.5));
   const warmth = Math.pow(sun.elevation, 0.5);
   const glow = mixColor('#ff9258', '#fff6e2', sun.elevation).replace(/,1\)$/, '');
   const discCore = mixColor('#ffe2bd', '#ffffff', warmth);
   const discRim = mixColor('#ff9c5c', '#fff3dc', warmth);
   const low = 1 - sun.elevation;
-  const top = folded ? -120 : -OFFSET - 40;
+  const top = -OFFSET - 40;
   const path = (pts: [number, number][]) => 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L');
   const fill = (pts: [number, number][]) => `M0 ${height + 40} L` + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L') + ` L${width} ${height + 40} Z`;
 
   return (
     <svg className="sky-art" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden>
       <defs>
-        <linearGradient id="sky-grad" x1="0" y1="0" x2="0" y2="1">
-          {colors.sky.map((c, i) => <stop key={i} offset={[0, 0.4, 0.74, 1][i]} stopColor={c} />)}
+        <linearGradient id="sky-grad" gradientUnits="userSpaceOnUse" x1="0" y1={OFFSET - 22} x2="0" y2={height}>
+          <stop offset="0" stopColor={mixColor(colors.sky[0], '#02060f', 0.3)} />
+          {colors.sky.map((c, i) => <stop key={i} offset={[0.14, 0.4, 0.72, 1][i]} stopColor={c} />)}
         </linearGradient>
         <radialGradient id="sky-sunglow"><stop offset="0" stopColor={`${glow},.13)`} /><stop offset=".4" stopColor={`${glow},.05)`} /><stop offset="1" stopColor={`${glow},0)`} /></radialGradient>
         <radialGradient id="sky-horizon"><stop offset="0" stopColor="rgba(255,160,100,.42)" /><stop offset=".5" stopColor="rgba(255,140,90,.1)" /><stop offset="1" stopColor="rgba(255,140,90,0)" /></radialGradient>
         <radialGradient id="sky-corona"><stop offset=".3" stopColor={`${glow},.75)`} /><stop offset=".42" stopColor={`${glow},.32)`} /><stop offset=".62" stopColor={`${glow},.08)`} /><stop offset="1" stopColor={`${glow},0)`} /></radialGradient>
-        <radialGradient id="sky-disc"><stop offset="0" stopColor={discCore} /><stop offset=".72" stopColor={discCore} /><stop offset="1" stopColor={discRim} /></radialGradient>
+        <radialGradient id="sky-disc"><stop offset="0" stopColor={discCore} /><stop offset=".62" stopColor={discCore} /><stop offset=".87" stopColor={discRim} /><stop offset="1" stopColor={transparentOf(discRim)} /></radialGradient>
+        <radialGradient id="sky-bloom"><stop offset="0" stopColor="rgba(255,255,250,.7)" /><stop offset=".1" stopColor="rgba(250,252,255,.4)" /><stop offset=".28" stopColor="rgba(240,248,255,.15)" /><stop offset=".55" stopColor="rgba(240,248,255,.04)" /><stop offset="1" stopColor="rgba(240,248,255,0)" /></radialGradient>
         <radialGradient id="sky-starbloom"><stop offset="0" stopColor="rgba(220,230,255,.5)" /><stop offset="1" stopColor="rgba(220,230,255,0)" /></radialGradient>
         {colors.layers.map(([a, b], i) => (
           <linearGradient key={i} id={`sky-l${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={a} /><stop offset="1" stopColor={b} /></linearGradient>
         ))}
         <linearGradient id="sky-haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={transparentOf(colors.mist)} /><stop offset="1" stopColor={colors.mist} /></linearGradient>
         <linearGradient id="sky-textshade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="rgba(0,0,0,.32)" /><stop offset=".5" stopColor="rgba(0,0,0,0)" /></linearGradient>
-        <linearGradient id="sky-quoteshade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="rgba(4,5,12,0)" /><stop offset=".45" stopColor="rgba(4,5,12,.42)" /><stop offset="1" stopColor="rgba(4,5,12,.55)" /></linearGradient>
+        <linearGradient id="sky-quoteshade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="rgba(4,14,26,0)" /><stop offset=".45" stopColor="rgba(4,14,26,.22)" /><stop offset="1" stopColor="rgba(4,12,22,.4)" /></linearGradient>
         <filter id="sky-maskblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9" /></filter>
         <mask id="sky-rimmask" maskUnits="userSpaceOnUse" x="0" y={top} width={width} height={height - top}>
           <rect x="0" y={top} width={width} height={height - top} fill="white" />
@@ -234,15 +218,16 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
           ))}
         </g>
       )}
-      {sun.visible && !folded && sunShows > 0 && (
+      {sun.visible && sunShows > 0 && (
         <g className="sky-fold-sink" style={{ ['--sink' as string]: '0.2' }} opacity={sunShows}>
           <ellipse cx={sunX} cy={sunY} rx={190} ry={120} fill="url(#sky-sunglow)" />
           {low > 0.35 && <ellipse cx={sunX} cy={sunY + 10} rx={260} ry={30} fill="url(#sky-horizon)" opacity={(low - 0.35) / 0.65} />}
-          <circle cx={sunX} cy={sunY} r={sunR * 2.6} fill="url(#sky-corona)" />
-          <ellipse cx={sunX} cy={sunY} rx={sunR} ry={sunR * (0.9 + 0.1 * sun.elevation)} fill="url(#sky-disc)" />
+          {daylight > 0 && <ellipse cx={sunX} cy={sunY} rx={150} ry={100} fill="url(#sky-bloom)" opacity={daylight} />}
+          {daylight < 1 && <circle cx={sunX} cy={sunY} r={sunR * 2.6} fill="url(#sky-corona)" opacity={1 - daylight * 0.9} />}
+          <ellipse cx={sunX} cy={sunY} rx={sunR * 1.15} ry={sunR * 1.15 * (0.9 + 0.1 * sun.elevation)} fill="url(#sky-disc)" />
         </g>
       )}
-      {!folded && ridges.map((pts, i) => (
+      {ridges.map((pts, i) => (
         <g key={`r${i}`} className="sky-fold-sink" style={{ ['--sink' as string]: String(RIDGES[i].sink) }}>
           <path d={fill(pts)} fill={`url(#sky-l${i})`} />
           <path d={path(pts)} fill="none" stroke={colors.rim} strokeWidth={i === 0 ? 0.9 : 0.6} opacity={[1, 0.7, 0.45, 0.25][i]} mask="url(#sky-rimmask)" />
@@ -251,7 +236,7 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
           )}
         </g>
       ))}
-      {quoteShade && !folded && <rect x="0" y={height - 92} width={width} height={92} fill="url(#sky-quoteshade)" />}
+      {quoteShade && <rect x="0" y={height - 92} width={width} height={92} fill="url(#sky-quoteshade)" />}
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-textshade)" opacity={1 - night} />
     </svg>
   );
@@ -262,8 +247,9 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
  * sky follows the hour (src/lib/headerSky.ts), with the YouDO mark, the date,
  * a greeting by name on Today, a countdown to the nearest goal deadline (a
  * tap shows the next) and the day's quote. Tonight's stars are today's earned
- * stars. Scrolling down folds it into a slim sky bar at the top. Settings →
- * Appearance can swap the sky for the user's own photo.
+ * stars. It is a card under the status bar and scrolls away with the page
+ * (the mountains sink as it goes). Settings → Appearance can swap the sky for
+ * the user's own photo.
  */
 export default function SkyHeader({ view, name, quote, goals, focusMs, barHours, onOpenGuide }: Props) {
   const now = useNow();
@@ -314,7 +300,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const height = today ? HEIGHT.today : HEIGHT.tab;
   const lift = today ? TODAY_LIFT : TAB_LIFT;
   const rootRef = useRef<HTMLDivElement>(null);
-  const barRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(412);
   const [goalIndex, setGoalIndex] = useState(0);
   const [quoteOpen, setQuoteOpen] = useState(false);
@@ -326,43 +311,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const night = nightness(hour, day);
   const weather: Weather = weatherOn && !photo ? dayWeather : 'clear';
   const skyNow = useMemo(() => weatherColors(skyColors(hour, day), weather, night), [hour, day, weather, night]);
-  const skyTop = photo ? '#000000' : hexOf(skyNow.sky[0]);
   const [folded, setFolded] = useState(false);
-
-  // Android's status bar is a solid strip above the page: it takes the sky's
-  // top colour, so the scene runs on under the clock. While a sheet is open
-  // it goes back to the page's own colour (App.tsx keeps it in theme-color).
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    let timer = 0;
-    const host = document.getElementById('overlay-root') ?? document.body;
-    const themeMeta = document.querySelector('meta[name="theme-color"]');
-    const apply = () => {
-      window.clearTimeout(timer);
-      // After App.tsx's own update on a theme change, which this follows.
-      timer = window.setTimeout(() => {
-        const sheetOpen = Boolean(host.querySelector('.overlay-layer'));
-        const chrome = themeMeta?.getAttribute('content') || '#000000';
-        const color = sheetOpen ? chrome : skyTop;
-        void StatusBar.setBackgroundColor({ color }).catch(() => undefined);
-        void StatusBar.setStyle({ style: isLight(color) ? Style.Light : Style.Dark }).catch(() => undefined);
-      }, 300);
-    };
-    apply();
-    const sheets = new MutationObserver(apply);
-    sheets.observe(host, { childList: true });
-    const theme = new MutationObserver(apply);
-    if (themeMeta) theme.observe(themeMeta, { attributes: true, attributeFilter: ['content'] });
-    return () => {
-      window.clearTimeout(timer);
-      sheets.disconnect();
-      theme.disconnect();
-      // Leaving the sky header (the Classic Look): the page's colour again.
-      const chrome = themeMeta?.getAttribute('content') || '#000000';
-      void StatusBar.setBackgroundColor({ color: chrome }).catch(() => undefined);
-      void StatusBar.setStyle({ style: isLight(chrome) ? Style.Light : Style.Dark }).catch(() => undefined);
-    };
-  }, [skyTop]);
 
   useLayoutEffect(() => {
     const el = rootRef.current;
@@ -374,12 +323,12 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     return () => observer.disconnect();
   }, []);
 
-  // Folding: the page scrolls the header away while its mountains sink, and
-  // a slim sky bar fades in at the top. Written straight to CSS variables, so
-  // scrolling never re-renders the scene.
+  // Folding: as the page scrolls the header away its mountains sink and the
+  // words fade. Written straight to a CSS variable, so scrolling never
+  // re-renders the scene.
   useEffect(() => {
     let frame = 0;
-    const span = height - BAR;
+    const span = Math.max(FOLD_SPAN, height - 40);
     // The page scrolls inside #root (see index.css), not the window; any
     // scroll that carries the header is the one that folds it.
     let scroller: Element | null = null;
@@ -388,11 +337,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
       frame = 0;
       const fold = Math.min(1, Math.max(0, scrolled() / span));
       rootRef.current?.style.setProperty('--fold', fold.toFixed(3));
-      const bar = barRef.current;
-      if (bar) {
-        bar.style.setProperty('--fold', fold.toFixed(3));
-        bar.dataset.shown = String(fold > FOLD_SHOW);
-      }
       setFolded(fold > 0.8);
       if (fold > 0.2) setQuoteOpen(false);
     };
@@ -468,10 +412,10 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   // The name (and on Today the countdown) sit here, in scene coordinates.
   const quietZones = [
     { x: 6, y: OFFSET - quoteExtra + 30, w: today ? 200 : 230, h: today ? 58 : 66 },
-    ...(today && deadline ? [{ x: width - 178, y: OFFSET - quoteExtra + 30, w: 172, h: 56 }] : []),
+    ...(today && deadline ? [{ x: width - 178, y: OFFSET - quoteExtra + 30, w: 172, h: 72 }] : []),
   ];
 
-  const scene = (isBar: boolean) =>
+  const scene = () =>
     photo ? (
       <img
         className="sky-photo"
@@ -481,11 +425,11 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
       />
     ) : (
       <>
-        <div className="sky-art-wrap" style={{ height: isBar ? BAR + OFFSET + 30 : height + OFFSET }}>
-          <SkyArt width={width} height={isBar ? BAR + OFFSET + 30 : height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={night} lift={lift} folded={isBar} quoteShade={today && Boolean(quote) && !isBar} quiet={isBar ? [] : quietZones} />
-          <SkyWeather weather={weather} dateKey={dateKey} width={width} height={isBar ? BAR + OFFSET + 30 : height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={isBar || folded} noRain={isBar} />
+        <div className="sky-art-wrap" style={{ height: height + OFFSET }}>
+          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={night} lift={lift} quoteShade={today && Boolean(quote)} quiet={quietZones} />
+          <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} />
         </div>
-        {!isBar && showPlanet && weather !== 'rainy' && <PlanetMark index={planetIndex} phase={phase} x={width * 0.54} top={74 - OFFSET + quoteExtra} opacity={weather === 'cloudy' ? 0.35 : 1} />}
+        {showPlanet && weather !== 'rainy' && <PlanetMark index={planetIndex} phase={phase} x={width * 0.54} top={74 - OFFSET + quoteExtra} opacity={weather === 'cloudy' ? 0.35 : 1} />}
       </>
     );
 
@@ -510,10 +454,10 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     <>
       <header
         ref={rootRef}
-        className={`sky-header ${photo ? 'has-photo' : ''} ${statusBarIsBlack ? 'has-top-fade' : ''}`}
+        className={`sky-header ${photo ? 'has-photo' : ''}`}
         style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, ['--sky-bg' as string]: photo ? '#000' : skyNow.sky[0] }}
       >
-        <div className="sky-scene">{scene(false)}</div>
+        <div className="sky-scene">{scene()}</div>
         <div className="sky-content">
           <div className="sky-top">
             <button type="button" className="sky-mark" onClick={onOpenGuide} aria-label="Open YouDO guide" title="Guide">
@@ -526,7 +470,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
             <div className="sky-top-right">
               {showInvite && (
                 <button type="button" className="sky-invite" onClick={() => setPickerOpen(true)}>
-                  <MapPin size={11} strokeWidth={2.4} aria-hidden /> Set your sky
+                  <MapPin size={10} strokeWidth={2.4} aria-hidden /> Set sky
                 </button>
               )}
               {weatherFlash ? <span className="sky-weather-name">{weatherFlash}</span> : <span className="sky-date">{dateText}</span>}
@@ -569,18 +513,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
           )}
         </div>
       </header>
-      <div ref={barRef} className={`sky-bar ${photo ? 'has-photo' : ''} ${statusBarIsBlack ? 'has-top-fade' : ''}`} data-shown="false" style={{ ['--sky-bg' as string]: photo ? '#000' : skyNow.sky[0] }} aria-hidden={false}>
-        <div className="sky-scene">{scene(true)}</div>
-        <div className="sky-bar-content">
-          <span className="sky-bar-title">
-            {today ? name ?? 'Today' : TITLES[view]}
-            <small>{dateText}</small>
-          </span>
-          {today && deadline && (
-            <span className="sky-bar-pill"><b>{deadline.days}</b> {deadline.days === 1 ? 'day' : 'days'} · {deadline.title}</span>
-          )}
-        </div>
-      </div>
       <Overlay open={pickerOpen} onClose={() => setPickerOpen(false)} align="bottom">
         <div className="sky-picker">
           <h2>Where is your sky?</h2>

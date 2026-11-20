@@ -1328,7 +1328,7 @@ function AppInner() {
           </div>
         </header>
         ) : (
-        <Suspense fallback={<div aria-hidden style={{ height: `calc(max(0.875rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) + ${view === 'tasks' ? 178 : 114}px)` }} />}>
+        <Suspense fallback={<div aria-hidden style={{ marginTop: '0.5rem', height: `calc(max(0.875rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) + ${view === 'tasks' ? 178 : 114}px)` }} />}>
           <SkyHeader
             view={view === 'goals' || view === 'calendar' || view === 'board' ? view : 'tasks'}
             name={typeof activityUser?.user_metadata?.full_name === 'string' && activityUser.user_metadata.full_name.trim() ? activityUser.user_metadata.full_name.trim().split(/\s+/)[0] : null}
