@@ -27,12 +27,13 @@ import {
 } from '../lib/headerSky';
 import type { GoalNode } from '../types';
 import { moonPhase, weekdayOf } from '../lib/planet';
-import { deviceTimeZone, isIndiaTimeZone, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACE_EVENT, SKY_PLACES, skyInviteDone, sunDayForPlace } from '../lib/skyPlaces';
+import { deviceTimeZone, formatClock, isIndiaTimeZone, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACE_EVENT, SKY_PLACES, skyInviteDone, sunDayForPlace } from '../lib/skyPlaces';
 import { loadDayWeather, nextWeather, saveDayWeather, SKY_WEATHER_EVENT, weatherButtonEnabled, weatherColors, type Weather } from '../lib/weather';
 import Overlay from './Overlay';
 import SkyWeather from './SkyWeather';
 import { sunAltitude, type SunDay } from '../lib/sunPath';
 import { drawPlanet } from '../lib/planetArt';
+import { hapticTick } from '../lib/haptics';
 import './skyHeader.css';
 
 export type SkyHeaderView = 'tasks' | 'goals' | 'calendar' | 'board';
@@ -53,6 +54,11 @@ interface Props {
 /** Scene coordinates: the art is drawn as if the content started 36px down. */
 const OFFSET = 36;
 const HEIGHT = { today: 178, tab: 114 };
+/** The time-lapse's length, and how long today's path stays after it. */
+const REPLAY_MS = 3200;
+const PATH_MS = 5200;
+/** Where the time-lapse's closing line sits (scene y): under the name, above the quote. */
+const PATH_LINE_Y = 122;
 /** How far the page scrolls before the header has folded away. */
 const FOLD_SPAN = 76;
 const RIDGES = [
@@ -138,8 +144,121 @@ function PlanetMark({ index, phase, x, top, opacity = 1 }: { index: number; phas
   return <canvas ref={ref} className="sky-planet" style={{ left: x - size / 2, top: `calc(var(--sky-top) + ${top - size / 2}px)`, width: size, height: size, opacity }} aria-hidden />;
 }
 
+type Pts = [number, number][];
+
+function ridgesFor(width: number, lift: number): Pts[] {
+  const valley = width * 0.54;
+  return RIDGES.map((r) => ridgeLine(r.seed, width, r.base - lift, r.amp, valley, r.rough));
+}
+
+/** A range's height at x (scene coordinates). */
+function ridgeYAt(pts: Pts, x: number): number {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i];
+    const [x1, y1] = pts[i + 1];
+    if (x >= x0 && x <= x1) return y0 + ((y1 - y0) * (x - x0)) / Math.max(1e-6, x1 - x0);
+  }
+  return pts.length ? pts[pts.length - 1][1] : Infinity;
+}
+
+interface SunPlace {
+  x: number;
+  y: number;
+  r: number;
+  state: ReturnType<typeof sunState>;
+}
+
+function sunPlacement(width: number, hour: number, day: SunDay): SunPlace {
+  const state = sunState(hour, day);
+  const x = width * 0.54 + state.dx * width;
+  // Height on screen eases off as the sun climbs: low suns sit on the ridges, a
+  // high noon sun stays in the open sky under the top row.
+  const y = 134 - 70 * (1 - Math.exp(-Math.max(-3, state.rise) / 45));
+  const r = 10 + (8.5 - 10) * state.elevation;
+  return { x, y, r, state };
+}
+
+/**
+ * Today's path across the sky (scene coordinates) for the time-lapse, and
+ * where it comes out of the ranges in the morning and goes into them at night.
+ */
+function sunPathFor(width: number, day: SunDay, ridges: Pts[]): { d: string; rise: [number, number]; set: [number, number] } {
+  const pts: [number, number][] = [];
+  for (let h = day.sunrise - 0.5; h <= day.sunset + 0.5; h += 0.1) {
+    const at = sunPlacement(width, h, day);
+    pts.push([at.x, at.y]);
+  }
+  const above = ([x, y]: [number, number]) => y < Math.min(...ridges.map((r) => ridgeYAt(r, x)));
+  const rise = pts.find(above) ?? pts[0];
+  const set = [...pts].reverse().find(above) ?? pts[pts.length - 1];
+  return { d: 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L'), rise, set };
+}
+
+/** Seeded 0–1 values, so the rays are the same on every draw. */
+function seededList(seed: number, n: number): number[] {
+  let v = seed;
+  return Array.from({ length: n }, () => {
+    v = (v * 16807) % 2147483647;
+    return v / 2147483647;
+  });
+}
+const RAY_JITTER = seededList(97, 48);
+
+/**
+ * The glare of a high sun, as a lens sees it: a soft veil of light and fine
+ * diffraction rays. Drawn over the ranges and behind the words, screen-blended
+ * so it only ever adds light.
+ */
+function SunLens({ x, y, intensity, warm }: { x: number; y: number; /** 0 none … about 0.55 at a high noon sun. */ intensity: number; warm: number }) {
+  // A low sun shines golden; a high one white.
+  const light = (a: number) => {
+    const w = Math.min(1, Math.max(0, warm));
+    return `rgba(255,${Math.round(254 - 70 * w)},${Math.round(250 - 140 * w)},${a})`;
+  };
+  const rays = useMemo(() => {
+    // Many fine rays of uneven length, a few strong ones: a real starburst, not a drawn star.
+    const out: { pts: string; opacity: number }[] = [];
+    const count = 24;
+    for (let i = 0; i < count; i++) {
+      const j = RAY_JITTER[i];
+      const angle = (Math.PI * 2 * i) / count + (j - 0.5) * 0.22;
+      const strong = i % 6 === 0;
+      const length = strong ? 60 + RAY_JITTER[i + 24] * 25 : 16 + RAY_JITTER[i + 24] * 30;
+      const half = strong ? 1.5 : 0.55 + j * 0.6;
+      const px = -Math.sin(angle) * half;
+      const py = Math.cos(angle) * half;
+      const sx = x + Math.cos(angle) * 6;
+      const sy = y + Math.sin(angle) * 6;
+      const tx = x + Math.cos(angle) * length;
+      const ty = y + Math.sin(angle) * length;
+      out.push({
+        pts: `${(sx + px).toFixed(1)},${(sy + py).toFixed(1)} ${tx.toFixed(1)},${ty.toFixed(1)} ${(sx - px).toFixed(1)},${(sy - py).toFixed(1)}`,
+        opacity: strong ? 1 : 0.35 + RAY_JITTER[(i * 7) % 48] * 0.5,
+      });
+    }
+    return out;
+  }, [x, y]);
+  return (
+    <g className="sky-lens" aria-hidden opacity={Math.min(1, intensity).toFixed(3)}>
+      <defs>
+        <radialGradient id="sky-veil"><stop offset="0" stopColor={light(0.62)} /><stop offset=".22" stopColor={light(0.26)} /><stop offset=".55" stopColor={light(0.07)} /><stop offset="1" stopColor={light(0)} /></radialGradient>
+        <radialGradient id="sky-ray" gradientUnits="userSpaceOnUse" cx={x} cy={y} r={90}><stop offset="0" stopColor={light(0.95)} /><stop offset=".25" stopColor={light(0.45)} /><stop offset="1" stopColor={light(0)} /></radialGradient>
+        <filter id="sky-lens-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".7" /></filter>
+      </defs>
+      <ellipse cx={x} cy={y} rx={240} ry={170} fill="url(#sky-veil)" />
+      <g filter="url(#sky-lens-soft)" opacity={0.35}>
+        {rays.map((ray, i) => (
+          <g key={i} opacity={ray.opacity}>
+            <polygon points={ray.pts} fill="url(#sky-ray)" className={i % 3 === 0 ? 'sky-ray-a' : i % 3 === 1 ? 'sky-ray-b' : undefined} />
+          </g>
+        ))}
+      </g>
+    </g>
+  );
+}
+
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, lift, quoteShade, quiet }: {
+function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, ridges, place, sunPathD, quoteShade, quiet }: {
   width: number;
   height: number;
   hour: number;
@@ -150,7 +269,10 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   lines: [HeaderStar, HeaderStar][];
   dust: { x: number; y: number; opacity: number }[];
   night: number;
-  lift: number;
+  ridges: Pts[];
+  place: SunPlace;
+  /** Today's path of the sun, drawn after the time-lapse. */
+  sunPathD?: string | null;
   /** A calm band of mist behind the quote, at the foot of the scene. */
   quoteShade?: boolean;
   /** Where words sit (scene coordinates): the bright ridge lines fade out there. */
@@ -160,14 +282,13 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   // Behind cloud the sun is a dim glow and only a few stars show; in rain neither does.
   const sunShows = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.3 : 0;
   const starsShow = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.3 : 0;
-  const valley = width * 0.54;
-  const ridges = useMemo(() => RIDGES.map((r) => ridgeLine(r.seed, width, r.base - lift, r.amp, valley, r.rough)), [width, valley, lift]);
-  const sun = sunState(hour, day);
-  const sunX = valley + sun.dx * width;
-  // Height on screen eases off as the sun climbs: low suns sit on the ridges, a
-  // high noon sun stays in the open sky under the top row.
-  const sunY = 134 - 70 * (1 - Math.exp(-Math.max(-3, sun.rise) / 45));
-  const sunR = 10 + (8.5 - 10) * sun.elevation;
+  const sun = place.state;
+  const sunX = place.x;
+  const sunY = place.y;
+  // The sun's glare follows its height through the day: none at rising and
+  // setting, a soft veil with faint rays as it climbs, most at noon.
+  const lens = weather === 'clear' ? 0.55 * Math.pow(Math.min(1, Math.max(0, (sun.elevation - 0.25) / 0.75)), 1.5) : 0;
+  const sunR = place.r;
   // High in the sky the sun is white with a soft daylight bloom; low, warm with a corona.
   const daylight = Math.min(1, Math.max(0, (sun.elevation - 0.15) / 0.5));
   const warmth = Math.pow(sun.elevation, 0.5);
@@ -227,6 +348,7 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
           <ellipse cx={sunX} cy={sunY} rx={sunR * 1.15} ry={sunR * 1.15 * (0.9 + 0.1 * sun.elevation)} fill="url(#sky-disc)" />
         </g>
       )}
+      {sunPathD && <path d={sunPathD} className="sky-sunpath" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth={1.3} strokeDasharray="0.5 5" strokeLinecap="round" />}
       {ridges.map((pts, i) => (
         <g key={`r${i}`} className="sky-fold-sink" style={{ ['--sink' as string]: String(RIDGES[i].sink) }}>
           <path d={fill(pts)} fill={`url(#sky-l${i})`} />
@@ -236,6 +358,7 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
           )}
         </g>
       ))}
+      {sun.visible && lens > 0.005 && <SunLens x={sunX} y={sunY} intensity={lens} warm={1 - sun.elevation} />}
       {quoteShade && <rect x="0" y={height - 92} width={width} height={92} fill="url(#sky-quoteshade)" />}
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-textshade)" opacity={1 - night} />
     </svg>
@@ -266,6 +389,16 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const [weatherFlash, setWeatherFlash] = useState<string | null>(null);
   const [inviteDone, setInviteDone] = useState(skyInviteDone);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // The time-lapse a tap on the sun plays: the scene's hour while it runs, then today's path.
+  const [replayHour, setReplayHour] = useState<number | null>(null);
+  const [pathShown, setPathShown] = useState(false);
+  const replayFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(replayFrame.current), []);
+  useEffect(() => {
+    if (!pathShown) return;
+    const id = window.setTimeout(() => setPathShown(false), PATH_MS);
+    return () => window.clearTimeout(id);
+  }, [pathShown]);
   useEffect(() => {
     const onWeather = () => {
       setDayWeather(loadDayWeather(dateKey));
@@ -310,7 +443,10 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const photo = prefs.mode === 'photo' && photoUrl ? photoUrl : null;
   const night = nightness(hour, day);
   const weather: Weather = weatherOn && !photo ? dayWeather : 'clear';
-  const skyNow = useMemo(() => weatherColors(skyColors(hour, day), weather, night), [hour, day, weather, night]);
+  // While the time-lapse runs the scene shows its hour; everything else keeps the real one.
+  const sceneHour = replayHour ?? hour;
+  const sceneNight = replayHour === null ? night : nightness(sceneHour, day);
+  const skyNow = useMemo(() => weatherColors(skyColors(sceneHour, day), weather, sceneNight), [sceneHour, day, weather, sceneNight]);
   const [folded, setFolded] = useState(false);
 
   useLayoutEffect(() => {
@@ -396,6 +532,39 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   }, [dateKey, width, progress.lit, progress.constellationSize, today, deadlines.length]);
   const dust = useMemo(() => dustStars(dateKey, width), [dateKey, width]);
   const sunHeight = Math.max(0, sunAltitude(day, hour));
+  const ridges = useMemo(() => ridgesFor(width, lift), [width, lift]);
+  const place = useMemo(() => sunPlacement(width, sceneHour, day), [width, sceneHour, day]);
+  const sunNow = useMemo(() => sunPlacement(width, hour, day), [width, hour, day]);
+  const sunPath = useMemo(() => sunPathFor(width, day, ridges), [width, day, ridges]);
+  const sunTappable = !photo && weather !== 'rainy' && sunNow.state.visible && replayHour === null;
+  const daylightLeft = Math.max(0, day.sunset - hour);
+  const playDay = () => {
+    hapticTick();
+    setPathShown(false);
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      setPathShown(true);
+      return;
+    }
+    const from = day.sunrise - 0.9;
+    const to = hour;
+    const start = performance.now();
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / REPLAY_MS);
+      const eased = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      if (k < 1) {
+        setReplayHour(from + (to - from) * eased);
+        replayFrame.current = requestAnimationFrame(step);
+      } else {
+        setReplayHour(null);
+        setPathShown(true);
+        hapticTick();
+      }
+    };
+    replayFrame.current = requestAnimationFrame(step);
+  };
+  /** Scene coordinates to the header's own, for words over the scene. */
+  const sceneTop = (y: number) => `calc(var(--sky-top) + ${y + quoteExtra - OFFSET}px)`;
   const planetIndex = weekdayOf(dateKey);
   const showPlanet = night > 0.05 && planetIndex !== 0 && ambientPlanetEnabled();
   const phase = useMemo(() => moonPhase(dateKey), [dateKey]);
@@ -426,7 +595,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ) : (
       <>
         <div className="sky-art-wrap" style={{ height: height + OFFSET }}>
-          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={night} lift={lift} quoteShade={today && Boolean(quote)} quiet={quietZones} />
+          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} ridges={ridges} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} quiet={quietZones} />
           <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} />
         </div>
         {showPlanet && weather !== 'rainy' && <PlanetMark index={planetIndex} phase={phase} x={width * 0.54} top={74 - OFFSET + quoteExtra} opacity={weather === 'cloudy' ? 0.35 : 1} />}
@@ -458,6 +627,27 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
         style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, ['--sky-bg' as string]: photo ? '#000' : skyNow.sky[0] }}
       >
         <div className="sky-scene">{scene()}</div>
+        {sunTappable && (
+          <button
+            type="button"
+            className="sky-sun-tap"
+            style={{ left: sunNow.x - 24, top: sceneTop(sunNow.y - 24) }}
+            onClick={playDay}
+            aria-label="Play today's sky, from sunrise to now"
+          />
+        )}
+        {pathShown && (
+          <div className="sky-path-words" aria-live="polite">
+            {/* One line across the middle, between the name and the quote, wherever the sun is. */}
+            <span className="sky-path-left" style={{ left: '50%', top: sceneTop(PATH_LINE_Y) }}>
+              <span>Rose {formatClock(day.sunrise)}</span>
+              <b>
+                {Math.floor(Math.round(daylightLeft * 60) / 60)}h {String(Math.round(daylightLeft * 60) % 60).padStart(2, '0')}m of daylight left
+              </b>
+              <span>Sets {formatClock(day.sunset)}</span>
+            </span>
+          </div>
+        )}
         <div className="sky-content">
           <div className="sky-top">
             <button type="button" className="sky-mark" onClick={onOpenGuide} aria-label="Open YouDO guide" title="Guide">

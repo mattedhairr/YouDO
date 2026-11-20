@@ -44,7 +44,10 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
   opacity: calc(1 - var(--fold, 0) * 1.8);
   transform: translateY(calc(var(--fold, 0) * -18px));
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 16px rgba(0, 0, 0, 0.35);
+  /* Taps fall through the empty parts to the sun beneath; the words' own buttons keep theirs. */
+  pointer-events: none;
 }
+.sky-content button { pointer-events: auto; }
 .sky-top { display: flex; align-items: center; justify-content: space-between; height: 24px; }
 .sky-mark {
   display: inline-flex;
@@ -219,4 +222,49 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
 .sky-picker-later { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 0; background: none; color: var(--text-secondary); font-size: 12.5px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   .sky-invite, .sky-weather-btn svg, .sky-weather-name { animation: none; }
+}
+
+/* Tapping the sun plays today's sky from sunrise to now, then shows the sun's
+   path with its rising and setting times (SkyHeader.tsx). */
+.sky-sun-tap {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+.sky-sun-tap:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -6px; }
+.sky-lens { mix-blend-mode: screen; pointer-events: none; }
+/* The rays shimmer a little, as they do through a lens, never spinning. */
+.sky-ray-a { animation: sky-ray-shimmer 5.5s ease-in-out infinite alternate; }
+.sky-ray-b { animation: sky-ray-shimmer 7s ease-in-out -3s infinite alternate; }
+@keyframes sky-ray-shimmer { from { opacity: 1; } to { opacity: 0.45; } }
+.sky-sunpath { animation: sky-path 5.2s ease both; }
+.sky-path-words { position: absolute; inset: 0; pointer-events: none; }
+.sky-path-left {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(8, 14, 26, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: sky-path 5.2s ease both;
+}
+.sky-path-left b { font-size: 11px; font-weight: 700; color: #fff; }
+@keyframes sky-path { 0% { opacity: 0; } 10% { opacity: 1; } 86% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sky-ray-a, .sky-ray-b { animation: none; }
 }
