@@ -100,7 +100,7 @@ You can schedule, replan, or unplan multiple eligible tasks together. Their dail
 
 ### Today and Backlog stay honest
 
-Today contains the work chosen for the current date. Work left unfinished keeps its original planning context and appears in Backlog until it is resolved.
+Today contains the work chosen for the current date. Work left unfinished keeps its original planning context and appears in Backlog until it is resolved. Tap the **Today** tab again (or swipe up or down on it) to switch between Scheduled and Backlog; while Scheduled shows, the red number on the tab counts what is overdue.
 
 Starting a session does not silently move overdue work to Today, and completing a scheduled slice does not hide the unfinished remainder of its parent task.
 
@@ -183,6 +183,8 @@ Signed-in users get a private space next to the public Board:
 </p>
 
 v8 brings a new look: large titles, borderless cards and a floating **Liquid Glass** tab bar. In **Settings → Preferences** pick Dark or Light, one of six accent colours (the start screen, header and notifications follow it) and one of five app icons. **Classic Look** brings back the v7 design ([v7 screenshots](docs/screenshots/v7-classic)).
+
+Every tab opens with a **sky header**: a small landscape whose sky follows the real sun for your place (sunrise, noon and sunset from the date and your time zone or Indian state, with no location access), today's earned focus stars at night, a greeting, the countdown to your nearest goal deadline and the day's quote. Set the day's weather (clear, cloudy or rainy) with the button beside the date, and tap the sun to replay today's sky from dawn to now. **Settings → Appearance → Header background** swaps the sky for your own photo.
 
 ## Your data remains yours
 

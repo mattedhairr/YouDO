@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-16**, while releasing **v8.6.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-20**, while releasing **v8.7.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.6.0, versionCode 97 (released 2026-11-16). Before it: v8.5.5, versionCode 96, released 2026-11-13.
+- **Latest release:** v8.7.0, versionCode 98 (released 2026-11-20). Before it: v8.6.0, versionCode 97, released 2026-11-16.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -17,7 +17,7 @@ Last updated **2026-11-16**, while releasing **v8.6.0**. Read this file first wh
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
   - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
   - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success);
-  - v8.5.4, v8.5.5 and v8.6.0 had no server changes.
+  - v8.5.4, v8.5.5, v8.6.0 and v8.7.0 had no server changes.
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -51,7 +51,9 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Settled in v8.5.3: an unchanged status keeps its `updated_at`.
 
-## Waiting for the next release (on the `fixes` branch, test APK from Actions)
+## Still to check from v8.7.0 (released without a final test APK, by the owner's choice; earlier parts were tried on the phone from `fixes` test APKs)
+
+- **To do:** the README screenshots (Today, Goals, Calendar) still show the old header; refresh them with made-up data in a small docs-only change (the owner chose to release first).
 
 - **Goals reorder by touch again.** Since b585060 (13 Oct) rows were not drag items on touch screens, so phones had no way to reorder. Now a long press arms a drag: move the same finger and the row follows, an outline marks where it lands, lift to drop; with rows selected, holding a selected one carries them all. The page does not scroll while a drag is armed; near the screen's edges the list scrolls. Mouse dragging is unchanged. Phone check: reorder branches inside a goal and at the top level; a normal scroll and a tap still work.
 - **The sky header** (Liquid Glass look; the Classic Look keeps its own). Every tab's header is a small landscape whose sky follows the hour (blending minute by minute; the sun rises and sets in the valley); at night today's earned stars show (the same 36 as the ambient sky, `skyProgress`), with the constellation once the bar is reached, and the planet of the day (not the Sun). Today greets by first name (`full_name`), counts down to the nearest goal deadline (top-level `endDate`; a tap shows the next, dots show how many), and keeps the quote to two lines (tap "more"). It scrolls away with the page (no bar stays behind). Settings → Appearance → Header background: the sky or the user's own photo (kept in IndexedDB on the device) with Horizontal, Vertical and Opacity sliders. Logic: `src/lib/headerSky.ts`, `src/lib/headerBackground.ts`; drawing: `src/components/SkyHeader.tsx` (lazy-loaded: the first-load budget has about 250 bytes left). Phone check: the sky at a few hours (and past midnight), stars after a long sitting, the countdown with 0, 1 and several deadlines, a long quote, folding on Today and Goals, a photo with the sliders, light mode.
