@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.8.0] - 2026-11-20 - A Mountain For Your Goal
+
+- **The Summit** — A new header style in Settings → Appearance → Header background: your nearest goal as a mountain under the real sky, a flag on its deadline and a trail walked in gold from the day you made it to today.
+- **A gentler sun** — The sun's glare is a soft glow instead of drawn rays, with a faint lens flare around noon, and the day's quote now sits at the bottom of the header with both quote marks.
+- **A calmer night** — The planet of the day glows less and fewer faint background stars show, so the stars you earn stand out.
+- **Glass on every tap** — Tapping a tab lifts the bar's glass bubble, just as sliding along it does.
+- **Smoother** — Scrolling and changing tabs no longer stutter while the app is busy, and the header is lighter to draw.
+- **Android APK** — versionName **8.8.0**, versionCode **99**. Installs over v8.7.0 (98).
+
+---
+
 ## [v8.7.0] - 2026-11-20 - A Sky Over Your Day
 
 - **A sky header** — Every tab opens with a small landscape whose sky follows the real sun for your place, with your earned focus stars at night, a greeting, a countdown to your nearest goal deadline and the day's quote. Tap the sun to replay today from dawn to now. Or use your own photo.

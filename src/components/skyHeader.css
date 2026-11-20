@@ -23,8 +23,6 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
 .sky-scene { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .sky-art-wrap { position: absolute; left: 0; right: 0; bottom: 0; }
 .sky-art { display: block; overflow: visible; }
-/* The ranges sink at their own speeds as the header folds away. */
-.sky-fold-sink { transform: translateY(calc(var(--fold, 0) * var(--sink, 0) * 70px)); }
 .sky-planet { position: absolute; pointer-events: none; }
 .sky-photo { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
 /* Over a photo, a soft shade keeps the words readable. */
@@ -41,8 +39,8 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
   right: 18px;
   top: var(--sky-top);
   bottom: 0;
-  opacity: calc(1 - var(--fold, 0) * 1.8);
-  transform: translateY(calc(var(--fold, 0) * -18px));
+  /* Faded and lifted from SkyHeader.tsx as the page scrolls, on its own layer. */
+  will-change: opacity, transform;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 16px rgba(0, 0, 0, 0.35);
   /* Taps fall through the empty parts to the sun beneath; the words' own buttons keep theirs. */
   pointer-events: none;
@@ -112,11 +110,22 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
   color: rgba(255, 255, 255, 0.8);
 }
 .sky-count-l b { color: color-mix(in srgb, var(--primary) 70%, #fff); }
+/* The Summit's countdown: compact, so the peak has the sky beside it. */
+.sky-count.is-summit .sky-count-n { font-size: 27px; line-height: 29px; font-weight: 800; letter-spacing: -0.03em; }
+.sky-count.is-summit .sky-count-n small { margin-left: 3px; font-family: var(--font-sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0; color: rgba(255, 255, 255, 0.88); }
+.sky-count.is-summit .sky-count-l { margin-top: 4px; font-size: 9.5px; letter-spacing: 0.14em; }
+.sky-count.is-summit .sky-count-l b { color: color-mix(in srgb, var(--primary) 85%, #fff); }
 .sky-dots { display: flex; gap: 4px; margin-top: 6px; }
+/* The Summit's flag stirs a little in the wind. */
+.sky-flag { transform-box: fill-box; transform-origin: 0% 50%; animation: sky-flag 3.2s ease-in-out infinite alternate; }
+@keyframes sky-flag { from { transform: skewY(-4deg) scaleX(1); } to { transform: skewY(5deg) scaleX(0.9); } }
+@media (prefers-reduced-motion: reduce) {
+  .sky-flag { animation: none; }
+}
 .sky-dots i { width: 5px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.32); transition: width 0.3s var(--ease-out), background 0.3s; }
 .sky-dots i.on { width: 14px; background: color-mix(in srgb, var(--primary) 70%, #fff); }
 
-.sky-quote { position: absolute; left: 0; right: 0; bottom: 30px; display: flex; align-items: flex-end; gap: 10px; }
+.sky-quote { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; align-items: flex-end; gap: 10px; }
 .sky-quote p {
   flex: 1;
   margin: 0;
@@ -132,6 +141,7 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
 }
 .sky-quote.is-open p { -webkit-line-clamp: 12; }
 .sky-quote p::before { content: '\201C'; margin-right: 2px; font-size: 16px; font-style: normal; vertical-align: -1px; color: var(--primary); }
+.sky-quote-close { margin-left: 1px; font-size: 16px; font-style: normal; line-height: 0; vertical-align: -1px; color: var(--primary); }
 .sky-quote cite {
   margin-left: 6px;
   font-family: var(--font-sans);
@@ -239,10 +249,6 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
 }
 .sky-sun-tap:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: -6px; }
 .sky-lens { mix-blend-mode: screen; pointer-events: none; }
-/* The rays shimmer a little, as they do through a lens, never spinning. */
-.sky-ray-a { animation: sky-ray-shimmer 5.5s ease-in-out infinite alternate; }
-.sky-ray-b { animation: sky-ray-shimmer 7s ease-in-out -3s infinite alternate; }
-@keyframes sky-ray-shimmer { from { opacity: 1; } to { opacity: 0.45; } }
 .sky-sunpath { animation: sky-path 5.2s ease both; }
 .sky-path-words { position: absolute; inset: 0; pointer-events: none; }
 .sky-path-left {
@@ -265,6 +271,3 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
 }
 .sky-path-left b { font-size: 11px; font-weight: 700; color: #fff; }
 @keyframes sky-path { 0% { opacity: 0; } 10% { opacity: 1; } 86% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .sky-ray-a, .sky-ray-b { animation: none; }
-}

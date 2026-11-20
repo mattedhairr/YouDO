@@ -9,6 +9,7 @@
 
 import { skyRandom, skySeed, starMap, type SkyStar } from './focusSky';
 import { daysBetweenLocalISO } from './dates';
+import { goalStart } from './summit';
 import { sunAltitude, type SunDay } from './sunPath';
 
 type Rgba = [number, number, number, number];
@@ -173,13 +174,25 @@ export interface DeadlineGoal {
   id: string;
   title: string;
   days: number;
+  /** Its end date, and the day it began (start date, or the day it was made): the Summit's trail. */
+  end: string;
+  start: string | null;
 }
 
 /** Top-level goals with an end date today or later, nearest first. */
-export function upcomingDeadlines(goals: { id: string; title: string; endDate?: string; completed?: boolean }[], today: string): DeadlineGoal[] {
+export function upcomingDeadlines(
+  goals: { id: string; title: string; endDate?: string; startDate?: string; createdAt?: number; completed?: boolean }[],
+  today: string,
+): DeadlineGoal[] {
   return goals
     .filter((g) => g.endDate && !g.completed)
-    .map((g) => ({ id: g.id, title: g.title, days: daysBetweenLocalISO(today, g.endDate as string) }))
+    .map((g) => ({
+      id: g.id,
+      title: g.title,
+      days: daysBetweenLocalISO(today, g.endDate as string),
+      end: (g.endDate as string).slice(0, 10),
+      start: goalStart(g),
+    }))
     .filter((g) => g.days >= 0)
     .sort((a, b) => a.days - b.days || a.title.localeCompare(b.title));
 }
@@ -255,8 +268,29 @@ export function headerConstellation(stars: HeaderStar[], size: number, free: (s:
   return lines;
 }
 
-/** The faint stars every night has, earned or not. */
-export function dustStars(dateKey: string, width: number, count = 110): { x: number; y: number; opacity: number }[] {
+/** The faint stars every night has, earned or not: few and dim, so the earned ones stand out. */
+export function dustStars(dateKey: string, width: number, count = 28): { x: number; y: number; opacity: number }[] {
   const next = skyRandom(skySeed(dateKey) ^ 0x51ed27);
-  return Array.from({ length: count }, () => ({ x: next() * width, y: 18 + next() * 124, opacity: 0.08 + Math.pow(next(), 2) * 0.22 }));
+  return Array.from({ length: count }, () => ({ x: next() * width, y: 18 + next() * 124, opacity: 0.06 + Math.pow(next(), 2) * 0.16 }));
+}
+
+/**
+ * Gradient stops for a glow that fades like scattered light: a Gaussian
+ * falloff from `peak` at the centre, `sigma` its width (0–1 of the radius),
+ * reaching exactly 0 at the edge, so no rim ever shows. [offset, opacity].
+ */
+export function softStops(peak: number, sigma: number, count = 17): [number, number][] {
+  return Array.from({ length: count }, (_, i) => {
+    const t = i / (count - 1);
+    return [+t.toFixed(4), +(peak * Math.exp(-((t / sigma) ** 2)) * (1 - t ** 4)).toFixed(4)];
+  });
+}
+
+/**
+ * How strong the lens flare is (0–1): only around solar noon on a day the
+ * sun climbs high, fading in and out over about an hour either side.
+ */
+export function lensFlare(hour: number, day: SunDay): number {
+  const high = clamp((sunAltitude(day, day.noon) - 20) / 15);
+  return high * smooth(clamp(1 - Math.abs(hour - day.noon) / 1.25));
 }

@@ -95,13 +95,17 @@ export default function HeaderBackgroundSettings() {
         <div className="min-w-0 flex-1">
           <h3 className="text-xs font-semibold text-content-primary">Header background</h3>
           <p className="text-[10.5px] text-content-secondary font-medium">
-            {photoMode ? 'Your own photo at the top of every tab. It stays on this device.' : 'A sky that follows the time of day, with tonight’s earned stars.'}
+            {photoMode
+              ? 'Your own photo at the top of every tab. It stays on this device.'
+              : prefs.mode === 'summit'
+                ? 'The same sky over a mountain for your nearest goal: the trail runs from the day you made it to its deadline.'
+                : 'A sky that follows the time of day, with tonight’s earned stars.'}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface p-1" role="radiogroup" aria-label="Header background">
-        {(['sky', 'photo'] as const).map((mode) => (
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface p-1" role="radiogroup" aria-label="Header background">
+        {(['sky', 'summit', 'photo'] as const).map((mode) => (
           <button
             key={mode}
             type="button"
@@ -110,7 +114,7 @@ export default function HeaderBackgroundSettings() {
             onClick={() => (mode === 'photo' && !photoUrl ? fileRef.current?.click() : update({ mode }))}
             className={`min-h-9 rounded-lg text-[11.5px] font-semibold transition ${prefs.mode === mode ? 'bg-primary text-on-primary shadow' : 'text-content-secondary'}`}
           >
-            {mode === 'sky' ? 'Dynamic sky' : 'Your photo'}
+            {mode === 'sky' ? 'Dynamic sky' : mode === 'summit' ? 'Summit' : 'Your photo'}
           </button>
         ))}
       </div>

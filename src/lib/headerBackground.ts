@@ -1,13 +1,14 @@
 import { STORAGE_KEYS } from './storageKeys';
 
 /**
- * Settings → Appearance → Header background: the built-in sky (SkyHeader.tsx)
+ * Settings → Appearance → Header background: the built-in sky (SkyHeader.tsx),
+ * the Summit (the same sky over a mountain for the nearest goal, summit.ts)
  * or the user's own photo, placed with two sliders and faded with a third.
  * The choice is kept in localStorage; the photo, which can be large, in
  * IndexedDB, so it never crowds out the workspace. Both stay on this device.
  */
 export interface HeaderBackground {
-  mode: 'sky' | 'photo';
+  mode: 'sky' | 'summit' | 'photo';
   /** Where the photo's focus sits, 0–100 (object-position). */
   x: number;
   y: number;
@@ -27,7 +28,7 @@ const num = (v: unknown, lo: number, hi: number, fallback: number) =>
 export function normalizeHeaderBackground(value: unknown): HeaderBackground {
   const v = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   return {
-    mode: v.mode === 'photo' ? 'photo' : 'sky',
+    mode: v.mode === 'photo' || v.mode === 'summit' ? v.mode : 'sky',
     x: num(v.x, 0, 100, DEFAULT_HEADER_BACKGROUND.x),
     y: num(v.y, 0, 100, DEFAULT_HEADER_BACKGROUND.y),
     opacity: num(v.opacity, 0.2, 1, DEFAULT_HEADER_BACKGROUND.opacity),

@@ -19,8 +19,7 @@ const GLASS_TINT = '7%';
 /**
  * The tab bar's travelling selection pill, the way iOS 26 moves it.
  *
- * A tap only slides the selection — the flat fill and the accent — to the
- * new tab. Holding a press down, or sliding along the bar, lifts the pill
+ * A tap, holding a press down, or sliding along the bar all lift the pill
  * into the bubble: it inflates past the bar on two
  * under-damped springs, one per axis, so it overshoots its raised size and
  * rebounds — and it stays up for the whole journey. The travel is its own
@@ -334,13 +333,14 @@ export default function TabPill({ activeIndex, onSelect }: Props) {
   };
 
   /**
-   * A tab was tapped: the selection — the flat fill and the accent — slides
-   * there from wherever it is. No bubble: that is for a press held down.
+   * A tab was tapped: the pill lifts into the glass bubble, travels there
+   * from wherever it is, and comes down on landing, as it does after a slide.
    */
   const animateTo = (index: number) => {
     const e = engine.current;
     if (!e.geo) return;
     e.index = index;
+    e.lifted = true;
     e.travelActive = true;
     // Re-aim from wherever the pill is; the spring keeps its velocity.
     e.travelFrom = e.travelPos;

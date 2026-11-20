@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SKY_STARS } from './focusSky';
 import { sunDay } from './sunPath';
-import { dustStars, greeting, headerConstellation, headerStars, mixColor, nightness, ridgeLine, skyColors, sunState, upcomingDeadlines } from './headerSky';
+import { dustStars, greeting, headerConstellation, headerStars, lensFlare, mixColor, nightness, ridgeLine, skyColors, softStops, sunState, upcomingDeadlines } from './headerSky';
 
 const channels = (c: string) => (c.match(/[\d.]+/g) ?? []).map(Number);
 // Delhi on 20 Nov 2026: sunrise 6:47, sunset 17:25 (timeanddate.com).
@@ -172,7 +172,36 @@ describe('the faint background stars', () => {
   it('are fixed for a day and spread over the band', () => {
     const a = dustStars('2026-11-19', 412);
     expect(a).toEqual(dustStars('2026-11-19', 412));
-    expect(a).toHaveLength(110);
-    for (const d of a) expect(d.opacity).toBeLessThanOrEqual(0.3);
+    expect(a).toHaveLength(28);
+    for (const d of a) expect(d.opacity).toBeLessThanOrEqual(0.22);
+  });
+});
+
+describe('soft glows', () => {
+  it('fall smoothly from the peak to exactly nothing at the edge', () => {
+    const stops = softStops(0.8, 0.35);
+    expect(stops[0]).toEqual([0, 0.8]);
+    expect(stops[stops.length - 1]).toEqual([1, 0]);
+    for (let i = 1; i < stops.length; i++) {
+      expect(stops[i][0]).toBeGreaterThan(stops[i - 1][0]);
+      expect(stops[i][1]).toBeLessThanOrEqual(stops[i - 1][1]);
+    }
+  });
+});
+
+describe('the lens flare', () => {
+  it('shows only around solar noon', () => {
+    expect(lensFlare(DAY.noon, DAY)).toBeGreaterThan(0.9);
+    expect(lensFlare(DAY.noon + 0.6, DAY)).toBeGreaterThan(0);
+    expect(lensFlare(DAY.noon + 0.6, DAY)).toBeLessThan(lensFlare(DAY.noon, DAY));
+    expect(lensFlare(DAY.noon - 1.5, DAY)).toBe(0);
+    expect(lensFlare(DAY.sunrise + 1, DAY)).toBe(0);
+    expect(lensFlare(DAY.sunset - 1, DAY)).toBe(0);
+  });
+
+  it('never shows where the sun stays low all day', () => {
+    // Helsinki in December: the sun barely clears the horizon.
+    const winter = sunDay('2026-12-21', 60.17, 24.94, 2);
+    expect(lensFlare(winter.noon, winter)).toBe(0);
   });
 });

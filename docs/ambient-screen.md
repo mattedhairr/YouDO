@@ -27,7 +27,7 @@ turns it off.
   (candidates there count as crowded), but it is not fenced off, so stars never
   pile up at the edges. They light in a shuffled order, so the first ones land
   anywhere. A few are bright with a soft halo; most are dim; bluish, white or
-  warm. A faint dust of 45 distant stars (`dustMap`) is there from the start.
+  warm. A faint dust of 18 distant stars (`dustMap`) is there from the start, few and dim so the earned stars stand out.
 - **Filled by focus:** one star per 1/36 of the daily bar (`skyProgress`): every
   13⅓ minutes with an 8h bar. Today's focus is the finished sittings
   (`streakByDate`) plus the running one. Paused time adds none. New stars fade
