@@ -9,6 +9,7 @@
 <li><b>Morning briefing</b>: your goal countdown, first task, pace, backlog and streak in one notification.</li>
 <li><b>Private Hub</b>: friends, direct messages and small study rooms with live focus and a shared progress bar. Only messages meant for you notify you.</li>
 <li><b>Public Board</b>: an optional, opt-in focus leaderboard.</li>
+<li><b>A sky over your day</b>: every tab opens with a small landscape whose sky follows the real sun for your place, with your focus stars at night and your goal countdown. Set the day's weather, tap the sun to replay today, or use your own photo.</li>
 <li><b>Your look</b>: Dark or Light, six accent colours, five app icons, Liquid Glass, or the Classic v7 design.</li>
 </ul>
 <p>Works offline. Sign in for encrypted cloud backup and multi-device sync. Free and open source (MIT), with no ads.</p>
