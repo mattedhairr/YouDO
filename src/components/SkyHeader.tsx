@@ -461,7 +461,8 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
         <div className="sky-content">
           <div className="sky-top">
             <button type="button" className="sky-mark" onClick={onOpenGuide} aria-label="Open YouDO guide" title="Guide">
-              <svg width="21" height="21" viewBox="3 3 18 18" aria-hidden>
+              {/* The box is cut to the Y's strokes, so "ouDO" sits right beside it. */}
+              <svg width="20" height="21" viewBox="3.7 3.2 16.6 17.6" aria-hidden>
                 <path d="M5 4.5L12 13.25V19.5" stroke="var(--primary)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                 <path d="M19 4.5L12 13.25L8.9 9.6" stroke="var(--accent-tick, var(--secondary))" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </svg>
