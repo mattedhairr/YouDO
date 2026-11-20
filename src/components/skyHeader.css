@@ -12,16 +12,22 @@
   color: #fff;
   isolation: isolate;
   transition: height 0.45s var(--ease-out);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent);
-  mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent);
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - var(--sky-fade)), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - var(--sky-fade)), transparent);
   animation: sky-in 0.5s ease both;
 }
+/* The top meets Android's status bar, which takes the sky's colour
+   (SkyHeader.tsx), so it needs no fade. The bottom melts into the page: a
+   long fade into black; on a light page a short one, so the dark scene ends
+   neatly instead of smearing into grey. */
+.sky-header { --sky-fade: 26px; }
+html:not(.dark) .sky-header { --sky-fade: 10px; }
 @keyframes sky-in { from { opacity: 0; } }
 @media (min-width: 449px) {
   .sky-header {
-    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent), linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent);
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - var(--sky-fade)), transparent), linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent);
     -webkit-mask-composite: source-in;
-    mask-image: linear-gradient(180deg, transparent 0, #000 11px, #000 calc(100% - 26px), transparent), linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(180deg, #000 calc(100% - var(--sky-fade)), transparent), linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent);
     mask-composite: intersect;
   }
 }

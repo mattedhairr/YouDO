@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { ambientPlanetEnabled } from '../lib/ambient';
 import type { AppQuote } from '../lib/appQuotes';
 import { todayISO } from '../lib/dates';
@@ -56,10 +58,19 @@ const RIDGES = [
   { seed: 31, base: 182, amp: 20, rough: 0.45, sink: 1 },
 ];
 const TAB_LIFT = 14;
+/** On Today the peaks sit a little lower, under the name and the countdown. */
+const TODAY_LIFT = -14;
 const QUOTE_OPEN_MS = 9000;
 const TITLES: Record<Exclude<SkyHeaderView, 'tasks'>, string> = { goals: 'Goals', calendar: 'Calendar', board: 'Hub' };
 
 const rgb = (t: [number, number, number]) => `rgb(${t[0]},${t[1]},${t[2]})`;
+/** "rgba(22,36,74,1)" → "#16244a", for the status bar. */
+const hexOf = (c: string) => '#' + (c.match(/[\d.]+/g) ?? []).slice(0, 3).map((v) => Math.round(Number(v)).toString(16).padStart(2, '0')).join('');
+/** A light colour wants dark status bar icons. */
+const isLight = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 150;
+};
 const transparentOf = (c: string) => c.replace(/[\d.]+\)$/, '0)');
 
 function useNow(): Date {
@@ -131,7 +142,7 @@ function PlanetMark({ index, phase, x, top }: { index: number; phase: number; x:
 }
 
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-function SkyArt({ width, height, hour, stars, lines, dust, night, lift, folded }: {
+function SkyArt({ width, height, hour, stars, lines, dust, night, lift, folded, quoteShade, quiet }: {
   width: number;
   height: number;
   hour: number;
@@ -142,6 +153,10 @@ function SkyArt({ width, height, hour, stars, lines, dust, night, lift, folded }
   lift: number;
   /** The slim bar shows the sky only: its ranges stay far below. */
   folded?: boolean;
+  /** A calm band of mist behind the quote, at the foot of the scene. */
+  quoteShade?: boolean;
+  /** Where words sit (scene coordinates): the bright ridge lines fade out there. */
+  quiet?: { x: number; y: number; w: number; h: number }[];
 }) {
   const colors = useMemo(() => skyColors(hour), [hour]);
   const valley = width * 0.54;
@@ -175,6 +190,12 @@ function SkyArt({ width, height, hour, stars, lines, dust, night, lift, folded }
         ))}
         <linearGradient id="sky-haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={transparentOf(colors.mist)} /><stop offset="1" stopColor={colors.mist} /></linearGradient>
         <linearGradient id="sky-textshade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="rgba(0,0,0,.32)" /><stop offset=".5" stopColor="rgba(0,0,0,0)" /></linearGradient>
+        <linearGradient id="sky-quoteshade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="rgba(4,5,12,0)" /><stop offset=".45" stopColor="rgba(4,5,12,.42)" /><stop offset="1" stopColor="rgba(4,5,12,.55)" /></linearGradient>
+        <filter id="sky-maskblur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9" /></filter>
+        <mask id="sky-rimmask" maskUnits="userSpaceOnUse" x="0" y={top} width={width} height={height - top}>
+          <rect x="0" y={top} width={width} height={height - top} fill="white" />
+          <g filter="url(#sky-maskblur)">{(quiet ?? []).map((q, i) => <rect key={i} x={q.x} y={q.y} width={q.w} height={q.h} rx="10" fill="black" />)}</g>
+        </mask>
         <filter id="sky-soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3" /></filter>
       </defs>
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-grad)" />
@@ -201,12 +222,13 @@ function SkyArt({ width, height, hour, stars, lines, dust, night, lift, folded }
       {!folded && ridges.map((pts, i) => (
         <g key={`r${i}`} className="sky-fold-sink" style={{ ['--sink' as string]: String(RIDGES[i].sink) }}>
           <path d={fill(pts)} fill={`url(#sky-l${i})`} />
-          <path d={path(pts)} fill="none" stroke={colors.rim} strokeWidth={i === 0 ? 0.9 : 0.6} opacity={[1, 0.7, 0.45, 0.25][i]} />
+          <path d={path(pts)} fill="none" stroke={colors.rim} strokeWidth={i === 0 ? 0.9 : 0.6} opacity={[1, 0.7, 0.45, 0.25][i]} mask="url(#sky-rimmask)" />
           {i < 3 && (
             <rect x="0" y={Math.min(...pts.map((p) => p[1])) + 6} width={width} height={30 - i * 6} fill="url(#sky-haze)" filter="url(#sky-soft)" />
           )}
         </g>
       ))}
+      {quoteShade && !folded && <rect x="0" y={height - 92} width={width} height={92} fill="url(#sky-quoteshade)" />}
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-textshade)" opacity={1 - night} />
     </svg>
   );
@@ -235,7 +257,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
           : undefined;
   const today = view === 'tasks';
   const height = today ? HEIGHT.today : HEIGHT.tab;
-  const lift = today ? 0 : TAB_LIFT;
+  const lift = today ? TODAY_LIFT : TAB_LIFT;
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(412);
@@ -246,6 +268,42 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const [quoteLong, setQuoteLong] = useState(false);
   const { prefs, photoUrl } = useHeaderBackground();
   const photo = prefs.mode === 'photo' && photoUrl ? photoUrl : null;
+  const skyTop = photo ? '#000000' : hexOf(skyColors(hour).sky[0]);
+
+  // Android's status bar is a solid strip above the page: it takes the sky's
+  // top colour, so the scene runs on under the clock. While a sheet is open
+  // it goes back to the page's own colour (App.tsx keeps it in theme-color).
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let timer = 0;
+    const host = document.getElementById('overlay-root') ?? document.body;
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    const apply = () => {
+      window.clearTimeout(timer);
+      // After App.tsx's own update on a theme change, which this follows.
+      timer = window.setTimeout(() => {
+        const sheetOpen = Boolean(host.querySelector('.overlay-layer'));
+        const chrome = themeMeta?.getAttribute('content') || '#000000';
+        const color = sheetOpen ? chrome : skyTop;
+        void StatusBar.setBackgroundColor({ color }).catch(() => undefined);
+        void StatusBar.setStyle({ style: isLight(color) ? Style.Light : Style.Dark }).catch(() => undefined);
+      }, 300);
+    };
+    apply();
+    const sheets = new MutationObserver(apply);
+    sheets.observe(host, { childList: true });
+    const theme = new MutationObserver(apply);
+    if (themeMeta) theme.observe(themeMeta, { attributes: true, attributeFilter: ['content'] });
+    return () => {
+      window.clearTimeout(timer);
+      sheets.disconnect();
+      theme.disconnect();
+      // Leaving the sky header (the Classic Look): the page's colour again.
+      const chrome = themeMeta?.getAttribute('content') || '#000000';
+      void StatusBar.setBackgroundColor({ color: chrome }).catch(() => undefined);
+      void StatusBar.setStyle({ style: isLight(chrome) ? Style.Light : Style.Dark }).catch(() => undefined);
+    };
+  }, [skyTop]);
 
   useLayoutEffect(() => {
     const el = rootRef.current;
@@ -344,6 +402,11 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const title = today ? name ?? 'Today' : TITLES[view];
   const kicker = today ? (name ? hello : hello.replace(/,$/, '')) : null;
   const fullHeight = height + quoteExtra;
+  // The name (and on Today the countdown) sit here, in scene coordinates.
+  const quietZones = [
+    { x: 6, y: OFFSET - quoteExtra + 30, w: today ? 200 : 230, h: today ? 58 : 66 },
+    ...(today && deadline ? [{ x: width - 178, y: OFFSET - quoteExtra + 30, w: 172, h: 56 }] : []),
+  ];
 
   const scene = (folded: boolean) =>
     photo ? (
@@ -356,7 +419,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ) : (
       <>
         <div className="sky-art-wrap" style={{ height: folded ? BAR + OFFSET + 30 : height + OFFSET }}>
-          <SkyArt width={width} height={folded ? BAR + OFFSET + 30 : height + OFFSET} hour={hour} stars={stars} lines={lines} dust={dust} night={night} lift={lift} folded={folded} />
+          <SkyArt width={width} height={folded ? BAR + OFFSET + 30 : height + OFFSET} hour={hour} stars={stars} lines={lines} dust={dust} night={night} lift={lift} folded={folded} quoteShade={today && Boolean(quote) && !folded} quiet={folded ? [] : quietZones} />
         </div>
         {!folded && showPlanet && <PlanetMark index={planetIndex} phase={phase} x={width * 0.54} top={74 - OFFSET + quoteExtra} />}
       </>
