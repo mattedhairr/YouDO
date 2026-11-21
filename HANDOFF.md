@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-20**, while releasing **v8.8.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-21**, while releasing **v8.9.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.8.0, versionCode 99 (released 2026-11-20). Before it: v8.7.0, versionCode 98, released the same day.
+- **Latest release:** v8.9.0, versionCode 100 (released 2026-11-21). Before it: v8.8.0, versionCode 99, released 2026-11-20.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -17,7 +17,8 @@ Last updated **2026-11-20**, while releasing **v8.8.0**. Read this file first wh
   - v8.3.4 added `cloud_backup_limits.sql`, run in production on 2026-11-04 (the owner reported success);
   - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
   - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success);
-  - v8.5.4, v8.5.5, v8.6.0, v8.7.0 and v8.8.0 had no server changes.
+  - v8.5.4, v8.5.5, v8.6.0, v8.7.0 and v8.8.0 had no server changes;
+  - v8.9.0 added `community_push.sql`, run in production on 2026-11-21 before the release (checked: the four `push_preferences` columns with their defaults and the three triggers exist).
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
@@ -50,6 +51,16 @@ The Reset broadcast button was tried against a fake server, in dark mode only; c
 - The middle should say "1 focusing", not "both focusing", and the paused person's line should stop glowing.
 - Each person's `x / 4h`, ring and "hit the bar" should use their own bar, while the top still shows the room's.
 - Settled in v8.5.3: an unchanged status keeps its `updated_at`.
+
+## Still to check from v8.9.0 (released without a test APK, by the owner's choice)
+
+Tested with 27 isolated SQL checks (`tests/sql/test-community-push-sql.mjs`) and unit tests; never with real phones.
+- **The rule, settled with the owner:** only notifications that can reach you with YouDO closed (push) have switches; the unread dots inside the app always show and have no switch.
+- **Community pushes** (`supabase/community_push.sql`). In General or an exam hashtag room: an @mention by username (the @ starts a word, so an address is not a mention) or a reply to your message pushes to you, unless you chose Off; "All in my room" adds every message in your own hashtag room (never General). One notification per room (tag), updated in place. Banned authors push nothing; a trigger failure only logs a warning and never blocks the message. Settings → Notifications → Community Chat: Mentions & replies (default) / All in my room / Off, synced as `push_preferences.community_messages` (the Public Hub and master switches fold into Off).
+- **Admin Hub pushes:** a new hashtag request, a requester answering an admin's note (waiting → open) and a reported message go to the community admins, never to the person who caused it, each behind its switch (`admin_requests`, `admin_replies`, `admin_reports`).
+- **Removed:** the app's own in-app community and admin alerts (they only showed while it was open) and the two switches Community Chat Messages and Hashtag Community Updates. The counts behind the dots are unchanged.
+- **Taps:** a community push opens the community chat at its room (`requestOpenCommunity` in `src/components/hub/openDm.ts`); an admin push opens Admin Hub.
+- Phone check with a test account: @mention and reply in a hashtag room and in General with the app closed; "All in my room"; Off; tapping each kind; an admin receiving a request and a report.
 
 ## Still to check from v8.8.0 (released without a test APK, by the owner's choice)
 
