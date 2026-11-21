@@ -17,6 +17,16 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v8.9.0] - 2026-11-21 - Never Miss A Mention
+
+- **Community pushes** — When someone @mentions you or replies to your message in the community chat or your exam hashtag room, you're notified even with YouDO closed, before the message disappears.
+- **One clear choice** — Settings → Notifications → Community Chat: Mentions & replies (the default), All in my room, or Off. The unread dots inside the app always show.
+- **Admin alerts that arrive** — Admins get new hashtag requests, requesters' answers and reported messages as notifications, each with its own switch.
+- **Opens the right place** — Tapping a community notification opens its room; an admin notification opens Admin Hub.
+- **Android APK** — versionName **8.9.0**, versionCode **100**. Installs over v8.8.0 (99).
+
+---
+
 ## [v8.8.0] - 2026-11-20 - A Mountain For Your Goal
 
 - **The Summit** — A new header style in Settings → Appearance → Header background: your nearest goal as a mountain under the real sky, a flag on its deadline and a trail walked in gold from the day you made it to today.

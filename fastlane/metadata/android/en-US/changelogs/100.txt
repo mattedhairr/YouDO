@@ -1,0 +1,1 @@
+Community pushes: when someone @mentions you or replies to your message in the community chat or your exam hashtag room, you're notified even with YouDO closed. Settings → Notifications → Community Chat: Mentions & replies, All in my room, or Off; the unread dots always show. Admins get requests, answers and reports as notifications. Tapping one opens the right room.

@@ -647,6 +647,11 @@ function AppInner() {
     setAdminHubOpen(true);
   }, [settingsOpen, pushModalState]);
 
+  const openAdminHubRef = useRef(openAdminHub);
+  useEffect(() => {
+    openAdminHubRef.current = openAdminHub;
+  }, [openAdminHub]);
+
   const closeAdminHub = useCallback(() => {
     setAdminHubOpen(false);
     window.dispatchEvent(new Event(ADMIN_QUEUE_EVENT));
@@ -1010,6 +1015,9 @@ function AppInner() {
           openHubFromNotification('social');
         } else if (route === 'private') {
           openHubFromNotification('private');
+        } else if (route === 'admin') {
+          // Through a ref: Admin Hub's opener changes with Settings, and a new one must not re-register push.
+          openAdminHubRef.current();
         }
       },
     });

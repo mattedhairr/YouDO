@@ -104,7 +104,22 @@ Every one of these must say the same version before tagging. The examples are fo
 | 6 | `fastlane/metadata/android/en-US/changelogs/85.txt` | a new file named after the versionCode: a plain-text summary under 500 characters for F-Droid, IzzyOnDroid and Orion Store |
 | 7 | `README.md` | update the feature sections if anything user-facing changed |
 | 8 | `docs/*.md` | update a doc if the behaviour it describes changed |
-| 9 | `docs/screenshots/` | only when the look changed: capture the screens, then run `node scripts/frame-screenshots.mjs docs/screenshots <name>=<capture> …` |
+| 9 | `docs/screenshots/` | only when the look changed: capture the screens, then run `node scripts/frame-screenshots.mjs docs/screenshots <name>=<capture> …`. Then update Orion Store's links too (see "Orion Store screenshots" below). |
+
+### Orion Store screenshots
+
+Orion Store does not pick up new screenshots by itself. It loads every screenshot through an image service (wsrv.nl) that keeps each address for 31 days, so a picture changed at the same address keeps showing the old one. Its listing therefore uses addresses **pinned to a commit**:
+
+```
+https://raw.githubusercontent.com/mattedhairr/YouDO/<commit>/docs/screenshots/01-today.png
+```
+
+Whenever `docs/screenshots/` changes, after the release is merged:
+1. Take the merge commit's full SHA (`git rev-parse vX.Y.Z^{commit}`) and check each new address opens.
+2. In Orion Store, open YouDO → ⋮ → Request app change → **Screenshot URLs**, and paste the new addresses, one per line.
+3. Reason: "Current screenshots, pinned to the vX.Y.Z commit; the old links still show the previous design through the image cache." Evidence: the GitHub Release link.
+
+Last set: v8.8.0, commit `b0f8a4657f5d5a1d5e96b575a5438f645ca11377` (01, 02, 03, 04, 05 and 09).
 
 ### CHANGELOG entry template
 

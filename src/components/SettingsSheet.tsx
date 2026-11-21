@@ -63,6 +63,7 @@ import {
   sendTestBriefingNotification,
   type NotificationPreferences,
   type RoomNotificationMode,
+  type CommunityNotificationMode,
 } from '../lib/notifications';
 import { buildMorningBriefingContent, extractBriefingData } from '../lib/morningBriefing';
 import { useReducedEffects } from '../hooks/useReducedEffects';
@@ -2583,7 +2584,7 @@ export default function SettingsSheet({
                 <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-content-primary">Public Hub &amp; Community</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
-                    Community chat and exam hashtag channels
+                    Board updates and community chat, even with YouDO closed
                   </p>
                 </div>
               </div>
@@ -2620,42 +2621,34 @@ export default function SettingsSheet({
                   />
                 </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-[11.5px] font-semibold text-content-primary">Community Chat Messages</h4>
-                      <p className="text-[10px] text-content-secondary">Alerts for new messages in public chat</p>
-                    </div>
+                <div className="pt-1">
+                  <h4 className="text-[11.5px] font-semibold text-content-primary">Community Chat</h4>
+                  <p className="text-[10px] text-content-secondary mb-1.5">
+                    {notifPrefs.publicHub.communityChat === 'all'
+                      ? 'Every message in your exam hashtag room, plus mentions and replies anywhere'
+                      : notifPrefs.publicHub.communityChat === 'off'
+                        ? 'No notifications; the unread dots still show in the app'
+                        : 'When someone @mentions you or replies to your message'}
+                  </p>
+                  <div className="settings-segment flex bg-base p-1 rounded-xl border border-subtle gap-1" role="radiogroup" aria-label="Community chat notifications">
+                    {(['all', 'mentions', 'off'] as CommunityNotificationMode[]).map((mode) => {
+                      const active = notifPrefs.publicHub.communityChat === mode;
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => updateNotifPrefs((p) => ({ ...p, publicHub: { ...p.publicHub, communityChat: mode } }))}
+                          className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition ${
+                            active ? 'bg-primary text-on-primary' : 'text-content-secondary hover:text-content-primary'
+                          }`}
+                        >
+                          {mode === 'all' ? 'All in my room' : mode === 'mentions' ? 'Mentions & replies' : 'Off'}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <Toggle
-                    checked={notifPrefs.publicHub.communityMessages}
-                    onChange={() =>
-                      updateNotifPrefs((p) => ({
-                        ...p,
-                        publicHub: { ...p.publicHub, communityMessages: !p.publicHub.communityMessages },
-                      }))
-                    }
-                    label="Community chat message notifications"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-[11.5px] font-semibold text-content-primary">Hashtag Community Updates</h4>
-                      <p className="text-[10px] text-content-secondary">Alerts for your selected exam hashtag</p>
-                    </div>
-                  </div>
-                  <Toggle
-                    checked={notifPrefs.publicHub.hashtagMentions}
-                    onChange={() =>
-                      updateNotifPrefs((p) => ({
-                        ...p,
-                        publicHub: { ...p.publicHub, hashtagMentions: !p.publicHub.hashtagMentions },
-                      }))
-                    }
-                    label="Hashtag community updates"
-                  />
                 </div>
               </div>
             )}
@@ -2672,7 +2665,7 @@ export default function SettingsSheet({
                   <div className="min-w-0 flex-1">
                     <h3 className="text-xs font-semibold text-content-primary">Admin Hub Notifications</h3>
                     <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
-                      Moderation alerts and room request management
+                      New hashtag requests, replies and reports, even with YouDO closed
                     </p>
                   </div>
                 </div>

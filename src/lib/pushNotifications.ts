@@ -6,7 +6,7 @@ import {
   type PushNotificationSchema,
 } from '@capacitor/push-notifications';
 import { supabase } from './supabase';
-import { requestOpenDm } from '../components/hub/openDm';
+import { requestOpenCommunity, requestOpenDm } from '../components/hub/openDm';
 
 let isInitialized = false;
 // The FCM token of this device, known once registration has fired this session.
@@ -67,7 +67,7 @@ export function setDeviceTokenForTests(token: string | null): void {
 export function initPushNotifications(
   userId?: string,
   callbacks?: {
-    onNavigate?: (route: 'today' | 'board' | 'social' | 'private') => void;
+    onNavigate?: (route: 'today' | 'board' | 'social' | 'private' | 'admin') => void;
   }
 ): () => void {
   if (!Capacitor.isNativePlatform()) return () => {};
@@ -100,7 +100,13 @@ export function initPushNotifications(
 
       if (type === 'morning_briefing') {
         callbacks?.onNavigate?.('today');
-      } else if (type === 'community' || type === 'admin_hub' || type === 'hashtag_reply' || type === 'board_update') {
+      } else if (type === 'admin_request' || type === 'admin_reply' || type === 'admin_report' || type === 'admin_hub') {
+        callbacks?.onNavigate?.('admin');
+      } else if (type === 'community') {
+        // A chat push opens the community chat at its room ('' is General).
+        requestOpenCommunity(typeof data?.room === 'string' ? data.room : '');
+        callbacks?.onNavigate?.('social');
+      } else if (type === 'hashtag_reply' || type === 'board_update') {
         callbacks?.onNavigate?.('social');
       } else if (type === 'dm' || type === 'friend_request' || type === 'room_invite' || type === 'room_request' || type === 'room') {
         callbacks?.onNavigate?.('private');
