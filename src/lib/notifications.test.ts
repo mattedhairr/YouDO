@@ -13,9 +13,7 @@ import {
   scheduleMorningBriefing,
   sendTestBriefingNotification,
   stringToNotificationId,
-  dispatchAdminNotification,
   dismissAdminNotification,
-  dispatchCommunityNotification,
   dismissCommunityNotification,
   type NotificationPreferences,
 } from './notifications';
@@ -99,31 +97,24 @@ describe('notifications library', () => {
       expect(retrieved.privateHub.directMessages).toBe(true);
     });
 
-    it('initializes and migrates public hub preferences cleanly', () => {
+    it('keeps one community push choice, mentions and replies by default', () => {
       const prefs = getNotificationPreferences();
-      expect(prefs.publicHub.communityMessages).toBe(false);
-      expect(prefs.publicHub.hashtagMentions).toBe(true);
+      expect(prefs.publicHub.communityChat).toBe('mentions');
+      expect(prefs.publicHub.boardUpdates).toBe(true);
 
-      // Persist custom preferences
-      saveNotificationPreferences({
-        ...prefs,
-        publicHub: { ...prefs.publicHub, communityMessages: true },
-      });
-      expect(getNotificationPreferences().publicHub.communityMessages).toBe(true);
+      saveNotificationPreferences({ ...prefs, publicHub: { ...prefs.publicHub, communityChat: 'all' } });
+      expect(getNotificationPreferences().publicHub.communityChat).toBe('all');
 
-      // Legacy string 'all' migrates to true
+      // The old in-app switches are dropped; the push choice starts at its default.
       localStorage.setItem(
         STORAGE_KEYS.notificationPrefs,
-        JSON.stringify({ publicHub: { communityMessages: 'all' } }),
+        JSON.stringify({ publicHub: { enabled: true, communityMessages: true, hashtagMentions: false, boardUpdates: false } }),
       );
-      expect(getNotificationPreferences().publicHub.communityMessages).toBe(true);
+      const migrated = getNotificationPreferences().publicHub;
+      expect(migrated).toEqual({ enabled: true, communityChat: 'mentions', boardUpdates: false });
 
-      // Legacy string 'mentions' or 'off' migrates to false
-      localStorage.setItem(
-        STORAGE_KEYS.notificationPrefs,
-        JSON.stringify({ publicHub: { communityMessages: 'mentions' } }),
-      );
-      expect(getNotificationPreferences().publicHub.communityMessages).toBe(false);
+      localStorage.setItem(STORAGE_KEYS.notificationPrefs, JSON.stringify({ publicHub: { communityChat: 'loud' } }));
+      expect(getNotificationPreferences().publicHub.communityChat).toBe('mentions');
     });
   });
 
@@ -588,57 +579,14 @@ describe('notifications library', () => {
       expect(retrieved.adminHub?.chatReplies).toBe(false);
     });
 
-    it('safely invokes dispatchAdminNotification and dismissAdminNotification', async () => {
-      await expect(
-        dispatchAdminNotification({
-          type: 'hashtag_request',
-          title: 'New Hashtag Request',
-          body: '#GATE was requested by a student.',
-          tagId: 'req_123',
-        }),
-      ).resolves.toBeUndefined();
-
-      await expect(
-        dispatchAdminNotification({
-          type: 'message_report',
-          title: 'Reported Message',
-          body: 'A message was flagged for review.',
-        }),
-      ).resolves.toBeUndefined();
-
-      await expect(
-        dispatchAdminNotification({
-          type: 'chat_reply',
-          title: 'Support Reply',
-          body: 'Requester replied with syllabus details.',
-          tagId: 'req_123',
-        }),
-      ).resolves.toBeUndefined();
-
+    it('can still clear an old admin notification', async () => {
       await expect(dismissAdminNotification('req_123')).resolves.toBeUndefined();
     });
   });
 
   describe('community notifications', () => {
-    it('safely dispatches and dismisses community notifications in test environment', async () => {
-      await expect(
-        dispatchCommunityNotification({
-          senderName: 'Friend',
-          content: 'Hello general chat!',
-        }),
-      ).resolves.toBeUndefined();
-
-      await expect(
-        dispatchCommunityNotification({
-          senderName: 'StudyBuddy',
-          content: 'Exam tip!',
-          hashtag: 'gate',
-          myHashtag: 'gate',
-        }),
-      ).resolves.toBeUndefined();
-
+    it('can still clear an old community notification', async () => {
       await expect(dismissCommunityNotification()).resolves.toBeUndefined();
     });
   });
 });
-

@@ -345,7 +345,7 @@ describe('SettingsSheet Tab Navigation System (Classic Look)', () => {
     expect(html).toContain('touch-pan-x');
   });
 
-  it('renders clean Community Chat Messages toggle under notifications without @mentions segmented control', () => {
+  it('offers one community chat push choice, mentions and replies by default, and no in-app alert switches', () => {
     const html = renderToStaticMarkup(
       createElement(SettingsSheet, {
         ...defaultProps,
@@ -353,10 +353,12 @@ describe('SettingsSheet Tab Navigation System (Classic Look)', () => {
       })
     );
 
-    expect(html).toContain('Community Chat Messages');
-    expect(html).toContain('Alerts for new messages in public chat');
-    expect(html).toContain('Hashtag Community Updates');
-    expect(html).not.toContain('@Mentions Only');
+    expect(html).toContain('Community Chat');
+    expect(html).toContain('All in my room');
+    expect(html).toContain('Mentions &amp; replies');
+    expect(html).toContain('When someone @mentions you or replies to your message');
+    expect(html).not.toContain('Community Chat Messages');
+    expect(html).not.toContain('Hashtag Community Updates');
   });
 
   it('renders settings content container with touch-pan-y for fluid vertical scrolling and swipe tab switching', () => {

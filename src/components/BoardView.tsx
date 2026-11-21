@@ -25,10 +25,7 @@ import { todayISO } from '../lib/dates';
 import { fetchAppreciations, fetchCommunityContext, giveKudos, type AppreciationState, type CommunityContext } from '../lib/community';
 import CommunitySheet from './CommunitySheet';
 import { hapticTick } from '../lib/haptics';
-import {
-  dispatchCommunityNotification,
-  dismissCommunityNotification,
-} from '../lib/notifications';
+import { takePendingCommunity, OPEN_COMMUNITY_EVENT } from './hub/openDm';
 
 const WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -261,6 +258,15 @@ export default function BoardView({
   const [showNearby, setShowNearby] = useState(false);
   const [anchorISO, setAnchorISO] = useState(todayISO());
   const [communityOpen, setCommunityOpen] = useState(false);
+  // A tapped community push opens the chat at its room (src/components/hub/openDm.ts).
+  useEffect(() => {
+    const open = () => {
+      if (takePendingCommunity() !== null) setCommunityOpen(true);
+    };
+    open();
+    window.addEventListener(OPEN_COMMUNITY_EVENT, open);
+    return () => window.removeEventListener(OPEN_COMMUNITY_EVENT, open);
+  }, []);
   const [community, setCommunity] = useState<CommunityContext>(initialCommunity ?? EMPTY_COMMUNITY_CONTEXT());
   const communityUnreadCount =
     pacePrefs.optedIn && !community.banned
@@ -272,15 +278,8 @@ export default function BoardView({
   const [savingAppreciation, setSavingAppreciation] = useState(false);
   const [appreciationError, setAppreciationError] = useState('');
 
-  const prevCommunityUnread = useRef<number | null>(null);
-  const communityOpenRef = useRef(communityOpen);
-  communityOpenRef.current = communityOpen;
-
   useEffect(() => {
-    if (!user) {
-      prevCommunityUnread.current = null;
-      return;
-    }
+    if (!user) return;
     let cancelled = false;
     let busy = false;
     const refreshUnread = async () => {
@@ -288,22 +287,8 @@ export default function BoardView({
       busy = true;
       try {
         const next = await fetchCommunityContext(user.id);
-        if (!cancelled && !next.error) {
-          setCommunity(next);
-          const nextCount = (next.unread?.chat ?? 0) + (next.unread?.updates ?? 0);
-          if (prevCommunityUnread.current !== null && nextCount > prevCommunityUnread.current) {
-            const diff = nextCount - prevCommunityUnread.current;
-            if (!communityOpenRef.current) {
-              void dispatchCommunityNotification({
-                senderName: 'Community',
-                content: `${diff} new ${diff === 1 ? 'message' : 'messages'} in public room`,
-              });
-            }
-          } else if (nextCount === 0 && prevCommunityUnread.current !== null && prevCommunityUnread.current > 0) {
-            void dismissCommunityNotification();
-          }
-          prevCommunityUnread.current = nextCount;
-        }
+        // The unread dots come from this; anything worth a notification is pushed by the server.
+        if (!cancelled && !next.error) setCommunity(next);
       } catch {
         // Keep the last known indicator during a transient network failure.
       } finally { busy = false; }

@@ -9,7 +9,6 @@ import {
 } from '../../lib/communityHashtags';
 import Overlay from '../Overlay';
 import CommunityHashtagSupportChat from './CommunityHashtagSupportChat';
-import { dispatchCommunityNotification } from '../../lib/notifications';
 
 interface Props {
   selectedId?: string;
@@ -27,7 +26,6 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
   const [details,setDetails]=useState('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  const prevWaitingIds = useRef<Set<string> | null>(null);
   /** null: follow the default (open only while an admin reply waits). */
   const [requestsOpen,setRequestsOpen]=useState<boolean|null>(null);
   const [confirmRemove,setConfirmRemove]=useState<string|null>(null);
@@ -38,20 +36,7 @@ export default function CommunityHashtagBar({selectedId,onSelect,onContextChange
       setContext(next);
       onContextChange(next);
       setError('');
-
-      const waitingRequests = next.requests.filter((r) => r.status === 'waiting');
-      if (prevWaitingIds.current !== null) {
-        for (const req of waitingRequests) {
-          if (!prevWaitingIds.current.has(req.id)) {
-            void dispatchCommunityNotification({
-              senderName: 'Hashtag Support',
-              content: `Admin replied to #${req.examName}: ${req.adminResponse ? `"${req.adminResponse}"` : 'Open chat to read note'}`,
-              hashtag: req.examName,
-            });
-          }
-        }
-      }
-      prevWaitingIds.current = new Set(waitingRequests.map((r) => r.id));
+      // An admin's reply to your request is pushed by the server (push_dispatch.sql).
 
       const current=selectedRef.current;
       if(current&&!next.hashtags.some(tag=>tag.id===current))onSelect(undefined);

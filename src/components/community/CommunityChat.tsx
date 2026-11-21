@@ -5,6 +5,7 @@ import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, MessageSquare, R
 import { fetchUserCommunityReports, markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext, type UserCommunityReport } from '../../lib/community';
 import { markChatRoomRead } from '../../lib/communityChat';
 import { dismissCommunityNotification } from '../../lib/notifications';
+import { OPEN_COMMUNITY_EVENT } from '../hub/openDm';
 import { fetchCommunityRooms, type CommunityHashtagContext, type CommunityHashtagRequest } from '../../lib/communityHashtags';
 import { activeChatMessages, chatCacheGeneration, CHAT_HISTORY_LIMIT, CHAT_PAGE_SIZE, clearChatCache, deleteChatMessage, editChatMessage, fetchChatPage, mergeChatPage, pendingChatMessage, readChatCache, saveChatCache, sendChatMessage, type ChatMessage } from '../../lib/communityChat';
 import CommunityHashtagBar from './CommunityHashtagBar';
@@ -41,6 +42,16 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     } catch {
       // ignore
     }
+  }, []);
+
+  // A tapped community push while the chat is open moves it to that room.
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const room = (event as CustomEvent<string>).detail;
+      setSelectedHashtagState(room ? room : undefined);
+    };
+    window.addEventListener(OPEN_COMMUNITY_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_COMMUNITY_EVENT, onOpen);
   }, []);
 
   const initial = useMemo(() => readChatCache(userId, `room:${selectedHashtag ?? 'general'}`),[userId, selectedHashtag]);

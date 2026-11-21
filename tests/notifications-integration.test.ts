@@ -5,7 +5,6 @@ import {
   dismissFriendRequestNotification,
   dismissRoomInviteNotification,
   dismissRoomNotification,
-  dispatchCommunityNotification,
   dispatchDmNotification,
   dispatchFriendRequestNotification,
   dispatchRoomInviteNotification,
@@ -212,54 +211,17 @@ describe('Notification Integration & Read-State Synchronization', () => {
     });
   });
 
-  describe('Public Hub & Community Anti-Spam', () => {
-    it('defaults to off for community chat messages to prevent spam flooding', async () => {
-      expect(getNotificationPreferences().publicHub.communityMessages).toBe(false);
-
-      await dispatchCommunityNotification({
-        senderName: 'Stranger',
-        content: 'Hello everyone in public chat!',
-      });
-
+  describe('Public Hub & Community', () => {
+    it('leaves community chat to the server: mentions and replies are pushed by default', async () => {
+      expect(getNotificationPreferences().publicHub.communityChat).toBe('mentions');
+      // The app raises no alert of its own for community chat; the unread dots show it in the app.
+      const lib = await import('../src/lib/notifications');
+      expect('dispatchCommunityNotification' in lib).toBe(false);
+      expect('dispatchAdminNotification' in lib).toBe(false);
       expect(LocalNotifications.schedule).not.toHaveBeenCalled();
     });
 
-    it('alerts when community messages toggle is enabled', async () => {
-      const prefs = getNotificationPreferences();
-      saveNotificationPreferences({
-        ...prefs,
-        publicHub: { ...prefs.publicHub, communityMessages: true },
-      });
-
-      await dispatchCommunityNotification({
-        senderName: 'Friend',
-        content: 'Shoutout for the great notes!',
-      });
-
-      expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1);
-      const callArgs = vi.mocked(LocalNotifications.schedule).mock.calls[0][0];
-      expect(callArgs.notifications[0].id).toBe(NOTIFICATION_IDS.COMMUNITY);
-    });
-
-    it('alerts when message matches user hashtag even if general community messages are muted', async () => {
-      const prefs = getNotificationPreferences();
-      saveNotificationPreferences({
-        ...prefs,
-        publicHub: { ...prefs.publicHub, communityMessages: false, hashtagMentions: true },
-      });
-      vi.mocked(LocalNotifications.schedule).mockClear();
-
-      await dispatchCommunityNotification({
-        senderName: 'StudyBuddy',
-        content: 'Important exam formula update',
-        hashtag: 'GATE2026',
-        myHashtag: 'gate2026',
-      });
-
-      expect(LocalNotifications.schedule).toHaveBeenCalledTimes(1);
-    });
-
-    it('dismisses community notification upon reading community chat', async () => {
+    it('dismisses an old community notification upon reading community chat', async () => {
       await dismissCommunityNotification();
 
       expect(LocalNotifications.cancel).toHaveBeenCalledWith({

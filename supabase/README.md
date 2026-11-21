@@ -18,6 +18,7 @@ files in this directory.
 - **YouDO — Hashtag Request Cleanup** → `hashtag_request_cleanup.sql` (after `community_hashtag_admin.sql`)
 - **YouDO — Board Update Push** → `board_update_push.sql` (after `push_dispatch.sql`, `hub_push.sql` and `community_chat.sql`)
 - **YouDO — Board Update Extras** → `board_update_extras.sql` (after `board_update_push.sql`)
+- **YouDO — Community Push** → `community_push.sql` (after `push_dispatch.sql`, `hub_push.sql`, `board_update_push.sql` and `community_rooms.sql`)
 - **YouDO — Managed App Quotes** → `app_quotes.sql`
 - **YouDO — Account Sessions** → `account_sessions.sql`
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`
@@ -115,6 +116,13 @@ Pushes are sent by database triggers through `pg_net`; apps never call the
 Then apply `hub_push.sql`: the Private Hub triggers (direct messages, friend
 requests, room invites and join requests, @mentions, and every room message for
 members who choose "All messages"; rooms default to @mentions only).
+
+Then apply `community_push.sql`: community chat pushes (an @mention or a reply to
+your message, in General or an exam hashtag room; every message in your own
+hashtag room for those who choose "All messages"; default mentions and replies)
+and the Admin Hub pushes to admins (a new hashtag request, a requester's answer,
+a reported message), each with its own switch. Inside the app the unread dots
+always show and have no switch.
 
 Projects set up before v8.0.0: run `cleanup_retired_private_hub.sql` once. It
 removes the old Private Hub on/off switch and the waitlist; the app no longer uses them.

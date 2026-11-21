@@ -31,5 +31,6 @@ export const SUPABASE_SETUP_ORDER = [
   'push_dispatch',
   'hub_push',
   'hub_widget_push',
+  'community_push',
   'optimize_auth_rls_policies',
 ];

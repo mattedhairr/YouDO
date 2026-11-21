@@ -6,7 +6,13 @@ import { readStorageRaw, STORAGE_KEYS } from './storageKeys';
 import { ACCENT_SWATCHES, resolveAccent } from './accentColors';
 
 export type RoomNotificationMode = 'all' | 'mentions' | 'off';
-export type CommunityNotificationMode = boolean;
+/**
+ * Community chat pushes (supabase/community_push.sql): 'mentions' is an
+ * @mention or a reply to your message; 'all' adds every message in your own
+ * hashtag room. Inside the app the unread dots always show, with no switch.
+ */
+export type CommunityNotificationMode = 'all' | 'mentions' | 'off';
+const COMMUNITY_MODES: CommunityNotificationMode[] = ['all', 'mentions', 'off'];
 
 export interface AdminHubNotificationPreferences {
   enabled: boolean;
@@ -39,8 +45,8 @@ export interface NotificationPreferences {
   };
   publicHub: {
     enabled: boolean;
-    communityMessages: boolean;
-    hashtagMentions: boolean;
+    /** Community chat pushes (server side, push_preferences.community_messages). */
+    communityChat: CommunityNotificationMode;
     /** Push when an admin sends a Board update (server side, push_preferences.board_updates). */
     boardUpdates: boolean;
   };
@@ -70,8 +76,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   },
   publicHub: {
     enabled: true,
-    communityMessages: false,
-    hashtagMentions: true,
+    communityChat: 'mentions',
     boardUpdates: true,
   },
   adminHub: {
@@ -142,14 +147,13 @@ export function getNotificationPreferences(): NotificationPreferences {
         return hub;
       })(),
       publicHub: {
-        ...DEFAULT_NOTIFICATION_PREFERENCES.publicHub,
-        ...(parsed.publicHub ?? {}),
-        communityMessages:
-          typeof parsed.publicHub?.communityMessages === 'boolean'
-            ? parsed.publicHub.communityMessages
-            : parsed.publicHub?.communityMessages === 'all'
-              ? true
-              : false,
+        // Earlier saves held two in-app switches (communityMessages, hashtagMentions);
+        // they are dropped, and the push choice starts at its default.
+        enabled: typeof parsed.publicHub?.enabled === 'boolean' ? parsed.publicHub.enabled : DEFAULT_NOTIFICATION_PREFERENCES.publicHub.enabled,
+        communityChat: COMMUNITY_MODES.includes(parsed.publicHub?.communityChat as CommunityNotificationMode)
+          ? (parsed.publicHub?.communityChat as CommunityNotificationMode)
+          : DEFAULT_NOTIFICATION_PREFERENCES.publicHub.communityChat,
+        boardUpdates: typeof parsed.publicHub?.boardUpdates === 'boolean' ? parsed.publicHub.boardUpdates : DEFAULT_NOTIFICATION_PREFERENCES.publicHub.boardUpdates,
       },
       adminHub: {
         ...DEFAULT_NOTIFICATION_PREFERENCES.adminHub!,
@@ -567,64 +571,6 @@ export async function dispatchRoomNotification(params: {
   }
 }
 
-export async function dispatchCommunityNotification(params: {
-  senderName: string;
-  content: string;
-  hashtag?: string | null;
-  myUsername?: string | null;
-  myHashtag?: string | null;
-}): Promise<void> {
-  const prefs = getNotificationPreferences();
-  if (!prefs.enabled || !prefs.publicHub.enabled) return;
-
-  const isHashtagAlert = Boolean(
-    prefs.publicHub.hashtagMentions &&
-      params.hashtag &&
-      (params.senderName === 'Hashtag Support' ||
-        !params.myHashtag ||
-        params.hashtag.toLowerCase() === params.myHashtag.toLowerCase()),
-  );
-
-  if (!prefs.publicHub.communityMessages && !isHashtagAlert) return;
-
-  const id = NOTIFICATION_IDS.COMMUNITY;
-  const title = params.hashtag ? `#${params.hashtag} Community` : 'Public Community';
-  const prefix = params.senderName ? `${params.senderName}: ` : '';
-  const text = `${prefix}${params.content}`;
-  const body = text.length > 120 ? `${text.slice(0, 117)}...` : text;
-
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await ensureNotificationChannels();
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            id,
-            title,
-            body,
-            channelId: NOTIFICATION_CHANNELS.PUBLIC_HUB,
-            extra: {
-              type: 'community',
-              hashtag: params.hashtag,
-            },
-          },
-        ],
-      });
-    } catch (err) {
-      console.warn('Failed to dispatch community notification:', err);
-    }
-  } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-    try {
-      new Notification(title, {
-        body,
-        tag: 'community:global',
-      });
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
 export async function dispatchFriendRequestNotification(requesterName: string): Promise<void> {
   const prefs = getNotificationPreferences();
   if (!prefs.enabled || !prefs.privateHub.enabled || !prefs.privateHub.friendRequests) return;
@@ -720,61 +666,6 @@ export async function dismissAllHubNotifications(): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {
       await LocalNotifications.removeAllDeliveredNotifications();
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-export async function dispatchAdminNotification(params: {
-  type: 'hashtag_request' | 'message_report' | 'chat_reply';
-  title: string;
-  body: string;
-  tagId?: string;
-}): Promise<void> {
-  const prefs = getNotificationPreferences();
-  if (!prefs.enabled) return;
-  const adminPrefs = prefs.adminHub ?? DEFAULT_NOTIFICATION_PREFERENCES.adminHub!;
-  if (!adminPrefs.enabled) return;
-
-  if (params.type === 'hashtag_request' && !adminPrefs.newHashtagRequests) return;
-  if (params.type === 'message_report' && !adminPrefs.reportedMessages) return;
-  if (params.type === 'chat_reply' && !adminPrefs.chatReplies) return;
-
-  const id = params.tagId
-    ? stringToNotificationId(`admin:${params.tagId}`, 4000, 1000)
-    : NOTIFICATION_IDS.ADMIN_HUB;
-
-  const title = params.title || 'Admin Hub Alert';
-  const body = params.body.length > 120 ? `${params.body.slice(0, 117)}...` : params.body;
-
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await ensureNotificationChannels();
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            id,
-            title,
-            body,
-            channelId: NOTIFICATION_CHANNELS.ADMIN_HUB,
-            extra: {
-              type: 'admin_hub',
-              alertType: params.type,
-              tagId: params.tagId,
-            },
-          },
-        ],
-      });
-    } catch (err) {
-      console.warn('Failed to dispatch admin notification:', err);
-    }
-  } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-    try {
-      new Notification(title, {
-        body,
-        tag: `admin:${params.type}:${params.tagId ?? 'general'}`,
-      });
     } catch {
       /* ignore */
     }
