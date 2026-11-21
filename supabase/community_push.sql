@@ -113,6 +113,10 @@ begin
     perform private.dispatch_push(everyone, place, sender || ': ' || pg_catalog.left(new.body, 120), push_data);
   end if;
   return null;
+exception when others then
+  -- A push must never stop the action itself from being saved.
+  raise warning 'push_community_message skipped: %', sqlerrm;
+  return null;
 end; $$;
 revoke all on function private.push_community_message() from public, anon, authenticated;
 
@@ -152,6 +156,10 @@ begin
       pg_catalog.jsonb_build_object('type', 'admin_reply', 'tag', 'admin-replies', 'channel', 'admin-hub'));
   end if;
   return null;
+exception when others then
+  -- A push must never stop the action itself from being saved.
+  raise warning 'push_admin_hashtag_request skipped: %', sqlerrm;
+  return null;
 end; $$;
 revoke all on function private.push_admin_hashtag_request() from public, anon, authenticated;
 
@@ -167,6 +175,10 @@ begin
   perform private.push_admins('reports', new.reporter_id,
     'Message reported', 'A community message was reported: ' || pg_catalog.left(new.reason, 80) || '.',
     pg_catalog.jsonb_build_object('type', 'admin_report', 'tag', 'admin-reports', 'channel', 'admin-hub'));
+  return null;
+exception when others then
+  -- A push must never stop the action itself from being saved.
+  raise warning 'push_admin_report skipped: %', sqlerrm;
   return null;
 end; $$;
 revoke all on function private.push_admin_report() from public, anon, authenticated;
