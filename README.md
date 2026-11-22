@@ -25,12 +25,14 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 <img src="docs/screenshots/01-today.png" width="180" alt="Today under the sky header, with goal-linked tasks" />
 <img src="docs/screenshots/02-today-at-a-glance.png" width="180" alt="Today at a glance" />
 <img src="docs/screenshots/03-goals.png" width="180" alt="A goal broken into papers and chapters" />
-<img src="docs/screenshots/04-focus-session.png" width="180" alt="A running focus session" />
+<img src="docs/screenshots/04-focus-session.png" width="180" alt="A running focus session under the sky header" />
 <img src="docs/screenshots/05-calendar.png" width="180" alt="Calendar with the day summary" />
 <img src="docs/screenshots/06-daily-focus-stats.png" width="180" alt="Daily focus stats" />
 <img src="docs/screenshots/07-private-hub-chats.png" width="180" alt="Private Hub chats" />
 <img src="docs/screenshots/08-study-room.png" width="180" alt="A study room with live focus" />
 <img src="docs/screenshots/09-appearance.png" width="180" alt="Appearance: accent colours, app icons and the sky header" />
+<img src="docs/screenshots/10-summit.png" width="180" alt="The Summit header: your nearest goal as a mountain at dusk" />
+<img src="docs/screenshots/11-focus-sky.png" width="180" alt="Focus Sky: the ambient timer under today's earned stars, a constellation and Saturn" />
 
 </div>
 

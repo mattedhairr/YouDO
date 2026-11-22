@@ -119,7 +119,9 @@ Whenever `docs/screenshots/` changes, after the release is merged:
 2. In Orion Store, open YouDO → ⋮ → Request app change → **Screenshot URLs**, and paste the new addresses, one per line.
 3. Reason: "Current screenshots, pinned to the vX.Y.Z commit; the old links still show the previous design through the image cache." Evidence: the GitHub Release link.
 
-Last set: v8.8.0, commit `b0f8a4657f5d5a1d5e96b575a5438f645ca11377` (01, 02, 03, 04, 05 and 09).
+Orion has no limit on the number (some listings carry dozens), but its home page shows only the first one or two, so put the most striking first.
+
+Last set (2026-11-22): eight, pinned to the merge commit of the pull request that added `10-summit.png` and `11-focus-sky.png`, in this order: 01 Today, 10 Summit, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance.
 
 ### CHANGELOG entry template
 
