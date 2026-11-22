@@ -165,7 +165,7 @@ If something is wrong, fix it on a `fixes` branch and ship a patch (v8.3.3).
 
 ## Known limits and ideas for later
 
-- **Orion Store screenshots need a manual update.** Orion shows screenshots through an image cache that keeps each address for 31 days, so changing the pictures in `docs/screenshots/` never reaches it. Its listing uses addresses pinned to a commit (now the v8.8.0 merge, `b0f8a46`). Whenever the screenshots change, send Orion new pinned addresses (YouDO → ⋮ → Request app change → Screenshot URLs). The steps are in [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) under "Orion Store screenshots".
+- **Orion Store screenshots need a manual update.** Orion shows screenshots through an image cache that keeps each address for 31 days, so changing the pictures in `docs/screenshots/` never reaches it. Its listing uses addresses pinned to a commit (since 2026-11-22: the merge of the pull request that added the Summit and Focus Sky screenshots; eight pictures, the most striking first). Whenever the screenshots change, send Orion new pinned addresses (YouDO → ⋮ → Request app change → Screenshot URLs). The steps are in [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) under "Orion Store screenshots".
 
 - **Edits made elsewhere.** The widgets cannot see changes made on another device (such as the website) while the phone app is closed. Fixing it would mean fetching from Supabase in the background (for example WorkManager plus the stored widget key). That is a bigger piece of work, so it was left for later.
 - **Average and streak.** The widget's 30-day average and the streak count refresh only when the app opens.
