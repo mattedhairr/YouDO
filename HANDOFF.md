@@ -77,7 +77,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Hashtag rooms → a room:** everyone in it for admins and the owner (`admin_room_members`), muted and banned marked, filters, search; tapping a person opens their Admin card.
 - Tested: 67 Admin Hub SQL checks (filters, ticks, opens, the deleted tally), 30 room members checks, unit tests; the three screens seen in the browser with made-up data. **Never tried against the real server or on a phone.**
 
-**On the server (1–7 done 2026-11-24; 8–9 to do before the release):**
+**On the server (1–8 done 2026-11-24; 9 to do before the release):**
 1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
 2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
 3. **Done:** `owner-delete-accounts` deployed (active, sign-in required; a call without sign-in gets 401).
@@ -85,7 +85,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 5. **Done 2026-11-24:** `backer_push.sql`. Checked: the `admin_backers` column (on by default), both functions internal only, the trigger enabled next to `hub_backers_claims_open`, and ₹50 / ₹100 formatting.
 6. **Done 2026-11-24:** `profile_photos.sql`. Checked: the public `avatars` bucket (256 KB; WebP, JPEG, PNG), its four own-folder policies for signed-in people, and `admin_remove_profile_photo` callable only when signed in (the function itself checks for staff).
 7. **Done 2026-11-24:** `community_room_members.sql`. Checked: callable only when signed in (the function itself requires the Board), security definer.
-8. **To do:** `admin_hub.sql` again (opens, the deleted tally and its trigger on `auth.users`, the new growth, the cleanup list and ticked deletes) and `community_room_members.sql` again (`admin_room_members`). Both are safe to re-run.
+8. **Done 2026-11-24:** `admin_hub.sql` and `community_room_members.sql` again. Checked: the trigger on `auth.users` is enabled; `app_opens` and `deleted_accounts` have RLS and no direct access; signed-out phones may only call `record_app_open` (not growth, the cleanup list or ticked deletes); the week helper and the trigger function are closed to everyone; `admin_room_members` is callable only when signed in (it checks for staff itself).
 9. **To do (the owner):** `npx.cmd supabase functions deploy owner-delete-accounts` and `npx.cmd supabase functions deploy delete-account` (ticked deletes and photo removal).
 
 **Phone checks for this release:**
