@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { BadgeCheck, ChevronRight, Crown, Flag, Hash, Home, Inbox, Loader2, Megaphone, RefreshCw, RotateCcw, Sparkles, Users, type LucideIcon } from 'lucide-react';
+import { Crown, Home, Inbox, Loader2, RefreshCw, Sparkles, Users, type LucideIcon } from 'lucide-react';
 import Overlay from './Overlay';
 import { HubNavBar } from './hub/HubParts';
 import AdminBackersReviewModal from './AdminBackersReviewModal';
 import { setBackStep } from '../lib/backSteps';
-import { can, returnRate } from '../lib/adminHub';
+import { can } from '../lib/adminHub';
 import { ADMIN_QUEUE_EVENT } from '../hooks/useAdminHubCounts';
-import { useAdminHubData, type AdminHubData } from './admin/useAdminHubData';
+import { useAdminHubData } from './admin/useAdminHubData';
 import AdminQueue from './admin/AdminQueue';
 import { PeopleList, PersonPage } from './admin/AdminPeople';
 import AdminCommunity from './admin/AdminCommunity';
 import AdminOwner from './admin/AdminOwner';
+import AdminHome from './admin/AdminHome';
 import { COMMUNITY_PAGE_TITLES, OWNER_PAGE_TITLES, queueCounts, type CommunityPage, type OwnerPage, type QueueFilter } from './admin/adminHubShared';
 import '../signature.css';
 import './community/community.css';
@@ -27,59 +28,6 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'owner', label: 'Owner', icon: Crown },
 ];
 const TAB_TITLES: Record<Tab, string> = { home: 'Admin Hub', queue: 'Queue', people: 'People', community: 'Community', owner: 'Owner' };
-
-function Tile({ value, label, note }: { value: string | number; label: string; note?: string }) {
-  return <div className="ah-tile"><strong>{value}</strong><span>{label}</span>{note && <small>{note}</small>}</div>;
-}
-
-function WaitingRow({ icon: Icon, title, text, count, onClick }: { icon: LucideIcon; title: string; text: string; count: number; onClick: () => void }) {
-  return (
-    <button type="button" className="yd-row" onClick={onClick}>
-      <span className="yd-tile" aria-hidden><Icon size={18} strokeWidth={1.9} /></span>
-      <span className="yd-row-main"><span className="yd-row-title">{title}</span><span className="yd-row-text truncate">{text}</span></span>
-      {count > 0 ? <span className="ah-count">{count}</span> : <ChevronRight size={17} className="text-content-muted" aria-hidden />}
-    </button>
-  );
-}
-
-function AdminHome({ data, onQueue, onBroadcast }: { data: AdminHubData; onQueue: (filter: QueueFilter) => void; onBroadcast: () => void }) {
-  const counts = queueCounts(data);
-  const owner = can(data.role, 'growth');
-  const growth = data.growth;
-  const firstReport = data.reportMessages[0];
-  const back = growth ? returnRate(growth.sinceV8) : null;
-  const announcement = data.context.settings.announcement.trim();
-  return (
-    <div className="ah-page">
-      <h3 className="yd-heading mt-2">Today</h3>
-      <div className="ah-tiles">
-        <Tile value={owner && growth ? growth.studyingNow : data.activity?.activeRecently ?? '–'} label={owner ? 'Studying now' : 'Active now'} />
-        <Tile value={data.activity?.visitedToday ?? '–'} label="Used the Board today" note={data.activity ? `of ${data.activity.boardMembers} members` : undefined} />
-        {owner && growth && <Tile value={growth.new7d} label="New this week" note={`${growth.new7dConfirmed} confirmed`} />}
-        {owner && growth && <Tile value={back === null ? '–' : `${back}%`} label="Came back" note="after day one, since v8" />}
-      </div>
-      <h3 className="yd-heading">Waiting for you</h3>
-      {counts.all === 0
-        ? <div className="yd-card"><p className="ah-empty !py-5">Nothing waiting. Nice and quiet.</p></div>
-        : (
-          <div className="yd-card">
-            {counts.reports > 0 && <WaitingRow icon={Flag} title="Reported messages" count={counts.reports}
-              text={firstReport ? `“${firstReport.body.slice(0, 50)}”` : 'Needs a decision'} onClick={() => onQueue('reports')} />}
-            {counts.hashtags > 0 && <WaitingRow icon={Hash} title="Hashtag requests" count={counts.hashtags}
-              text={data.hashtagRequests.slice(0, 3).map((request) => request.examName).join(', ')} onClick={() => onQueue('hashtags')} />}
-            {counts.appeals > 0 && <WaitingRow icon={RotateCcw} title="Appeals" count={counts.appeals}
-              text={`${data.names.get(data.appeals[0]?.userId) ?? 'A member'} asks to be restored`} onClick={() => onQueue('appeals')} />}
-            {counts.backers > 0 && <WaitingRow icon={BadgeCheck} title="Backer claims" count={counts.backers}
-              text="Check them against your UPI app" onClick={() => onQueue('backers')} />}
-          </div>
-        )}
-      <h3 className="yd-heading mt-5">Live</h3>
-      <div className="yd-card">
-        <WaitingRow icon={Megaphone} title="Board broadcast" count={0} text={announcement ? `“${announcement.slice(0, 60)}”` : 'Nothing live'} onClick={onBroadcast} />
-      </div>
-    </div>
-  );
-}
 
 /**
  * The Admin Hub, opened by holding the Settings button or from Settings → Admin Hub.
@@ -156,7 +104,8 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
               {page?.kind === 'owner' && <AdminOwner data={data} page={page.page} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onOpenBackers={() => setBackersOpen(true)} onRefresh={reload} />}
               {!page && tab === 'home' && (
                 <AdminHome data={data} onQueue={(filter) => { setQueueFilter(filter); setTab('queue'); }}
-                  onBroadcast={() => (can(role, 'broadcast') ? setPage({ kind: 'community', page: 'broadcast' }) : setTab('community'))} />
+                  onBroadcast={() => (can(role, 'broadcast') ? setPage({ kind: 'community', page: 'broadcast' }) : setTab('community'))}
+                  onOwner={(next) => { setTab('owner'); if (next) setPage({ kind: 'owner', page: next }); }} />
               )}
               {!page && tab === 'queue' && <AdminQueue data={data} filter={queueFilter} onFilter={setQueueFilter} onRefresh={reload} onOpenBackers={() => setBackersOpen(true)} onOpenPerson={openPerson} />}
               {!page && tab === 'people' && <PeopleList key={peopleKey} role={role} onOpen={openPerson} />}

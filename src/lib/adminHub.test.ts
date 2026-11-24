@@ -107,12 +107,12 @@ describe('server answers', () => {
   it('reads the growth report', () => {
     const report = parseGrowthReport({
       accounts: 222, confirmed: 191, started: 40, came_back: 10, active_7d: 9, active_30d: 21, new_7d: 14, new_7d_confirmed: 9, studying_now: 3,
-      weeks: [{ week: '2026-11-16', signups: 14, confirmed: 9, started: 4, came_back: 1, active_7d: 3 }],
+      weeks: [{ week: '2026-11-16', signups: 14, confirmed: 9, started: 4, came_back: 1, deleted: 2, active_7d: 3 }],
       before_v8: { signups: 120, started: 20, came_back: 4 }, since_v8: { signups: 102, started: 20, came_back: 6 },
       cleanup: { unconfirmed: 31, empty: 104 }, database_bytes: 43_000_000, largest_tables: [{ name: 'user_backups', bytes: 30_000_000 }],
     })!;
     expect(report.accounts).toBe(222);
-    expect(report.weeks[0]).toEqual({ week: '2026-11-16', signups: 14, confirmed: 9, started: 4, cameBack: 1, active7d: 3 });
+    expect(report.weeks[0]).toEqual({ week: '2026-11-16', signups: 14, confirmed: 9, started: 4, cameBack: 1, deleted: 2, active7d: 3 });
     expect(report.sinceV8).toEqual({ signups: 102, started: 20, cameBack: 6 });
     expect(report.cleanup).toEqual({ unconfirmed: 31, empty: 104 });
     expect(report.largestTables[0].name).toBe('user_backups');

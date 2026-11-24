@@ -134,7 +134,8 @@ export function parsePeoplePage(raw: unknown): PeoplePage {
   };
 }
 
-export interface GrowthWeek { week: string; signups: number; confirmed: number; started: number; cameBack: number; active7d: number }
+/** Seven days ending on the week's last day; deleted accounts still count in the week they signed up. */
+export interface GrowthWeek { week: string; signups: number; confirmed: number; started: number; cameBack: number; deleted: number; active7d: number }
 export interface GrowthSplit { signups: number; started: number; cameBack: number }
 /** One day (India time): phones that opened YouDO, new accounts, and Board members who focused. */
 export interface GrowthDay { day: string; opened: number; signedIn: number; withoutAccount: number; newAccounts: number; newConfirmed: number; studied: number }
@@ -178,7 +179,7 @@ export function parseGrowthReport(raw: unknown): GrowthReport | null {
     studyingNow: num(row.studying_now),
     weeks: (Array.isArray(row.weeks) ? row.weeks : []).map((item) => {
       const week = (item ?? {}) as Record<string, unknown>;
-      return { week: String(week.week ?? ''), signups: num(week.signups), confirmed: num(week.confirmed), started: num(week.started), cameBack: num(week.came_back), active7d: num(week.active_7d) };
+      return { week: String(week.week ?? ''), signups: num(week.signups), confirmed: num(week.confirmed), started: num(week.started), cameBack: num(week.came_back), deleted: num(week.deleted), active7d: num(week.active_7d) };
     }),
     beforeV8: split(row.before_v8), sinceV8: split(row.since_v8),
     cleanup: { unconfirmed: num(cleanup.unconfirmed), empty: num(cleanup.empty) },

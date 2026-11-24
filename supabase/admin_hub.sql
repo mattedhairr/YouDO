@@ -277,19 +277,34 @@ begin
       (f.last_active_at > f.created_at + interval '1 day') as came_back
     from public.admin_account_facts() f
   ), weeks_list as (
-    select pg_catalog.generate_series(
-      pg_catalog.date_trunc('week', pg_catalog.now()) - ((span - 1) * interval '1 week'),
-      pg_catalog.date_trunc('week', pg_catalog.now()), interval '1 week') as week_start
+    -- Weeks of 7 days ending today (India time), so this week is never half a week.
+    select today - 7 * g - 6 as first_day, today - 7 * g as last_day
+    from pg_catalog.generate_series(0, span - 1) g
   ), cohorts as (
-    select w.week_start,
-      count(f.user_id) as signups,
-      count(f.user_id) filter (where f.email_confirmed_at is not null) as confirmed,
-      count(f.user_id) filter (where f.started) as started,
-      count(f.user_id) filter (where f.started and f.came_back) as came_back,
-      count(f.user_id) filter (where f.last_active_at >= pg_catalog.now() - interval '7 days') as active_7d
+    -- Deleted accounts still count in the week they signed up.
+    select w.first_day as week_start,
+      l.signups + d.signups as signups,
+      l.confirmed + d.confirmed as confirmed,
+      l.started + d.started as started,
+      l.came_back + d.came_back as came_back,
+      d.signups as deleted,
+      l.active_7d
     from weeks_list w
-    left join facts f on f.created_at >= w.week_start and f.created_at < w.week_start + interval '1 week'
-    group by w.week_start
+    cross join lateral (
+      select count(*) as signups,
+        count(*) filter (where f.email_confirmed_at is not null) as confirmed,
+        count(*) filter (where f.started) as started,
+        count(*) filter (where f.started and f.came_back) as came_back,
+        count(*) filter (where f.last_active_at >= pg_catalog.now() - interval '7 days') as active_7d
+      from facts f where (f.created_at at time zone 'Asia/Kolkata')::date between w.first_day and w.last_day
+    ) l
+    cross join lateral (
+      select count(*) as signups,
+        count(*) filter (where x.confirmed) as confirmed,
+        count(*) filter (where x.started) as started,
+        count(*) filter (where x.started and x.came_back) as came_back
+      from public.deleted_accounts x where (x.signed_up_at at time zone 'Asia/Kolkata')::date between w.first_day and w.last_day
+    ) d
   ), days as (
     select pg_catalog.generate_series(today - 29, today, interval '1 day')::date as day
   ), daily as (
@@ -317,7 +332,7 @@ begin
     'new_7d_confirmed', (select count(*) from facts where created_at >= pg_catalog.now() - interval '7 days' and email_confirmed_at is not null),
     'studying_now', (select count(*) from public.focus_status s where s.state = 'focusing' and s.updated_at >= pg_catalog.now() - interval '12 hours'),
     'weeks', (select jsonb_agg(jsonb_build_object('week', c.week_start::date, 'signups', c.signups, 'confirmed', c.confirmed,
-        'started', c.started, 'came_back', c.came_back, 'active_7d', c.active_7d) order by c.week_start) from cohorts c),
+        'started', c.started, 'came_back', c.came_back, 'deleted', c.deleted, 'active_7d', c.active_7d) order by c.week_start) from cohorts c),
     'days', (select jsonb_agg(jsonb_build_object('day', y.day, 'opened', y.opened, 'signed_in', y.signed_in,
         'without_account', y.without_account, 'new_accounts', y.new_accounts, 'new_confirmed', y.new_confirmed,
         'studied', y.studied) order by y.day) from daily y),

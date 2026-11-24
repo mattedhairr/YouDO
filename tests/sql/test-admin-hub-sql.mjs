@@ -170,6 +170,10 @@ try {
   check(after.deleted.count === 2 && after.deleted.confirmed === 1, 'each deleted account leaves one anonymous line');
   check(after.days.reduce((sum, d) => sum + d.new_accounts, 0) === opens.days.reduce((sum, d) => sum + d.new_accounts, 0), 'deleting never changes the sign-up history');
   check(after.this_week.opened === 2, 'or the opens');
+  const signups = (report) => report.weeks.map((w) => w.signups).join();
+  check(signups(after) === signups(opens), 'or the sign-ups of any week');
+  check(after.weeks.reduce((sum, w) => sum + w.deleted, 0) === 1 && after.weeks[10].deleted === 1, 'the account deleted 10 days after signing up counts in its own week');
+  check(after.weeks[11].week === opens.days[23].day && after.weeks[11].signups === 2, 'this week is the last 7 days (sign-ups 2 and 6 days ago)');
   await db.query('select public.set_community_settings(true, true, $1)', ['']);
   check(true, 'the owner still controls the room');
 

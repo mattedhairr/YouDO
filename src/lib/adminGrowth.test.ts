@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./supabase', () => ({ supabase: {}, supabaseAnonKey: '', supabaseUrl: '' }));
 
-import { biggestDrop, cleanupLine, dayDetail, growthFunnel, parseCleanupList, parseReleases, weekChange } from './adminGrowth';
-import type { GrowthReport } from './adminHub';
+import {
+  arrivalsReadout, biggestDrop, changeAgainst, cleanupLine, growthFunnel, parseCleanupList, parseReleases, peopleReadout, sameDayLastWeek,
+  usualDay, usualWeek, worthALook,
+} from './adminGrowth';
+import type { GrowthDay, GrowthReport, GrowthWeek } from './adminHub';
 
 // Made-up numbers.
 const growth = {
@@ -12,10 +15,10 @@ const growth = {
 } as GrowthReport;
 
 describe('growth', () => {
-  it('says how this week compares', () => {
-    expect(weekChange(38, 32)).toEqual({ label: '▲ 6', trend: 'up' });
-    expect(weekChange(7, 9)).toEqual({ label: '▼ 2', trend: 'down' });
-    expect(weekChange(4, 4).trend).toBe('same');
+  it('says how a number compares, in words', () => {
+    expect(changeAgainst(38, 32, 'last week')).toEqual({ label: '▲ 6 more than last week', trend: 'up' });
+    expect(changeAgainst(7, 9, 'a usual week')).toEqual({ label: '▼ 2 fewer than a usual week', trend: 'down' });
+    expect(changeAgainst(4, 4, 'last week')).toEqual({ label: 'Same as last week', trend: 'same' });
   });
 
   it('counts deleted accounts in the funnel, so a cleanup never rewrites it', () => {
@@ -29,11 +32,93 @@ describe('growth', () => {
   it('finds where most people stop', () => {
     expect(biggestDrop(growthFunnel(growth))).toEqual({ from: 'Confirmed their email', to: 'Made a plan or joined the Board', lost: 77 });
   });
+});
 
-  it('reads a tapped day in plain words', () => {
-    expect(dayDetail({ day: '2026-11-18', opened: 21, signedIn: 15, withoutAccount: 6, newAccounts: 2, newConfirmed: 1, studied: 7 }))
-      .toEqual(['21 opened YouDO', '15 signed in · 6 without an account', '2 new accounts (1 confirmed)', '7 focused on the Board']);
-    expect(dayDetail({ day: '2026-11-01', opened: 0, signedIn: 0, withoutAccount: 0, newAccounts: 1, newConfirmed: 0, studied: 0 })[1]).toBe('1 new account (0 confirmed)');
+// 30 made-up days: 1–20 Nov before counting, 21–30 Nov counted, 30 Nov is today.
+const iso = (n: number) => `2026-11-${String(n).padStart(2, '0')}`;
+const opened = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 18, 20, 14, 22, 16, 18, 21, 9, 5];
+const days: GrowthDay[] = opened.map((count, index) => ({
+  day: iso(index + 1), opened: count, signedIn: count - Math.floor(count / 3), withoutAccount: Math.floor(count / 3), newAccounts: 0, newConfirmed: 0, studied: 2,
+}));
+const week = (n: number, signups: number, deleted = 0): GrowthWeek => ({ week: `2026-09-${String(n).padStart(2, '0')}`, signups, confirmed: signups - 1, started: 2, cameBack: 1, deleted, active7d: 1 });
+const report = {
+  ...growth,
+  days,
+  opensSince: '2026-11-21',
+  thisWeek: { opened: 38, withoutAccount: 11, regulars: 9, newAccounts: 7 },
+  lastWeek: { opened: 32, withoutAccount: 9, regulars: 7, newAccounts: 9 },
+  weeks: [week(1, 11), week(8, 9, 2), week(15, 6), week(22, 7)],
+  cleanup: { unconfirmed: 0, empty: 0 },
+  databaseBytes: 40 * 1024 * 1024,
+  largestTables: [],
+} as GrowthReport;
+const name = (day: string) => `day ${day.slice(8)}`;
+
+describe('people using YouDO', () => {
+  it('a usual day is the average of counted, finished days', () => {
+    expect(usualDay(days, report.opensSince)).toBe(17); // 21–29 Nov, not today
+    expect(usualDay(days, undefined)).toBeNull();
+    expect(usualDay(days.slice(0, 22), report.opensSince)).toBeNull(); // one counted day is not enough
+  });
+
+  it('shows this week against last until a day is tapped', () => {
+    expect(peopleReadout(report, null, name)).toMatchObject({
+      when: 'This week', picked: false, value: 38, change: { label: '▲ 6 more than last week' },
+      facts: [{ value: 27, label: 'signed in' }, { value: 11, label: 'without an account' }, { value: 9, label: 'regulars, 3+ days' }],
+    });
+    expect(peopleReadout({ ...report, opensSince: undefined }, null, name)).toMatchObject({ value: null, note: 'Counting starts once people install v9.' });
+  });
+
+  it('a tapped day is compared with a usual day; today has no comparison yet', () => {
+    expect(peopleReadout(report, 24, name)).toMatchObject({
+      when: 'day 25', picked: true, value: 22, change: { label: '▲ 5 more than a usual day', trend: 'up' },
+      facts: [{ value: 15 }, { value: 7 }, { value: 17, label: 'a usual day' }],
+    });
+    expect(peopleReadout(report, 29, name)).toMatchObject({ when: 'Today so far', value: 5, change: undefined });
+    expect(peopleReadout(report, 3, name)).toMatchObject({ value: null, note: 'Not counted: counting started with v9.' });
+  });
+
+  it('compares today with the same weekday last week', () => {
+    expect(sameDayLastWeek(report, name)).toEqual({ label: '▼ 15 fewer than last day 23', trend: 'down' });
+    expect(sameDayLastWeek({ ...report, opensSince: '2026-11-25' }, name)).toBeNull();
+  });
+});
+
+describe('new people arriving', () => {
+  it('shows this week against last, then a tapped week against a usual one', () => {
+    expect(arrivalsReadout(report, null, name)).toMatchObject({
+      when: 'This week', picked: false, value: 7, change: { label: '▲ 1 more than last week' },
+      facts: [{ value: 6, label: 'confirmed' }, { value: 1, label: 'not yet' }, { value: 2 }],
+    });
+    expect(arrivalsReadout(report, 1, name)).toMatchObject({
+      when: 'Week of day 08', picked: true, value: 9, change: { label: '▲ 1 more than a usual week' },
+      facts: [{ value: 8, label: 'confirmed' }, { value: 2 }, { value: 1, label: 'came back after day one' }],
+      note: 'Includes 2 since deleted.',
+    });
+    expect(usualWeek(report.weeks.slice(0, 2))).toBeNull();
+  });
+});
+
+describe('worth a look', () => {
+  const now = Date.parse('2026-11-30T12:00:00Z');
+  it('stays empty when nothing is unusual', () => {
+    expect(worthALook({ ...report, days: days.slice(0, 29) }, null, now)).toEqual([]);
+  });
+
+  it('flags a quiet yesterday only once a week of days is counted', () => {
+    // 29 Nov had 9 against a usual 18 (21–28 Nov).
+    expect(worthALook(report, null, now)).toEqual([{ id: 'fewer', title: 'Fewer people than usual', text: 'Yesterday 9, a usual day is 18.' }]);
+    expect(worthALook({ ...report, opensSince: '2026-11-24' }, null, now)).toEqual([]);
+  });
+
+  it('flags cleanup, a full database and a new release', () => {
+    const busy = { ...report, opensSince: undefined, cleanup: { unconfirmed: 12, empty: 6 }, databaseBytes: 420 * 1024 * 1024, largestTables: [{ name: 'user_backups', bytes: 1 }] };
+    expect(worthALook(busy, { version: '9.0.0', publishedAt: '2026-11-28T09:00:00Z', downloads: 64 }, now)).toEqual([
+      { id: 'cleanup', title: '18 accounts to clean up', text: 'Never confirmed or nothing saved.' },
+      { id: 'database', title: 'Database 84% full', text: 'Of the free 500 MB. Largest: user backups.' },
+      { id: 'downloads', title: 'v9.0.0: 64 downloads', text: 'Since it came out 2 days ago.' },
+    ]);
+    expect(worthALook(busy, { version: '8.9.0', publishedAt: '2026-11-01T09:00:00Z', downloads: 118 }, now).map((item) => item.id)).toEqual(['cleanup', 'database']);
   });
 });
 

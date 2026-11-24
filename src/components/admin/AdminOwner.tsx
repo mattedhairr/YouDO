@@ -2,27 +2,57 @@ import { useEffect, useState } from 'react';
 import { BadgeCheck, Check, ChevronRight, Crown, Database, Heart, Search } from 'lucide-react';
 import { fetchPeople, formatBytes, personLabel, type AdminPerson, type GrowthReport } from '../../lib/adminHub';
 import {
-  biggestDrop, cleanupLine, DAY_METRICS, dayDetail, DEFAULT_CLEANUP_FILTERS, deleteChosenAccounts, fetchCleanupList, fetchReleaseDownloads,
-  growthFunnel, weekChange, type CleanupFilters, type CleanupKind, type CleanupList, type CleanupSignIn, type DayMetric, type ReleaseDownloads,
+  arrivalsReadout, biggestDrop, cleanupLine, DEFAULT_CLEANUP_FILTERS, deleteChosenAccounts, fetchCleanupList, fetchReleaseDownloads, FREE_DATABASE_BYTES,
+  growthFunnel, isCounted, peopleReadout, usualDay, type CleanupFilters, type CleanupKind, type CleanupList, type CleanupSignIn, type Readout, type ReleaseDownloads,
 } from '../../lib/adminGrowth';
 import { hapticWarn } from '../../lib/haptics';
 import SupportSettingsAdmin from '../community/SupportSettingsAdmin';
 import type { AdminHubData } from './useAdminHubData';
 import type { OwnerPage } from './adminHubShared';
 
-/** Supabase's free plan: the bar shows how much of it is used. */
-const FREE_DATABASE_BYTES = 500 * 1024 * 1024;
-const shortDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+const shortDay = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 const longDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
-function Trend({ now, before }: { now: number; before: number }) {
-  const change = weekChange(now, before);
-  return <small className={`ah-trend is-${change.trend}`}>{change.trend === 'same' ? 'same as last week' : `${change.label} on last week`}</small>;
+/** One readout per chart: this week until a bar is tapped, then that bar. */
+function ReadoutHead({ readout, span, onClear }: { readout: Readout; span: string; onClear: () => void }) {
+  return (
+    <div aria-live="polite">
+      <div className="ah-ro-top">
+        <span className="ah-when">{readout.when}</span>
+        {readout.picked
+          ? <button type="button" className="ah-ro-chip is-clear" onClick={onClear}>✕ This week</button>
+          : <span className="ah-ro-chip">{span}</span>}
+      </div>
+      <p className="ah-big">{readout.value ?? '–'}<em>{readout.unit}</em></p>
+      {readout.change && <span className={`ah-cmp is-${readout.change.trend}`}>{readout.change.label}</span>}
+      {readout.facts.length > 0 && (
+        <div className="ah-facts">
+          {readout.facts.map((fact) => (
+            <div key={fact.label}><b>{fact.value}</b><span>{fact.key && <i className={`ah-key is-${fact.key}`} aria-hidden />}{fact.label}</span></div>
+          ))}
+        </div>
+      )}
+      {readout.note && <p className="ah-note mt-2">{readout.note}</p>}
+    </div>
+  );
+}
+
+/** A stacked bar: the main part (signed in, confirmed) below the rest. */
+function Bar({ total, main, peak, flat, tone, label, picked, onClick }: {
+  total: number; main: number; peak: number; flat?: boolean; tone: 'is-week' | ''; label: string; picked: boolean; onClick: () => void;
+}) {
+  const height = flat ? 0 : Math.max(total ? 4 : 0, (total / peak) * 100);
+  const mainShare = total ? (main / total) * 100 : 0;
+  return (
+    <button type="button" className={`ah-bar ${tone} ${picked ? 'is-picked' : ''} ${flat ? 'is-flat' : ''}`} onClick={onClick} aria-label={label} aria-pressed={picked}>
+      <span style={{ height: flat ? undefined : `${height}%` }}><i className="is-rest" /><i className="is-main" style={{ height: `${mainShare}%` }} /></span>
+    </button>
+  );
 }
 
 function Growth({ growth }: { growth: GrowthReport }) {
-  const [metric, setMetric] = useState<DayMetric>('opened');
-  const [picked, setPicked] = useState(growth.days.length - 1);
+  const [day, setDay] = useState<number | null>(null);
+  const [week, setWeek] = useState<number | null>(null);
   const [downloads, setDownloads] = useState<ReleaseDownloads[] | null>(null);
   const [downloadsError, setDownloadsError] = useState('');
   useEffect(() => {
@@ -32,80 +62,91 @@ function Growth({ growth }: { growth: GrowthReport }) {
     return () => { live = false; };
   }, []);
 
-  const counting = Boolean(growth.opensSince);
-  const { thisWeek, lastWeek } = growth;
-  const values = growth.days.map((day) => day[metric]);
-  const peak = Math.max(1, ...values);
-  const day = growth.days[picked] ?? growth.days[growth.days.length - 1];
+  const { days, weeks, opensSince } = growth;
+  const people = peopleReadout(growth, day, longDay);
+  const arrivals = arrivalsReadout(growth, week, shortDay);
+  const usual = usualDay(days, opensSince);
+  const dayPeak = Math.max(1, usual ?? 0, ...days.filter((item) => isCounted(item, opensSince)).map((item) => item.opened));
+  const weekPeak = Math.max(1, ...weeks.map((item) => item.signups));
   const steps = growthFunnel(growth);
   const drop = biggestDrop(steps);
   const first = steps[0]?.count || 1;
   return (
     <>
-      <h3 className="yd-heading">This week</h3>
-      <div className="ah-tiles">
-        <div className="ah-tile"><strong>{counting ? thisWeek.opened : '–'}</strong><span>Opened YouDO</span>{counting ? <Trend now={thisWeek.opened} before={lastWeek.opened} /> : <small>counting starts with v9</small>}</div>
-        <div className="ah-tile"><strong>{thisWeek.newAccounts}</strong><span>New accounts</span><Trend now={thisWeek.newAccounts} before={lastWeek.newAccounts} /></div>
-        <div className="ah-tile"><strong>{counting ? thisWeek.withoutAccount : '–'}</strong><span>Without an account</span><small>phones, no sign-in</small></div>
-        <div className="ah-tile"><strong>{counting ? thisWeek.regulars : '–'}</strong><span>Regulars</span>{counting ? <Trend now={thisWeek.regulars} before={lastWeek.regulars} /> : <small>opened it on 3+ days</small>}</div>
-      </div>
-
-      {growth.days.length > 0 && day && (
+      <section className="yd-section">
+        <h3 className="yd-heading">People using YouDO</h3>
         <div className="yd-card yd-block">
-          <div className="flex items-baseline justify-between"><p className="yd-row-title">Every day</p><span className="ah-note">last {growth.days.length} days</span></div>
-          <div className="ah-seg" role="group" aria-label="Show">
-            {DAY_METRICS.map((item) => (
-              <button key={item.id} type="button" aria-pressed={metric === item.id} onClick={() => setMetric(item.id)}>{item.label}</button>
+          <ReadoutHead readout={people} span={`last ${days.length} days`} onClear={() => setDay(null)} />
+          {days.length > 0 && (
+            <>
+              <div className="ah-bars is-days">
+                {days.map((item, index) => {
+                  const counted = isCounted(item, opensSince);
+                  return (
+                    <Bar key={item.day} total={item.opened} main={item.signedIn} peak={dayPeak} flat={!counted}
+                      tone={day === null && index >= days.length - 7 ? 'is-week' : ''} picked={day === index}
+                      label={`${longDay(item.day)}: ${counted ? `${item.opened} people` : 'not counted'}`}
+                      onClick={() => setDay(day === index ? null : index)} />
+                  );
+                })}
+                {usual !== null && <div className="ah-usual" style={{ bottom: `${(usual / dayPeak) * 100}%` }}><span>usual day {usual}</span></div>}
+              </div>
+              <div className="ah-axis"><span>{shortDay(days[0].day)}</span><span>{shortDay(days[Math.floor(days.length / 2)].day)}</span><span>today</span></div>
+            </>
+          )}
+          {day === null && <p className="ah-note mt-2">Tap a day to see it. {opensSince ? `Counting started ${shortDay(opensSince)}, with v9.` : 'Counting starts with v9.'}</p>}
+        </div>
+
+      </section>
+
+      <section className="yd-section">
+        <h3 className="yd-heading">New people arriving</h3>
+        <div className="yd-card yd-block">
+          <ReadoutHead readout={arrivals} span={`last ${weeks.length} weeks`} onClear={() => setWeek(null)} />
+          {weeks.length > 0 && (
+            <>
+              <div className="ah-bars is-weeks">
+                {weeks.map((item, index) => (
+                  <Bar key={item.week} total={item.signups} main={item.confirmed} peak={weekPeak}
+                    tone={week === null && index === weeks.length - 1 ? 'is-week' : ''} picked={week === index}
+                    label={`Week of ${shortDay(item.week)}: ${item.signups} new accounts`}
+                    onClick={() => setWeek(week === index ? null : index)} />
+                ))}
+              </div>
+              <div className="ah-axis"><span>{shortDay(weeks[0].week)}</span><span>{shortDay(weeks[Math.floor(weeks.length / 2)].week)}</span><span>this week</span></div>
+            </>
+          )}
+          {week === null && <p className="ah-note mt-2">Tap a week to see it. Deleted accounts still count in the week they signed up.</p>}
+        </div>
+
+        <div className="yd-card yd-block mt-3">
+          <p className="yd-row-title">From sign-up to habit</p>
+          <div className="ah-funnel">
+            {steps.map((step) => (
+              <div key={step.label}>
+                <div className="ah-funnel-top"><span>{step.label}</span><span>{step.count}{step.percent !== undefined && <em> · {step.percent}%</em>}</span></div>
+                <div className="ah-meter"><i style={{ width: `${Math.max(1, (step.count / first) * 100)}%` }} /></div>
+              </div>
             ))}
           </div>
-          <div className="ah-day-tip" aria-live="polite">
-            <b>{longDay(day.day)}</b>
-            {dayDetail(day).map((line) => <span key={line}>{line}</span>)}
-          </div>
-          <div className="ah-days">
-            {growth.days.map((item, index) => (
-              <button key={item.day} type="button" className={index === picked ? 'is-picked' : ''} onClick={() => setPicked(index)}
-                aria-label={`${longDay(item.day)}: ${item[metric]}`} aria-pressed={index === picked}>
-                <i style={{ height: `${Math.max(3, (item[metric] / peak) * 100)}%` }} />
-              </button>
-            ))}
-          </div>
-          <div className="ah-axis"><span>{shortDay(growth.days[0].day)}</span><span>{shortDay(growth.days[Math.floor(growth.days.length / 2)].day)}</span><span>today</span></div>
           <p className="ah-note mt-2">
-            {metric === 'opened' ? (counting ? `Each phone counts once a day, from ${shortDay(growth.opensSince ?? '')}. Tap a day to see it.` : 'Counting starts once people install v9. Tap a day to see it.')
-              : metric === 'studied' ? 'Board members who ran a focus session that day. Tap a day to see it.'
-                : 'Sign-ups that day, deleted accounts included. Tap a day to see it.'}
+            {drop ? `Most people stop between “${drop.from.toLowerCase()}” and “${drop.to.toLowerCase()}” (${drop.lost}).` : 'Too few people yet to see where they stop.'}
+            {growth.deleted.count > 0 ? ` Includes ${growth.deleted.count} deleted ${growth.deleted.count === 1 ? 'account' : 'accounts'}, so cleanups never change it.` : ''}
           </p>
         </div>
-      )}
 
-      <div className="yd-card yd-block mt-3">
-        <p className="yd-row-title">From sign-up to habit</p>
-        <div className="ah-funnel">
-          {steps.map((step) => (
-            <div key={step.label}>
-              <div className="ah-funnel-top"><span>{step.label}</span><span>{step.count}{step.percent !== undefined && <em> · {step.percent}%</em>}</span></div>
-              <div className="ah-meter"><i style={{ width: `${Math.max(1, (step.count / first) * 100)}%` }} /></div>
+        <div className="yd-card yd-block mt-3">
+          <p className="yd-row-title">Downloads</p>
+          {downloads === null ? <p className="ah-note mt-2">{downloadsError || 'Asking GitHub…'}</p> : (
+            <div className="ah-list">
+              {downloads.slice(0, 4).map((release) => (
+                <div key={release.version}><span>v{release.version}{release.publishedAt ? ` · ${shortDay(release.publishedAt)}` : ''}</span><b>{release.downloads}</b></div>
+              ))}
             </div>
-          ))}
+          )}
+          <p className="ah-note mt-2">From GitHub: the website, in-app updates and Orion Store. APKs posted in Telegram aren’t counted (Telegram shows views on the post). Each update counts again.</p>
         </div>
-        <p className="ah-note mt-2">
-          {drop ? `Most people stop between “${drop.from.toLowerCase()}” and “${drop.to.toLowerCase()}” (${drop.lost}).` : 'Too few people yet to see where they stop.'}
-          {growth.deleted.count > 0 ? ` Includes ${growth.deleted.count} deleted ${growth.deleted.count === 1 ? 'account' : 'accounts'}, so cleanups never change it.` : ''}
-        </p>
-      </div>
-
-      <div className="yd-card yd-block mt-3">
-        <p className="yd-row-title">Downloads</p>
-        {downloads === null ? <p className="ah-note mt-2">{downloadsError || 'Asking GitHub…'}</p> : (
-          <div className="ah-list">
-            {downloads.slice(0, 4).map((release) => (
-              <div key={release.version}><span>v{release.version}{release.publishedAt ? ` · ${shortDay(release.publishedAt)}` : ''}</span><b>{release.downloads}</b></div>
-            ))}
-          </div>
-        )}
-        <p className="ah-note mt-2">From GitHub: the website, in-app updates and Orion Store. APKs posted in Telegram aren’t counted (Telegram shows views on the post). Each update counts again.</p>
-      </div>
+      </section>
     </>
   );
 }
@@ -296,20 +337,20 @@ export default function AdminOwner({ data, page, onPage, onOpenPerson, onOpenBac
         </div>
       </section>
       <section className="yd-section">
-        <h3 className="yd-heading">Money</h3>
-        <div className="yd-card">
-          <button type="button" className="yd-row" onClick={() => onPage('support')}>
-            <span className="yd-tile" aria-hidden><Heart size={18} /></span>
-            <span className="yd-row-main"><span className="yd-row-title">Support YouDO</span><span className="yd-row-text">UPI ID, QR code and claims</span></span>
-            <ChevronRight size={17} className="text-content-muted" aria-hidden />
-          </button>
-          <button type="button" className="yd-row" onClick={onOpenBackers}>
-            <span className="yd-tile" aria-hidden><BadgeCheck size={18} /></span>
-            <span className="yd-row-main"><span className="yd-row-title">Backer claims</span>
-              <span className={`yd-row-text ${data.pendingBackers ? 'is-on' : ''}`}>{data.pendingBackers ? `${data.pendingBackers} waiting` : 'None waiting'}</span></span>
-            <ChevronRight size={17} className="text-content-muted" aria-hidden />
-          </button>
-        </div>
+          <h3 className="yd-heading">Money</h3>
+          <div className="yd-card">
+            <button type="button" className="yd-row" onClick={() => onPage('support')}>
+              <span className="yd-tile" aria-hidden><Heart size={18} /></span>
+              <span className="yd-row-main"><span className="yd-row-title">Support YouDO</span><span className="yd-row-text">UPI ID, QR code and claims</span></span>
+              <ChevronRight size={17} className="text-content-muted" aria-hidden />
+            </button>
+            <button type="button" className="yd-row" onClick={onOpenBackers}>
+              <span className="yd-tile" aria-hidden><BadgeCheck size={18} /></span>
+              <span className="yd-row-main"><span className="yd-row-title">Backer claims</span>
+                <span className={`yd-row-text ${data.pendingBackers ? 'is-on' : ''}`}>{data.pendingBackers ? `${data.pendingBackers} waiting` : 'None waiting'}</span></span>
+              <ChevronRight size={17} className="text-content-muted" aria-hidden />
+            </button>
+          </div>
       </section>
       {growth && (
         <section className="yd-section">

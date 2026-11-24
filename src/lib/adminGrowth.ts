@@ -1,34 +1,116 @@
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
-import type { GrowthDay, GrowthReport } from './adminHub';
+import type { GrowthDay, GrowthReport, GrowthWeek } from './adminHub';
 
 /**
- * The Owner tab's Growth and Account cleanup (supabase/admin_hub.sql), and
- * downloads from GitHub Releases. Pure helpers first, then the server calls.
+ * The Owner tab's Growth and Account cleanup (supabase/admin_hub.sql), the
+ * Admin Hub Home's "Worth a look", and downloads from GitHub Releases.
+ * Pure helpers first, then the server calls.
  */
 
-/** This week against last week: "▲ 6", "▼ 2" or "same". */
-export function weekChange(now: number, before: number): { label: string; trend: 'up' | 'down' | 'same' } {
-  const diff = now - before;
-  if (diff > 0) return { label: `▲ ${diff}`, trend: 'up' };
-  if (diff < 0) return { label: `▼ ${-diff}`, trend: 'down' };
-  return { label: 'same', trend: 'same' };
+export interface Change { label: string; trend: 'up' | 'down' | 'same' }
+
+/** "▲ 6 more than last week", "▼ 3 fewer than a usual day" or "Same as last week". */
+export function changeAgainst(now: number, before: number, what: string): Change {
+  const diff = Math.round(now - before);
+  if (diff > 0) return { label: `▲ ${diff} more than ${what}`, trend: 'up' };
+  if (diff < 0) return { label: `▼ ${-diff} fewer than ${what}`, trend: 'down' };
+  return { label: `Same as ${what}`, trend: 'same' };
 }
 
-export type DayMetric = 'opened' | 'newAccounts' | 'studied';
+/** Opens are counted from v9 on; earlier days show flat. */
+export function isCounted(day: Pick<GrowthDay, 'day'>, opensSince: string | undefined): boolean {
+  return Boolean(opensSince) && day.day >= (opensSince ?? '');
+}
 
-export const DAY_METRICS: { id: DayMetric; label: string }[] = [
-  { id: 'opened', label: 'Opened' },
-  { id: 'newAccounts', label: 'New accounts' },
-  { id: 'studied', label: 'Studied' },
-];
+/** A usual day: the average of the counted days before `before` (today by default, which is still going), or null below 3 days. */
+export function usualDay(days: GrowthDay[], opensSince: string | undefined, before = days.length - 1): number | null {
+  const counted = days.slice(0, Math.max(0, before)).filter((day) => isCounted(day, opensSince));
+  if (counted.length < 3) return null;
+  return Math.round(counted.reduce((sum, day) => sum + day.opened, 0) / counted.length);
+}
 
-/** What a tapped day says, in plain words. */
-export function dayDetail(day: GrowthDay): string[] {
-  const lines = [`${day.opened} opened YouDO`];
-  if (day.opened) lines.push(`${day.signedIn} signed in · ${day.withoutAccount} without an account`);
-  lines.push(`${day.newAccounts} new ${day.newAccounts === 1 ? 'account' : 'accounts'}${day.newAccounts ? ` (${day.newConfirmed} confirmed)` : ''}`);
-  lines.push(`${day.studied} focused on the Board`);
-  return lines;
+/** A usual week: the average of the weeks shown, or null below 3 weeks. */
+export function usualWeek(weeks: GrowthWeek[]): number | null {
+  if (weeks.length < 3) return null;
+  return Math.round(weeks.reduce((sum, week) => sum + week.signups, 0) / weeks.length);
+}
+
+export interface ReadoutFact { value: number; label: string; key?: 'main' | 'rest' }
+export interface Readout { when: string; picked: boolean; value: number | null; unit: string; change?: Change; facts: ReadoutFact[]; note?: string }
+
+const peopleUnit = (count: number) => (count === 1 ? 'person opened YouDO' : 'people opened YouDO');
+
+/** People using YouDO: this week until a day is tapped, then that day against a usual one. */
+export function peopleReadout(growth: GrowthReport, picked: number | null, dayName: (iso: string) => string): Readout {
+  const day = picked === null ? undefined : growth.days[picked];
+  if (!day) {
+    const { thisWeek, lastWeek } = growth;
+    if (!growth.opensSince) return { when: 'This week', picked: false, value: null, unit: 'people opened YouDO', facts: [], note: 'Counting starts once people install v9.' };
+    return {
+      when: 'This week', picked: false, value: thisWeek.opened, unit: peopleUnit(thisWeek.opened),
+      change: changeAgainst(thisWeek.opened, lastWeek.opened, 'last week'),
+      facts: [
+        { value: thisWeek.opened - thisWeek.withoutAccount, label: 'signed in', key: 'main' },
+        { value: thisWeek.withoutAccount, label: 'without an account', key: 'rest' },
+        { value: thisWeek.regulars, label: 'regulars, 3+ days' },
+      ],
+    };
+  }
+  const isToday = picked === growth.days.length - 1;
+  const when = isToday ? 'Today so far' : dayName(day.day);
+  if (!isCounted(day, growth.opensSince)) {
+    return { when, picked: true, value: null, unit: 'people opened YouDO', facts: [], note: 'Not counted: counting started with v9.' };
+  }
+  const usual = usualDay(growth.days, growth.opensSince);
+  return {
+    when, picked: true, value: day.opened, unit: peopleUnit(day.opened),
+    change: usual === null || isToday ? undefined : changeAgainst(day.opened, usual, 'a usual day'),
+    facts: [
+      { value: day.signedIn, label: 'signed in', key: 'main' },
+      { value: day.withoutAccount, label: 'without an account', key: 'rest' },
+      ...(usual === null ? [] : [{ value: usual, label: 'a usual day' }]),
+    ],
+  };
+}
+
+/** New people arriving: this week against last until a week is tapped, then that week against a usual one. */
+export function arrivalsReadout(growth: GrowthReport, picked: number | null, dayName: (iso: string) => string): Readout {
+  const weeks = growth.weeks;
+  const last = weeks.length - 1;
+  const week = picked === null ? weeks[last] : weeks[picked];
+  if (!week) return { when: 'This week', picked: false, value: null, unit: 'new accounts', facts: [] };
+  const unit = week.signups === 1 ? 'new account' : 'new accounts';
+  if (week === weeks[last]) {
+    const before = weeks[last - 1];
+    return {
+      when: 'This week', picked: picked !== null, value: week.signups, unit,
+      change: before ? changeAgainst(week.signups, before.signups, 'last week') : undefined,
+      facts: [
+        { value: week.confirmed, label: 'confirmed', key: 'main' },
+        { value: week.signups - week.confirmed, label: 'not yet', key: 'rest' },
+        { value: week.started, label: 'made a plan or joined the Board' },
+      ],
+    };
+  }
+  const usual = usualWeek(weeks);
+  return {
+    when: `Week of ${dayName(week.week)}`, picked: true, value: week.signups, unit,
+    change: usual === null ? undefined : changeAgainst(week.signups, usual, 'a usual week'),
+    facts: [
+      { value: week.confirmed, label: 'confirmed', key: 'main' },
+      { value: week.started, label: 'made a plan or joined the Board' },
+      { value: week.cameBack, label: 'came back after day one' },
+    ],
+    note: week.deleted ? `Includes ${week.deleted} since deleted.` : undefined,
+  };
+}
+
+/** Today's opens against the same weekday last week, or null when that day wasn't counted. */
+export function sameDayLastWeek(growth: GrowthReport, dayName: (iso: string) => string): Change | null {
+  const today = growth.days[growth.days.length - 1];
+  const before = growth.days[growth.days.length - 8];
+  if (!today || !before || !isCounted(before, growth.opensSince)) return null;
+  return changeAgainst(today.opened, before.opened, `last ${dayName(before.day)}`);
 }
 
 export interface FunnelStep { label: string; count: number; percent?: number }
@@ -57,6 +139,43 @@ export function biggestDrop(steps: FunnelStep[]): { from: string; to: string; lo
     if (lost > 0 && (!best || lost > best.lost)) best = { from: steps[i - 1].label, to: steps[i].label, lost };
   }
   return best;
+}
+
+// ── Worth a look (Admin Hub Home): only what is unusual, each opening its screen ──
+
+/** Supabase's free plan. */
+export const FREE_DATABASE_BYTES = 500 * 1024 * 1024;
+const CLEANUP_WORTH_A_LOOK = 10;
+const DATABASE_WORTH_A_LOOK = 0.8;
+const RELEASE_WORTH_A_LOOK_DAYS = 14;
+
+export type LookId = 'fewer' | 'cleanup' | 'database' | 'downloads';
+export interface LookItem { id: LookId; title: string; text: string }
+
+export function worthALook(growth: GrowthReport, latest: ReleaseDownloads | null, now = Date.now()): LookItem[] {
+  const items: LookItem[] = [];
+  const yesterdayIndex = growth.days.length - 2;
+  const yesterday = growth.days[yesterdayIndex];
+  const counted = growth.days.slice(0, Math.max(0, yesterdayIndex)).filter((day) => isCounted(day, growth.opensSince)).length;
+  const usual = usualDay(growth.days, growth.opensSince, yesterdayIndex);
+  if (yesterday && usual !== null && counted >= 7 && isCounted(yesterday, growth.opensSince)
+    && yesterday.opened < usual * 0.75 && usual - yesterday.opened >= 3) {
+    items.push({ id: 'fewer', title: 'Fewer people than usual', text: `Yesterday ${yesterday.opened}, a usual day is ${usual}.` });
+  }
+  const cleanup = growth.cleanup.unconfirmed + growth.cleanup.empty;
+  if (cleanup >= CLEANUP_WORTH_A_LOOK) items.push({ id: 'cleanup', title: `${cleanup} accounts to clean up`, text: 'Never confirmed or nothing saved.' });
+  const used = growth.databaseBytes / FREE_DATABASE_BYTES;
+  if (used >= DATABASE_WORTH_A_LOOK) {
+    const largest = growth.largestTables[0];
+    items.push({ id: 'database', title: `Database ${Math.round(used * 100)}% full`, text: `Of the free 500 MB.${largest ? ` Largest: ${largest.name.replace(/_/g, ' ')}.` : ''}` });
+  }
+  const published = latest ? Date.parse(latest.publishedAt) : NaN;
+  const age = Math.floor((now - published) / 86_400_000);
+  if (latest && Number.isFinite(published) && age >= 0 && age < RELEASE_WORTH_A_LOOK_DAYS) {
+    const since = age === 0 ? 'today' : age === 1 ? 'yesterday' : `${age} days ago`;
+    items.push({ id: 'downloads', title: `v${latest.version}: ${latest.downloads} ${latest.downloads === 1 ? 'download' : 'downloads'}`, text: `Since it came out ${since}.` });
+  }
+  return items;
 }
 
 // ── Account cleanup ──

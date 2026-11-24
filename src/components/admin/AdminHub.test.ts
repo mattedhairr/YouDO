@@ -8,6 +8,7 @@ vi.mock('../../hooks/useUiPrefs', () => ({ useUiPrefs: () => [{ liquidGlass: fal
 import AdminQueue from './AdminQueue';
 import AdminCommunity from './AdminCommunity';
 import AdminOwner from './AdminOwner';
+import AdminHome from './AdminHome';
 import { queueCounts } from './adminHubShared';
 import type { AdminHubData } from './useAdminHubData';
 import type { AdminRole } from '../../lib/adminHub';
@@ -39,7 +40,7 @@ function hub(role: AdminRole): AdminHubData {
     pendingBackers: 2,
     growth: role === 'owner' ? {
       accounts: 222, confirmed: 191, started: 40, cameBack: 10, active7d: 9, active30d: 21, new7d: 14, new7dConfirmed: 9, studyingNow: 3,
-      weeks: [{ week: '2026-11-17', signups: 14, confirmed: 9, started: 4, cameBack: 1, active7d: 3 }],
+      weeks: [{ week: '2026-11-17', signups: 14, confirmed: 9, started: 4, cameBack: 1, deleted: 0, active7d: 3 }],
       beforeV8: { signups: 120, started: 20, cameBack: 4 }, sinceV8: { signups: 102, started: 20, cameBack: 6 },
       cleanup: { unconfirmed: 31, empty: 104 }, databaseBytes: 43_000_000, largestTables: [],
       days: [{ day: '2026-11-24', opened: 12, signedIn: 8, withoutAccount: 4, newAccounts: 2, newConfirmed: 1, studied: 5 }],
@@ -102,14 +103,35 @@ describe('the Admin Hub', () => {
     const html = renderToStaticMarkup(createElement(AdminOwner, {
       data: hub('owner'), page: null, onPage: noop, onOpenPerson: noop, onOpenBackers: noop, onRefresh: refresh,
     }));
+    expect(html).toContain('People using YouDO');
     expect(html).toContain('This week');
-    expect(html).toContain('Regulars');
-    expect(html).toContain('▲ 2 on last week');
+    expect(html).toContain('30<em>people opened YouDO</em>');
+    expect(html).toContain('▲ 5 more than last week');
+    expect(html).toContain('regulars, 3+ days');
+    expect(html).toContain('New people arriving');
+    expect(html).toContain('14<em>new accounts</em>');
+    expect(html).not.toContain('Studied');
     expect(html).toContain('From sign-up to habit');
-    expect(html).toContain('12 opened YouDO');
     expect(html).toContain('Confirmed their email');
     expect(html).toContain('135 unconfirmed or empty');
     expect(html).toContain('2 waiting');
     expect(html).toContain('41 MB of 500 MB');
+  });
+
+  it('keeps Home to today and what needs you', () => {
+    const props = { onQueue: noop, onBroadcast: noop, onOwner: noop };
+    const owner = renderToStaticMarkup(createElement(AdminHome, { data: hub('owner'), ...props }));
+    expect(owner).toContain('Today so far');
+    expect(owner).toContain('Opened YouDO');
+    expect(owner).toContain('5 focused today');
+    expect(owner).toContain('1 confirmed');
+    expect(owner).toContain('Worth a look');
+    expect(owner).toContain('135 accounts to clean up');
+    expect(owner).not.toContain('Came back');
+    expect(owner).not.toContain('New this week');
+    const admin = renderToStaticMarkup(createElement(AdminHome, { data: hub('admin'), ...props }));
+    expect(admin).toContain('Used the Board today');
+    expect(admin).not.toContain('Opened YouDO');
+    expect(admin).not.toContain('Worth a look');
   });
 });

@@ -179,7 +179,8 @@ a random phone number, the app version and, when signed in, who), filled by
 `record_app_open`, the one function a signed-out app may call; it caps 50,000
 phones a day and keeps about a year. Deleting an account leaves one anonymous
 line in `deleted_accounts` (a trigger on `auth.users` that only warns on
-failure), so Growth's sign-up history never shrinks. `owner_cleanup_list` and
+failure), so Growth's sign-up history never shrinks (each of the 12 weeks in
+`owner_growth_report` is 7 days ending today and counts its deleted sign-ups). `owner_cleanup_list` and
 `owner_chosen_accounts_to_delete` give the cleanup its filters and ticks; the
 edge functions `owner-delete-accounts` and `delete-account` remove the
 person's photos before deleting. `community_room_members.sql` adds
