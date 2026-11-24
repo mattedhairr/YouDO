@@ -1,26 +1,31 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { ProfileAvatarVisual } from '../../lib/profileAvatar';
+import { BackerSeal, ProfileAvatarVisual } from '../../lib/profileAvatar';
 import './hub.css';
 
-/** A round avatar: photo, emoji or initial, with an optional status dot. */
+/** A round avatar: photo, emoji or initial, with an optional status dot. A
+ *  Founding Backer gets the gold ring (and the heart seal when large). */
 export function HubAvatar({
   url,
   name,
   size = 'md',
   dot,
+  backer = false,
 }: {
   url?: string | null;
   name?: string;
   size?: 'lg' | 'md' | 'sm' | 'xs';
   dot?: 'unread' | 'live';
+  backer?: boolean;
 }) {
   return (
-    <span className={`hub-avatar ${size === 'md' ? '' : `is-${size}`}`}>
+    <span className={`hub-avatar ${size === 'md' ? '' : `is-${size}`} ${backer ? 'yd-backer-ring' : ''}`}>
       {/* Only the picture is clipped round, so the dot sits whole on the edge. */}
       <span className="hub-avatar-clip">
         <ProfileAvatarVisual avatarUrl={url} displayName={name} />
       </span>
+      {backer && <span className="sr-only">Founding Backer</span>}
+      {backer && size === 'lg' && !dot && <BackerSeal />}
       {dot && <span className={`hub-avatar-dot ${dot === 'live' ? 'is-live' : ''}`} aria-hidden />}
     </span>
   );

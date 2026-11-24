@@ -43,7 +43,7 @@ export default function PrivateFriendsSheet({ open, friends, onClose, onOpenProf
                 return (
                   <div key={friend.id} className="hub-row">
                     <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onOpenProfile(friend.id)} aria-label={`${title} profile`}>
-                      <HubAvatar url={friend.avatar_url} name={title} />
+                      <HubAvatar url={friend.avatar_url} name={title} backer={friend.is_backer === true} />
                       <span className="hub-row-main">
                         <span className="hub-row-title"><span className="hub-truncate">{title}</span></span>
                         <span className="hub-row-subtitle hub-truncate block">@{friend.username}</span>

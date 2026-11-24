@@ -182,7 +182,7 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
                         key={key}
                         leading={
                           <button type="button" className="shrink-0 rounded-full" onClick={() => req.requester && onOpenProfile(req.requester.id)} aria-label={`View ${name}'s profile`}>
-                            <HubAvatar url={req.requester?.avatar_url} name={name} />
+                            <HubAvatar url={req.requester?.avatar_url} name={name} backer={req.requester?.is_backer === true} />
                           </button>
                         }
                       >
@@ -241,7 +241,7 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
                         key={key}
                         leading={
                           <button type="button" className="shrink-0 rounded-full" onClick={() => onOpenProfile(req.requester.id)} aria-label={`View ${req.requester.display_name}'s profile`}>
-                            <HubAvatar url={req.requester.avatar_url} name={req.requester.display_name} />
+                            <HubAvatar url={req.requester.avatar_url} name={req.requester.display_name} backer={req.requester.is_backer === true} />
                           </button>
                         }
                       >
@@ -308,7 +308,7 @@ export default function NotificationsView({ onClose, onOpenProfile, onChanged }:
               <div className="hub-group">
                 {friendOut.map((req) => (
                   <button key={req.id} type="button" className="hub-row" onClick={() => onOpenProfile(req.receiver.id)}>
-                    <HubAvatar url={req.receiver.avatar_url} name={req.receiver.display_name} />
+                    <HubAvatar url={req.receiver.avatar_url} name={req.receiver.display_name} backer={req.receiver.is_backer === true} />
                     <span className="hub-row-main">
                       <span className="hub-row-title"><span className="hub-truncate">{req.receiver.display_name}</span></span>
                       <span className="hub-row-subtitle block">Sent {formatHubTime(req.created_at)}</span>

@@ -355,6 +355,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
                         userId: m.user_id,
                         name: m.profiles?.display_name || 'Member',
                         avatarUrl: m.profiles?.avatar_url,
+                        backer: m.profiles?.is_backer === true,
                         isSelf,
                         barHours: ownBar > 0 ? ownBar : barHours,
                       };
@@ -435,7 +436,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
                       )}
                       {mentionMembers.map((m) => (
                         <button key={m.user_id} type="button" onClick={() => insertMention(m.profiles!.username)} className="hub-row is-compact">
-                          <HubAvatar url={m.profiles?.avatar_url} name={m.profiles?.display_name} size="sm" />
+                          <HubAvatar url={m.profiles?.avatar_url} name={m.profiles?.display_name} size="sm" backer={m.profiles?.is_backer === true} />
                           <span className="hub-row-main">
                             <span className="hub-row-title text-[15px]"><span className="hub-truncate">{m.profiles?.display_name}</span></span>
                             <span className="hub-row-subtitle block">@{m.profiles?.username}</span>

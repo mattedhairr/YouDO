@@ -52,6 +52,11 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
   - the sign-up and Continue path (it would create a real account);
   - the Classic Look.
 
+**3. The Founding Backer ring, and real pictures in community chat** (mocked on the real screens and chosen by the owner; `HubAvatar` in `src/components/hub/HubParts.tsx`, `src/lib/avatarFacts.ts`, `.yd-backer-*` in `src/index.css`).
+- Approving a claim already set `profiles.is_backer`, but the app never showed it. Now a backer's picture has a gold ring everywhere it appears (Hub chats, friends, DMs, rooms, requests, community chat); large pictures add a heart seal (Settings, the profile card). The "Founding Backer" label shows only on their profile card. Small stacked pictures stay plain. Gold is fixed (not the accent) on purpose.
+- Community chat showed only initials: each author's photo or emoji now loads from their profile (once per person) on its own 22 px disc, so emoji and initials no longer melt into the bubble.
+- No server change. Not yet built: choosing your own photo (needs storage) and a push for new backer claims.
+
 **On the server (all done 2026-11-24, before the release):**
 1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
 2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
@@ -65,6 +70,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
   - mute and restore a member;
   - remove a reported message.
 - **Fresh install:** Create account, confirm on the phone, Continue; the tour; the first session; no briefing that day.
+- **Backer ring:** the approved backer's ring in your Hub chats, friends, a DM and community chat, and the label on their profile card; on their phone, the ring and seal in Settings; emoji and initials in community chat on their discs; light mode.
 - **Old install:** opens on Sign in; nothing changes for existing data.
 
 ---

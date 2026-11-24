@@ -268,7 +268,7 @@ export default function CreateRoomSheet({ open, onClose, onSuccess, personalPace
                   const added = invites.some((i) => i.id === p.id);
                   return (
                     <div key={p.id} className="hub-row is-compact">
-                      <HubAvatar url={p.avatar_url} name={p.display_name} size="sm" />
+                      <HubAvatar url={p.avatar_url} name={p.display_name} size="sm" backer={p.is_backer === true} />
                       <span className="hub-row-main">
                         <span className="hub-row-title"><span className="hub-truncate">{p.display_name}</span></span>
                         <span className="hub-row-subtitle block">@{p.username}</span>

@@ -118,7 +118,7 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
     const name = m.profiles?.display_name || 'Member';
     return (
       <div key={m.user_id} className="hub-row is-compact">
-        <HubAvatar url={m.profiles?.avatar_url} name={name} size="sm" />
+        <HubAvatar url={m.profiles?.avatar_url} name={name} size="sm" backer={m.profiles?.is_backer === true} />
         <span className="hub-row-main">
           <span className="hub-row-title text-[16px]">
             <span className="hub-truncate">{m.user_id === user?.id ? `${name} (you)` : name}</span>
@@ -245,7 +245,7 @@ export default function SquadSettingsSheet({ open, onClose, squad, members, onMe
                     const state = membership?.status === 'accepted' ? 'Member' : membership?.status === 'invited' ? 'Invited' : membership?.status === 'pending' ? 'Asked to join' : null;
                     return (
                       <div key={profile.id} className="hub-row is-compact">
-                        <HubAvatar url={profile.avatar_url} name={profile.display_name} size="sm" />
+                        <HubAvatar url={profile.avatar_url} name={profile.display_name} size="sm" backer={profile.is_backer === true} />
                         <span className="hub-row-main">
                           <span className="hub-row-title text-[16px]"><span className="hub-truncate">{profile.display_name}</span></span>
                           <span className="hub-row-subtitle block">@{profile.username}</span>

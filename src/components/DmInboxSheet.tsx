@@ -31,6 +31,7 @@ interface Props {
   friendId: string | null;
   friendName?: string;
   friendAvatar?: string;
+  friendBacker?: boolean;
 }
 
 interface Message {
@@ -43,7 +44,7 @@ interface Message {
   goal?: GoalShare | null;
 }
 
-export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Friend', friendAvatar = '' }: Props) {
+export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Friend', friendAvatar = '', friendBacker = false }: Props) {
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -189,7 +190,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
           subtitle="Messages disappear after 24 hours"
           onBack={onClose}
           backLabel="Back to chats"
-          actions={<HubAvatar url={friendAvatar} name={friendName} size="sm" />}
+          actions={<HubAvatar url={friendAvatar} name={friendName} size="sm" backer={friendBacker} />}
         />
 
         <div className="yd-chat flex-1 min-h-0">

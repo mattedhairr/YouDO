@@ -81,7 +81,7 @@ export default function RoomInfoSheet({
                 const isSelf = m.user_id === currentUserId;
                 return (
                   <button key={m.user_id} type="button" className="hub-row is-compact" onClick={() => onOpenProfile(m.user_id)}>
-                    <HubAvatar url={m.profiles?.avatar_url} name={name} size="sm" />
+                    <HubAvatar url={m.profiles?.avatar_url} name={name} size="sm" backer={m.profiles?.is_backer === true} />
                     <span className="hub-row-main">
                       <span className="hub-row-title text-[16px]">
                         <span className="hub-truncate">{isSelf ? `${name} (you)` : name}</span>

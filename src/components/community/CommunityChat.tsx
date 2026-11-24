@@ -20,6 +20,8 @@ import { useChatMessageGestures } from '../chat/useChatMessageGestures';
 import { STORAGE_KEYS } from '../../lib/storageKeys';
 import { hapticTick } from '../../lib/haptics';
 import { useStore } from '../../store';
+import { fetchAvatarFacts, type AvatarFact } from '../../lib/avatarFacts';
+import { avatarKind, ProfileAvatarVisual } from '../../lib/profileAvatar';
 
 interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void }
 const clock = new Intl.DateTimeFormat(undefined,{ hour:'numeric',minute:'2-digit' });
@@ -59,6 +61,15 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [messages,setMessages] = useState(initial.messages);
   const [hasOlder,setHasOlder] = useState(initial.hasOlder);
   const [loading,setLoading] = useState(initial.messages.length===0);
+  // Each author's picture or emoji, and the Founding Backer ring.
+  const [faces,setFaces] = useState<Map<string,AvatarFact>>(()=>new Map());
+  const authorKey = useMemo(()=>[...new Set(messages.map(message=>message.authorId))].filter(id=>id!==userId).sort().join(','),[messages,userId]);
+  useEffect(()=>{
+    if(!authorKey)return;
+    let live=true;
+    fetchAvatarFacts(authorKey.split(',')).then(next=>{if(live)setFaces(next);}).catch(()=>{});
+    return()=>{live=false;};
+  },[authorKey]);
   const [error,setError] = useState('');
   const [draft,setDraft] = useState('');
   const [reply,setReply] = useState<ChatMessage|null>(null);
@@ -445,6 +456,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         if(message.kind==='kudos')return <li key={message.id} data-message={message.id} className="yd-chat-kudos"><Heart size={13}/>{message.body}</li>;
         const authorName=mine?'You':names.get(message.authorId)??'Board member';
         const staff=context.staffIds.includes(message.authorId);
+        const face=faces.get(message.authorId);
         return <li key={message.id} data-message={message.id} className={`yd-chat-row ${mine?'is-mine':''} ${message.delivery==='failed'?'is-failed':''}`}>
           <div className="yd-chat-bubble-wrap">
           <div className="yd-chat-cluster">
@@ -463,10 +475,10 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
                   onClick={() => onProfile?.(message.authorId)}
                   disabled={!onProfile}
                   title={`View ${authorName}'s profile`}
-                  aria-label={`View ${authorName}'s profile`}
+                  aria-label={`View ${authorName}'s profile${face?.backer ? ', Founding Backer' : ''}`}
                 >
-                  <span className="yd-chat-author-avatar" aria-hidden="true">
-                    {authorName.charAt(0).toUpperCase()}
+                  <span className={`yd-chat-author-avatar ${avatarKind(face?.avatarUrl)==='emoji'?'is-emoji':''} ${face?.backer?'yd-backer-ring':''}`} aria-hidden="true">
+                    <ProfileAvatarVisual avatarUrl={face?.avatarUrl} displayName={authorName} imgClassName="" />
                   </span>
                   <span>{authorName}</span>
                 </button>

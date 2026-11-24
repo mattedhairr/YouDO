@@ -93,6 +93,7 @@ import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
 import { fetchProfile, upsertProfile, normalizeUsername, type Profile } from '../lib/profiles';
+import { BackerSeal } from '../lib/profileAvatar';
 import { fetchCommunityContext } from '../lib/community';
 
 export type SettingsTab = 'account' | 'preferences' | 'notifications' | 'board' | 'about';
@@ -287,6 +288,7 @@ export default function SettingsSheet({
   const [testNotifStatus, setTestNotifStatus] = useState<'idle' | 'sent' | 'permission_denied' | 'failed'>('idle');
   const [isAdmin, setIsAdmin] = useState(false);
   const [accountProfile, setAccountProfile] = useState<Profile | null>(null);
+  const isBacker = Boolean(user && accountProfile?.is_backer);
 
   useEffect(() => {
     if (open) {
@@ -824,8 +826,10 @@ export default function SettingsSheet({
                 className="settings-home-profile"
                 onClick={() => openPage('account')}
               >
-                <span className="yd-arc" aria-hidden>
-                  <svg viewBox="0 0 72 72"><path d="M12.5 56.5a31 31 0 1 1 47 0" /></svg>
+                <span className={`yd-arc ${isBacker ? 'is-backer' : ''}`} aria-hidden>
+                  {/* A Founding Backer's arc closes into a full gold ring, with the heart seal. */}
+                  <svg viewBox="0 0 72 72"><path d={isBacker ? 'M36 5a31 31 0 1 1 0 62a31 31 0 1 1 0-62' : 'M12.5 56.5a31 31 0 1 1 47 0'} /></svg>
+                  {isBacker && <BackerSeal />}
                   <span className="settings-home-avatar">
                     {!user ? <WifiOff size={24} />
                       : avatar && /^https?:/.test(String(avatar)) ? <img src={String(avatar)} alt="" className="size-full object-cover" />
@@ -919,7 +923,7 @@ export default function SettingsSheet({
                   <div className="flex items-start gap-3.5">
                     {/* Sculpted Avatar with Verified Shield badge */}
                     <div className="relative shrink-0">
-                      <div className="size-[52px] rounded-[18px] bg-gradient-to-br from-primary-soft to-surface border border-primary/30 ring-1 ring-primary/15 grid place-items-center text-[26px] shadow-md select-none overflow-hidden">
+                      <div className={`size-[52px] rounded-[18px] bg-gradient-to-br from-primary-soft to-surface border grid place-items-center text-[26px] select-none overflow-hidden ${isBacker ? 'yd-backer-ring border-transparent' : 'border-primary/30 ring-1 ring-primary/15 shadow-md'}`}>
                         {user.user_metadata?.avatar_url && /^https?:/.test(String(user.user_metadata.avatar_url)) ? (
                           <img
                             src={user.user_metadata.avatar_url}

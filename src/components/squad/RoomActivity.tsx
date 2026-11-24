@@ -10,6 +10,7 @@ export interface ActivityMember {
   userId: string;
   name: string;
   avatarUrl?: string;
+  backer?: boolean;
   isSelf: boolean;
   barHours: number;
 }
@@ -80,7 +81,7 @@ export default function RoomActivity({ members, statuses, paceByUserId, anchorIS
                   onClick={() => onOpenProfile?.(member.userId)}
                   aria-label={`${member.isSelf ? 'You' : member.name}, ${focusing ? 'focusing' : 'paused'}, ${formatDuration(elapsed)}`}
                 >
-                  <HubAvatar url={member.avatarUrl} name={member.name} dot={focusing ? 'live' : undefined} />
+                  <HubAvatar url={member.avatarUrl} name={member.name} dot={focusing ? 'live' : undefined} backer={member.backer} />
                   <span className="hub-row-main">
                     <span className="hub-row-title">
                       <span className="hub-truncate">{member.isSelf ? 'You' : member.name}</span>
