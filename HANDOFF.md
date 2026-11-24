@@ -88,7 +88,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 7. **Done 2026-11-24:** `community_room_members.sql`. Checked: callable only when signed in (the function itself requires the Board), security definer.
 8. **Done 2026-11-24:** `admin_hub.sql` and `community_room_members.sql` again. Checked: the trigger on `auth.users` is enabled; `app_opens` and `deleted_accounts` have RLS and no direct access; signed-out phones may only call `record_app_open` (not growth, the cleanup list or ticked deletes); the week helper and the trigger function are closed to everyone; `admin_room_members` is callable only when signed in (it checks for staff itself).
 9. **Done 2026-11-24 (the owner):** `owner-delete-accounts` and `delete-account` redeployed (ticked deletes and photo removal). Checked: both answer 401 without a sign-in.
-10. **To do:** `admin_hub.sql` again (only `owner_growth_report` changed: weeks of 7 days ending today, India time, with deleted accounts counted in their sign-up week, plus a `deleted` count per week). Without it the app still works; the weekly chart just follows the old calendar weeks.
+10. **Done 2026-11-24:** `owner_growth_report` from `admin_hub.sql` (the only part that changed: weeks of 7 days ending today, India time, with deleted accounts counted in their sign-up week, plus a `deleted` count per week). Checked: one copy, security definer, closed to signed-out visitors; a dry run as the owner returns 12 weeks (the last starting 6 days ago, each with `deleted`) and 30 days.
 
 **Phone checks for this release:**
 - **As the owner:** People search by email; open someone; make, then remove, an admin; growth numbers; the cleanup list (delete only if the numbers look right).
