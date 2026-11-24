@@ -73,6 +73,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 4. The server has exactly one owner and no admins. Opening the Admin Hub on the phone (it should say OWNER) confirms the owner is you.
 5. **Done 2026-11-24:** `backer_push.sql`. Checked: the `admin_backers` column (on by default), both functions internal only, the trigger enabled next to `hub_backers_claims_open`, and ₹50 / ₹100 formatting.
 6. **Done 2026-11-24:** `profile_photos.sql`. Checked: the public `avatars` bucket (256 KB; WebP, JPEG, PNG), its four own-folder policies for signed-in people, and `admin_remove_profile_photo` callable only when signed in (the function itself checks for staff).
+7. **Done 2026-11-24:** `community_room_members.sql`. Checked: callable only when signed in (the function itself requires the Board), security definer.
 
 **Phone checks for this release:**
 - **As the owner:** People search by email; open someone; make, then remove, an admin; growth numbers; the cleanup list (delete only if the numbers look right).
