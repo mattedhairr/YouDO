@@ -55,13 +55,19 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 **3. The Founding Backer ring, and real pictures in community chat** (mocked on the real screens and chosen by the owner; `HubAvatar` in `src/components/hub/HubParts.tsx`, `src/lib/avatarFacts.ts`, `.yd-backer-*` in `src/index.css`).
 - Approving a claim already set `profiles.is_backer`, but the app never showed it. Now a backer's picture has a gold ring everywhere it appears (Hub chats, friends, DMs, rooms, requests, community chat); large pictures add a heart seal (Settings, the profile card). The "Founding Backer" label shows only on their profile card. Small stacked pictures stay plain. Gold is fixed (not the accent) on purpose.
 - Community chat showed only initials: each author's photo or emoji now loads from their profile (once per person) on its own 22 px disc, so emoji and initials no longer melt into the bubble.
-- No server change. Not yet built: choosing your own photo (needs storage) and a push for new backer claims.
+- No server change.
+
+**4. Your own profile photo, and the owner's push for a new backer claim** (mocked on the real screens and chosen by the owner).
+- **Photo** (`src/components/PhotoCropSheet.tsx`, `src/lib/profilePhoto.ts`, `supabase/profile_photos.sql`): Settings → Account → Edit Profile → Profile picture → Choose a photo → Move and zoom (drag, pinch or the slider; the circle is always covered) → Use photo uploads a 320 px WebP (JPEG if the phone can't make WebP) to `avatars/<id>/<time>`; Save profile keeps it and only then deletes your older photos. Remove goes back to the 🎓 emoji. Admins and the owner get "Remove photo" on a person's card (never the owner's photo); it resets profile and account to 🎓 and is logged.
+- **Push** (`supabase/backer_push.sql`): a new claim pushes "New backer claim: @x says they sent ₹50…" to the owner only, never with the UTR; tapping opens the Admin Hub. Settings → Notifications → Admin Hub → Backer Claims (owner only), synced as `push_preferences.admin_backers`. An older server without the column keeps syncing the other switches.
+- Tested: 34 SQL checks (`tests/sql/test-photos-and-backer-push-sql.mjs`, with Storage stand-ins in the harness) and unit tests; the crop step and upload request tried in the browser with a made-up picture. **Never tried against the real server or on a phone** (the picker on Android is the system one).
 
 **On the server (all done 2026-11-24, before the release):**
 1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
 2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
 3. **Done:** `owner-delete-accounts` deployed (active, sign-in required; a call without sign-in gets 401).
 4. The server has exactly one owner and no admins. Opening the Admin Hub on the phone (it should say OWNER) confirms the owner is you.
+5. **Still to run (one at a time, both safe to re-run):** `backer_push.sql`, then `profile_photos.sql`.
 
 **Phone checks for this release:**
 - **As the owner:** People search by email; open someone; make, then remove, an admin; growth numbers; the cleanup list (delete only if the numbers look right).
@@ -71,6 +77,8 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
   - remove a reported message.
 - **Fresh install:** Create account, confirm on the phone, Continue; the tour; the first session; no briefing that day.
 - **Backer ring:** the approved backer's ring in your Hub chats, friends, a DM and community chat, and the label on their profile card; on their phone, the ring and seal in Settings; emoji and initials in community chat on their discs; light mode.
+- **Your photo:** choose one from the gallery, move and zoom, Use photo, Save profile; it shows in Settings, your profile card and (for others) chats; Remove goes back to the emoji. As an admin, "Remove photo" on a test account's card.
+- **Backer claim push:** submit a claim from a test account with YouDO closed on your phone; the push arrives, tapping opens the Admin Hub; turn Backer Claims off and submit again: nothing arrives.
 - **Old install:** opens on Sign in; nothing changes for existing data.
 
 ---

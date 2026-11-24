@@ -37,4 +37,13 @@ describe('the push switches the server reads', () => {
     const off = prefs({ adminHub: { enabled: false, newHashtagRequests: true, reportedMessages: true, chatReplies: true } });
     expect(pushPreferencesRow('u1', off, NOW).community).toMatchObject({ admin_requests: false, admin_replies: false, admin_reports: false });
   });
+
+  it('sends the owner\'s backer-claim switch: on by default and on older saved settings', () => {
+    expect(pushPreferencesRow('u1', prefs(), NOW).backers).toEqual({ admin_backers: true });
+    const older = prefs({ adminHub: { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true } });
+    expect(pushPreferencesRow('u1', older, NOW).backers).toEqual({ admin_backers: true });
+    const off = prefs({ adminHub: { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true, backerClaims: false } });
+    expect(pushPreferencesRow('u1', off, NOW).backers).toEqual({ admin_backers: false });
+    expect(pushPreferencesRow('u1', prefs({ enabled: false }), NOW).backers).toEqual({ admin_backers: false });
+  });
 });

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Lock, Search } from 'lucide-react';
 import {
-  activeLabel, can, deleteAccounts, fetchPeople, fetchPerson, formatBytes, isMuted, personLabel, setStaff,
+  activeLabel, can, deleteAccounts, fetchPeople, fetchPerson, formatBytes, isMuted, personLabel, removeProfilePhoto, setStaff,
   type AdminPerson, type AdminRole, type PeopleFilter, type PeoplePage, type StaffAction,
 } from '../../lib/adminHub';
 import { moderateCommunityMember } from '../../lib/community';
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
+import { fetchAvatarFacts } from '../../lib/avatarFacts';
+import { avatarKind } from '../../lib/profileAvatar';
 
 const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const hours = (ms: number) => { const minutes = Math.round(ms / 60000); return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`; };
@@ -19,8 +21,9 @@ function Tags({ person }: { person: AdminPerson }) {
   </>;
 }
 
-function Avatar({ person, big = false }: { person: AdminPerson; big?: boolean }) {
+function Avatar({ person, big = false, photo }: { person: AdminPerson; big?: boolean; photo?: string }) {
   const letter = (person.name ?? person.username ?? '?').replace('@', '').charAt(0).toUpperCase() || '?';
+  if (photo) return <span className={`ah-avatar ${big ? 'is-big' : ''} overflow-hidden`} aria-hidden><img src={photo} alt="" className="size-full object-cover" /></span>;
   return <span className={`ah-avatar ${big ? 'is-big' : ''}`} aria-hidden>{letter}</span>;
 }
 
@@ -121,6 +124,16 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted }: {
   const [showEmail, setShowEmail] = useState(false);
   const [confirm, setConfirm] = useState<'ban' | 'promote' | 'delete' | null>(null);
   const [typed, setTyped] = useState('');
+  const [photo, setPhoto] = useState<string | undefined>();
+
+  useEffect(() => {
+    let live = true;
+    fetchAvatarFacts([id]).then((facts) => {
+      const url = facts.get(id)?.avatarUrl;
+      if (live) setPhoto(avatarKind(url) === 'photo' ? url : undefined);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +171,20 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted }: {
     setConfirm(null); setBusy(false);
   };
 
+  const takeDownPhoto = async () => {
+    setBusy(true); setStatus('');
+    try {
+      await removeProfilePhoto(person.id);
+      hapticWarn();
+      setPhoto(undefined);
+      setStatus('Photo removed. They are back to their emoji.');
+      onChanged();
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : 'Could not remove the photo.');
+    }
+    setBusy(false);
+  };
+
   const remove = async () => {
     setBusy(true); setStatus('');
     try {
@@ -178,7 +205,7 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted }: {
     <div className="ah-page">
       <div className="yd-card">
         <div className="yd-row">
-          <Avatar person={person} big />
+          <Avatar person={person} big photo={photo} />
           <span className="yd-row-main">
             <span className="yd-row-title !text-[17px]">{personLabel(person)}<Tags person={person} /></span>
             <span className="yd-row-text">{[person.username && person.name ? `@${person.username}` : '', person.hashtag ? `#${person.hashtag}` : ''].filter(Boolean).join(' · ') || 'No exam room'}</span>
@@ -210,6 +237,7 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted }: {
               </div>
             ) : (
               <div className="ah-actions">
+                {photo && <button type="button" className="ah-btn" disabled={busy} onClick={() => void takeDownPhoto()}>Remove photo</button>}
                 <button type="button" className="ah-btn" disabled={busy} onClick={() => void moderate('mute_24h')}>Mute 24 h</button>
                 <button type="button" className="ah-btn" disabled={busy} onClick={() => void moderate('mute_7d')}>Mute 7 days</button>
                 {confirm === 'ban'

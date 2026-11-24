@@ -19,6 +19,8 @@ export interface AdminHubNotificationPreferences {
   newHashtagRequests: boolean;
   reportedMessages: boolean;
   chatReplies: boolean;
+  /** The owner only: a new backer claim (supabase/backer_push.sql). Missing on older saved settings: on. */
+  backerClaims?: boolean;
 }
 
 export interface NotificationPreferences {
@@ -84,6 +86,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     newHashtagRequests: true,
     reportedMessages: true,
     chatReplies: true,
+    backerClaims: true,
   },
   sound: true,
   vibrate: true,

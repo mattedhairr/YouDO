@@ -24,6 +24,12 @@ try {
     create publication supabase_realtime;
     create schema extensions; create schema vault; create schema net;
     create table vault.decrypted_secrets(name text primary key, decrypted_secret text);
+    create schema storage;
+    create table storage.buckets(id text primary key, name text not null, public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
+    create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text not null, owner uuid, created_at timestamptz not null default now());
+    create function storage.foldername(name text) returns text[] language sql immutable as $$select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1]$$;
+    alter table storage.objects enable row level security;
+    grant usage on schema storage to anon, authenticated; grant all on storage.objects to authenticated; grant select on storage.buckets to anon, authenticated;
     create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 5000)
       returns bigint language sql as $$select 1::bigint$$;
   `);

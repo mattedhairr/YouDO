@@ -233,6 +233,12 @@ export async function setStaff(id: string, action: StaffAction): Promise<AdminPe
   return person;
 }
 
+/** Takes down someone's photo: they go back to the 🎓 emoji (supabase/profile_photos.sql). Never the owner's. */
+export async function removeProfilePhoto(id: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_remove_profile_photo', { target: id });
+  if (error) throw new Error(error.message?.includes('Could not find the function') ? 'Removing photos needs a server update first (profile_photos.sql).' : error.message || 'Could not remove the photo.');
+}
+
 export async function fetchGrowth(): Promise<GrowthReport> {
   const { data, error } = await supabase.rpc('owner_growth_report', { weeks: 12 });
   const report = parseGrowthReport(data);

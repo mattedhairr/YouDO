@@ -1,7 +1,7 @@
 import { useUiPrefs } from '../hooks/useUiPrefs';
 import { setSettingsBackHandler } from '../lib/settingsBack';
 import { ambientAutoOpenEnabled, ambientPlanetEnabled, ambientSkyEnabled, setAmbientAutoOpen, setAmbientPlanet, setAmbientSky } from '../lib/ambient';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -93,7 +93,10 @@ import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
 import { fetchProfile, upsertProfile, normalizeUsername, type Profile } from '../lib/profiles';
-import { BackerSeal } from '../lib/profileAvatar';
+import { BackerSeal, ProfileAvatarVisual, avatarKind } from '../lib/profileAvatar';
+import { fetchAdminRole } from '../lib/adminHub';
+import { removeOldPhotos, uploadProfilePhoto } from '../lib/profilePhoto';
+const PhotoCropSheet = lazy(() => import('./PhotoCropSheet'));
 import { fetchCommunityContext } from '../lib/community';
 
 export type SettingsTab = 'account' | 'preferences' | 'notifications' | 'board' | 'about';
@@ -253,6 +256,10 @@ export default function SettingsSheet({
   const [profileLoading, setProfileLoading] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
+  // Your own photo: the picked file waits in the crop step; the upload's address goes into editAvatar.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoNote, setPhotoNote] = useState('');
+  const photoInput = useRef<HTMLInputElement>(null);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [securityMode, setSecurityMode] = useState<'email' | 'password' | 'devices' | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -287,6 +294,7 @@ export default function SettingsSheet({
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [testNotifStatus, setTestNotifStatus] = useState<'idle' | 'sent' | 'permission_denied' | 'failed'>('idle');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [accountProfile, setAccountProfile] = useState<Profile | null>(null);
   const isBacker = Boolean(user && accountProfile?.is_backer);
 
@@ -298,12 +306,16 @@ export default function SettingsSheet({
         void fetchProfile(user.id).then(setAccountProfile);
         void fetchCommunityContext(user.id).then((ctx) => {
           setIsAdmin(Boolean(ctx.isAdmin));
+          if (ctx.isAdmin) void fetchAdminRole().then((role) => setIsOwner(role === 'owner')).catch(() => setIsOwner(false));
+          else setIsOwner(false);
         }).catch(() => {
           setIsAdmin(false);
+          setIsOwner(false);
         });
       } else {
         setAccountProfile(null);
         setIsAdmin(false);
+        setIsOwner(false);
       }
     }
   }, [open, user?.id]);
@@ -1309,8 +1321,65 @@ export default function SettingsSheet({
                         </div>
 
                         <div>
+                          <span className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
+                            Profile picture
+                          </span>
+                          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-surface border border-subtle">
+                            <span className={`size-12 shrink-0 rounded-full overflow-hidden grid place-items-center bg-primary-soft text-2xl ${isBacker ? 'yd-backer-ring' : ''}`}>
+                              <ProfileAvatarVisual avatarUrl={editAvatar} displayName={editName} />
+                            </span>
+                            <div className="flex-1 flex gap-2 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => photoInput.current?.click()}
+                                className="flex-1 h-9 rounded-xl bg-primary text-on-primary text-[12.5px] font-bold active:scale-[0.98] transition-transform"
+                              >
+                                Choose a photo
+                              </button>
+                              {avatarKind(editAvatar) === 'photo' && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditAvatar('🎓'); setPhotoNote(''); }}
+                                  className="h-9 px-3 rounded-xl bg-elevated border border-subtle text-[12.5px] font-bold text-content-primary"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              ref={photoInput}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(event) => {
+                                const picked = event.target.files?.[0];
+                                event.target.value = '';
+                                if (picked) setPhotoFile(picked);
+                              }}
+                            />
+                          </div>
+                          <p className={`text-[10px] mt-1 leading-snug ${photoNote ? 'text-primary font-semibold' : 'text-content-muted'}`}>
+                            {photoNote || 'Remove goes back to your emoji. Admins can remove a photo that breaks the rules.'}
+                          </p>
+                          {photoFile && user && (
+                            <Suspense fallback={null}>
+                              <PhotoCropSheet
+                                file={photoFile}
+                                onCancel={() => setPhotoFile(null)}
+                                onUse={async (photo) => {
+                                  const url = await uploadProfilePhoto(user.id, photo);
+                                  setEditAvatar(url);
+                                  setPhotoFile(null);
+                                  setPhotoNote('Photo ready. Tap Save profile to use it.');
+                                }}
+                              />
+                            </Suspense>
+                          )}
+                        </div>
+
+                        <div>
                           <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
-                            Avatar Icon
+                            Or an emoji
                           </label>
                           <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
                             {['🎓', '⚡', '🏆', '🚀', '🦉', '🧠', '🎯', '📚', '🔥', '👑', '🌟', '💻', '🎨', '🎧', '🏋️', '🌱', '☀️', '🌙', '🌊', '☕'].map((emoji) => (
@@ -1370,7 +1439,9 @@ export default function SettingsSheet({
 
                             if (ok && profileSave.ok) {
                               setEditProfileOpen(false);
+                              setPhotoNote('');
                               setMsg({ text: '✓ Profile updated.' });
+                              void removeOldPhotos(user.id, editAvatar);
                               void fetchProfile(user.id).then(setAccountProfile);
                               if (pacePrefs.optedIn) void publishPublicPace();
                             } else {
@@ -2758,6 +2829,31 @@ export default function SettingsSheet({
                       label="Support chat replies"
                     />
                   </div>
+
+                  {/* Backer Claims: the owner reviews them, so only the owner gets this push. */}
+                  {isOwner && (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-[11.5px] font-semibold text-content-primary">Backer Claims</h4>
+                          <p className="text-[10px] text-content-secondary">Alerts when someone says they supported YouDO</p>
+                        </div>
+                      </div>
+                      <Toggle
+                        checked={notifPrefs.adminHub?.backerClaims ?? true}
+                        onChange={() =>
+                          updateNotifPrefs((p) => {
+                            const current = p.adminHub ?? { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true };
+                            return {
+                              ...p,
+                              adminHub: { ...current, backerClaims: !(current.backerClaims ?? true) },
+                            };
+                          })
+                        }
+                        label="Backer claims"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

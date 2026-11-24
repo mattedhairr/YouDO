@@ -44,6 +44,7 @@ export function describeCommunityAudit(entry: CommunityAuditEntry, targetName?: 
     'quotes.updated': { category: 'Admin', title: 'Edited an app quote', detail: entry.reason || 'A motivational quote was updated.' },
     'quotes.deleted': { category: 'Admin', title: 'Deleted an app quote', detail: entry.reason || 'A motivational quote was removed.' },
     'support.updated': { category: 'Admin', title: 'Changed Support settings', detail: entry.reason || 'The UPI ID or a Support switch changed.' },
+    'photo.removed': { category: 'Member', title: `Removed ${subject}’s photo`, detail: 'They are back to the 🎓 emoji and can choose another.' },
     'staff.promote': { category: 'Staff', title: `Made ${subject} an admin`, detail: 'They can moderate, run hashtags and quotes, and look people up.' },
     'staff.demote': { category: 'Staff', title: `Removed ${subject} as admin`, detail: 'They are a member again.' },
     'staff.show_badge': { category: 'Staff', title: `Showed ${subject}’s Admin badge`, detail: 'Members see the badge on their name.' },

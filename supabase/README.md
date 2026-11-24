@@ -19,7 +19,9 @@ files in this directory.
 - **YouDO — Board Update Push** → `board_update_push.sql` (after `push_dispatch.sql`, `hub_push.sql` and `community_chat.sql`)
 - **YouDO — Board Update Extras** → `board_update_extras.sql` (after `board_update_push.sql`)
 - **YouDO — Community Push** → `community_push.sql` (after `push_dispatch.sql`, `hub_push.sql`, `board_update_push.sql` and `community_rooms.sql`)
-- **YouDO — Admin Hub** → `admin_hub.sql` (last: after every file in `scripts/supabase-setup-order.mjs` before it)
+- **YouDO — Admin Hub** → `admin_hub.sql` (after every file in `scripts/supabase-setup-order.mjs` before it)
+- **YouDO — Backer Claim Push** → `backer_push.sql` (after `admin_hub.sql`)
+- **YouDO — Profile Photos** → `profile_photos.sql` (after `backer_push.sql`)
 - **YouDO — Managed App Quotes** → `app_quotes.sql`
 - **YouDO — Account Sessions** → `account_sessions.sql`
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`
@@ -154,6 +156,20 @@ gets ids, re-checked at that moment) and deletes each with Supabase Auth's own
 delete. Junk means: never confirmed and over 7 days old, or confirmed with
 nothing saved (no backup over 1 KB, Board, rooms, friends or messages) and no
 server activity for 60 days. Staff, backers and anyone with data never count.
+
+## Backer claim push and profile photos (v9.0.0)
+
+`backer_push.sql` pushes "New backer claim" to the owner only when someone
+submits a claim (never the UTR, which can show on a lock screen), behind the
+owner's Backer Claims switch (`push_preferences.admin_backers`). A push failure
+never stops the claim being saved.
+
+`profile_photos.sql` creates the public `avatars` bucket (256 KB, WebP, JPEG or
+PNG). Each person can add, replace or delete files only in their own folder
+(`avatars/<user id>/`); the app crops and shrinks the photo to 320 px first.
+`admin_remove_profile_photo(target)` lets an admin or the owner take a photo
+down (never the owner's): the person goes back to the 🎓 emoji in their profile
+and account, and the log records who did it. Both files are safe to re-run.
 
 Projects set up before v8.0.0: run `cleanup_retired_private_hub.sql` once. It
 removes the old Private Hub on/off switch and the waitlist; the app no longer uses them.

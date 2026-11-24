@@ -30,6 +30,7 @@ export function pushPreferencesRow(userId: string, prefs: NotificationPreference
       admin_replies: adminOn && admin.chatReplies !== false,
       admin_reports: adminOn && admin.reportedMessages !== false,
     },
+    backers: { admin_backers: adminOn && admin.backerClaims !== false },
   };
 }
 
@@ -40,9 +41,9 @@ export function pushPreferencesRow(userId: string, prefs: NotificationPreference
  */
 export async function syncPushPreferences(userId: string | undefined, prefs: NotificationPreferences): Promise<void> {
   if (!userId) return;
-  const { base, board, community } = pushPreferencesRow(userId, prefs);
+  const { base, board, community, backers } = pushPreferencesRow(userId, prefs);
   try {
-    for (const row of [{ ...base, ...board, ...community }, { ...base, ...board }, base]) {
+    for (const row of [{ ...base, ...board, ...community, ...backers }, { ...base, ...board, ...community }, { ...base, ...board }, base]) {
       const { error } = await supabase.from('push_preferences').upsert(row);
       if (error?.code !== 'PGRST204') return;
     }
