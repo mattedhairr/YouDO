@@ -31,7 +31,6 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 <img src="docs/screenshots/07-private-hub-chats.png" width="180" alt="Private Hub chats" />
 <img src="docs/screenshots/08-study-room.png" width="180" alt="A study room with live focus" />
 <img src="docs/screenshots/09-appearance.png" width="180" alt="Appearance: accent colours, app icons and the sky header" />
-<img src="docs/screenshots/10-summit.png" width="180" alt="The Summit header: your nearest goal as a mountain at dusk" />
 <img src="docs/screenshots/11-focus-sky.png" width="180" alt="Focus Sky: the ambient timer under today's earned stars, a constellation and Saturn" />
 
 </div>
@@ -186,7 +185,7 @@ Signed-in users get a private space next to the public Board:
 
 v8 brings a new look: large titles, borderless cards and a floating **Liquid Glass** tab bar. In **Settings → Preferences** pick Dark or Light, a scene and its colour (Harvest fields with Sand, Himalaya with Slate, Western Ghats with Sage, or a colour taken from your own photo; the start screen, header, widgets and notifications follow it) and one of five app icons. **Classic Look** brings back the v7 design ([v7 screenshots](docs/screenshots/v7-classic)).
 
-Every tab opens with a **sky header**: a small Indian landscape (the scene that goes with your colour) whose sky follows the real sun for your place (sunrise, noon and sunset from the date and your time zone or Indian state, with no location access), today's earned focus stars at night, a greeting, the countdown to your nearest goal deadline and the day's quote. Set the day's weather (clear, cloudy or rainy) with the button beside the date, and tap the sun to replay today's sky from dawn to now. **Settings → Appearance → Header background** offers the **Summit** instead: your nearest goal as a mountain, with a flag on its deadline and a trail walked from the day you made it to today. Or swap the sky for your own photo.
+Every tab opens with a **sky header**: a small Indian landscape (the scene that goes with your colour) whose sky follows the real sun for your place (sunrise, noon and sunset from the date and your time zone or Indian state, with no location access), today's earned focus stars at night, a greeting, the countdown to your nearest goal deadline and the day's quote. Set the day's weather (clear, cloudy or rainy) with the button beside the date, and tap the sun to replay today's sky from dawn to now. In **Settings → Appearance → Scene and colour** pick the scene (and its colour), where your sunrise and sunset are worked out for, and the weather button; or use your own photo as the header and take the app's colour from it.
 
 ## Your data remains yours
 

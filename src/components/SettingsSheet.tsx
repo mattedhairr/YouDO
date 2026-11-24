@@ -86,7 +86,6 @@ import { localISODate, todayISO } from '../lib/dates';
 import { checkAppUpdateStatus, type AppRelease } from '../lib/appUpdate';
 import UpdateAction from './UpdateAction';
 import { APP_VERSION } from '../lib/version';
-import HeaderBackgroundSettings from './HeaderBackgroundSettings';
 import SignedInDevices from './SignedInDevices';
 import SupportSheet from './SupportSheet';
 import AppIconPicker from './AppIconPicker';
@@ -2039,7 +2038,6 @@ export default function SettingsSheet({
               <AppIconPicker />
             </div>
 
-            {!legacyStyle && <HeaderBackgroundSettings />}
 
             <div className="settings-data-row p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">

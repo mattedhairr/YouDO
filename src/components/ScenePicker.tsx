@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ImagePlus } from 'lucide-react';
+import { Check, ImagePlus, Trash2 } from 'lucide-react';
 import { ACCENT_COLORS, ACCENT_SWATCHES, resolveAccent, type AccentColor, type CustomAccent, type Rgb } from '../lib/accentColors';
 import { accentFromColor, photoColors } from '../lib/photoAccent';
 import { SCENES, sceneShape, SCENE_OF_ACCENT, type SceneMark, type ScenePalette } from '../lib/headerScenes';
@@ -9,10 +9,12 @@ import {
   loadHeaderBackground,
   loadHeaderPhoto,
   preparePhoto,
+  removeHeaderPhoto,
   saveHeaderBackground,
   saveHeaderPhoto,
 } from '../lib/headerBackground';
 import type { Theme } from '../hooks/useTheme';
+import SkyOptions from './SkyOptions';
 
 /** Late-afternoon light: between a scene's day and its golden evening. */
 function afternoon(day: ScenePalette, evening: ScenePalette): ScenePalette {
@@ -212,6 +214,20 @@ export default function ScenePicker({ theme, setTheme }: { theme: Theme; setThem
     }
   };
 
+  // Where the photo sits in the header, and how strongly it shows.
+  const sliders: { key: 'x' | 'y' | 'opacity'; label: string; min: number; max: number; value: number; show: string }[] = [
+    { key: 'x', label: 'Horizontal', min: 0, max: 100, value: prefs.x, show: `${Math.round(prefs.x)}%` },
+    { key: 'y', label: 'Vertical', min: 0, max: 100, value: prefs.y, show: `${Math.round(prefs.y)}%` },
+    { key: 'opacity', label: 'Opacity', min: 20, max: 100, value: Math.round(prefs.opacity * 100), show: `${Math.round(prefs.opacity * 100)}%` },
+  ];
+
+  /** Back to the default scene and its colour. */
+  const removePhoto = async () => {
+    await removeHeaderPhoto();
+    saveHeaderBackground({ ...loadHeaderBackground(), mode: 'sky' });
+    setTheme((prev) => ({ ...prev, accent: 'sand' }));
+  };
+
   const tapPhoto = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d', { willReadFrequently: true });
@@ -279,7 +295,7 @@ export default function ScenePicker({ theme, setTheme }: { theme: Theme; setThem
       {photoChosen && (
         <div className="space-y-2">
           <canvas ref={canvasRef} width={720} height={200} onPointerUp={tapPhoto}
-            className="block h-24 w-full cursor-crosshair rounded-xl bg-black" aria-label="Your photo: tap anywhere to take its colour" role="img" />
+            className="block h-24 w-full cursor-crosshair rounded-xl bg-black" style={{ opacity: Math.max(0.6, prefs.opacity) }} aria-label="Your photo: tap anywhere to take its colour" role="img" />
           <p className="text-[10.5px] font-semibold text-content-secondary">Colours from your photo, or tap anywhere on it</p>
           <div className="flex gap-2" role="radiogroup" aria-label="Colours from your photo">
             {suggested.map((s) => {
@@ -290,9 +306,40 @@ export default function ScenePicker({ theme, setTheme }: { theme: Theme; setThem
               );
             })}
           </div>
-          <p className="text-[10.5px] text-content-muted">YouDO softens it for dark mode and deepens it for light mode, so text stays readable. Worked out on this phone; nothing is uploaded. Place the photo under Header background below.</p>
+          <p className="text-[10.5px] text-content-muted">YouDO softens it for dark mode and deepens it for light mode, so text stays readable. Worked out on this phone; nothing is uploaded.</p>
+          {sliders.map((sl) => (
+            <label key={sl.key} className="block">
+              <span className="flex justify-between text-[10.5px] font-semibold text-content-secondary">
+                {sl.label}
+                <span className="tabular-nums text-content-muted">{sl.show}</span>
+              </span>
+              <input
+                type="range"
+                min={sl.min}
+                max={sl.max}
+                step={1}
+                value={sl.value}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  saveHeaderBackground({ ...prefs, ...(sl.key === 'opacity' ? { opacity: v / 100 } : { [sl.key]: v }) });
+                }}
+                className="mt-1 w-full accent-[var(--primary)]"
+              />
+            </label>
+          ))}
+          <div className="flex gap-2">
+            <button type="button" disabled={busy} onClick={() => fileRef.current?.click()}
+              className="flex-1 min-h-9 inline-flex items-center justify-center gap-1.5 rounded-xl bg-surface text-[11.5px] font-semibold text-content-primary disabled:opacity-50">
+              <ImagePlus size={14} /> Change photo
+            </button>
+            <button type="button" onClick={() => void removePhoto()}
+              className="min-h-9 px-3 inline-flex items-center justify-center gap-1.5 rounded-xl bg-surface text-[11.5px] font-semibold text-error">
+              <Trash2 size={14} /> Remove
+            </button>
+          </div>
         </div>
       )}
+      {prefs.mode !== 'photo' && <SkyOptions />}
       {busy && <p className="text-[10.5px] text-content-muted">Preparing the photo…</p>}
       {error && <p className="text-[10.5px] text-error">{error}</p>}
     </div>

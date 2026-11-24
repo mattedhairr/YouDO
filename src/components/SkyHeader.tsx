@@ -18,7 +18,6 @@ import {
   lensFlare,
   mixColor,
   nightness,
-  ridgeLine,
   skyColors,
   softStops,
   sunState,
@@ -35,7 +34,6 @@ import Overlay from './Overlay';
 import SkyWeather from './SkyWeather';
 import { sunAltitude, type SunDay } from '../lib/sunPath';
 import { hapticTick } from '../lib/haptics';
-import { summitScene, trailFraction, walkTrail, type Pt, type SummitScene } from '../lib/summit';
 import './skyHeader.css';
 
 export type SkyHeaderView = 'tasks' | 'goals' | 'calendar' | 'board';
@@ -56,8 +54,6 @@ interface Props {
 /** Scene coordinates: the art is drawn as if the content started 36px down. */
 const OFFSET = 36;
 const HEIGHT = { today: 178, tab: 114 };
-/** The Summit is a little taller, so its mountain stands clear of the words. */
-const SUMMIT_HEIGHT = { today: 210, tab: 124 };
 /** The time-lapse's length, and how long today's path stays after it. */
 const REPLAY_MS = 3200;
 const PATH_MS = 5200;
@@ -65,12 +61,6 @@ const PATH_MS = 5200;
 const PATH_LINE_Y = 122;
 /** How far the page scrolls before the header has folded away. */
 const FOLD_SPAN = 76;
-const RIDGES = [
-  { seed: 3, base: 132, amp: 72, rough: 0.55 },
-  { seed: 14, base: 148, amp: 54, rough: 0.55 },
-  { seed: 22, base: 166, amp: 36, rough: 0.55 },
-  { seed: 31, base: 182, amp: 20, rough: 0.45 },
-];
 const TAB_LIFT = 14;
 /** On Today the peaks sit a little lower, under the name and the countdown. */
 const TODAY_LIFT = -14;
@@ -144,11 +134,6 @@ function useHeaderBackground(): { prefs: HeaderBackground; photoUrl: string | nu
 }
 
 type Pts = [number, number][];
-
-function ridgesFor(width: number, lift: number): Pts[] {
-  const valley = width * 0.54;
-  return RIDGES.map((r) => ridgeLine(r.seed, width, r.base - lift, r.amp, valley, r.rough));
-}
 
 /** A range's height at x (scene coordinates). */
 function ridgeYAt(pts: Pts, x: number): number {
@@ -283,13 +268,7 @@ function SunLens({ x, y, intensity, warm, flare, width, height }: {
 }
 
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-/** What the Summit adds to the scene: its peak, and the trail when there is a goal with a deadline. */
-interface SummitArt {
-  scene: SummitScene;
-  trail: { walked: Pt[]; at: Pt | null } | null;
-}
-
-function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, ridges, place, sunPathD, quoteShade, quiet, flareLevel, summit, palettes, marks }: {
+function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, ridges, place, sunPathD, quoteShade, quiet, flareLevel, palettes, marks }: {
   /** A scene's skies and its marks on the land (headerScenes.ts). */
   palettes?: SkyPalettes;
   marks?: SceneMark[];
@@ -298,8 +277,6 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   hour: number;
   /** 0–1: the noon lens flare at the scene's hour. */
   flareLevel: number;
-  /** The Summit style; its ranges are `ridges`. */
-  summit?: SummitArt | null;
   /** The real sun's day at the chosen place (sunPath.ts). */
   day: SunDay;
   weather: Weather;
@@ -338,15 +315,6 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   const top = -OFFSET - 40;
   const path = (pts: [number, number][]) => 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L');
   const fill = (pts: [number, number][]) => `M0 ${height + 40} L` + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L') + ` L${width} ${height + 40} Z`;
-
-  // The Summit's light: the side away from the sun (or the moon's side at night) in shade,
-  // a rose glow on the sunlit face while the sun is low, and snow that takes the light's colour.
-  const peak = summit?.scene.peak;
-  const litFromLeft = night > 0.5 || !sun.visible ? true : sunX < (peak?.[0] ?? 0);
-  const alpen = summit && sun.visible ? Math.max(0, Math.min(1, (0.45 - sun.elevation) / 0.45)) * sunShows : 0;
-  const snowColor = summit
-    ? mixColor(mixColor(mixColor('#ffffff', '#ffd3c2', alpen), '#9fb2d4', night * 0.8), colors.layers[0][0], weather === 'clear' ? 0 : 0.35)
-    : '';
 
   // A scene's marks: faces shaded away from the sun (from the left at night), snow, sea, mist, silhouettes.
   const shadeK = (0.16 + 0.1 * low) * (0.45 + 0.55 * sunShows) + 0.08 * night;
@@ -405,14 +373,6 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
           {(quiet ?? []).map((q, i) => <rect key={i} x={q.x - 14} y={q.y - 14} width={q.w + 28} height={q.h + 28} fill="url(#sky-quiet)" />)}
         </mask>
         {marks && ridges.map((pts, i) => <clipPath key={i} id={`sky-land${i}`}><path d={fill(pts)} /></clipPath>)}
-        {summit && peak && (
-          <>
-            <clipPath id="sky-farclip"><path d={fill(ridges[0])} /></clipPath>
-            <radialGradient id="sky-alpen" gradientUnits="userSpaceOnUse" cx={peak[0] + (litFromLeft ? -26 : 26)} cy={peak[1] + 26} r={80}>
-              {softStops(0.6, 0.55).map(([o, a]) => <stop key={o} offset={o} stopColor={`rgba(255,157,134,${a})`} />)}
-            </radialGradient>
-          </>
-        )}
       </defs>
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-grad)" />
       {night > 0.01 && starsShow > 0 && (
@@ -440,47 +400,13 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
       {ridges.map((pts, i) => (
         <g key={`r${i}`}>
           <path d={fill(pts)} fill={`url(#sky-l${i})`} />
-          {summit && peak && i === 0 && (
-            <g clipPath="url(#sky-farclip)">
-              <path
-                d={litFromLeft
-                  ? `M${peak[0]} ${peak[1]} L${peak[0] + 24} ${height + 40} L${width} ${height + 40} L${width} ${peak[1] + 30} Z`
-                  : `M${peak[0]} ${peak[1]} L${peak[0] - 24} ${height + 40} L0 ${height + 40} L0 ${peak[1] + 30} Z`}
-                fill="#0b1a2e"
-                opacity={0.17 + 0.13 * night}
-              />
-              {alpen > 0.01 && <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-alpen)" opacity={alpen} />}
-              <path d={'M' + summit.scene.snow.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L') + ' Z'} fill={snowColor} opacity={0.95} />
-            </g>
-          )}
           {marks?.filter((m) => m.layer === i).map(markOf)}
           <path d={path(pts)} fill="none" stroke={colors.rim} strokeWidth={i === 0 ? 0.9 : 0.6} opacity={[1, 0.7, 0.45, 0.25][i]} mask="url(#sky-rimmask)" />
           {i < 3 && (
-            <rect x="0" y={(summit && i === 0 ? summit.scene.sun.base : Math.min(...pts.map((p) => p[1]))) + 6} width={width} height={30 - i * 6} fill="url(#sky-haze)" />
-          )}
-          {summit?.trail && i === 1 && (
-            <g className="sky-trail">
-              <path d={path(summit.scene.trail)} fill="none" stroke="rgba(255,255,255,.65)" strokeWidth={1.5} strokeDasharray="0.1 5" strokeLinecap="round" />
-              {summit.trail.walked.length > 1 && <path d={path(summit.trail.walked)} fill="none" stroke="var(--primary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />}
-              <circle cx={summit.scene.trail[0][0]} cy={summit.scene.trail[0][1]} r={2.6} fill="var(--primary)" />
-              {summit.trail.at && (
-                <>
-                  <circle cx={summit.trail.at[0]} cy={summit.trail.at[1]} r={9} fill="var(--primary)" opacity={0.25} />
-                  <circle cx={summit.trail.at[0]} cy={summit.trail.at[1]} r={3.8} fill="#fff" stroke="var(--primary)" strokeWidth={2} />
-                </>
-              )}
-            </g>
+            <rect x="0" y={Math.min(...pts.map((p) => p[1])) + 6} width={width} height={30 - i * 6} fill="url(#sky-haze)" />
           )}
         </g>
       ))}
-      {summit?.trail && peak && (
-        <g>
-          <g transform={`translate(${peak[0]} ${peak[1]})`}>
-            <line x1="0" y1="1" x2="0" y2="-19" stroke="#fff" strokeWidth={1.5} strokeLinecap="round" />
-            <path className="sky-flag" d="M0.7 -19 C5 -20.5, 9 -16.5, 14 -15.4 C9 -14.2, 5 -11.4, 0.7 -11.4 Z" fill="var(--primary)" />
-          </g>
-        </g>
-      )}
       {sun.visible && lens > 0.005 && <SunLens x={sunX} y={sunY} intensity={lens} warm={1 - sun.elevation} flare={flare} width={width} height={height} />}
       {quoteShade && <rect x="0" y={height - 92} width={width} height={92} fill="url(#sky-quoteshade)" />}
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-textshade)" opacity={1 - night} />
@@ -555,10 +481,9 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const today = view === 'tasks';
   const { prefs, photoUrl } = useHeaderBackground();
   const photo = prefs.mode === 'photo' && photoUrl ? photoUrl : null;
-  const summitOn = prefs.mode === 'summit';
   const sceneId = useAccentScene();
-  const palettes = summitOn ? undefined : SCENES[sceneId].palettes;
-  const height = summitOn ? (today ? SUMMIT_HEIGHT.today : SUMMIT_HEIGHT.tab) : today ? HEIGHT.today : HEIGHT.tab;
+  const palettes = SCENES[sceneId].palettes;
+  const height = today ? HEIGHT.today : HEIGHT.tab;
   const lift = today ? TODAY_LIFT : TAB_LIFT;
   const rootRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -657,7 +582,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   }, [quoteOpen]);
 
   const progress = skyProgress(focusMs, barHours);
-  const summit = useMemo(() => (summitOn ? summitScene(width, height + OFFSET, today) : null), [summitOn, width, height, today]);
   const nameBox = { right: today ? 175 : 210, top: 62, bottom: 122 };
   const nearText = (x: number, y: number) =>
     (x < nameBox.right && y > nameBox.top && y < nameBox.bottom) ||
@@ -667,23 +591,20 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const { stars, lines } = useMemo(() => {
     const list = headerStars(dateKey, width, progress.lit, nearText);
     const valley = width * 0.54;
-    // On the Summit the constellation keeps to the open sky: off the mountain and clear of the flag.
-    const offPeak = (s: HeaderStar) =>
-      !summit || (s.y < ridgeYAt(summit.ranges[0], s.x) - 8 && !(Math.abs(s.x - summit.peak[0] - 7) < 26 && s.y > summit.peak[1] - 34));
     const joined = headerConstellation(
       list,
       progress.constellationSize,
-      (s) => !nearText(s.x, s.y) && offPeak(s) && (summit ? true : Math.hypot(s.x - valley, s.y - 74) > 16) && s.y > 30 && s.y < 104,
+      (s) => !nearText(s.x, s.y) && Math.hypot(s.x - valley, s.y - 74) > 16 && s.y > 30 && s.y < 104,
     );
     return { stars: list, lines: joined };
     // nearText depends only on these.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateKey, width, progress.lit, progress.constellationSize, today, deadlines.length, summit]);
+  }, [dateKey, width, progress.lit, progress.constellationSize, today, deadlines.length]);
   const dust = useMemo(() => dustStars(dateKey, width), [dateKey, width]);
   const sunHeight = Math.max(0, sunAltitude(day, hour));
-  const land = useMemo(() => (summit ? null : sceneShape(sceneId, width, lift)), [summit, sceneId, width, lift]);
-  const ridges = useMemo(() => (summit ? summit.ranges : land ? land.ranges : ridgesFor(width, lift)), [summit, land, width, lift]);
-  const track = summit ? summit.sun : land?.sun ?? SKY_TRACK;
+  const land = useMemo(() => sceneShape(sceneId, width, lift), [sceneId, width, lift]);
+  const ridges = land.ranges;
+  const track = land.sun;
   const place = useMemo(() => sunPlacement(width, sceneHour, day, track), [width, sceneHour, day, track]);
   const sunNow = useMemo(() => sunPlacement(width, hour, day, track), [width, hour, day, track]);
   const sunPath = useMemo(() => sunPathFor(width, day, ridges, track), [width, day, ridges, track]);
@@ -718,15 +639,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const sceneTop = (y: number) => `calc(var(--sky-top) + ${y + quoteExtra - OFFSET}px)`;
 
   const deadline = deadlines.length ? deadlines[goalIndex % deadlines.length] : null;
-  // The Summit's trail: from the day the shown goal began to its deadline, walked up to today.
-  const summitArt = useMemo<SummitArt | null>(() => {
-    if (!summit) return null;
-    if (!deadline) return { scene: summit, trail: null };
-    // Without a believable start the trail is all ahead, with no "you are here".
-    if (!deadline.start) return { scene: summit, trail: { walked: [], at: null } };
-    return { scene: summit, trail: walkTrail(summit.trail, trailFraction(deadline.start, deadline.end, dateKey)) };
-  }, [summit, deadline, dateKey]);
-  const pathLineY = summit && today ? 152 : PATH_LINE_Y;
   const showInvite = !photo && placeId === 'auto' && !inviteDone && isIndiaTimeZone(deviceTimeZone());
   const WeatherIcon = weather === 'cloudy' ? Cloud : weather === 'rainy' ? CloudRain : night > 0.5 ? Moon : Sun;
   const weatherName = weather === 'cloudy' ? 'Cloudy' : weather === 'rainy' ? 'Rainy' : 'Clear';
@@ -752,7 +664,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ) : (
       <>
         <div className="sky-art-wrap" style={{ height: height + OFFSET }}>
-          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} ridges={ridges} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} quiet={quietZones} flareLevel={lensFlare(sceneHour, day)} summit={summitArt} palettes={palettes} marks={land?.marks} />
+          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} ridges={ridges} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} quiet={quietZones} flareLevel={lensFlare(sceneHour, day)} palettes={palettes} marks={land?.marks} />
           <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} />
         </div>
       </>
@@ -761,22 +673,12 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const countdown = deadline && today && (
     <button
       type="button"
-      className={`sky-count ${summit ? 'is-summit' : ''}`}
+      className="sky-count"
       onClick={() => deadlines.length > 1 && setGoalIndex((i) => (i + 1) % deadlines.length)}
       aria-label={`${deadline.days} days to ${deadline.title}${deadlines.length > 1 ? '. Tap for the next goal' : ''}`}
     >
-      {summit ? (
-        <>
-          {/* Compact, so the peak and its flag have the sky beside it. */}
-          <span className="sky-count-n">{deadline.days}<small>{deadline.days === 1 ? 'day' : 'days'}</small></span>
-          <span className="sky-count-l"><b>{deadline.title}</b></span>
-        </>
-      ) : (
-        <>
-          <span className="sky-count-n">{deadline.days}</span>
-          <span className="sky-count-l">{deadline.days === 1 ? 'day' : 'days'} to <b>{deadline.title}</b></span>
-        </>
-      )}
+      <span className="sky-count-n">{deadline.days}</span>
+      <span className="sky-count-l">{deadline.days === 1 ? 'day' : 'days'} to <b>{deadline.title}</b></span>
       {deadlines.length > 1 && (
         <span className="sky-dots" aria-hidden>
           {deadlines.map((g, i) => <i key={g.id} className={i === goalIndex % deadlines.length ? 'on' : ''} />)}
@@ -805,7 +707,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
         {pathShown && (
           <div className="sky-path-words" aria-live="polite">
             {/* One line across the middle, between the name and the quote, wherever the sun is. */}
-            <span className="sky-path-left" style={{ left: '50%', top: sceneTop(pathLineY) }}>
+            <span className="sky-path-left" style={{ left: '50%', top: sceneTop(PATH_LINE_Y) }}>
               <span>Rose {formatClock(day.sunrise)}</span>
               <b>
                 {Math.floor(Math.round(daylightLeft * 60) / 60)}h {String(Math.round(daylightLeft * 60) % 60).padStart(2, '0')}m of daylight left

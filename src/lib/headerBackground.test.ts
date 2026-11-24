@@ -11,7 +11,7 @@ describe('header background settings', () => {
   it('keep a photo choice and clamp the sliders to their ranges', () => {
     expect(normalizeHeaderBackground({ mode: 'photo', x: 140, y: -5, opacity: 0.05 })).toEqual({ mode: 'photo', x: 100, y: 0, opacity: 0.2 });
     expect(normalizeHeaderBackground({ mode: 'photo', x: 30, y: 70, opacity: 0.6 })).toEqual({ mode: 'photo', x: 30, y: 70, opacity: 0.6 });
-    expect(normalizeHeaderBackground({ mode: 'summit' }).mode).toBe('summit');
+    expect(normalizeHeaderBackground({ mode: 'summit' }).mode).toBe('sky');
   });
 });
 

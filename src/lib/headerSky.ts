@@ -9,7 +9,6 @@
 
 import { skyRandom, skySeed, starMap, type SkyStar } from './focusSky';
 import { daysBetweenLocalISO } from './dates';
-import { goalStart } from './summit';
 import { sunAltitude, type SunDay } from './sunPath';
 
 type Rgba = [number, number, number, number];
@@ -174,9 +173,8 @@ export interface DeadlineGoal {
   id: string;
   title: string;
   days: number;
-  /** Its end date, and the day it began (start date, or the day it was made): the Summit's trail. */
+  /** Its end date. */
   end: string;
-  start: string | null;
 }
 
 /** Top-level goals with an end date today or later, nearest first. */
@@ -191,7 +189,6 @@ export function upcomingDeadlines(
       title: g.title,
       days: daysBetweenLocalISO(today, g.endDate as string),
       end: (g.endDate as string).slice(0, 10),
-      start: goalStart(g),
     }))
     .filter((g) => g.days >= 0)
     .sort((a, b) => a.days - b.days || a.title.localeCompare(b.title));

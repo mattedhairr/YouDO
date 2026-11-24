@@ -34,7 +34,7 @@ export const STORAGE_KEYS = {
   ambientTipSeen: 'youdo-ambient-tip-seen-v1',
   ambientSky: 'youdo-ambient-sky-v1',
   ambientPlanet: 'youdo-ambient-planet-v1',
-  /** Settings → Appearance → Header background: the sky or the user's photo, and how the photo sits. The photo itself is in IndexedDB. */
+  /** The header: the scene or the user's photo (Settings → Appearance → Scene and colour), and how the photo sits. The photo itself is in IndexedDB. */
   headerBackground: 'youdo-header-background-v1',
   /** Settings → Appearance → Sky location: a state's id, or "auto" (the phone's clock). */
   skyPlace: 'youdo-sky-place-v1',
