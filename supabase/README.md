@@ -143,9 +143,12 @@ app) and any number of admins:
 The owner-only rules live in the functions themselves, so v9.0.0 also changes
 `community_chat.sql` (`set_community_settings`), `board_update_extras.sql`
 (`publish_community_update`, `close_community_poll`), `board_update_push.sql`
-(`notify_community_update`), `support_settings.sql` and `hub_backers.sql`.
-Re-run each of those, then `admin_hub.sql`, then deploy the function that
-deletes accounts: `npx.cmd supabase functions deploy owner-delete-accounts`.
+(`notify_community_update`), `support_settings.sql` (`save_support_settings`) and
+`hub_backers.sql` (`get_pending_hub_backers`, `review_hub_backer`). On an
+existing project, run only those seven functions, not the whole files:
+re-running `community_chat.sql` would undo the room versions of its chat
+functions from `community_rooms.sql`. Then run `admin_hub.sql` and deploy the
+function that deletes accounts: `npx.cmd supabase functions deploy owner-delete-accounts`.
 It asks `owner_accounts_to_delete()` as the signed-in person (only the owner
 gets ids, re-checked at that moment) and deletes each with Supabase Auth's own
 delete. Junk means: never confirmed and over 7 days old, or confirmed with

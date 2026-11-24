@@ -13,6 +13,7 @@ import AdminCommunity from './admin/AdminCommunity';
 import AdminOwner from './admin/AdminOwner';
 import { COMMUNITY_PAGE_TITLES, OWNER_PAGE_TITLES, queueCounts, type CommunityPage, type OwnerPage, type QueueFilter } from './admin/adminHubShared';
 import '../signature.css';
+import './community/community.css';
 import './admin/adminHub.css';
 
 type Tab = 'home' | 'queue' | 'people' | 'community' | 'owner';

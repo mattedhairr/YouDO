@@ -52,11 +52,11 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
   - the sign-up and Continue path (it would create a real account);
   - the Classic Look.
 
-**Before releasing, on the server (owner, one step at a time):**
-1. Re-run `community_chat.sql`, `board_update_extras.sql`, `board_update_push.sql`, `support_settings.sql` and `hub_backers.sql` (now owner-only in places).
-2. Run `admin_hub.sql`.
-3. `npx.cmd supabase functions deploy owner-delete-accounts`.
-4. Check that you are the owner: `operations/manage_community_staff.sql` with `inspect`.
+**On the server (all done 2026-11-24, before the release):**
+1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
+2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
+3. **Done:** `owner-delete-accounts` deployed (active, sign-in required; a call without sign-in gets 401).
+4. The server has exactly one owner and no admins. Opening the Admin Hub on the phone (it should say OWNER) confirms the owner is you.
 
 **Phone checks for this release:**
 - **As the owner:** People search by email; open someone; make, then remove, an admin; growth numbers; the cleanup list (delete only if the numbers look right).
