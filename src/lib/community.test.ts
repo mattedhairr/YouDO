@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { describeCommunityAudit } from './communityAudit';
 import {
   canSubmitCommunityAppeal,
   communityAppealAvailableAt,
-  describeCommunityAudit,
   isCommunityMessageActive,
   isCommunityUnavailable,
   parseCommunityActivity,

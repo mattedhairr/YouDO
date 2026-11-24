@@ -21,7 +21,7 @@ declare first_line text;
 declare total integer;
 declare offset_at integer := 0;
 begin
-  if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
+  if not public.is_community_owner() then raise exception 'Owner required' using errcode='42501'; end if;
   select * into settings from public.community_settings where id=1 for update;
   if settings.id is null or pg_catalog.btrim(coalesce(settings.announcement,'')) = '' then
     raise exception 'There is no update to send';

@@ -5,3 +5,7 @@ verify_jwt = true
 # pg_net calls carry no user JWT. The function itself rejects every request
 # without the PUSH_WEBHOOK_SECRET header (see supabase/push_dispatch.sql).
 verify_jwt = false
+
+[functions.owner-delete-accounts]
+# Only signed-in people reach it; the owner check is owner_accounts_to_delete() (supabase/admin_hub.sql).
+verify_jwt = true

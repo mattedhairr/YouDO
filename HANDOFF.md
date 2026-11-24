@@ -1,6 +1,71 @@
 # Where We Left Off
 
-Last updated **2026-11-21**, while releasing **v8.9.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-24**, while building **the next release (v9.0.0)** on the branch `release-v9.0.0`. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+
+---
+
+## In progress: the next release (v9.0.0), branch `release-v9.0.0`
+
+Committed on the branch, not pushed or merged. The owner has more to add before releasing. The owner approved working from the mocks in `docs/mocks/v9-admin-and-tour.html` (rendered: `docs/mocks/v9-mocks.png`; local only, `docs/mocks/` is never committed), and asked that the plan be reviewed and built without waiting.
+
+**1. A new Admin Hub, with one owner and many admins** (`src/components/AdminHubSheet.tsx`, `src/components/admin/`, `src/lib/adminHub.ts`, `supabase/admin_hub.sql`).
+- Five tabs:
+  - **Home:** today's numbers and everything waiting.
+  - **Queue:** reports, appeals, hashtag requests and backer claims in one list, each with its choices on the card.
+  - **People:** search and filter everyone; a person's card can mute, ban, restore, make or remove an admin, or delete the account.
+  - **Community:** the room and Kudos switches, the broadcast, hashtags, quotes and the activity log, which now says who did what.
+  - **Owner:** growth by week, account cleanup, staff, Support and backer claims, and database size.
+- The old admin screens inside `CommunitySheet.tsx` are gone; that file is now only the community room.
+- **Who may do what** (the server enforces it; the app only hides what would be refused):
+  - **Admins:** the queue, muting and banning members (never staff), hashtags, quotes, the log, and looking people up by name or @username.
+  - **The owner only:**
+    - emails and sign-in details, and saved-data size;
+    - making and removing admins, and their badge;
+    - the broadcast and "Notify everyone", and the room and Kudos switches;
+    - Support settings and backer claims;
+    - growth numbers, and deleting accounts.
+  - **Ownership** changes only in Supabase (`operations/manage_community_staff.sql`), so a lost phone can't hand YouDO over.
+- **Account cleanup:**
+  - It deletes only accounts never confirmed for over 7 days, or confirmed with nothing saved (no backup over 1 KB, Board, rooms, friends or messages) and quiet for 60+ days.
+  - Staff, backers and anyone with data never count.
+  - You type `DELETE <count>` to confirm. The edge function `owner-delete-accounts` re-checks the list and deletes through Supabase Auth.
+  - Deleting one person needs their @username typed.
+- **Tests:**
+  - 49 SQL checks (`tests/sql/test-admin-hub-sql.mjs`); the support-settings test now uses an owner and an admin.
+  - Unit tests: `src/lib/adminHub.test.ts`, `src/components/admin/AdminHub.test.ts`.
+  - **Never tried against the real server or on a phone:** production doesn't have `admin_hub.sql` yet.
+
+**2. The first five minutes** (`src/components/StartTour.tsx`, `src/lib/starterGoals.ts`, `AuthGate.tsx`).
+- A fresh install opens on **Create account**. A device with a plan, or one just signed out, opens on Sign in.
+- **After signing up:** "Check your inbox" offers **I've confirmed, continue**, which signs in with what was just typed, plus Send again and Change email. The confirmation page now says to go back and tap it (`confirmationStatus` returns `signup`).
+- **Fresh installs (no goals or tasks) get a 4-step tour** instead of the auto-opening guide:
+  1. "What are you preparing for?" (JEE, NEET, UPSC, GATE, CAT, Boards, or a name of your own) makes a real starter goal with subjects, chapters and three steps each, and no deadline.
+  2. On Goals, one tap plans the first chapter for today.
+  3. On Today, one tap starts a focus session. The session's own ambient-clock tip shows, not a second one.
+  4. A short recap.
+  - Skip works anywhere.
+  - A device that already holds a plan still gets the guide.
+- **No daily briefing on a day with nothing in it**, including right after the tour.
+- **The guide says "Plan"**, matching the button (it said "Schedule").
+- **Tried in the browser at phone width** (dev server, offline, dark and light): the whole tour with UPSC and with "Something else", Skip, and a reload afterwards.
+- **Not tried:**
+  - the sign-up and Continue path (it would create a real account);
+  - the Classic Look.
+
+**Before releasing, on the server (owner, one step at a time):**
+1. Re-run `community_chat.sql`, `board_update_extras.sql`, `board_update_push.sql`, `support_settings.sql` and `hub_backers.sql` (now owner-only in places).
+2. Run `admin_hub.sql`.
+3. `npx.cmd supabase functions deploy owner-delete-accounts`.
+4. Check that you are the owner: `operations/manage_community_staff.sql` with `inspect`.
+
+**Phone checks for this release:**
+- **As the owner:** People search by email; open someone; make, then remove, an admin; growth numbers; the cleanup list (delete only if the numbers look right).
+- **As an admin (a test account):**
+  - no Owner tab, no emails, and no room switches;
+  - mute and restore a member;
+  - remove a reported message.
+- **Fresh install:** Create account, confirm on the phone, Continue; the tour; the first session; no briefing that day.
+- **Old install:** opens on Sign in; nothing changes for existing data.
 
 ---
 

@@ -35,7 +35,7 @@ export function isAuthRecoveryUrl(search: string): boolean {
   return new URLSearchParams(search.replace(/^\?/, '')).get('auth') === 'recovery';
 }
 
-export type ConfirmationStatus = 'expired' | 'error' | 'pending' | 'received' | 'unknown';
+export type ConfirmationStatus = 'expired' | 'error' | 'pending' | 'signup' | 'received' | 'unknown';
 
 /** Only classify Supabase callback shapes. Never render arbitrary URL text or save tokens. */
 export function confirmationStatus(hash: string, search = ''): ConfirmationStatus {
@@ -45,6 +45,8 @@ export function confirmationStatus(hash: string, search = ''): ConfirmationStatu
   if (read('error_code') === 'otp_expired') return 'expired';
   if (read('error') || read('error_code')) return 'error';
   if (read('message')?.startsWith('Confirmation link accepted')) return 'pending';
-  if (read('access_token') && ['email_change', 'signup', 'email'].includes(read('type') ?? '')) return 'received';
+  // A new account's link: the app waiting on "Check your inbox" signs in with Continue.
+  if (read('access_token') && read('type') === 'signup') return 'signup';
+  if (read('access_token') && ['email_change', 'email'].includes(read('type') ?? '')) return 'received';
   return 'unknown';
 }

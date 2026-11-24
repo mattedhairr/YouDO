@@ -241,7 +241,7 @@ declare current_settings public.community_settings%rowtype;
 declare clean_announcement text := btrim(coalesce(next_announcement,''));
 declare announcement_changed boolean;
 begin
-  if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
+  if not public.is_community_owner() then raise exception 'Owner required' using errcode='42501'; end if;
   select * into current_settings from public.community_settings where id=1 for update;
   announcement_changed := current_settings.announcement is distinct from clean_announcement;
   if current_settings.room_enabled is distinct from next_room_enabled then

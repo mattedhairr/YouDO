@@ -19,6 +19,7 @@ files in this directory.
 - **YouDO — Board Update Push** → `board_update_push.sql` (after `push_dispatch.sql`, `hub_push.sql` and `community_chat.sql`)
 - **YouDO — Board Update Extras** → `board_update_extras.sql` (after `board_update_push.sql`)
 - **YouDO — Community Push** → `community_push.sql` (after `push_dispatch.sql`, `hub_push.sql`, `board_update_push.sql` and `community_rooms.sql`)
+- **YouDO — Admin Hub** → `admin_hub.sql` (last: after every file in `scripts/supabase-setup-order.mjs` before it)
 - **YouDO — Managed App Quotes** → `app_quotes.sql`
 - **YouDO — Account Sessions** → `account_sessions.sql`
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`
@@ -123,6 +124,33 @@ hashtag room for those who choose "All messages"; default mentions and replies)
 and the Admin Hub pushes to admins (a new hashtag request, a requester's answer,
 a reported message), each with its own switch. Inside the app the unread dots
 always show and have no switch.
+
+## Admin Hub: owner and admins (v9.0.0)
+
+`admin_hub.sql` lets the Admin Hub look people up, change staff, show growth
+numbers and delete accounts, so none of that needs a query any more. There is
+one owner (set once with `operations/manage_community_staff.sql`, never from the
+app) and any number of admins:
+
+- Admins and the owner: the queue (reports, appeals, hashtag requests), muting
+  and banning members (never staff), hashtags, quotes, the activity log, and
+  looking people up by name or @username.
+- The owner only: emails and sign-in details, saved-data size, making and
+  removing admins, the Board broadcast and its notification, the room and Kudos
+  switches, Support settings and backer claims, growth numbers, and deleting
+  accounts.
+
+The owner-only rules live in the functions themselves, so v9.0.0 also changes
+`community_chat.sql` (`set_community_settings`), `board_update_extras.sql`
+(`publish_community_update`, `close_community_poll`), `board_update_push.sql`
+(`notify_community_update`), `support_settings.sql` and `hub_backers.sql`.
+Re-run each of those, then `admin_hub.sql`, then deploy the function that
+deletes accounts: `npx.cmd supabase functions deploy owner-delete-accounts`.
+It asks `owner_accounts_to_delete()` as the signed-in person (only the owner
+gets ids, re-checked at that moment) and deletes each with Supabase Auth's own
+delete. Junk means: never confirmed and over 7 days old, or confirmed with
+nothing saved (no backup over 1 KB, Board, rooms, friends or messages) and no
+server activity for 60 days. Staff, backers and anyone with data never count.
 
 Projects set up before v8.0.0: run `cleanup_retired_private_hub.sql` once. It
 removes the old Private Hub on/off switch and the waitlist; the app no longer uses them.

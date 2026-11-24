@@ -69,7 +69,7 @@ declare clean_url text := pg_catalog.btrim(coalesce(action_url, ''));
 declare next_replies boolean := coalesce(allow_replies, false);
 declare next_revision bigint;
 begin
-  if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
+  if not public.is_community_owner() then raise exception 'Owner required' using errcode='42501'; end if;
   if pg_catalog.char_length(clean_text) > 2000 then raise exception 'Keep the update under 2000 characters'; end if;
 
   if clean_text <> '' and poll_options is not null then
@@ -129,7 +129,7 @@ end; $$;
 create or replace function public.close_community_poll()
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
+  if not public.is_community_owner() then raise exception 'Owner required' using errcode='42501'; end if;
   update public.community_settings set announcement_poll_closed=true, updated_at=now()
     where id=1 and announcement_poll is not null and not announcement_poll_closed;
   if found then insert into public.community_audit_log(admin_id, action) values (auth.uid(), 'settings.announcement.poll_closed'); end if;

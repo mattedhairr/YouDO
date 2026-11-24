@@ -121,60 +121,12 @@ export interface CommunityMemberState {
 
 export interface CommunityAuditEntry {
   id: number;
+  /** Who did it; missing on older rows. */
+  adminId?: string;
   action: string;
   targetUserId?: string;
   reason: string;
   createdAt: string;
-}
-
-export interface CommunityAuditDescription {
-  category: 'Settings' | 'Member' | 'Report' | 'Appeal' | 'Message' | 'Admin';
-  title: string;
-  detail: string;
-}
-
-const auditSubject = (targetName?: string) => targetName?.trim() || 'a board member';
-
-export function describeCommunityAudit(entry: CommunityAuditEntry, targetName?: string): CommunityAuditDescription {
-  const subject = auditSubject(targetName);
-  const descriptions: Record<string, CommunityAuditDescription> = {
-    'settings.room.enabled': { category: 'Settings', title: 'Community room opened', detail: 'Members can send messages and automatic notes again.' },
-    'settings.room.disabled': { category: 'Settings', title: 'Community room paused', detail: 'New messages and automatic notes are paused.' },
-    'settings.kudos.enabled': { category: 'Settings', title: 'Kudos enabled', detail: 'Members can recognise today’s top three again.' },
-    'settings.kudos.disabled': { category: 'Settings', title: 'Kudos paused', detail: 'New recognition is temporarily unavailable.' },
-    'settings.announcement.published': { category: 'Settings', title: 'Board announcement published', detail: 'The room announcement was added or replaced.' },
-    'settings.announcement.cleared': { category: 'Settings', title: 'Board announcement cleared', detail: 'The room announcement was removed.' },
-    'settings.announcement.pushed': { category: 'Settings', title: 'Board update sent as a notification', detail: entry.reason || 'Board members were notified.' },
-    'settings.private_hub.enabled': { category: 'Settings', title: 'Private Hub opened', detail: 'Members can open friends, rooms and DMs.' },
-    'settings.private_hub.disabled': { category: 'Settings', title: 'Private Hub closed', detail: 'Members see the under-development page; admins can still preview it.' },
-    'settings.updated': { category: 'Settings', title: 'Community settings updated', detail: 'An earlier app version recorded this change without field details.' },
-    'member.mute_24h': { category: 'Member', title: `Muted ${subject} for 24 hours`, detail: entry.reason || 'Posting access was temporarily paused.' },
-    'member.mute_7d': { category: 'Member', title: `Muted ${subject} for 7 days`, detail: entry.reason || 'Posting access was temporarily paused.' },
-    'member.ban': { category: 'Member', title: `Removed ${subject} from community`, detail: entry.reason || 'Community access was disabled; private workspace data was untouched.' },
-    'member.restore': { category: 'Member', title: `Restored ${subject}`, detail: entry.reason || 'Community access was restored.' },
-    'appeal.approve': { category: 'Appeal', title: `Approved ${subject}’s appeal`, detail: entry.reason || 'Community access was restored.' },
-    'appeal.decline': { category: 'Appeal', title: `Declined ${subject}’s appeal`, detail: entry.reason || 'The restriction remains in place.' },
-    'message.removed': { category: 'Message', title: `Removed ${subject}’s message`, detail: entry.reason || 'The message was removed from the community room.' },
-    'report.dismissed': { category: 'Report', title: 'Report dismissed', detail: 'The report was reviewed and closed without restricting a member.' },
-    'hashtag.request.waiting': { category: 'Admin', title: `Replied to ${subject}’s exam request`, detail: entry.reason || 'The request remains open.' },
-    'hashtag.request.rejected': { category: 'Admin', title: `Rejected ${subject}’s exam request`, detail: entry.reason || 'The requested exam hashtag was not approved.' },
-    'hashtag.created': { category: 'Admin', title: 'Approved an exam community', detail: entry.reason || 'A requested hashtag was created or reactivated.' },
-    'hashtag.admin.created': { category: 'Admin', title: 'Added an exam hashtag', detail: entry.reason || 'A hashtag was added directly.' },
-    'hashtag.admin.renamed': { category: 'Admin', title: 'Renamed an exam hashtag', detail: entry.reason || 'The display name changed for its members.' },
-    'hashtag.admin.archived': { category: 'Admin', title: 'Deleted an exam hashtag', detail: entry.reason || 'The hashtag was removed from members and chat.' },
-    'hashtag.admin.restored': { category: 'Admin', title: 'Restored an exam hashtag', detail: entry.reason || 'Members can select it again.' },
-    'quotes.created': { category: 'Admin', title: 'Added an app quote', detail: entry.reason || 'A new motivational quote was added.' },
-    'quotes.updated': { category: 'Admin', title: 'Edited an app quote', detail: entry.reason || 'A motivational quote was updated.' },
-    'quotes.deleted': { category: 'Admin', title: 'Deleted an app quote', detail: entry.reason || 'A motivational quote was removed.' },
-    'support.updated': { category: 'Admin', title: 'Changed Support settings', detail: entry.reason || 'The UPI ID or a Support switch changed.' },
-  };
-  if (descriptions[entry.action]) return descriptions[entry.action];
-  const readable = entry.action.split('.').filter(Boolean).join(' ');
-  return {
-    category: 'Admin',
-    title: readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : 'Admin action recorded',
-    detail: entry.reason || 'Recorded by a community administrator.',
-  };
 }
 
 export function isCommunityUnavailable(error: { code?: string; message?: string } | null | undefined): boolean {
@@ -365,7 +317,7 @@ export async function fetchAdminCommunity(dayKey: string): Promise<{
     supabase.from('community_reports').select('id, message_id, reporter_id, reason, created_at').eq('status', 'open').order('created_at', { ascending: false }),
     supabase.from('community_members').select('user_id, display_name, muted_until, banned_at, moderation_note').order('updated_at', { ascending: false }),
     supabase.from('community_appeals').select('id, user_id, message, status, admin_response, created_at, reviewed_at').eq('status', 'open').order('created_at', { ascending: true }),
-    supabase.from('community_audit_log').select('id, action, target_user_id, reason, created_at').order('created_at', { ascending: false }).limit(30),
+    supabase.from('community_audit_log').select('id, admin_id, action, target_user_id, reason, created_at').order('created_at', { ascending: false }).limit(30),
   ]);
   void dayKey;
   const error = reports.error ?? members.error ?? appeals.error ?? audit.error;
@@ -374,7 +326,7 @@ export async function fetchAdminCommunity(dayKey: string): Promise<{
     reports: ((reports.data ?? []) as Record<string, unknown>[]).map((row) => ({ id: String(row.id), messageId: String(row.message_id), reporterId: String(row.reporter_id), reason: String(row.reason), createdAt: String(row.created_at) })),
     members: ((members.data ?? []) as Record<string, unknown>[]).map((row) => ({ userId: String(row.user_id), displayName: String(row.display_name ?? ''), mutedUntil: typeof row.muted_until === 'string' ? row.muted_until : undefined, banned: typeof row.banned_at === 'string', note: String(row.moderation_note ?? '') })),
     appeals: ((appeals.data ?? []) as Record<string, unknown>[]).map((row) => ({ id: String(row.id), userId: String(row.user_id), message: String(row.message), status: row.status as CommunityAppeal['status'], adminResponse: String(row.admin_response ?? ''), createdAt: String(row.created_at), reviewedAt: typeof row.reviewed_at === 'string' ? row.reviewed_at : undefined })),
-    audit: ((audit.data ?? []) as Record<string, unknown>[]).map((row) => ({ id: Number(row.id), action: String(row.action), targetUserId: typeof row.target_user_id === 'string' ? row.target_user_id : undefined, reason: String(row.reason ?? ''), createdAt: String(row.created_at) })),
+    audit: ((audit.data ?? []) as Record<string, unknown>[]).map((row) => ({ id: Number(row.id), adminId: typeof row.admin_id === 'string' ? row.admin_id : undefined, action: String(row.action), targetUserId: typeof row.target_user_id === 'string' ? row.target_user_id : undefined, reason: String(row.reason ?? ''), createdAt: String(row.created_at) })),
   };
 }
 

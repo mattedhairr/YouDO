@@ -44,7 +44,7 @@ describe('confirmation landing states', () => {
   });
   it('recognizes supported callback types without persisting their tokens', () => {
     expect(confirmationStatus('#access_token=redacted&type=email_change')).toBe('received');
-    expect(confirmationStatus('#access_token=redacted&type=signup')).toBe('received');
+    expect(confirmationStatus('#access_token=redacted&type=signup')).toBe('signup');
   });
   it('does not claim success on a bare, unknown, recovery, or PKCE callback', () => {
     for (const hash of ['', '#type=email_change', '#access_token=redacted&type=recovery', '#code=abc', '#evil=<script>', '#message=Unexpected+response']) {

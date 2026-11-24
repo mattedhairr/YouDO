@@ -1,0 +1,116 @@
+/* The welcome tour (StartTour.tsx). Theme tokens only, so it follows the
+   accent colour in light and dark mode and in the Classic Look. */
+
+.start-tour-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  overflow-y: auto;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+.start-tour-pick {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: calc(var(--safe-area-top, 0px) + 36px) 20px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  outline: none;
+}
+.start-tour-pick h1 { margin-top: 18px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.start-tour-lead { margin: 6px 0 20px; color: var(--text-secondary); font-size: 14px; line-height: 1.45; }
+
+.start-tour-progress { display: flex; justify-content: center; gap: 6px; }
+.start-tour-progress i { width: 22px; height: 4px; border-radius: 2px; background: var(--bg-fill); }
+.start-tour-progress i.is-on { background: var(--primary); }
+
+.start-tour-exams { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.start-tour-exams button {
+  min-height: 70px;
+  padding: 12px 13px;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 18px;
+  background: var(--bg-surface);
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.start-tour-exams button.is-wide { grid-column: span 2; min-height: 58px; }
+.start-tour-exams button[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg-surface));
+}
+.start-tour-exams strong { display: block; color: var(--text-primary); font-size: 16px; font-weight: 800; }
+.start-tour-exams span { display: block; margin-top: 3px; color: var(--text-secondary); font-size: 11.5px; line-height: 1.3; }
+
+.start-tour-input {
+  width: 100%;
+  height: 46px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  outline: none;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 16px;
+}
+.start-tour-input:focus { border-color: var(--primary); }
+
+.start-tour-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 50px;
+  margin-top: 18px;
+  border-radius: 16px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 16px;
+  font-weight: 800;
+}
+.start-tour-primary:disabled { opacity: 0.4; }
+.start-tour-skip { display: block; width: 100%; margin-top: 12px; padding: 10px; color: var(--text-muted); font-size: 14px; }
+
+/* The tip card above the bottom bar */
+.start-tour-tip {
+  position: fixed;
+  left: 50%;
+  bottom: calc(6.4rem + env(safe-area-inset-bottom, 0px));
+  z-index: 1500;
+  width: min(calc(100% - 28px), 26rem);
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border-subtle));
+  border-radius: 20px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+  outline: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .start-tour-tip { animation: start-tour-rise 260ms ease-out; }
+}
+@keyframes start-tour-rise { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.start-tour-tip-head { display: flex; align-items: center; justify-content: space-between; }
+.start-tour-tip-head span { color: var(--primary); font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.start-tour-tip-head button { display: grid; place-items: center; width: 28px; height: 28px; margin: -4px -4px -4px 0; border-radius: 50%; color: var(--text-muted); }
+.start-tour-tip-title { margin-top: 4px; font-size: 16px; font-weight: 800; }
+.start-tour-tip-text { margin-top: 4px; color: var(--text-secondary); font-size: 13px; line-height: 1.45; }
+.start-tour-tip-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.start-tour-tip-skip { color: var(--text-muted); font-size: 13px; }
+.start-tour-tip-note { color: var(--text-muted); font-size: 12px; }
+.start-tour-tip-action {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.start-tour-checks { margin-top: 8px; }
+.start-tour-checks li { display: flex; align-items: center; gap: 9px; padding: 4px 0; font-size: 13px; }
+.start-tour-checks li svg { flex: none; width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: color-mix(in srgb, var(--success, #8FB394) 22%, transparent); color: var(--success, #8FB394); }
+.start-tour-checks li.is-todo { color: var(--text-secondary); }
+.start-tour-checks li i { display: grid; flex: none; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--bg-fill); font-style: normal; color: var(--text-muted); }
