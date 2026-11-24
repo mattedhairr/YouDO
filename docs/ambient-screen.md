@@ -55,7 +55,9 @@ The body the weekday is named after, in many languages (`src/lib/planet.ts`,
 `src/components/PlanetOfTheDay.tsx`, drawn by `src/lib/planetArt.ts`): Sunday
 the Sun, Monday the Moon (in its phase that day), Tuesday Mars, Wednesday
 Mercury, Thursday Jupiter, Friday Venus, Saturday Saturn. Shown with the Focus
-Sky; Settings → Focus and streak → Planet of the day turns it off.
+Sky; Settings → Focus and streak → Planet of the day turns it off. Sunday is
+a day off: the Sun would cross a night sky, so nothing shows (`hasBodyOfTheDay`).
+The header shows no planet: its night sky is only the stars you earned. The Sun is still drawn in `planetArt.ts` for reuse.
 
 - **Place:** it crosses the sky once a day, left to right, on an arc above the
   timer, clear of the top line and the label above the digits

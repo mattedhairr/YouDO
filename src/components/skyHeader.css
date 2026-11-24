@@ -23,7 +23,6 @@ html:not(.dark) .sky-header { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 
 .sky-scene { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .sky-art-wrap { position: absolute; left: 0; right: 0; bottom: 0; }
 .sky-art { display: block; overflow: visible; }
-.sky-planet { position: absolute; pointer-events: none; }
 .sky-photo { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
 /* Over a photo, a soft shade keeps the words readable. */
 .sky-header.has-photo .sky-scene::after {

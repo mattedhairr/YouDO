@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLANETS, moonLayout, moonPhase, phaseName, planetPosition, planetSubtitle, weekdayOf } from './planet';
+import { PLANETS, hasBodyOfTheDay, moonLayout, moonPhase, phaseName, planetPosition, planetSubtitle, weekdayOf } from './planet';
 
 const day = (n: number) => new Date(Date.UTC(2026, 10, 1 + n)).toISOString().slice(0, 10);
 
@@ -88,5 +88,13 @@ describe('the tap ring around Saturn', () => {
       }
     }
     for (const i of [0, 1, 2, 3, 4, 5]) expect(PLANETS[i].ring).toBe(2.15);
+  });
+});
+
+describe('Sunday', () => {
+  it('is a day off: no body of the day, so no Sun crosses a night sky', () => {
+    expect(hasBodyOfTheDay('2026-11-22')).toBe(false); // a Sunday
+    expect(hasBodyOfTheDay('2026-11-23')).toBe(true);
+    expect(hasBodyOfTheDay('2026-11-28')).toBe(true);
   });
 });

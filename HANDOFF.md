@@ -78,6 +78,15 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Hashtag rooms → a room:** everyone in it for admins and the owner (`admin_room_members`), muted and banned marked, filters, search; tapping a person opens their Admin card.
 - Tested: 67 Admin Hub SQL checks (filters, ticks, opens, the deleted tally), 30 room members checks, unit tests; the three screens seen in the browser with made-up data. **Never tried against the real server or on a phone.**
 
+**8. Scenes: the header's landscape and the app's colour, chosen together** (mocked and chosen by the owner; `src/lib/headerScenes.ts`, `src/components/ScenePicker.tsx`, `src/lib/accentColors.ts`).
+- **Why:** at midday the old blue sky clashed with the default Sand accent around it. Now each accent comes with its own landscape and skies, so they always match.
+- **Three scenes, drawn in code (vector):** **Harvest fields** of the plains (Sand, the default): a low horizon, wheat rows to a village tree line, haystacks, a kikar, bearded wheat in the bottom-right corner, birds only in the evening. **Himalaya** (Slate): a snow range kept under the name and countdown, pink at dawn and lilac after sunset, deodars in front. **Western Ghats** (Sage): basalt tablelands, a waterfall off a cliff, monsoon mist, tea rows. Each has its own five skies (night, dawn, day, golden hour, dusk). Everything else is unchanged in every scene: the real sun and glare, lens flare, weather, earned stars and constellation, the time-lapse. Same header sizes. The Summit keeps its own mountain. Thar, Deccan and Konkan were drawn and dropped by the owner.
+- **Accents:** Sand, Slate, Sage, or **Your photo**. Older choices move: clay to Sand; plum and graphite to Slate (`resolveAccent`).
+- **Your photo:** Settings → Appearance → Scene and colour → Your photo picks a photo (or uses the header photo), then suggests five colours found in it (k-means on the phone, `photoColors`), or a tap anywhere on the photo takes that spot. It becomes a soft dark-mode tone and a deeper light-mode one (`accentFromColor`), set as inline `--primary` / `--accent-tick` on <html>; widgets and notification icons follow it (`storedAccentSwatch`). Choosing a scene card switches a photo header back to the scene. Header background still offers Scene, Summit and Your photo.
+- **The header has no planet any more:** its night sky is only the stars you earned and the constellation. The planet of the day stays on the ambient screen, and on Sundays there it shows nothing (no Sun in a night sky).
+- Tested: unit tests for the scenes (land stays under the words, deterministic, the fields' sunset on the horizon), accents (retired ones, custom, photo colours); the headers rendered from sunrise to night, cloudy and light mode, and the picker with a made-up photo in the browser. **Not on a phone yet.**
+- **Screenshots** (README, store, Orion) still show the old sky: retake them with made-up data before the release.
+
 **On the server (all done 2026-11-24, before the release):**
 1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
 2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
@@ -106,6 +115,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Growth:** the next day, the readout and chart show yesterday's phones; tap a few days and weeks, ✕ goes back; downloads load. **Home:** today's tiles, Worth a look (cleanup opens Account cleanup), and as an admin only the two tiles.
 - **Count my visits:** turn it off in Settings; it stays off after a restart.
 - **Account cleanup:** each filter; search; tick one obvious junk account and delete it (type DELETE 1); it disappears and Growth's sign-ups for its week stay the same.
+- **Scenes:** each of the three at dawn, noon, sunset and night; switch between them in Settings; Your photo: choose one, try a suggested colour and a tap on the photo, check buttons in dark and light mode, a widget and a notification icon; an old install that used plum, clay or graphite opens on the nearest scene; no planet in the header at night.
 - **Room members (Admin Hub):** Community → Hashtag rooms → tap a room; Muted and Banned filters; tap a person, their Admin card opens.
 
 ---

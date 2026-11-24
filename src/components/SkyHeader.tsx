@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Cloud, CloudRain, MapPin, Moon, Sun } from 'lucide-react';
-import { ambientPlanetEnabled } from '../lib/ambient';
 import type { AppQuote } from '../lib/appQuotes';
 import { todayISO } from '../lib/dates';
 import { skyProgress } from '../lib/focusSky';
@@ -26,15 +25,15 @@ import {
   upcomingDeadlines,
   type DeadlineGoal,
   type HeaderStar,
+  type SkyPalettes,
 } from '../lib/headerSky';
+import { SCENES, sceneForAccent, sceneShape, type SceneId, type SceneMark } from '../lib/headerScenes';
 import type { GoalNode } from '../types';
-import { moonPhase, weekdayOf } from '../lib/planet';
 import { deviceTimeZone, formatClock, isIndiaTimeZone, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACE_EVENT, SKY_PLACES, skyInviteDone, sunDayForPlace } from '../lib/skyPlaces';
 import { loadDayWeather, nextWeather, saveDayWeather, SKY_WEATHER_EVENT, weatherButtonEnabled, weatherColors, type Weather } from '../lib/weather';
 import Overlay from './Overlay';
 import SkyWeather from './SkyWeather';
 import { sunAltitude, type SunDay } from '../lib/sunPath';
-import { drawPlanet } from '../lib/planetArt';
 import { hapticTick } from '../lib/haptics';
 import { summitScene, trailFraction, walkTrail, type Pt, type SummitScene } from '../lib/summit';
 import './skyHeader.css';
@@ -99,6 +98,18 @@ function useNow(): Date {
   return now;
 }
 
+/** The landscape that goes with the accent (headerScenes.ts), following it when it changes. */
+function useAccentScene(): SceneId {
+  const read = () => sceneForAccent(document.documentElement.dataset.accent);
+  const [id, setId] = useState<SceneId>(read);
+  useEffect(() => {
+    const watch = new MutationObserver(() => setId(read()));
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-accent'] });
+    return () => watch.disconnect();
+  }, []);
+  return id;
+}
+
 function useHeaderBackground(): { prefs: HeaderBackground; photoUrl: string | null } {
   const [prefs, setPrefs] = useState(loadHeaderBackground);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -130,23 +141,6 @@ function useHeaderBackground(): { prefs: HeaderBackground; photoUrl: string | nu
     };
   }, []);
   return { prefs, photoUrl };
-}
-
-function PlanetMark({ index, phase, x, top, opacity = 1 }: { index: number; phase: number; x: number; top: number; opacity?: number }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const size = 34;
-  useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvas.width = Math.round(size * dpr);
-    canvas.height = Math.round(size * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, size, size);
-    drawPlanet(ctx, size / 2, size / 2, 7, index, phase);
-  }, [index, phase]);
-  return <canvas ref={ref} className="sky-planet" style={{ left: x - size / 2, top: `calc(var(--sky-top) + ${top - size / 2}px)`, width: size, height: size, opacity }} aria-hidden />;
 }
 
 type Pts = [number, number][];
@@ -295,7 +289,10 @@ interface SummitArt {
   trail: { walked: Pt[]; at: Pt | null } | null;
 }
 
-function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, ridges, place, sunPathD, quoteShade, quiet, flareLevel, summit }: {
+function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, ridges, place, sunPathD, quoteShade, quiet, flareLevel, summit, palettes, marks }: {
+  /** A scene's skies and its marks on the land (headerScenes.ts). */
+  palettes?: SkyPalettes;
+  marks?: SceneMark[];
   width: number;
   height: number;
   hour: number;
@@ -319,7 +316,7 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   /** Where words sit (scene coordinates): the bright ridge lines fade out there. */
   quiet?: { x: number; y: number; w: number; h: number }[];
 }) {
-  const colors = useMemo(() => weatherColors(skyColors(hour, day), weather, night), [hour, day, weather, night]);
+  const colors = useMemo(() => weatherColors(skyColors(hour, day, palettes), weather, night), [hour, day, weather, night, palettes]);
   // Behind cloud the sun is a dim glow and only a few stars show; in rain neither does.
   const sunShows = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.3 : 0;
   const starsShow = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.3 : 0;
@@ -351,6 +348,37 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
     ? mixColor(mixColor(mixColor('#ffffff', '#ffd3c2', alpen), '#9fb2d4', night * 0.8), colors.layers[0][0], weather === 'clear' ? 0 : 0.35)
     : '';
 
+  // A scene's marks: faces shaded away from the sun (from the left at night), snow, sea, mist, silhouettes.
+  const shadeK = (0.16 + 0.1 * low) * (0.45 + 0.55 * sunShows) + 0.08 * night;
+  const litK = 0.13 * (1 - night) * sunShows * (0.4 + 0.6 * low);
+  const foam = mixColor(colors.sky[3], '#ffffff', 0.55);
+  // Birds come home around sunset: none by day, gone once it is night.
+  const afternoon = sun.visible ? sun.dx > 0 : hour > 12;
+  const duskness = afternoon ? (1 - night) * (sun.visible ? Math.max(0, Math.min(1, (low - 0.55) / 0.35)) : 1) : 0;
+  const markOf = (m: SceneMark, k: number) => {
+    const base = (m.opacity ?? 1) * (m.dusk ? duskness : 1);
+    if (base <= 0.01) return null;
+    const clip = m.clip ? `url(#sky-land${m.layer})` : undefined;
+    if (m.paint === 'haze') return <rect key={k} x="0" y={m.y} width={width} height={m.h} fill="url(#sky-haze)" opacity={base} />;
+    if (m.paint === 'face-l' || m.paint === 'face-r') {
+      const facing = m.paint === 'face-r' ? 1 : -1;
+      const from = sun.visible && night < 0.5 ? Math.sign(sunX - (m.x ?? width / 2)) || 1 : -1;
+      const lit = from === facing;
+      // Far land is softened by the air between: its shading is fainter.
+      const depth = [0.55, 0.72, 0.88, 1][m.layer] ?? 1;
+      return <path key={k} d={m.d} clipPath={clip} fill={lit ? '#fff4e4' : '#0a1222'} opacity={+((lit ? litK : shadeK) * base * depth).toFixed(3)} />;
+    }
+    const color = m.paint === 'snow' ? colors.snow ?? '#ffffff'
+      : m.paint === 'land' ? colors.layers[m.layer][0]
+      : m.paint === 'wheat' ? mixColor(colors.layers[1][0], '#fff1cf', 0.22 * (1 - night))
+      : m.paint === 'foam' ? foam
+          : m.paint === 'shine' ? colors.rim
+            : mixColor(colors.layers[m.layer][1], '#000000', m.paint === 'edge' ? 0.45 : 0.3);
+    return m.stroke
+      ? <path key={k} d={m.d} clipPath={clip} fill="none" stroke={color} strokeWidth={m.stroke} strokeLinecap="round" opacity={base} />
+      : <path key={k} d={m.d} clipPath={clip} fill={color} opacity={base} />;
+  };
+
   return (
     <svg className="sky-art" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden>
       <defs>
@@ -376,6 +404,7 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
           <rect x="0" y={top} width={width} height={height - top} fill="white" />
           {(quiet ?? []).map((q, i) => <rect key={i} x={q.x - 14} y={q.y - 14} width={q.w + 28} height={q.h + 28} fill="url(#sky-quiet)" />)}
         </mask>
+        {marks && ridges.map((pts, i) => <clipPath key={i} id={`sky-land${i}`}><path d={fill(pts)} /></clipPath>)}
         {summit && peak && (
           <>
             <clipPath id="sky-farclip"><path d={fill(ridges[0])} /></clipPath>
@@ -424,6 +453,7 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
               <path d={'M' + summit.scene.snow.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L') + ' Z'} fill={snowColor} opacity={0.95} />
             </g>
           )}
+          {marks?.filter((m) => m.layer === i).map(markOf)}
           <path d={path(pts)} fill="none" stroke={colors.rim} strokeWidth={i === 0 ? 0.9 : 0.6} opacity={[1, 0.7, 0.45, 0.25][i]} mask="url(#sky-rimmask)" />
           {i < 3 && (
             <rect x="0" y={(summit && i === 0 ? summit.scene.sun.base : Math.min(...pts.map((p) => p[1]))) + 6} width={width} height={30 - i * 6} fill="url(#sky-haze)" />
@@ -526,6 +556,8 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const { prefs, photoUrl } = useHeaderBackground();
   const photo = prefs.mode === 'photo' && photoUrl ? photoUrl : null;
   const summitOn = prefs.mode === 'summit';
+  const sceneId = useAccentScene();
+  const palettes = summitOn ? undefined : SCENES[sceneId].palettes;
   const height = summitOn ? (today ? SUMMIT_HEIGHT.today : SUMMIT_HEIGHT.tab) : today ? HEIGHT.today : HEIGHT.tab;
   const lift = today ? TODAY_LIFT : TAB_LIFT;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -541,7 +573,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   // While the time-lapse runs the scene shows its hour; everything else keeps the real one.
   const sceneHour = replayHour ?? hour;
   const sceneNight = replayHour === null ? night : nightness(sceneHour, day);
-  const skyNow = useMemo(() => weatherColors(skyColors(sceneHour, day), weather, sceneNight), [sceneHour, day, weather, sceneNight]);
+  const skyNow = useMemo(() => weatherColors(skyColors(sceneHour, day, palettes), weather, sceneNight), [sceneHour, day, weather, sceneNight, palettes]);
   const [folded, setFolded] = useState(false);
   // A new tab sets its height at once: animating it would re-lay out the
   // page every frame while the new tab draws. Only the quote's "more" grows.
@@ -649,8 +681,9 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   }, [dateKey, width, progress.lit, progress.constellationSize, today, deadlines.length, summit]);
   const dust = useMemo(() => dustStars(dateKey, width), [dateKey, width]);
   const sunHeight = Math.max(0, sunAltitude(day, hour));
-  const ridges = useMemo(() => (summit ? summit.ranges : ridgesFor(width, lift)), [summit, width, lift]);
-  const track = summit ? summit.sun : SKY_TRACK;
+  const land = useMemo(() => (summit ? null : sceneShape(sceneId, width, lift)), [summit, sceneId, width, lift]);
+  const ridges = useMemo(() => (summit ? summit.ranges : land ? land.ranges : ridgesFor(width, lift)), [summit, land, width, lift]);
+  const track = summit ? summit.sun : land?.sun ?? SKY_TRACK;
   const place = useMemo(() => sunPlacement(width, sceneHour, day, track), [width, sceneHour, day, track]);
   const sunNow = useMemo(() => sunPlacement(width, hour, day, track), [width, hour, day, track]);
   const sunPath = useMemo(() => sunPathFor(width, day, ridges, track), [width, day, ridges, track]);
@@ -683,9 +716,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   };
   /** Scene coordinates to the header's own, for words over the scene. */
   const sceneTop = (y: number) => `calc(var(--sky-top) + ${y + quoteExtra - OFFSET}px)`;
-  const planetIndex = weekdayOf(dateKey);
-  const showPlanet = night > 0.05 && planetIndex !== 0 && ambientPlanetEnabled();
-  const phase = useMemo(() => moonPhase(dateKey), [dateKey]);
 
   const deadline = deadlines.length ? deadlines[goalIndex % deadlines.length] : null;
   // The Summit's trail: from the day the shown goal began to its deadline, walked up to today.
@@ -722,10 +752,9 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ) : (
       <>
         <div className="sky-art-wrap" style={{ height: height + OFFSET }}>
-          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} ridges={ridges} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} quiet={quietZones} flareLevel={lensFlare(sceneHour, day)} summit={summitArt} />
+          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} ridges={ridges} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} quiet={quietZones} flareLevel={lensFlare(sceneHour, day)} summit={summitArt} palettes={palettes} marks={land?.marks} />
           <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} />
         </div>
-        {showPlanet && weather !== 'rainy' && <PlanetMark index={planetIndex} phase={phase} x={width * (summit ? 0.46 : 0.54)} top={74 - OFFSET + quoteExtra} opacity={weather === 'cloudy' ? 0.35 : 1} />}
       </>
     );
 

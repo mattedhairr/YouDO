@@ -99,7 +99,7 @@ export default function HeaderBackgroundSettings() {
               ? 'Your own photo at the top of every tab. It stays on this device.'
               : prefs.mode === 'summit'
                 ? 'The same sky over a mountain for your nearest goal: the trail runs from the day you made it to its deadline.'
-                : 'A sky that follows the time of day, with tonight’s earned stars.'}
+                : 'Your scene, with a sky that follows the time of day and tonight’s earned stars.'}
           </p>
         </div>
       </div>
@@ -114,7 +114,7 @@ export default function HeaderBackgroundSettings() {
             onClick={() => (mode === 'photo' && !photoUrl ? fileRef.current?.click() : update({ mode }))}
             className={`min-h-9 rounded-lg text-[11.5px] font-semibold transition ${prefs.mode === mode ? 'bg-primary text-on-primary shadow' : 'text-content-secondary'}`}
           >
-            {mode === 'sky' ? 'Dynamic sky' : mode === 'summit' ? 'Summit' : 'Your photo'}
+            {mode === 'sky' ? 'Scene' : mode === 'summit' ? 'Summit' : 'Your photo'}
           </button>
         ))}
       </div>

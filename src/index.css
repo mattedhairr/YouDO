@@ -81,15 +81,9 @@ html.dark { --on-primary: #14120f; --on-accent: #14120f; }
 html.dark[data-accent='sand'] { --primary: #C9A46E; --accent-tick: #8FB394; }
 html.dark[data-accent='sage'] { --primary: #8FB394; --accent-tick: #D6B784; }
 html.dark[data-accent='slate'] { --primary: #8DA6C9; --accent-tick: #D6B784; }
-html.dark[data-accent='plum'] { --primary: #B39AC8; --accent-tick: #8FB394; }
-html.dark[data-accent='clay'] { --primary: #CC8E6E; --accent-tick: #8FB394; }
-html.dark[data-accent='graphite'] { --primary: #A4A6AB; --accent-tick: #D6B784; }
 html.light-dusky[data-accent='sand'] { --primary: #8C6A3A; --accent-tick: #4E7A57; }
 html.light-dusky[data-accent='sage'] { --primary: #4E7A57; --accent-tick: #8C6A3A; }
 html.light-dusky[data-accent='slate'] { --primary: #4A6A93; --accent-tick: #8C6A3A; }
-html.light-dusky[data-accent='plum'] { --primary: #7A5A8C; --accent-tick: #4E7A57; }
-html.light-dusky[data-accent='clay'] { --primary: #A55A3A; --accent-tick: #4E7A57; }
-html.light-dusky[data-accent='graphite'] { --primary: #5E6066; --accent-tick: #8C6A3A; }
 
 /* Derived tokens — every soft fill and glow follows the active tint. */
 html.dark,

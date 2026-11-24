@@ -23,16 +23,15 @@ export interface SkyColors {
   rim: string;
   /** The haze at the foot of each range. */
   mist: string;
+  /** A scene's snow (headerScenes.ts), when it has it. */
+  snow?: string;
 }
 
-interface Palette {
-  sky: string[];
-  layers: [string, string][];
-  rim: string;
-  mist: string;
-}
+type Palette = SkyColors;
 
-const PALETTES: Record<'night' | 'morning' | 'day' | 'evening' | 'dusk', Palette> = {
+export type SkyPalettes = Record<'night' | 'morning' | 'day' | 'evening' | 'dusk', Palette>;
+
+const PALETTES: SkyPalettes = {
   night: { sky: ['#010209', '#050a1e', '#0c1736', '#16244a'], layers: [['#1b2747', '#141e39'], ['#121a33', '#0d1428'], ['#0b1022', '#070b18'], ['#05070f', '#020306']], rim: 'rgba(160,185,255,.35)', mist: 'rgba(120,140,200,.08)' },
   morning: { sky: ['#16244a', '#5d5a86', '#d98d7a', '#f6cf9c'], layers: [['#8a7f9e', '#6d6587'], ['#5b5578', '#433f60'], ['#36324f', '#26233a'], ['#191726', '#0c0b14']], rim: 'rgba(255,226,190,.55)', mist: 'rgba(255,236,220,.22)' },
   day: { sky: ['#1f5a92', '#3f86c2', '#8fc0e0', '#d9ebf3'], layers: [['#a7c2d8', '#8daec8'], ['#6b95b5', '#557f9f'], ['#2f6283', '#224c69'], ['#12324a', '#08192a']], rim: 'rgba(255,255,255,.5)', mist: 'rgba(225,238,248,.1)' },
@@ -83,8 +82,8 @@ export function hourOf(date: Date): number {
   return date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
 }
 
-/** The sky's colours at `hour` (0–24) on `day`, blended smoothly between the five skies. */
-export function skyColors(hour: number, day: SunDay): SkyColors {
+/** The sky's colours at `hour` (0–24) on `day`, blended smoothly between the five skies (a scene's own, or the default). */
+export function skyColors(hour: number, day: SunDay, palettes: SkyPalettes = PALETTES): SkyColors {
   const h = ((hour % 24) + 24) % 24;
   const keys = skyKeys(day);
   let i = 0;
@@ -92,13 +91,14 @@ export function skyColors(hour: number, day: SunDay): SkyColors {
   const [h0, a] = keys[i];
   const [h1, b] = keys[i + 1];
   const t = smooth(clamp((h - h0) / (h1 - h0)));
-  const A = PALETTES[a];
-  const B = PALETTES[b];
+  const A = palettes[a];
+  const B = palettes[b];
   return {
     sky: A.sky.map((c, k) => mixColor(c, B.sky[k], t)),
     layers: A.layers.map(([top, bottom], k) => [mixColor(top, B.layers[k][0], t), mixColor(bottom, B.layers[k][1], t)]),
     rim: mixColor(A.rim, B.rim, t),
     mist: mixColor(A.mist, B.mist, t),
+    ...(A.snow && B.snow ? { snow: mixColor(A.snow, B.snow, t) } : {}),
   };
 }
 

@@ -72,7 +72,7 @@ import { buildMorningBriefingContent, extractBriefingData } from '../lib/morning
 import { useReducedEffects } from '../hooks/useReducedEffects';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { ACCENT_COLORS, ACCENT_SWATCHES, resolveAccent } from '../lib/accentColors';
+import ScenePicker from './ScenePicker';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
 import type { BackupSummary } from '../lib/backup';
 import { formatBackupStamp, formatDuration } from '../lib/format';
@@ -2024,38 +2024,7 @@ export default function SettingsSheet({
               </div>
             </div>
 
-            {!legacyStyle && <div className="settings-data-row p-4 flex flex-col items-stretch gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                  <Palette size={16} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xs font-semibold text-content-primary">Accent Color</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">{ACCENT_SWATCHES[resolveAccent(theme)].label} tints buttons, rings and links</p>
-                </div>
-              </div>
-              <div role="radiogroup" aria-label="Accent color" className="flex items-center justify-between gap-1 px-1">
-                {ACCENT_COLORS.map((accent) => {
-                  const swatch = ACCENT_SWATCHES[accent];
-                  const selected = resolveAccent(theme) === accent;
-                  return (
-                    <button
-                      key={accent}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      aria-label={swatch.label}
-                      title={swatch.label}
-                      onClick={() => setTheme((prev) => ({ ...prev, accent }))}
-                      className="accent-swatch"
-                      style={{ background: theme.darkMode ? swatch.dark : swatch.light }}
-                    >
-                      {selected && <Check size={16} strokeWidth={3} />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>}
+            {!legacyStyle && <ScenePicker theme={theme} setTheme={setTheme} />}
 
             <div className="settings-data-row p-4 flex flex-col items-stretch gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -3039,7 +3008,7 @@ export default function SettingsSheet({
                 <div className="min-w-0 flex-1 pl-12">
                   <h3 className="text-xs font-semibold text-content-primary">Planet of the day</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
-                    The planet the weekday is named after, crossing the sky. Tap it to see its name and moons.
+                    The planet the weekday is named after, crossing the sky (Sunday is a day off). Tap it to see its name and moons.
                   </p>
                 </div>
                 <Toggle
@@ -3064,7 +3033,7 @@ export default function SettingsSheet({
                 <li><b className="text-content-primary">The music note</b> opens the focus sounds: pick one, set the volume, or let it play with the screen off.</li>
                 <li><b className="text-content-primary">Stars:</b> each day has its own sky, never the same twice. Each 1/36 of your daily bar lights a star (every 13 minutes with an 8h bar), anywhere in the sky; all 36 shine when you reach the bar. Paused time adds none.</li>
                 <li><b className="text-content-primary">Constellation:</b> when you reach your bar, seven of today's brightest stars join into a shape of their own, away from the timer. Each extra 15 minutes adds one more star to it, up to twelve.</li>
-                <li><b className="text-content-primary">Planet of the day:</b> the one the weekday is named after (Sunday the Sun, Monday the Moon, Saturday Saturn, and so on) crosses the sky once a day, starting somewhere new each day. Tap it to see its name and moons for a moment.</li>
+                <li><b className="text-content-primary">Planet of the day:</b> the one the weekday is named after (Monday the Moon, Tuesday Mars, Saturday Saturn, and so on) crosses the sky once a day, starting somewhere new each day. Sunday is a day off: no Sun in a night sky. Tap it to see its name and moons for a moment.</li>
                 <li><b className="text-content-primary">Easy on the screen:</b> true black, small dim stars, and a slow drift of the whole face and of the sky keep any pixel from holding the same light for long, so nothing marks the display. Reduce motion keeps the sky still.</li>
               </ul>
             </details>

@@ -2,7 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { GoalNode, Task } from '../types';
 import type { FocusState, FocusStatus } from './focusStatus';
 import { isTaskComplete, pathTitles, rollupPct } from './goalTree';
-import { ACCENT_SWATCHES, resolveAccent } from './accentColors';
+import { accentSwatch, storedAccentSwatch } from './accentColors';
 import { msUntilEndOfLocalISODate, shiftLocalISO, todayISO } from './dates';
 import { daysUntil } from './goalPace';
 import { streakBarMs } from './focusTrends';
@@ -280,7 +280,8 @@ export function widgetStreak(
 }
 
 export function widgetAccent(accent: string | undefined): WidgetSnapshot['accent'] {
-  const swatch = ACCENT_SWATCHES[resolveAccent({ accent })];
+  // A custom accent (a colour from the user's photo) is read from the saved theme.
+  const swatch = accent === 'custom' ? storedAccentSwatch().swatch : accentSwatch({ accent });
   return { light: swatch.light, dark: swatch.dark };
 }
 

@@ -175,6 +175,7 @@ export function weatherColors(colors: SkyColors, weather: Weather, night: number
     layers: colors.layers.map(([a, b]) => [toGrey(a), toGrey(b)]),
     rim: mixColor(colors.rim, 'rgba(200,205,215,.18)', weather === 'rainy' ? 0.85 : 0.6),
     mist: mixColor(colors.mist, night > 0.5 ? 'rgba(120,130,150,.22)' : 'rgba(225,230,236,.34)', weather === 'rainy' ? 0.9 : 0.5),
+    ...(colors.snow ? { snow: mixColor(colors.snow, '#c9d0da', weather === 'rainy' ? 0.5 : 0.3) } : {}),
   };
 }
 
