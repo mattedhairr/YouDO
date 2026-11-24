@@ -9,12 +9,13 @@ import { APP_VERSION } from './version';
  * Settings → About and updates → Count my visits turns it off.
  */
 
-export function usageCountOn(storage: Pick<Storage, 'getItem'> = localStorage): boolean {
-  try { return storage.getItem(STORAGE_KEYS.usageCount) !== 'false'; } catch { return true; }
+// Read storage inside try: some runtimes (and tests) have no localStorage at all.
+export function usageCountOn(storage?: Pick<Storage, 'getItem'>): boolean {
+  try { return (storage ?? localStorage).getItem(STORAGE_KEYS.usageCount) !== 'false'; } catch { return true; }
 }
 
-export function setUsageCountOn(on: boolean, storage: Pick<Storage, 'setItem'> = localStorage): void {
-  try { storage.setItem(STORAGE_KEYS.usageCount, on ? 'true' : 'false'); } catch { /* the default stays on */ }
+export function setUsageCountOn(on: boolean, storage?: Pick<Storage, 'setItem'>): void {
+  try { (storage ?? localStorage).setItem(STORAGE_KEYS.usageCount, on ? 'true' : 'false'); } catch { /* the default stays on */ }
 }
 
 export function localDay(now = new Date()): string {

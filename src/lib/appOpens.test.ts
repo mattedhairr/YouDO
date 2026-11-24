@@ -16,6 +16,17 @@ describe('the daily open note', () => {
     expect(openDue(storage, '2026-11-24', true)).toBe(false);
   });
 
+  it('stays on when there is no storage at all', () => {
+    const saved = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new ReferenceError('localStorage is not defined'); } });
+    try {
+      expect(usageCountOn()).toBe(true);
+      expect(() => setUsageCountOn(false)).not.toThrow();
+    } finally {
+      if (saved) Object.defineProperty(globalThis, 'localStorage', saved); else delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
+  });
+
   it('goes once a day, and only online', () => {
     const storage = memory();
     expect(openDue(storage, '2026-11-24', false)).toBe(false);
