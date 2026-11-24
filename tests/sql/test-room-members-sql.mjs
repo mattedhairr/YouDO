@@ -94,6 +94,22 @@ try {
   await as(8);
   await fails('select public.community_room_members($1)', [gate], 'an archived room is refused');
 
+  // The Admin Hub's view: staff only, everyone in the room, muted and banned marked.
+  await db.exec('reset role');
+  await db.query("insert into public.community_admins(user_id, role) values ($1, 'admin') on conflict (user_id) do update set role='admin'", [id(7)]);
+  await db.query("insert into public.community_members(user_id,muted_until) values($1, now() + interval '2 days') on conflict (user_id) do update set muted_until=excluded.muted_until", [id(5)]);
+  await as(7);
+  const staffView = (await rows('select public.admin_room_members($1) as r', [upsc]))[0].r;
+  const staffById = new Map(staffView.members.map((m) => [m.user_id, m]));
+  check(staffView.total === 9 && staffView.banned === 1 && staffView.muted === 1, 'staff see all nine, one banned and one muted');
+  check(staffById.get(id(6)).banned_at !== null && staffById.get(id(5)).muted_until !== null, 'each marked');
+  check(staffById.get(id(7)).on_board === false && staffById.get(id(7)).staff_role === 'admin', 'staff need not be on the Board, and staff are marked');
+  check(!JSON.stringify(staffView).includes('@example.com'), 'still no emails');
+  await as(1);
+  await fails('select public.admin_room_members($1)', [upsc], 'a member cannot open the staff view');
+  await as(0);
+  await fails('select public.admin_room_members($1)', [upsc], 'nor can a signed-out visitor');
+
   console.log(`Room members SQL: ${checks} checks passed.`);
 } finally {
   await db.close();

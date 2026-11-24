@@ -116,6 +116,39 @@ try {
   const preview = await one('select public.owner_cleanup_preview(50)');
   check(preview.unconfirmed === 1 && preview.empty === 1 && preview.sample.length === 2 && !JSON.stringify(preview).includes('@'), 'the cleanup preview has dates, not people');
 
+  // The cleanup list: filters, emails for the owner, and only junk ever listed.
+  let pick = await one("select public.owner_cleanup_list('both', 7, 'any', '', 200)");
+  check(pick.matching === 2 && pick.accounts.map((a) => a.id).sort().join() === [id(4), id(6)].join(), 'the list holds exactly the junk');
+  check(pick.accounts.find((a) => a.id === id(6)).email === 'quiet6@example.com', 'each with its email for the owner');
+  check((await one("select public.owner_cleanup_list('unconfirmed', 7, 'any', '', 200)")).accounts.map((a) => a.id).join() === id(4), 'never confirmed only');
+  check((await one("select public.owner_cleanup_list('both', 30, 'any', '', 200)")).accounts.map((a) => a.id).join() === id(6), 'signed up over 30 days ago');
+  check((await one("select public.owner_cleanup_list('both', 7, 'never', '', 200)")).accounts.map((a) => a.id).join() === id(4), 'never signed in');
+  check((await one("select public.owner_cleanup_list('both', 7, 'any', 'QUIET', 200)")).matching === 1, 'search by email');
+  await fails("select public.owner_cleanup_list('everyone', 7, 'any', '', 200)", [], 'unknown filters are refused');
+  const ticked = await one('select public.owner_chosen_accounts_to_delete($1::uuid[])', [[id(3), id(4), id(9), id(1)]]);
+  check([...ticked].join() === id(4), 'ticking a member, a backer or yourself never deletes them: only the junk tick goes');
+  await as(2);
+  await fails("select public.owner_cleanup_list('both', 7, 'any', '', 200)", [], 'an admin cannot see the cleanup list');
+  await fails('select public.owner_chosen_accounts_to_delete($1::uuid[])', [[id(4)]], 'or delete ticked accounts');
+  await as(1);
+
+  // Daily opens: phones with or without an account, once a day each.
+  const phoneA = '70000000-0000-0000-0000-00000000000a';
+  const phoneB = '70000000-0000-0000-0000-00000000000b';
+  await as(0);
+  await db.query("select public.record_app_open($1, '9.0.0')", [phoneA]);
+  await db.query("select public.record_app_open($1, '9.0.0')", [phoneA]);
+  await fails('select * from public.app_opens', [], 'nobody reads the opens directly');
+  await as(3);
+  await db.query("select public.record_app_open($1, '9.0.0')", [phoneB]);
+  await db.exec('reset role');
+  check(await one('select count(*)::int from public.app_opens') === 2, 'one row per phone per day');
+  check(await one('select user_id from public.app_opens where device = $1', [phoneB]) === id(3), 'a signed-in open knows who');
+  await as(1);
+  const opens = await one('select public.owner_growth_report(12)');
+  check(opens.this_week.opened === 2 && opens.this_week.without_account === 1, 'this week: two opened, one without an account');
+  check(opens.days.length === 30 && opens.days[29].opened === 2 && opens.days[29].signed_in === 1, 'thirty days, today counted');
+
   // What the edge function may delete.
   const ids = await one("select public.owner_accounts_to_delete('all', 2)");
   check([...ids].sort().join() === [id(4), id(6)].join(), 'the cleanup deletes exactly the junk');
@@ -134,6 +167,9 @@ try {
   await one("select public.owner_log_deletion(2, 'all')");
   const after = await one('select public.owner_growth_report(12)');
   check(after.accounts === 8 && after.cleanup.unconfirmed === 0 && after.cleanup.empty === 0, 'after the cleanup nothing is left to clean');
+  check(after.deleted.count === 2 && after.deleted.confirmed === 1, 'each deleted account leaves one anonymous line');
+  check(after.days.reduce((sum, d) => sum + d.new_accounts, 0) === opens.days.reduce((sum, d) => sum + d.new_accounts, 0), 'deleting never changes the sign-up history');
+  check(after.this_week.opened === 2, 'or the opens');
   await db.query('select public.set_community_settings(true, true, $1)', ['']);
   check(true, 'the owner still controls the room');
 

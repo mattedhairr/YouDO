@@ -8,6 +8,7 @@ import Toggle from '../Toggle';
 import CommunityHashtagManager from '../community/CommunityHashtagManager';
 import CommunityQuoteAdmin from '../community/CommunityQuoteAdmin';
 import AdminBroadcast from './AdminBroadcast';
+import AdminRoomMembersSheet from './AdminRoomMembersSheet';
 import type { AdminHubData } from './useAdminHubData';
 import type { CommunityPage } from './adminHubShared';
 
@@ -46,20 +47,28 @@ export function AuditLog({ data, selfId, limit }: { data: AdminHubData; selfId: 
   );
 }
 
-export default function AdminCommunity({ data, selfId, page, onPage, onRefresh }: {
+export default function AdminCommunity({ data, selfId, page, onPage, onRefresh, onOpenPerson }: {
   data: AdminHubData;
   selfId: string;
   page: CommunityPage | null;
   onPage: (page: CommunityPage) => void;
   onRefresh: () => Promise<void>;
+  onOpenPerson?: (id: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const [membersRoom, setMembersRoom] = useState<{ id: string; label: string } | null>(null);
   const [status, setStatus] = useState('');
   const settings = data.context.settings;
   const owner = can(data.role, 'roomSwitches');
 
   if (page === 'broadcast') return owner ? <AdminBroadcast data={data} onRefresh={onRefresh} /> : null;
-  if (page === 'hashtags') return <div className="ah-page"><CommunityHashtagManager hashtags={data.hashtags} busy={saving} setupError={data.hashtagError} onRefresh={onRefresh} /></div>;
+  if (page === 'hashtags') return (
+    <div className="ah-page">
+      <CommunityHashtagManager hashtags={data.hashtags} busy={saving} setupError={data.hashtagError} onRefresh={onRefresh}
+        onOpenMembers={onOpenPerson ? (tag) => setMembersRoom({ id: tag.id, label: tag.label }) : undefined} />
+      {onOpenPerson && <AdminRoomMembersSheet room={membersRoom} onClose={() => setMembersRoom(null)} onOpenPerson={(id) => { setMembersRoom(null); onOpenPerson(id); }} />}
+    </div>
+  );
   if (page === 'quotes') return <div className="ah-page"><CommunityQuoteAdmin quotes={data.quotes} busy={saving} setupError={data.quoteError} onRefresh={onRefresh} /></div>;
   if (page === 'log') return <div className="ah-page"><AuditLog data={data} selfId={selfId} /></div>;
 

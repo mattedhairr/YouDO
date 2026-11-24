@@ -152,7 +152,7 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
                   onChanged={() => { setPeopleKey((key) => key + 1); void reload(); }}
                   onDeleted={() => { setPage(null); setPeopleKey((key) => key + 1); void reload(); }} />
               )}
-              {page?.kind === 'community' && <AdminCommunity data={data} selfId={userId} page={page.page} onPage={(next) => setPage({ kind: 'community', page: next })} onRefresh={reload} />}
+              {page?.kind === 'community' && <AdminCommunity data={data} selfId={userId} page={page.page} onPage={(next) => setPage({ kind: 'community', page: next })} onRefresh={reload} onOpenPerson={openPerson} />}
               {page?.kind === 'owner' && <AdminOwner data={data} page={page.page} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onOpenBackers={() => setBackersOpen(true)} onRefresh={reload} />}
               {!page && tab === 'home' && (
                 <AdminHome data={data} onQueue={(filter) => { setQueueFilter(filter); setTab('queue'); }}

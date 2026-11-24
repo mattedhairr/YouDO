@@ -66,7 +66,18 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - Inside an exam hashtag room (never General) a people button in the community header opens the room's members: you first, then friends, then the most active; search by name or @username. Each row: Message (a friend; closes the community and opens the chat in the Private Hub), Accept (they asked you), Requested, Add friend (needs their @username), or Can't add yet. Tap a row for the profile card.
 - Only Board members are listed (the Board already shows everyone's hashtag), never banned people or anyone blocked either way; only Board members can open it. 24 SQL checks (`tests/sql/test-room-members-sql.mjs`) and unit tests. The finished sheet was not seen in the browser: the dev preview kept re-drawing (its fake server and a blocked clock service), so look at it on the phone.
 
-**On the server (all done 2026-11-24, before the release):**
+**6. Chat bubbles like a messaging app** (mocked and chosen by the owner after the first phone test; `src/components/chat/youDoChat.css`, `src/lib/chatRuns.ts`). One person's messages in a row form a run: in community and Private Hub rooms the picture sits outside on the run's last message (gold ring for backers) and the name, in that person's own colour, inside its first bubble (Admin tag beside it); DMs drop both (they are in the header). The time (and your ✓ in the community) sits inside the bubble at the bottom right; a "Today"/"Yesterday" label opens each day; runs break after 5 quiet minutes. Tried in the browser on a DM and a hashtag room (a full-width message keeps its time inside). **Not on a phone yet** (it came after the first test APK).
+
+**7. Growth, Account cleanup and room members in the Admin Hub** (mocked and chosen by the owner; `src/components/admin/AdminOwner.tsx`, `AdminRoomMembersSheet.tsx`, `src/lib/adminGrowth.ts`, `src/lib/appOpens.ts`, `supabase/admin_hub.sql`, `community_room_members.sql`).
+- **Owner → Growth:** this week against last (Opened YouDO, New accounts, Without an account, Regulars = opened on 3+ days); a 30-day chart (Opened, New accounts, Studied = Board members who focused) where tapping a day shows its numbers; "From sign-up to habit" with the biggest drop in one sentence; downloads per release from GitHub (website, in-app updates and Orion; Telegram files aren't counted).
+- **Opens:** once a day an online app sends a random phone number and its version (`record_app_open`, callable signed out; the server adds who is signed in and caps 50,000 phones a day). Settings → About and updates → Privacy → Count my visits turns it off. Counting starts when people install v9, so "Opened" begins empty. There is no privacy page in the repo; mention the daily count in the store text at release.
+- **History stays true:** deleting an account leaves one anonymous line (`deleted_accounts`: sign-up date, confirmed, started, came back), counted in the chart and the funnel, through a trigger on `auth.users` that never blocks a delete.
+- **Account cleanup:** filters (never confirmed / nothing saved, signed up over 7/30/90 days, last sign-in), search by email or @username, each account's email and last sign-in, and ticks; "Delete N" (type DELETE N) sends only the ticked ids and the server keeps those the rules still allow (never staff, backers, you or anyone with data).
+- **Photos on delete:** both delete functions (`owner-delete-accounts`, `delete-account`) remove the person's `avatars/<id>/` files first; everything else already went by cascade.
+- **Hashtag rooms → a room:** everyone in it for admins and the owner (`admin_room_members`), muted and banned marked, filters, search; tapping a person opens their Admin card.
+- Tested: 67 Admin Hub SQL checks (filters, ticks, opens, the deleted tally), 30 room members checks, unit tests; the three screens seen in the browser with made-up data. **Never tried against the real server or on a phone.**
+
+**On the server (1–7 done 2026-11-24; 8–9 to do before the release):**
 1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
 2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
 3. **Done:** `owner-delete-accounts` deployed (active, sign-in required; a call without sign-in gets 401).
@@ -74,6 +85,8 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 5. **Done 2026-11-24:** `backer_push.sql`. Checked: the `admin_backers` column (on by default), both functions internal only, the trigger enabled next to `hub_backers_claims_open`, and ₹50 / ₹100 formatting.
 6. **Done 2026-11-24:** `profile_photos.sql`. Checked: the public `avatars` bucket (256 KB; WebP, JPEG, PNG), its four own-folder policies for signed-in people, and `admin_remove_profile_photo` callable only when signed in (the function itself checks for staff).
 7. **Done 2026-11-24:** `community_room_members.sql`. Checked: callable only when signed in (the function itself requires the Board), security definer.
+8. **To do:** `admin_hub.sql` again (opens, the deleted tally and its trigger on `auth.users`, the new growth, the cleanup list and ticked deletes) and `community_room_members.sql` again (`admin_room_members`). Both are safe to re-run.
+9. **To do (the owner):** `npx.cmd supabase functions deploy owner-delete-accounts` and `npx.cmd supabase functions deploy delete-account` (ticked deletes and photo removal).
 
 **Phone checks for this release:**
 - **As the owner:** People search by email; open someone; make, then remove, an admin; growth numbers; the cleanup list (delete only if the numbers look right).
@@ -87,6 +100,11 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Backer claim push:** submit a claim from a test account with YouDO closed on your phone; the push arrives, tapping opens the Admin Hub; turn Backer Claims off and submit again: nothing arrives.
 - **Room members:** in your hashtag room tap the people button; search; Add friend, then Requested; Message a friend opens the chat; Accept a request; the button is not in General.
 - **Old install:** opens on Sign in; nothing changes for existing data.
+- **Chat bubbles:** a run of messages in a hashtag room, General, a Private Hub room and a DM; a long message; a reply; light mode.
+- **Growth:** the next day, Opened shows yesterday's phones; tap a few days; Studied and New accounts; downloads load.
+- **Count my visits:** turn it off in Settings; it stays off after a restart.
+- **Account cleanup:** each filter; search; tick one obvious junk account and delete it (type DELETE 1); it disappears and Growth's sign-ups for its week stay the same.
+- **Room members (Admin Hub):** Community → Hashtag rooms → tap a room; Muted and Banned filters; tap a person, their Admin card opens.
 
 ---
 

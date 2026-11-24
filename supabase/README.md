@@ -172,6 +172,19 @@ PNG). Each person can add, replace or delete files only in their own folder
 down (never the owner's): the person goes back to the 🎓 emoji in their profile
 and account, and the log records who did it. Both files are safe to re-run.
 
+## Growth, cleanup and room members in the Admin Hub (v9.0.0)
+
+`admin_hub.sql` also keeps `app_opens` (one row per phone per day, India time:
+a random phone number, the app version and, when signed in, who), filled by
+`record_app_open`, the one function a signed-out app may call; it caps 50,000
+phones a day and keeps about a year. Deleting an account leaves one anonymous
+line in `deleted_accounts` (a trigger on `auth.users` that only warns on
+failure), so Growth's sign-up history never shrinks. `owner_cleanup_list` and
+`owner_chosen_accounts_to_delete` give the cleanup its filters and ticks; the
+edge functions `owner-delete-accounts` and `delete-account` remove the
+person's photos before deleting. `community_room_members.sql` adds
+`admin_room_members` for staff. Re-run both files and redeploy both functions.
+
 Projects set up before v8.0.0: run `cleanup_retired_private_hub.sql` once. It
 removes the old Private Hub on/off switch and the waitlist; the app no longer uses them.
 

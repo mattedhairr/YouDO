@@ -7,9 +7,11 @@ interface Props {
   busy: boolean;
   setupError?: string;
   onRefresh: () => Promise<void>;
+  /** Opens a room's members (Admin Hub). */
+  onOpenMembers?: (tag: AdminCommunityHashtag) => void;
 }
 
-export default function CommunityHashtagManager({hashtags,busy,setupError='',onRefresh}:Props) {
+export default function CommunityHashtagManager({hashtags,busy,setupError='',onRefresh,onOpenMembers}:Props) {
   const [editing,setEditing]=useState<string|null>(null);
   const [label,setLabel]=useState('');
   const [confirmDelete,setConfirmDelete]=useState<string|null>(null);
@@ -44,7 +46,9 @@ export default function CommunityHashtagManager({hashtags,busy,setupError='',onR
     {setupError&&<p role="alert" className="admin-hashtag-manager-setup">Hashtag management needs the admin database upgrade. Apply it, then refresh.</p>}
     {!setupError&&active.length===0&&<p className="admin-hashtag-manager-empty">No approved hashtags yet.</p>}
     {!setupError&&<ul className="admin-hashtag-manager-list">{active.map(tag=><li key={tag.id}>
-      <div className="admin-hashtag-manager-row"><span className="admin-hashtag-manager-icon"><Hash size={14}/></span><div><strong>#{tag.label}</strong><small>{tag.memberCount} member{tag.memberCount===1?'':'s'}</small></div>
+      <div className="admin-hashtag-manager-row"><span className="admin-hashtag-manager-icon"><Hash size={14}/></span>{onOpenMembers
+        ?<button type="button" className="admin-hashtag-manager-open" onClick={()=>onOpenMembers(tag)} aria-label={`See who is in #${tag.label}`}><strong>#{tag.label}</strong><small>{tag.memberCount} member{tag.memberCount===1?'':'s'} · see who</small></button>
+        :<div><strong>#{tag.label}</strong><small>{tag.memberCount} member{tag.memberCount===1?'':'s'}</small></div>}
         <button type="button" aria-label={`Edit #${tag.label}`} disabled={busy||working} onClick={()=>startEdit(tag)}><Pencil size={14}/></button>
         <button type="button" aria-label={`Delete #${tag.label}`} disabled={busy||working} onClick={()=>{setConfirmDelete(tag.id);setEditing(null);setError('');}}><Trash2 size={14}/></button>
       </div>

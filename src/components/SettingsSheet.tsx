@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   ArrowLeft,
   Bell,
+  BarChart3,
+
   Bug,
   Check,
   CheckCircle2,
@@ -52,6 +54,7 @@ import {
 import '../signature.css';
 import Overlay from './Overlay';
 import Toggle from './Toggle';
+import { setUsageCountOn, usageCountOn } from '../lib/appOpens';
 import FocusSoundPicker from './FocusSoundPicker';
 import {
   getNotificationPreferences,
@@ -226,6 +229,7 @@ export default function SettingsSheet({
   const [ambientAutoOpen, setAmbientAutoOpenState] = useState(ambientAutoOpenEnabled);
   const [ambientSky, setAmbientSkyState] = useState(ambientSkyEnabled);
   const [ambientPlanet, setAmbientPlanetState] = useState(ambientPlanetEnabled);
+  const [usageCount, setUsageCount] = useState(usageCountOn);
   const [highlightBoard, setHighlightBoard] = useState(focusSection === 'public-board');
   const contentRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<SettingsTab, HTMLButtonElement | null>>>({});
@@ -3304,6 +3308,24 @@ export default function SettingsSheet({
           <p className="mt-2 px-1 text-[10px] leading-relaxed text-content-muted">
             For a bug, mention what you were doing, what happened and what you expected. Remove personal information from screenshots.
           </p>
+        </section>
+
+        <section>
+          <SectionLabel icon={<BarChart3 size={13} className="text-primary" />}>PRIVACY</SectionLabel>
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                  <BarChart3 size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs font-semibold text-content-primary">Count my visits</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed">Once a day YouDO says “this phone opened YouDO”, with a random number and the app version. Nothing you plan or study is sent.</p>
+                </div>
+              </div>
+              <Toggle checked={usageCount} onChange={() => { setUsageCountOn(!usageCount); setUsageCount(!usageCount); }} label="Count my visits" />
+            </div>
+          </div>
         </section>
       </div>
 

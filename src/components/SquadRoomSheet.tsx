@@ -23,6 +23,8 @@ import { requestOpenDm } from './hub/openDm';
 import './chat/youDoChat.css';
 import ChatActionSheet from './chat/ChatActionSheet';
 import { useChatMessageGestures } from './chat/useChatMessageGestures';
+import { chatDayLabels, chatRuns, nameTone } from '../lib/chatRuns';
+import { avatarKind, ProfileAvatarVisual } from '../lib/profileAvatar';
 
 const PACE_WINDOWS: { id: PaceWindow; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -57,6 +59,8 @@ interface Message {
   sender: string | null | undefined;
   text: string;
   time: string;
+  /** Sent time in ms (unset while sending). */
+  at?: number;
   replyToId?: string;
   system?: boolean;
 }
@@ -174,6 +178,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
           sender: d.sender_id,
           text: d.content,
           time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          at: Date.parse(d.created_at),
           replyToId: d.reply_to_id || undefined,
         })),
       ]);
@@ -215,6 +220,9 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
     onOpenActions: openActions,
     onDoubleTapReply: handleReply,
   });
+
+  const runs = useMemo(() => chatRuns(messages.map((m) => ({ author: m.sender, at: m.at, alone: m.system }))), [messages]);
+  const dayLabels = useMemo(() => chatDayLabels(messages.map((m) => m.at)), [messages]);
 
   if (!open || !squadId) return null;
 
@@ -371,7 +379,7 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
               <div className="yd-chat flex-1 min-h-0 relative">
                 <div className="yd-chat-scroll">
                   <ol className="yd-chat-list">
-                    {messages.map((msg) => {
+                    {messages.map((msg, index) => {
                       if (msg.system) {
                         return (
                           <li key={msg.id} className="yd-chat-system">
@@ -383,40 +391,47 @@ export default function SquadRoomSheet({ open, onClose, squadId, personalPace }:
                       const isMe = msg.sender === user?.id;
                       const repliedTo = msg.replyToId ? messages.find((m) => m.id === msg.replyToId) : null;
                       const authorName = getAuthorName(msg.sender);
+                      const author = members.find((x) => x.user_id === msg.sender)?.profiles;
+                      const backer = author?.is_backer === true;
+                      const run = runs[index];
+                      const day = dayLabels[index];
+                      const openProfile = () => { if (msg.sender) setSelectedProfileUserId(msg.sender); };
                       const renderText = (txt: string) =>
                         txt.split(' ').map((word, i) =>
                           word.startsWith('@') ? <strong key={i} className="yd-chat-mention">{word} </strong> : word + ' ',
                         );
 
-                      return (
-                        <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : ''}`}>
+                      return [
+                        day ? <li key={`day-${msg.id}`} className="yd-chat-day" aria-hidden="true">{day}</li> : null,
+                        <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : 'has-face'} ${run.first ? 'is-first' : ''} ${run.last ? 'is-last' : ''}`}>
+                          {!isMe && (run.last
+                            ? <button type="button" className={`yd-chat-face ${avatarKind(author?.avatar_url) === 'emoji' ? 'is-emoji' : ''} ${backer ? 'yd-backer-ring' : ''}`} onClick={openProfile} aria-label={`View ${authorName}'s profile${backer ? ', Founding Backer' : ''}`}>
+                                <ProfileAvatarVisual avatarUrl={author?.avatar_url} displayName={authorName} imgClassName="" />
+                              </button>
+                            : <span className="yd-chat-face is-spacer" aria-hidden="true" />)}
                           <div className="yd-chat-bubble-wrap">
-                            <div className="yd-chat-cluster">
-                              <div className="yd-chat-clip" data-yd-chat-anchor={msg.id}>
-                                <article className="yd-chat-bubble" tabIndex={0} aria-label={`${authorName}: ${msg.text}`} {...getMessageProps(msg)}>
-                                  {!isMe && (
-                                    <div className="yd-chat-author">
-                                      <button type="button" className="text-left" onClick={() => msg.sender && setSelectedProfileUserId(msg.sender)}>
-                                        {authorName}
-                                      </button>
-                                    </div>
-                                  )}
-                                  {msg.replyToId && repliedTo && (
-                                    <blockquote className="yd-chat-quote">
-                                      <strong>{getAuthorName(repliedTo.sender)}</strong>
-                                      <span>{repliedTo.text || 'Message unavailable'}</span>
-                                    </blockquote>
-                                  )}
-                                  <p className="yd-chat-body">{renderText(msg.text)}</p>
-                                </article>
-                              </div>
-                              <div className="yd-chat-meta">
-                                <time>{msg.time}</time>
-                              </div>
+                            <div className="yd-chat-clip" data-yd-chat-anchor={msg.id}>
+                              <article className="yd-chat-bubble" tabIndex={0} aria-label={`${authorName}: ${msg.text}`} {...getMessageProps(msg)}>
+                                {!isMe && run.first && (
+                                  <div className={`yd-chat-name yd-tone-${nameTone(msg.sender)}`}>
+                                    <button type="button" className="yd-chat-name-btn" onClick={openProfile}>
+                                      {authorName}
+                                    </button>
+                                  </div>
+                                )}
+                                {msg.replyToId && repliedTo && (
+                                  <blockquote className={`yd-chat-quote yd-tone-${nameTone(repliedTo.sender)}`}>
+                                    <strong>{getAuthorName(repliedTo.sender)}</strong>
+                                    <span>{repliedTo.text || 'Message unavailable'}</span>
+                                  </blockquote>
+                                )}
+                                <p className="yd-chat-body">{renderText(msg.text)}</p>
+                                <span className="yd-chat-stamp"><time>{msg.time}</time></span>
+                              </article>
                             </div>
                           </div>
-                        </li>
-                      );
+                        </li>,
+                      ];
                     })}
                   </ol>
                 </div>

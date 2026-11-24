@@ -22,6 +22,7 @@ import { hapticTick } from '../../lib/haptics';
 import { useStore } from '../../store';
 import { fetchAvatarFacts, type AvatarFact } from '../../lib/avatarFacts';
 import { avatarKind, ProfileAvatarVisual } from '../../lib/profileAvatar';
+import { chatDayLabels, chatRuns, nameTone } from '../../lib/chatRuns';
 
 interface Props {
   userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void;
@@ -155,6 +156,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const restoreAnchor=useRef<{id:string;offset:number;top:number}|null>(null);
   const loadedCount=useRef(Math.max(CHAT_PAGE_SIZE,initial.messages.filter(m=>m.delivery==='sent').length));
   const map=useMemo(()=>new Map(messages.map(m=>[m.id,m])),[messages]);
+  const runs=useMemo(()=>chatRuns(messages.map(m=>({author:m.authorId,at:Date.parse(m.createdAt),alone:m.kind==='kudos'}))),[messages]);
+  const dayLabels=useMemo(()=>chatDayLabels(messages.map(m=>Date.parse(m.createdAt))),[messages]);
 
   const capturePosition=useCallback(()=>{
     const root=scroll.current;
@@ -479,16 +482,24 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       {hasOlder && <button className="c-text-button c-load" disabled={loading} onClick={()=>void loadOlder()}>{loading?'Loading…':'Earlier messages'}</button>}
       {loading && messages.length===0 ? <div className="c-skeleton" role="status" aria-label="Loading chat"><i/><i/><i/></div>
         : messages.length===0 && !error ? <div className="c-empty"><Heart size={28}/><h3>A quiet room. A shared ambition.</h3><p>{selectedHashtag ? `Welcome to #${currentHashtagObj?.label ?? 'your room'}. Share questions and tips!` : 'Share a useful thought or encourage a fellow aspirant.'}</p><p className="c-empty-rules">Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.</p></div>:null}
-      <ol className="yd-chat-list">{messages.map(message=>{
+      <ol className="yd-chat-list">{messages.map((message,index)=>{
         const mine=message.authorId===userId;
         const parent=message.replyToId?map.get(message.replyToId):undefined;
-        if(message.kind==='kudos')return <li key={message.id} data-message={message.id} className="yd-chat-kudos"><Heart size={13}/>{message.body}</li>;
+        const day=dayLabels[index];
+        const dayChip=day?<li key={`day-${message.id}`} className="yd-chat-day" aria-hidden="true">{day}</li>:null;
+        if(message.kind==='kudos')return [dayChip,<li key={message.id} data-message={message.id} className="yd-chat-kudos"><Heart size={13}/>{message.body}</li>];
         const authorName=mine?'You':names.get(message.authorId)??'Board member';
         const staff=context.staffIds.includes(message.authorId);
         const face=faces.get(message.authorId);
-        return <li key={message.id} data-message={message.id} className={`yd-chat-row ${mine?'is-mine':''} ${message.delivery==='failed'?'is-failed':''}`}>
+        const run=runs[index];
+        const profileLabel=`View ${authorName}'s profile${face?.backer ? ', Founding Backer' : ''}`;
+        return [dayChip,<li key={message.id} data-message={message.id} className={`yd-chat-row ${mine?'is-mine':'has-face'} ${run.first?'is-first':''} ${run.last?'is-last':''} ${message.delivery==='failed'?'is-failed':''}`}>
+          {!mine && (run.last
+            ? <button type="button" className={`yd-chat-face ${avatarKind(face?.avatarUrl)==='emoji'?'is-emoji':''} ${face?.backer?'yd-backer-ring':''}`} onClick={() => onProfile?.(message.authorId)} disabled={!onProfile} title={profileLabel} aria-label={profileLabel}>
+                <ProfileAvatarVisual avatarUrl={face?.avatarUrl} displayName={authorName} imgClassName="" />
+              </button>
+            : <span className="yd-chat-face is-spacer" aria-hidden="true" />)}
           <div className="yd-chat-bubble-wrap">
-          <div className="yd-chat-cluster">
           <div className="yd-chat-clip" data-yd-chat-anchor={message.id}>
           <article
             className="yd-chat-bubble"
@@ -496,31 +507,20 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             aria-label={`${authorName}: ${message.body}`}
             {...getMessageProps(message)}
           >
-            {!mine && (
-              <div className="yd-chat-author">
-                <button
-                  type="button"
-                  className="yd-chat-author-btn"
-                  onClick={() => onProfile?.(message.authorId)}
-                  disabled={!onProfile}
-                  title={`View ${authorName}'s profile`}
-                  aria-label={`View ${authorName}'s profile${face?.backer ? ', Founding Backer' : ''}`}
-                >
-                  <span className={`yd-chat-author-avatar ${avatarKind(face?.avatarUrl)==='emoji'?'is-emoji':''} ${face?.backer?'yd-backer-ring':''}`} aria-hidden="true">
-                    <ProfileAvatarVisual avatarUrl={face?.avatarUrl} displayName={authorName} imgClassName="" />
-                  </span>
-                  <span>{authorName}</span>
-                </button>
+            {!mine && run.first && (
+              <div className={`yd-chat-name yd-tone-${nameTone(message.authorId)}`}>
+                <button type="button" className="yd-chat-name-btn" onClick={() => onProfile?.(message.authorId)} disabled={!onProfile} title={profileLabel}>{authorName}</button>
                 {staff && <span className="yd-chat-admin">Admin</span>}
               </div>
             )}
             {message.replyToId && (
-              <blockquote className="yd-chat-quote">
-                <strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong>
+              <blockquote className={`yd-chat-quote ${parent?`yd-tone-${nameTone(parent.authorId)}`:''}`}>
+                <strong>{parent?parent.authorId===userId?'You':names.get(parent.authorId)??'Board member':'Earlier message'}</strong>
                 <span>{parent?.body??'No longer available'}</span>
               </blockquote>
             )}
             <p className="yd-chat-body">{message.body}</p>
+            <span className="yd-chat-stamp">{message.editedAt?'edited ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time>{mine && (message.delivery==='pending'?' · Sending…':message.delivery==='failed'?' · Not sent':<Check size={13} aria-label="Sent"/>)}</span>
             {message.delivery==='failed' && (
               <div className="yd-chat-retry">
                 <span>{message.error}</span>
@@ -529,13 +529,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             )}
           </article>
           </div>
-          <div className="yd-chat-meta">
-            <span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>
-            {mine && <span className="yd-chat-meta-status">{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={11}/>}</span>}
           </div>
-          </div>
-          </div>
-        </li>;
+        </li>];
       })}</ol>
       
         {messages.filter(m=>m.delivery==='sent').length>=CHAT_HISTORY_LIMIT && <p className="c-note">Latest 120 messages · 24-hour room</p>}

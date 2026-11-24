@@ -222,3 +222,35 @@
   .ah-page { animation: ah-in 220ms ease-out; }
 }
 @keyframes ah-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Owner → Growth: week tiles with their change, a tappable daily chart, the funnel and downloads. */
+.ah-tile small.ah-trend { font-weight: 700; }
+.ah-trend.is-up { color: var(--success); }
+.ah-trend.is-down { color: var(--warning); }
+.ah-seg { display: flex; gap: 2px; margin: 10px 0 12px; padding: 3px; border-radius: 999px; background: var(--bg-fill); }
+.ah-seg button { flex: 1; min-height: 32px; border-radius: 999px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.ah-seg button[aria-pressed='true'] { background: var(--bg-elevated); color: var(--text-primary); font-weight: 700; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
+.ah-day-tip { display: flex; flex-direction: column; gap: 1px; min-height: 76px; margin-bottom: 10px; padding: 9px 11px; border-radius: 12px; background: var(--bg-fill); color: var(--text-secondary); font-size: 12px; line-height: 1.4; }
+.ah-day-tip b { color: var(--text-primary); font-size: 12.5px; }
+.ah-days { display: flex; align-items: flex-end; gap: 2px; height: 96px; border-bottom: 1px solid var(--border-subtle); }
+.ah-days button { display: flex; flex: 1; align-items: flex-end; height: 100%; min-width: 0; padding: 0; }
+.ah-days i { display: block; width: 100%; border-radius: 3px 3px 1px 1px; background: color-mix(in srgb, var(--primary) 45%, var(--bg-fill)); transition: background 0.15s ease; }
+.ah-days button.is-picked i { background: var(--primary); }
+.ah-funnel { display: flex; flex-direction: column; gap: 9px; margin-top: 10px; }
+.ah-funnel-top { display: flex; justify-content: space-between; gap: 10px; color: var(--text-primary); font-size: 13px; }
+.ah-funnel-top em { color: var(--text-muted); font-size: 11.5px; font-style: normal; }
+.ah-list { margin-top: 6px; }
+.ah-list > div { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 13.5px; }
+.ah-list > div:first-child { border-top: 0; }
+.ah-list b { color: var(--text-secondary); font-weight: 700; }
+
+/* Owner → Account cleanup: filters and ticks. */
+.ah-label { margin: 10px 2px -4px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ah-tickbar { display: flex; align-items: center; justify-content: space-between; margin: 12px 2px 8px; color: var(--text-secondary); font-size: 12.5px; }
+.ah-tickbar b { color: var(--text-primary); }
+.ah-tickbar button { color: var(--primary); font-weight: 700; }
+.ah-tick { display: grid; flex: none; width: 20px; height: 20px; margin-top: 2px; place-items: center; border: 1.5px solid var(--border); border-radius: 6px; color: var(--on-primary); }
+.ah-tick.is-on { border-color: var(--primary); background: var(--primary); }
+
+/* Admin Hub → a room's members: the tags sit small beside the name. */
+.room-members-text strong .ah-tag { display: inline-block; margin: 0 0 0 6px; padding: 1px 5px; font-size: 8.5px; line-height: 1.4; vertical-align: 2px; }

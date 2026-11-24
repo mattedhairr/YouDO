@@ -11,6 +11,9 @@
 -- Deleting goes through the owner-delete-accounts edge function, which asks
 -- owner_accounts_to_delete() (as the owner) for the ids and then uses Supabase
 -- Auth's own delete, so every table that cascades from auth.users is cleared.
+-- Growth also counts daily app opens (app_opens, with or without an account)
+-- and keeps one anonymous line per deleted account (deleted_accounts), so a
+-- cleanup never rewrites the sign-up history.
 
 -- The caller's own role: 'owner', 'admin' or null. Never anyone else's.
 create or replace function public.admin_hub_role()
@@ -171,10 +174,100 @@ begin
   return public.admin_person(target);
 end; $$;
 
+-- Daily opens: one row per phone per day (India time), signed in or not, so
+-- Growth can count people who use YouDO without an account. The app sends a
+-- random device number and its version; the server adds who is signed in.
+-- Nothing else is stored, and a Settings switch turns it off.
+create table if not exists public.app_opens (
+  day date not null,
+  device uuid not null,
+  user_id uuid references auth.users (id) on delete set null,
+  app_version text not null default '',
+  primary key (day, device)
+);
+create index if not exists app_opens_user on public.app_opens (user_id) where user_id is not null;
+alter table public.app_opens enable row level security;
+revoke all on public.app_opens from public, anon, authenticated;
+
+create or replace function public.record_app_open(opened_device uuid, opened_version text default '')
+returns void language plpgsql security definer set search_path = '' as $$
+declare today date := (pg_catalog.now() at time zone 'Asia/Kolkata')::date;
+begin
+  if opened_device is null then return; end if;
+  -- A flood of made-up devices can't grow the table without limit.
+  if (select count(*) from public.app_opens o where o.day = today) >= 50000 then return; end if;
+  insert into public.app_opens as o (day, device, user_id, app_version)
+  values (today, opened_device, auth.uid(), pg_catalog.left(coalesce(opened_version, ''), 20))
+  on conflict (day, device) do update
+    set user_id = coalesce(excluded.user_id, o.user_id), app_version = excluded.app_version;
+  -- Keep about a year.
+  if pg_catalog.random() < 0.01 then
+    delete from public.app_opens o where o.day < today - 400;
+  end if;
+end; $$;
+
+-- Deleted accounts leave one anonymous line (no email, name or id), so
+-- cleaning up never rewrites the sign-up history in Growth.
+create table if not exists public.deleted_accounts (
+  id bigint generated always as identity primary key,
+  signed_up_at timestamptz not null,
+  confirmed boolean not null,
+  started boolean not null,
+  came_back boolean not null,
+  deleted_at timestamptz not null default pg_catalog.now()
+);
+alter table public.deleted_accounts enable row level security;
+revoke all on public.deleted_accounts from public, anon, authenticated;
+
+create or replace function public.tally_deleted_account()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare fact record;
+begin
+  begin
+    select f.backup_bytes, f.on_board, f.room_count, f.message_count, f.last_active_at
+      into fact from public.admin_account_facts() f where f.user_id = old.id;
+    insert into public.deleted_accounts (signed_up_at, confirmed, started, came_back)
+    values (
+      old.created_at,
+      old.email_confirmed_at is not null,
+      coalesce(coalesce(fact.backup_bytes, 0) > 1024 or fact.on_board or fact.room_count > 0 or fact.message_count > 0, false),
+      coalesce(fact.last_active_at > old.created_at + interval '1 day', false)
+    );
+  exception when others then
+    raise warning 'Deleted-account tally skipped: %', sqlerrm;
+  end;
+  return old;
+end; $$;
+drop trigger if exists tally_deleted_account on auth.users;
+create trigger tally_deleted_account before delete on auth.users
+  for each row execute function public.tally_deleted_account();
+
+-- One week of opens: people (signed-in people once, phones without an account
+-- once each), phones without an account, regulars (3+ days) and new accounts.
+-- Internal: not callable from the app.
+create or replace function public.owner_week_numbers(first_day date, last_day date)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  with opens as (
+    select o.day, o.device, o.user_id, coalesce(o.user_id::text, o.device::text) as who
+    from public.app_opens o where o.day between first_day and last_day
+  ), signed_devices as (
+    select distinct device from opens where user_id is not null
+  )
+  select pg_catalog.jsonb_build_object(
+    'opened', (select count(distinct who) from opens),
+    'without_account', (select count(distinct device) from opens where device not in (select device from signed_devices)),
+    'regulars', (select count(*) from (select who from opens group by who having count(distinct day) >= 3) r),
+    'new_accounts',
+      (select count(*) from auth.users u where (u.created_at at time zone 'Asia/Kolkata')::date between first_day and last_day)
+      + (select count(*) from public.deleted_accounts d where (d.signed_up_at at time zone 'Asia/Kolkata')::date between first_day and last_day)
+  );
+$$;
+
 -- Growth: counts only, no emails or ids. The owner only.
 create or replace function public.owner_growth_report(weeks integer default 12)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 declare span integer := least(greatest(coalesce(weeks, 12), 4), 52);
+declare today date := (pg_catalog.now() at time zone 'Asia/Kolkata')::date;
 declare result jsonb;
 begin
   if not public.is_community_owner() then raise exception 'Owner required' using errcode = '42501'; end if;
@@ -197,6 +290,20 @@ begin
     from weeks_list w
     left join facts f on f.created_at >= w.week_start and f.created_at < w.week_start + interval '1 week'
     group by w.week_start
+  ), days as (
+    select pg_catalog.generate_series(today - 29, today, interval '1 day')::date as day
+  ), daily as (
+    select d.day,
+      (select count(distinct coalesce(o.user_id::text, o.device::text)) from public.app_opens o where o.day = d.day) as opened,
+      (select count(distinct o.user_id) from public.app_opens o where o.day = d.day and o.user_id is not null) as signed_in,
+      (select count(*) from public.app_opens o where o.day = d.day and o.user_id is null) as without_account,
+      (select count(*) from facts f where (f.created_at at time zone 'Asia/Kolkata')::date = d.day)
+        + (select count(*) from public.deleted_accounts x where (x.signed_up_at at time zone 'Asia/Kolkata')::date = d.day) as new_accounts,
+      (select count(*) from facts f where (f.created_at at time zone 'Asia/Kolkata')::date = d.day and f.email_confirmed_at is not null)
+        + (select count(*) from public.deleted_accounts x where (x.signed_up_at at time zone 'Asia/Kolkata')::date = d.day and x.confirmed) as new_confirmed,
+      (select count(distinct s.user_id) from public.board_focus_sessions s
+        where (pg_catalog.to_timestamp(s.start_ms / 1000.0) at time zone 'Asia/Kolkata')::date = d.day) as studied
+    from days d
   )
   select jsonb_build_object(
     'generated_at', pg_catalog.now(),
@@ -211,6 +318,15 @@ begin
     'studying_now', (select count(*) from public.focus_status s where s.state = 'focusing' and s.updated_at >= pg_catalog.now() - interval '12 hours'),
     'weeks', (select jsonb_agg(jsonb_build_object('week', c.week_start::date, 'signups', c.signups, 'confirmed', c.confirmed,
         'started', c.started, 'came_back', c.came_back, 'active_7d', c.active_7d) order by c.week_start) from cohorts c),
+    'days', (select jsonb_agg(jsonb_build_object('day', y.day, 'opened', y.opened, 'signed_in', y.signed_in,
+        'without_account', y.without_account, 'new_accounts', y.new_accounts, 'new_confirmed', y.new_confirmed,
+        'studied', y.studied) order by y.day) from daily y),
+    'opens_since', (select min(o.day) from public.app_opens o),
+    'this_week', public.owner_week_numbers(today - 6, today),
+    'last_week', public.owner_week_numbers(today - 13, today - 7),
+    'deleted', (select jsonb_build_object('count', count(*), 'confirmed', count(*) filter (where confirmed),
+        'started', count(*) filter (where started), 'came_back', count(*) filter (where started and came_back))
+      from public.deleted_accounts),
     'before_v8', (select jsonb_build_object('signups', count(*), 'started', count(*) filter (where started),
         'came_back', count(*) filter (where started and came_back)) from facts where created_at < '2026-10-14'),
     'since_v8', (select jsonb_build_object('signups', count(*), 'started', count(*) filter (where started),
@@ -246,6 +362,66 @@ begin
       order by created_at desc limit least(greatest(coalesce(page_size, 50), 1), 200)) s), '[]'::jsonb)
   ) into result;
   return result;
+end; $$;
+
+-- Cleanup: the accounts that could go, with filters, each with its email and
+-- last sign-in so the owner can tick exactly which. Only accounts the cleanup
+-- rules allow are ever listed (never staff, backers or anyone with data).
+-- kind: 'unconfirmed', 'empty' or 'both'; sign_in: 'never', '60', '180' or 'any'.
+-- The owner only.
+create or replace function public.owner_cleanup_list(
+  kind text default 'both', signed_up_days integer default 7, sign_in text default 'any',
+  search text default '', page_size integer default 200
+) returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare needle text := pg_catalog.lower(pg_catalog.btrim(coalesce(search, '')));
+declare chosen_kind text := coalesce(nullif(kind, ''), 'both');
+declare chosen_sign_in text := coalesce(nullif(sign_in, ''), 'any');
+declare result jsonb;
+begin
+  if not public.is_community_owner() then raise exception 'Owner required' using errcode = '42501'; end if;
+  if chosen_kind not in ('unconfirmed', 'empty', 'both') then raise exception 'Unknown filter'; end if;
+  if chosen_sign_in not in ('never', '60', '180', 'any') then raise exception 'Unknown filter'; end if;
+  with junk as (
+    select f.user_id, f.email, f.username, f.created_at, f.email_confirmed_at is not null as confirmed,
+      f.last_sign_in_at, f.last_active_at, f.junk as reason
+    from public.admin_account_facts() f where f.junk is not null and f.user_id <> auth.uid()
+  ), matching as (
+    select * from junk j
+    where (chosen_kind = 'both' or j.reason = chosen_kind)
+      and j.created_at < pg_catalog.now() - pg_catalog.make_interval(days => greatest(coalesce(signed_up_days, 0), 0))
+      and case chosen_sign_in
+        when 'never' then j.last_sign_in_at is null
+        when '60' then j.last_sign_in_at is null or j.last_sign_in_at < pg_catalog.now() - interval '60 days'
+        when '180' then j.last_sign_in_at is null or j.last_sign_in_at < pg_catalog.now() - interval '180 days'
+        else true end
+      and (needle = '' or pg_catalog.lower(coalesce(j.email, '')) like '%' || needle || '%'
+        or pg_catalog.lower(coalesce(j.username, '')) like '%' || pg_catalog.ltrim(needle, '@') || '%')
+  )
+  select jsonb_build_object(
+    'unconfirmed', (select count(*) from junk where reason = 'unconfirmed'),
+    'empty', (select count(*) from junk where reason = 'empty'),
+    'matching', (select count(*) from matching),
+    'accounts', coalesce((select jsonb_agg(a) from (
+      select m.user_id as id, m.email, m.username, m.created_at, m.confirmed, m.last_sign_in_at, m.last_active_at, m.reason
+      from matching m order by m.created_at desc
+      limit least(greatest(coalesce(page_size, 200), 1), 500)) a), '[]'::jsonb)
+  ) into result;
+  return result;
+end; $$;
+
+-- The ticked accounts the edge function may delete, re-checked at that moment:
+-- only those the cleanup rules still allow come back. The owner only.
+create or replace function public.owner_chosen_accounts_to_delete(chosen uuid[])
+returns uuid[] language plpgsql stable security definer set search_path = '' as $$
+declare ids uuid[];
+begin
+  if not public.is_community_owner() then raise exception 'Owner required' using errcode = '42501'; end if;
+  if coalesce(pg_catalog.array_length(chosen, 1), 0) = 0 then return '{}'; end if;
+  if pg_catalog.array_length(chosen, 1) > 500 then raise exception 'Tick at most 500 at a time.'; end if;
+  select coalesce(array_agg(f.user_id), '{}') into ids
+  from public.admin_account_facts() f
+  where f.user_id = any(chosen) and f.junk is not null and f.user_id <> auth.uid();
+  return ids;
 end; $$;
 
 -- The ids the edge function deletes, re-checked at that moment. 'all' returns
@@ -297,6 +473,11 @@ revoke execute on function public.owner_growth_report(integer) from public, anon
 revoke execute on function public.owner_cleanup_preview(integer) from public, anon;
 revoke execute on function public.owner_accounts_to_delete(text, integer, uuid, text) from public, anon;
 revoke execute on function public.owner_log_deletion(integer, text) from public, anon;
+revoke execute on function public.owner_cleanup_list(text, integer, text, text, integer) from public, anon;
+revoke execute on function public.owner_chosen_accounts_to_delete(uuid[]) from public, anon;
+revoke execute on function public.owner_week_numbers(date, date) from public, anon, authenticated;
+revoke execute on function public.tally_deleted_account() from public, anon, authenticated;
+revoke execute on function public.record_app_open(uuid, text) from public;
 grant execute on function public.admin_hub_role() to authenticated;
 grant execute on function public.admin_people(text, text, integer, integer) to authenticated;
 grant execute on function public.admin_person(uuid) to authenticated;
@@ -305,3 +486,6 @@ grant execute on function public.owner_growth_report(integer) to authenticated;
 grant execute on function public.owner_cleanup_preview(integer) to authenticated;
 grant execute on function public.owner_accounts_to_delete(text, integer, uuid, text) to authenticated;
 grant execute on function public.owner_log_deletion(integer, text) to authenticated;
+grant execute on function public.owner_cleanup_list(text, integer, text, text, integer) to authenticated;
+grant execute on function public.owner_chosen_accounts_to_delete(uuid[]) to authenticated;
+grant execute on function public.record_app_open(uuid, text) to anon, authenticated;

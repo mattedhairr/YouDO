@@ -48,6 +48,12 @@ export const STORAGE_KEYS = {
   focusSounds: 'youdo-focus-sounds-v1',
   ownSounds: 'youdo-own-sounds-v1',
   goalShareSaved: 'youdo-goal-share-saved-v1',
+  /** Settings → About and updates → Count my visits ("false" turns the daily open note off). */
+  usageCount: 'youdo-usage-count-v1',
+  /** A random number for this phone, sent only with the daily open note. */
+  deviceNumber: 'youdo-device-number-v1',
+  /** The local day the open note was last sent. */
+  lastOpenNote: 'youdo-last-open-note-v1',
 } as const;
 
 export const REQUEST_ACCOUNT_ACCESS_EVENT = 'youdo:request-account-access';

@@ -1214,6 +1214,14 @@ function AppInner() {
     else openHelp();
   }, [hasSeenHelp, recoverySessionPrompt, helpOpen, openHelp, emptyWorkspace]);
 
+  // Once a day, an anonymous "this phone opened YouDO" for the owner's Growth numbers (src/lib/appOpens.ts).
+  useEffect(() => {
+    const note = () => { if (document.visibilityState === 'visible') void import('./lib/appOpens').then((m) => m.noteAppOpen()).catch(() => undefined); };
+    const timer = window.setTimeout(note, 4000);
+    document.addEventListener('visibilitychange', note);
+    return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', note); };
+  }, []);
+
   const finishTour = useCallback(() => {
     // The tour counts as the guide, and its first day gets no briefing.
     briefingPromptedRef.current = true;

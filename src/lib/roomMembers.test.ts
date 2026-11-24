@@ -52,3 +52,24 @@ describe('what each row offers', () => {
     expect(roomMemberAction({ relation: 'none' }, true)).toBe('cannot-add');
   });
 });
+
+describe('the Admin Hub view of a room', () => {
+  it('marks staff, mutes and bans, and filters them', async () => {
+    const { parseAdminRoomMembers, filterAdminRoomMembers } = await import('./roomMembers');
+    const room = parseAdminRoomMembers({
+      total: 3, muted: 1, banned: 1,
+      members: [
+        { user_id: 'u1', display_name: 'Ravi', username: 'ravi_k', staff_role: 'admin', on_board: true },
+        { user_id: 'u2', display_name: 'Kabir', username: 'kabir_27', muted_until: '2026-11-26T10:00:00Z', on_board: true },
+        { user_id: 'u3', display_name: 'Spam Bot', username: 'offers_now', banned_at: '2026-11-20T10:00:00Z', on_board: false },
+        { display_name: 'No id' },
+      ],
+    });
+    expect(room.members.map((m) => m.id)).toEqual(['u1', 'u2', 'u3']);
+    expect(room.members[0].staff).toBe('admin');
+    expect(room.members[2]).toMatchObject({ banned: true, onBoard: false });
+    expect(filterAdminRoomMembers(room.members, 'muted', '').map((m) => m.id)).toEqual(['u2']);
+    expect(filterAdminRoomMembers(room.members, 'banned', '').map((m) => m.id)).toEqual(['u3']);
+    expect(filterAdminRoomMembers(room.members, 'all', '@KAB').map((m) => m.id)).toEqual(['u2']);
+  });
+});

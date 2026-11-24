@@ -136,15 +136,32 @@ export function parsePeoplePage(raw: unknown): PeoplePage {
 
 export interface GrowthWeek { week: string; signups: number; confirmed: number; started: number; cameBack: number; active7d: number }
 export interface GrowthSplit { signups: number; started: number; cameBack: number }
+/** One day (India time): phones that opened YouDO, new accounts, and Board members who focused. */
+export interface GrowthDay { day: string; opened: number; signedIn: number; withoutAccount: number; newAccounts: number; newConfirmed: number; studied: number }
+/** One week of opens (7 days): people, phones without an account, regulars (3+ days) and new accounts. */
+export interface GrowthWeekNumbers { opened: number; withoutAccount: number; regulars: number; newAccounts: number }
 export interface GrowthReport {
   accounts: number; confirmed: number; started: number; cameBack: number;
   active7d: number; active30d: number; new7d: number; new7dConfirmed: number; studyingNow: number;
   weeks: GrowthWeek[];
   beforeV8: GrowthSplit; sinceV8: GrowthSplit;
   cleanup: { unconfirmed: number; empty: number };
+  days: GrowthDay[];
+  /** The first day any open was counted, or undefined before the first. */
+  opensSince?: string;
+  thisWeek: GrowthWeekNumbers;
+  lastWeek: GrowthWeekNumbers;
+  /** Accounts deleted so far, kept as anonymous counts so the history stays true. */
+  deleted: { count: number; confirmed: number; started: number; cameBack: number };
   databaseBytes: number;
   largestTables: { name: string; bytes: number }[];
 }
+
+const record = (raw: unknown) => (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+const weekNumbers = (raw: unknown): GrowthWeekNumbers => {
+  const row = record(raw);
+  return { opened: num(row.opened), withoutAccount: num(row.without_account), regulars: num(row.regulars), newAccounts: num(row.new_accounts) };
+};
 
 const split = (raw: unknown): GrowthSplit => {
   const row = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -165,6 +182,20 @@ export function parseGrowthReport(raw: unknown): GrowthReport | null {
     }),
     beforeV8: split(row.before_v8), sinceV8: split(row.since_v8),
     cleanup: { unconfirmed: num(cleanup.unconfirmed), empty: num(cleanup.empty) },
+    days: (Array.isArray(row.days) ? row.days : []).map((item) => {
+      const day = record(item);
+      return {
+        day: String(day.day ?? ''), opened: num(day.opened), signedIn: num(day.signed_in), withoutAccount: num(day.without_account),
+        newAccounts: num(day.new_accounts), newConfirmed: num(day.new_confirmed), studied: num(day.studied),
+      };
+    }),
+    opensSince: text(row.opens_since),
+    thisWeek: weekNumbers(row.this_week),
+    lastWeek: weekNumbers(row.last_week),
+    deleted: (() => {
+      const gone = record(row.deleted);
+      return { count: num(gone.count), confirmed: num(gone.confirmed), started: num(gone.started), cameBack: num(gone.came_back) };
+    })(),
     databaseBytes: num(row.database_bytes),
     largestTables: (Array.isArray(row.largest_tables) ? row.largest_tables : []).map((item) => {
       const table = (item ?? {}) as Record<string, unknown>;

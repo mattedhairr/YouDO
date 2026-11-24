@@ -42,6 +42,11 @@ function hub(role: AdminRole): AdminHubData {
       weeks: [{ week: '2026-11-17', signups: 14, confirmed: 9, started: 4, cameBack: 1, active7d: 3 }],
       beforeV8: { signups: 120, started: 20, cameBack: 4 }, sinceV8: { signups: 102, started: 20, cameBack: 6 },
       cleanup: { unconfirmed: 31, empty: 104 }, databaseBytes: 43_000_000, largestTables: [],
+      days: [{ day: '2026-11-24', opened: 12, signedIn: 8, withoutAccount: 4, newAccounts: 2, newConfirmed: 1, studied: 5 }],
+      opensSince: '2026-11-24',
+      thisWeek: { opened: 30, withoutAccount: 9, regulars: 7, newAccounts: 14 },
+      lastWeek: { opened: 25, withoutAccount: 8, regulars: 5, newAccounts: 16 },
+      deleted: { count: 0, confirmed: 0, started: 0, cameBack: 0 },
     } : null,
     growthError: '',
     names: new Map([['u9', 'quickmarks'], ['u7', 'Ravi K.'], ['u5', 'Anjali R.']]),
@@ -97,8 +102,12 @@ describe('the Admin Hub', () => {
     const html = renderToStaticMarkup(createElement(AdminOwner, {
       data: hub('owner'), page: null, onPage: noop, onOpenPerson: noop, onOpenBackers: noop, onRefresh: refresh,
     }));
-    expect(html).toContain('Sign-ups per week');
-    expect(html).toContain('30%');
+    expect(html).toContain('This week');
+    expect(html).toContain('Regulars');
+    expect(html).toContain('▲ 2 on last week');
+    expect(html).toContain('From sign-up to habit');
+    expect(html).toContain('12 opened YouDO');
+    expect(html).toContain('Confirmed their email');
     expect(html).toContain('135 unconfirmed or empty');
     expect(html).toContain('2 waiting');
     expect(html).toContain('41 MB of 500 MB');
