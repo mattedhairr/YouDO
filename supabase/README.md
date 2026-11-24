@@ -22,6 +22,7 @@ files in this directory.
 - **YouDO — Admin Hub** → `admin_hub.sql` (after every file in `scripts/supabase-setup-order.mjs` before it)
 - **YouDO — Backer Claim Push** → `backer_push.sql` (after `admin_hub.sql`)
 - **YouDO — Profile Photos** → `profile_photos.sql` (after `backer_push.sql`)
+- **YouDO — Hashtag Room Members** → `community_room_members.sql` (after `profile_photos.sql`): the members list inside an exam hashtag room, Board members only, with each person's friend status.
 - **YouDO — Managed App Quotes** → `app_quotes.sql`
 - **YouDO — Account Sessions** → `account_sessions.sql`
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`

@@ -266,3 +266,33 @@
 .admin-quotes-heading>button:disabled { opacity:.4; }
 @media (max-height:500px) { .c-composer-note { display:none; }.c-composer { padding-top:6px; } }
 @media (prefers-reduced-motion:no-preference) { .c-message-bubble { transition:border-color 120ms ease,transform 120ms ease; }.c-message-bubble:active { transform:scale(.992); } }
+
+/* An exam hashtag room's members (RoomMembersSheet.tsx), like the room picker sheet. */
+.room-members { display:flex;flex-direction:column;width:min(100%,440px);max-height:min(82dvh,680px);border:1px solid color-mix(in srgb,var(--primary) 18%,var(--border-subtle));border-radius:24px 24px 0 0;padding:16px 14px max(16px,env(safe-area-inset-bottom,0px));background:var(--bg-elevated);color:var(--text-primary);box-shadow:0 -18px 55px #0005; }
+.room-members-head { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:0 4px 12px; }
+.room-members-head h2 { font-size:18px;font-weight:800; }
+.room-members-head h2 span { margin-right:1px;opacity:.5; }
+.room-members-head p { margin-top:2px;color:var(--text-secondary);font-size:12.5px; }
+.room-members-close { display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:999px;background:var(--bg-surface);color:var(--text-muted); }
+.room-members-search { display:flex;align-items:center;gap:8px;height:42px;margin-bottom:10px;border:1px solid var(--border-subtle);border-radius:13px;padding:0 12px;background:var(--bg-surface);color:var(--text-muted); }
+.room-members-search:focus-within { border-color:var(--primary); }
+.room-members-search input { flex:1;min-width:0;background:transparent;color:var(--text-primary);font-size:14px;outline:none; }
+.room-members-scroll { min-height:0;overflow-y:auto; }
+.room-members-list { overflow:hidden;border:1px solid var(--border-subtle);border-radius:20px;background:var(--bg-surface); }
+.room-members-list li { display:flex;align-items:center;gap:10px;padding:9px 12px 9px 10px; }
+.room-members-list li + li { border-top:1px solid var(--border-subtle); }
+.room-members-person { display:flex;flex:1;min-width:0;align-items:center;gap:12px;text-align:left; }
+.room-members-person:disabled { cursor:default; }
+/* Emoji and initials sit on their own disc. */
+.room-members .hub-avatar:not(.yd-backer-ring) { background:var(--bg-fill);border:1px solid var(--border-subtle); }
+.room-members-text { display:grid;min-width:0;gap:1px; }
+.room-members-text strong { overflow:hidden;font-size:15px;font-weight:700;text-overflow:ellipsis;white-space:nowrap; }
+.room-members-text span { overflow:hidden;color:var(--text-secondary);font-size:12.5px;text-overflow:ellipsis;white-space:nowrap; }
+.room-members-btn { display:inline-flex;flex:none;align-items:center;justify-content:center;height:32px;padding:0 13px;border-radius:999px;background:var(--primary);color:var(--on-primary);font-size:13px;font-weight:700; }
+.room-members-btn.is-quiet { background:var(--bg-fill);color:var(--text-primary); }
+.room-members-btn.is-muted { border:1px solid var(--border-subtle);background:transparent;color:var(--text-muted); }
+.room-members-btn:disabled { opacity:.5; }
+.room-members-note { flex:none;color:var(--text-muted);font-size:12px;font-weight:600; }
+.room-members-empty { padding:22px 8px;text-align:center;color:var(--text-muted);font-size:13px; }
+.room-members-status { margin-top:10px;text-align:center;color:var(--error,#e5484d);font-size:12px; }
+.room-members-foot { margin:12px 6px 2px;text-align:center;color:var(--text-muted);font-size:11.5px;line-height:1.45; }

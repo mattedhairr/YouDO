@@ -1,6 +1,6 @@
 import './community.css';
 import '../chat/youDoChat.css';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, MessageSquare, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
 import { fetchUserCommunityReports, markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext, type UserCommunityReport } from '../../lib/community';
 import { markChatRoomRead } from '../../lib/communityChat';
@@ -23,10 +23,19 @@ import { useStore } from '../../store';
 import { fetchAvatarFacts, type AvatarFact } from '../../lib/avatarFacts';
 import { avatarKind, ProfileAvatarVisual } from '../../lib/profileAvatar';
 
-interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void }
+interface Props {
+  userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void;
+  /** The open hashtag room (null in General), so the header can offer its members. */
+  onRoomChange?: (room: { id: string; label: string } | null) => void;
+  /** Message a friend from the room's members list. */
+  onMessage?: (id: string) => void;
+}
+/** The header's Members button asks the chat to open the open room's members. */
+export const OPEN_ROOM_MEMBERS_EVENT = 'youdo-community-room-members';
+const RoomMembersSheet = lazy(() => import('./RoomMembersSheet'));
 const clock = new Intl.DateTimeFormat(undefined,{ hour:'numeric',minute:'2-digit' });
 const MESSAGE_ACTION_WINDOW_MS = 15 * 60 * 1000;
-export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings }: Props) {
+export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings, onRoomChange, onMessage }: Props) {
   const { pacePrefs } = useStore();
   const [selectedHashtag, setSelectedHashtagState] = useState<string | undefined>(() => {
     try {
@@ -102,6 +111,19 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     window.addEventListener(OPEN_COMMUNITY_REPORTS_EVENT, open);
     return () => window.removeEventListener(OPEN_COMMUNITY_REPORTS_EVENT, open);
   }, [openReports]);
+
+  // The open room's members (an exam hashtag room only, never General).
+  const [membersOpen, setMembersOpen] = useState(false);
+  const openRoomLabel = roomContext.hashtags.find(h => h.id === selectedHashtag)?.label;
+  useEffect(() => {
+    onRoomChange?.(selectedHashtag && openRoomLabel ? { id: selectedHashtag, label: openRoomLabel } : null);
+  }, [onRoomChange, selectedHashtag, openRoomLabel]);
+  useEffect(() => () => onRoomChange?.(null), [onRoomChange]);
+  useEffect(() => {
+    const open = () => setMembersOpen(true);
+    window.addEventListener(OPEN_ROOM_MEMBERS_EVENT, open);
+    return () => window.removeEventListener(OPEN_ROOM_MEMBERS_EVENT, open);
+  }, []);
 
   const [dismissedWaitingBannerIds, setDismissedWaitingBannerIds] = useState<Set<string>>(new Set());
 
@@ -366,6 +388,13 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const currentHashtagObj = roomContext.hashtags.find(h => h.id === selectedHashtag);
 
   return <section className="yd-chat c-chat no-swipe" aria-label="Chat">
+    {membersOpen && selectedHashtag && openRoomLabel && (
+      <Suspense fallback={null}>
+        <RoomMembersSheet open roomId={selectedHashtag} roomLabel={openRoomLabel} userId={userId} onClose={() => setMembersOpen(false)}
+          onProfile={onProfile ? (id) => { setMembersOpen(false); onProfile(id); } : undefined}
+          onMessage={onMessage ? (id) => { setMembersOpen(false); onMessage(id); } : undefined} />
+      </Suspense>
+    )}
     {/* Top Sticky Modern Navigation Bar */}
     <header className="c-chat-top-bar">
       <CommunityHashtagBar

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, Flag, Heart, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Flag, Heart, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, Users, X } from 'lucide-react';
 import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
@@ -16,7 +16,7 @@ import {
 import Overlay from './Overlay';
 import { hapticSuccess } from '../lib/haptics';
 import CommunityChat from './community/CommunityChat';
-import { OPEN_COMMUNITY_REPORTS_EVENT } from './community/CommunityChat';
+import { OPEN_COMMUNITY_REPORTS_EVENT, OPEN_ROOM_MEMBERS_EVENT } from './community/CommunityChat';
 import { clearChatCache } from '../lib/communityChat';
 import UserProfileSheet from './UserProfileSheet';
 import '../signature.css';
@@ -29,12 +29,15 @@ interface Props {
   initialContext: CommunityContext;
   onOpenBoardSettings: () => void;
   onProfile?: (id: string) => void;
+  /** Message a friend from a hashtag room's members list. */
+  onMessage?: (id: string) => void;
 }
 
 const timeLabel = (stamp: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(stamp));
 
 /** The Board's community room. Moderation lives in the Admin Hub (AdminHubSheet). */
-export default function CommunitySheet({ open, onClose, userId, rows, initialContext, onOpenBoardSettings, onProfile }: Props) {
+export default function CommunitySheet({ open, onClose, userId, rows, initialContext, onOpenBoardSettings, onProfile, onMessage }: Props) {
+  const [room, setRoom] = useState<{ id: string; label: string } | null>(null);
   const [context, setContext] = useState(initialContext);
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [expiryClock, setExpiryClock] = useState(() => Date.now());
@@ -149,6 +152,9 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p>
           <h2 className="text-[16px] font-bold text-content-primary truncate">Community</h2>
         </div>
+        {context.chatV2 && room && (
+          <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_ROOM_MEMBERS_EVENT))} className="grid size-9 place-items-center rounded-xl text-content-secondary" aria-label={`Members of #${room.label}`} title="Members"><Users size={17} /></button>
+        )}
         {context.chatV2 && (
           <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_COMMUNITY_REPORTS_EVENT))} className="grid size-9 place-items-center rounded-xl text-content-muted" aria-label="My reports" title="My reports"><Flag size={15} /></button>
         )}
@@ -165,7 +171,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       </main>
       : !context.canJoin && !context.isAdmin ? <div className="m-4 rounded-2xl border border-subtle bg-surface p-6 text-center"><Heart className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Join the Board first</h3><p className="mt-1 text-[11px] text-content-secondary">Only opted-in Board members can react or enter the daily room.</p></div>
       : context.chatV2 && userId
-        ? <CommunityChat key={userId} userId={userId} context={context} names={names} onProfile={handleProfile} onOpenBoardSettings={onOpenBoardSettings} />
+        ? <CommunityChat key={userId} userId={userId} context={context} names={names} onProfile={handleProfile} onOpenBoardSettings={onOpenBoardSettings} onRoomChange={setRoom} onMessage={onMessage} />
       : <>
         <main className="community-room-main min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <details className="community-guidelines">

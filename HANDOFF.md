@@ -62,6 +62,10 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Push** (`supabase/backer_push.sql`): a new claim pushes "New backer claim: @x says they sent ₹50…" to the owner only, never with the UTR; tapping opens the Admin Hub. Settings → Notifications → Admin Hub → Backer Claims (owner only), synced as `push_preferences.admin_backers`. An older server without the column keeps syncing the other switches.
 - Tested: 34 SQL checks (`tests/sql/test-photos-and-backer-push-sql.mjs`, with Storage stand-ins in the harness) and unit tests; the crop step and upload request tried in the browser with a made-up picture. **Never tried against the real server or on a phone** (the picker on Android is the system one).
 
+**5. Members of a hashtag room** (mocked on the real room screen and chosen by the owner; `src/components/community/RoomMembersSheet.tsx`, `src/lib/roomMembers.ts`, `supabase/community_room_members.sql`).
+- Inside an exam hashtag room (never General) a people button in the community header opens the room's members: you first, then friends, then the most active; search by name or @username. Each row: Message (a friend; closes the community and opens the chat in the Private Hub), Accept (they asked you), Requested, Add friend (needs their @username), or Can't add yet. Tap a row for the profile card.
+- Only Board members are listed (the Board already shows everyone's hashtag), never banned people or anyone blocked either way; only Board members can open it. 24 SQL checks (`tests/sql/test-room-members-sql.mjs`) and unit tests. The finished sheet was not seen in the browser: the dev preview kept re-drawing (its fake server and a blocked clock service), so look at it on the phone.
+
 **On the server (all done 2026-11-24, before the release):**
 1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
 2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
@@ -80,6 +84,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Backer ring:** the approved backer's ring in your Hub chats, friends, a DM and community chat, and the label on their profile card; on their phone, the ring and seal in Settings; emoji and initials in community chat on their discs; light mode.
 - **Your photo:** choose one from the gallery, move and zoom, Use photo, Save profile; it shows in Settings, your profile card and (for others) chats; Remove goes back to the emoji. As an admin, "Remove photo" on a test account's card.
 - **Backer claim push:** submit a claim from a test account with YouDO closed on your phone; the push arrives, tapping opens the Admin Hub; turn Backer Claims off and submit again: nothing arrives.
+- **Room members:** in your hashtag room tap the people button; search; Add friend, then Requested; Message a friend opens the chat; Accept a request; the button is not in General.
 - **Old install:** opens on Sign in; nothing changes for existing data.
 
 ---

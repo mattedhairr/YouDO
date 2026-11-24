@@ -240,10 +240,13 @@ function EmptyRankSlot({ rank }: { rank: number }) {
 export default function BoardView({
   onOpenBoardSettings,
   onOpenProfile,
+  onMessage,
   initialCommunity,
 }: {
   onOpenBoardSettings: () => void;
   onOpenProfile?: (userId: string, row?: PaceRow | null, paceWindow?: PaceWindow) => void;
+  /** Opens a chat with a friend (from a hashtag room's members). */
+  onMessage?: (userId: string) => void;
   initialCommunity?: CommunityContext;
 }) {
   const { user } = useAuth();
@@ -745,6 +748,7 @@ export default function BoardView({
           rows={rows}
           initialContext={community}
           onOpenBoardSettings={() => { closeCommunity(); onOpenBoardSettings(); }}
+          onMessage={onMessage ? (id) => { closeCommunity(); onMessage(id); } : undefined}
           onProfile={onOpenProfile ? (id) => {
             const targetRow = byId.get(id) ?? rows.find((r) => r.userId === id) ?? null;
             onOpenProfile(id, targetRow, paceWindow);
