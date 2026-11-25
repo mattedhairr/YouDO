@@ -1,1 +1,1 @@
-Admin Hub: an email's preview and a sent email's "See the email" now show exactly what a real person gets, with their own name and amount, never sample values.
+Admin Hub email previews now show exactly what a real person gets, never sample values. Lighter on the server: new DMs, friend requests and room messages still arrive at once, the rest is checked once a minute and when you return. Community chat stays live: about 2.5 seconds while a conversation is going or you type, 6 in a quiet room.
