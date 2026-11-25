@@ -17,6 +17,13 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v9.0.1] - 2026-11-25 - No Rainbow
+
+- **No rainbow** — The rainbow on some rainy days is gone: it didn't look real. The rain, clouds and each scene's weather stay as they were.
+- **Android APK** — versionName **9.0.1**, versionCode **102**. Installs over v9.0.0 (101).
+
+---
+
 ## [v9.0.0] - 2026-11-25 - Your Place, Your Colour
 
 - **Three Indian scenes** — The header is now the harvest fields, the Himalaya or the Western Ghats, matched to your colour (Sand, Slate or Sage), under a live sky: the real sunrise and sunset, your earned stars at night, each scene's own weather, and now and then a rainbow after rain. Or take the colour from your own photo.

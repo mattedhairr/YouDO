@@ -108,8 +108,6 @@ export interface WeatherLook {
   /** 1: the wind blows to the left; -1: to the right. Clouds and rain agree. */
   direction: 1 | -1;
   rain: { drops: number; wind: number; speed: number; seed: number };
-  /** A rainbow on about one rainy day in three: where its middle stands (fraction of the width) and its size (fraction of the width). */
-  rainbow: { centre: number; radius: number } | null;
 }
 
 /** A date string → a 32-bit seed. */
@@ -161,21 +159,7 @@ export function weatherLook(dateKey: string, weather: Weather): WeatherLook {
     speed: between(0.88, 1.12),
     seed: Math.floor(rand() * 2147483646) + 1,
   };
-  // Drawn after everything else, so adding the rainbow changed no day's clouds or rain.
-  const rainbow = rainy && rand() < 1 / 3 ? { centre: between(0.3, 0.52), radius: between(0.3, 0.36) } : null;
-  return { layers, direction, rain, rainbow };
-}
-
-/**
- * How much of a rainbow shows (0–1): only while the sun is up and low, as a
- * real one needs (under about 40° high, behind the viewer): mornings and late
- * afternoons, never at noon or at night. It eases in and out with the sun.
- */
-export function rainbowStrength(sunUp: boolean, altitude: number, night: number): number {
-  if (!sunUp || night > 0.4) return 0;
-  const rise = Math.min(1, Math.max(0, (altitude - 3) / 7));
-  const high = Math.min(1, Math.max(0, (38 - altitude) / 8));
-  return rise * high * (1 - night / 0.4);
+  return { layers, direction, rain };
 }
 
 // ── How the weather changes the sky ─────────────────────────────────────────
