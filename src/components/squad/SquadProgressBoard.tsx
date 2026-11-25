@@ -47,6 +47,7 @@ type BoardMember = {
   userId: string;
   name: string;
   avatarUrl?: string;
+  backer?: boolean;
   isSelf: boolean;
   barHours: number;
   /** False when the member has no synced focus to count yet. */
@@ -56,7 +57,7 @@ type BoardMember = {
 
 type MemberRow = {
   user_id: string;
-  profiles?: { display_name?: string; avatar_url?: string } | null;
+  profiles?: { display_name?: string; avatar_url?: string; is_backer?: boolean } | null;
 };
 
 interface Props {
@@ -133,6 +134,7 @@ export default function SquadProgressBoard({
           userId: m.user_id,
           name: m.profiles?.display_name || 'Member',
           avatarUrl: m.profiles?.avatar_url,
+          backer: m.profiles?.is_backer === true,
           isSelf,
           barHours,
           sharing: Boolean(paceByUserId[m.user_id]),
@@ -244,7 +246,7 @@ export default function SquadProgressBoard({
                 aria-label={`View ${m.name}'s profile`}
                 title={`View ${m.name}'s profile`}
               >
-                <HubAvatar url={m.avatarUrl} name={m.name} size="sm" />
+                <HubAvatar url={m.avatarUrl} name={m.name} size="sm" backer={m.backer} />
               </button>
               <div className="min-w-0 flex-1">
                 <p className="hub-member-name">

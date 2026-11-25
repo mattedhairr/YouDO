@@ -109,8 +109,9 @@ describe('CommunityChat component', () => {
       }),
     );
 
-    expect(html).toContain('yd-chat-author-btn');
-    expect(html).toContain('yd-chat-author-avatar');
+    expect(html).toContain('yd-chat-name-btn');
+    expect(html).toContain('yd-chat-face');
+    expect(html).toContain('Today');
     expect(html).toContain('Aarav Patel');
     expect(html).toContain('>A<'); // Initial avatar glyph
     expect(html).toContain('title="View Aarav Patel&#x27;s profile"');

@@ -1,91 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, BadgeCheck, Check, ChevronDown, ChevronRight, Flag, Heart, Megaphone, MessageCircle, RefreshCw, Reply, RotateCcw, Send, ShieldCheck, UserRoundCheck, UserRoundX, X, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Flag, Heart, MessageCircle, RefreshCw, Reply, Send, ShieldCheck, Users, X } from 'lucide-react';
 import type { PaceRow } from '../lib/paceBoard';
 import {
   canSubmitCommunityAppeal,
   communityAppealAvailableAt,
-  describeCommunityAudit,
-  dismissCommunityReport,
-  fetchAdminCommunity,
-  fetchCommunityActivity,
-  fetchReportedMessages,
-  type CommunityActivitySummary,
   fetchCommunityContext,
   fetchCommunityMessages,
   isCommunityMessageActive,
-  moderateCommunityMember,
   postCommunityMessage,
-  removeCommunityMessage,
   reportCommunityMessage,
-  reviewCommunityAppeal,
-  notifyCommunityUpdate,
-  saveCommunitySettings,
   submitCommunityAppeal,
-  type CommunityAuditEntry,
-  type CommunityAppeal,
   type CommunityContext,
-  type CommunityMemberState,
   type CommunityMessage,
-  type CommunityReport,
 } from '../lib/community';
 import Overlay from './Overlay';
-import Toggle from './Toggle';
-import { BroadcastExtrasEditor, BroadcastResults } from './community/BroadcastComposer';
-import {
-  closeUpdatePoll,
-  draftFromState,
-  draftSignature,
-  fetchUpdateReplies,
-  fetchUpdateState,
-  publishCommunityUpdate,
-  validateDraft,
-  type UpdateExtrasDraft,
-  type UpdateReply,
-  type UpdateState,
-  EMPTY_UPDATE_DRAFT,
-  SERVER_UPDATE_NEEDED,
-  updateResetKind,
-} from '../lib/boardUpdate';
-import { hapticSuccess, hapticTick, hapticWarn } from '../lib/haptics';
+import { hapticSuccess } from '../lib/haptics';
 import CommunityChat from './community/CommunityChat';
-import CommunityHashtagAdmin from './community/CommunityHashtagAdmin';
-import { OPEN_COMMUNITY_REPORTS_EVENT } from './community/CommunityChat';
-import CommunityHashtagManager from './community/CommunityHashtagManager';
-import CommunityQuoteAdmin from './community/CommunityQuoteAdmin';
+import { OPEN_COMMUNITY_REPORTS_EVENT, OPEN_ROOM_MEMBERS_EVENT } from './community/CommunityChat';
 import { clearChatCache } from '../lib/communityChat';
-import { fetchAdminCommunityHashtags, fetchAdminHashtagRequests, type AdminCommunityHashtag, type CommunityHashtagRequest } from '../lib/communityHashtags';
-import { fetchAdminAppQuotes, type AdminAppQuote } from '../lib/appQuotes';
-import { dismissAdminNotification } from '../lib/notifications';
 import UserProfileSheet from './UserProfileSheet';
-import AdminBackersReviewModal from './AdminBackersReviewModal';
-import SupportSettingsAdmin from './community/SupportSettingsAdmin';
-import { HubNavBar } from './hub/HubParts';
-import { setBackStep } from '../lib/backSteps';
-import { fetchPendingHubBackers } from '../lib/backers';
-import { isSupportPaused } from '../lib/supportSettings';
-import { useSupportSettings } from '../hooks/useSupportSettings';
 import '../signature.css';
-
-/** Controls' own pages, and what each says in the bar at the top. */
-const CONTROLS_PAGES = {
-  community: { title: 'Room and Kudos', subtitle: 'Community features' },
-  broadcast: { title: 'Board broadcast', subtitle: 'Shown above the community room' },
-  support: { title: 'Support YouDO', subtitle: 'What everyone sees in Settings' },
-} as const;
-type ControlsPage = keyof typeof CONTROLS_PAGES;
-
-function ControlsRow({ icon: Icon, title, text, on, onClick }: { icon: LucideIcon; title: string; text: string; on?: boolean; onClick: () => void }) {
-  return (
-    <button type="button" className="yd-row" onClick={onClick}>
-      <span className="yd-tile" aria-hidden><Icon size={19} strokeWidth={1.8} /></span>
-      <span className="yd-row-main">
-        <span className="yd-row-title">{title}</span>
-        <span className={`yd-row-text ${on ? 'is-on' : ''}`}>{text}</span>
-      </span>
-      <ChevronRight size={17} className="shrink-0 text-content-muted" aria-hidden />
-    </button>
-  );
-}
 
 interface Props {
   open: boolean;
@@ -93,97 +27,34 @@ interface Props {
   userId?: string;
   rows: PaceRow[];
   initialContext: CommunityContext;
-  startInAdmin?: boolean;
   onOpenBoardSettings: () => void;
   onProfile?: (id: string) => void;
+  /** Message a friend from a hashtag room's members list. */
+  onMessage?: (id: string) => void;
 }
 
 const timeLabel = (stamp: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(stamp));
 
-export default function CommunitySheet({ open, onClose, userId, rows, initialContext, startInAdmin = false, onOpenBoardSettings, onProfile }: Props) {
+/** The Board's community room. Moderation lives in the Admin Hub (AdminHubSheet). */
+export default function CommunitySheet({ open, onClose, userId, rows, initialContext, onOpenBoardSettings, onProfile, onMessage }: Props) {
+  const [room, setRoom] = useState<{ id: string; label: string } | null>(null);
   const [context, setContext] = useState(initialContext);
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [expiryClock, setExpiryClock] = useState(() => Date.now());
-  const [activity, setActivity] = useState<CommunityActivitySummary | null>(null);
-  const [hashtagSubTab, setHashtagSubTab] = useState<'requests' | 'approved'>('requests');
-  const [reportMessages, setReportMessages] = useState<CommunityMessage[]>([]);
   const [refreshError, setRefreshError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [adminLoaded, setAdminLoaded] = useState(false);
   const refreshId = useRef(0);
   const invalidateRequests = useCallback(() => { refreshId.current++; }, []);
-  const [adminTab, setAdminTab] = useState<'review' | 'hashtags' | 'controls' | 'quotes' | 'history'>('review');
-  const [savingFeature, setSavingFeature] = useState(false);
-  const featureBusy = useRef(false);
-  // The room and the Admin Hub are separate places: the sheet opens in one of them.
-  const mode: 'room' | 'admin' = startInAdmin ? 'admin' : 'room';
-  const [backersOpen, setBackersOpen] = useState(false);
-  const [controlsPage, setControlsPage] = useState<ControlsPage | null>(null);
-  const adminBody = useRef<HTMLElement>(null);
-  const supportSettings = useSupportSettings(false);
-  const supportPaused = isSupportPaused(supportSettings);
-  const [pendingBackers, setPendingBackers] = useState(0);
-  // Counted when the Admin Hub opens and again after reviewing them.
-  useEffect(() => {
-    if (mode !== 'admin' || backersOpen) return;
-    let cancelled = false;
-    void fetchPendingHubBackers().then((items) => { if (!cancelled) setPendingBackers(items.length); }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [mode, backersOpen]);
-  // Each Controls page starts at its top, and so does the list on the way back.
-  useEffect(() => { adminBody.current?.scrollTo?.(0, 0); }, [controlsPage]);
-  // Android's Back reaches the Admin Hub through App, not through the Overlay below.
-  useEffect(() => {
-    setBackStep('admin', controlsPage ? () => setControlsPage(null) : null);
-    return () => setBackStep('admin', null);
-  }, [controlsPage]);
-  // The arrow and Escape leave a Controls page before the Admin Hub, too.
-  const goBack = () => {
-    if (controlsPage) setControlsPage(null);
-    else onClose();
-  };
   const [draft, setDraft] = useState('');
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [reports, setReports] = useState<CommunityReport[]>([]);
-  const [appeals, setAppeals] = useState<CommunityAppeal[]>([]);
-  const [members, setMembers] = useState<CommunityMemberState[]>([]);
-  const [audit, setAudit] = useState<CommunityAuditEntry[]>([]);
-  const [hashtagRequests, setHashtagRequests] = useState<CommunityHashtagRequest[]>([]);
-  const [managedHashtags, setManagedHashtags] = useState<AdminCommunityHashtag[]>([]);
-  const [hashtagLoadError, setHashtagLoadError] = useState('');
-  const [quotes, setQuotes] = useState<AdminAppQuote[]>([]);
-  const [quoteLoadError, setQuoteLoadError] = useState('');
-  const [announcement, setAnnouncement] = useState(initialContext.settings.announcement);
   const [announcementExpanded, setAnnouncementExpanded] = useState(false);
-  /** After publishing a new update: ask before pushing it to every Board member. */
-  const [askNotify, setAskNotify] = useState(false);
-  /** Reset was tapped while an update is live: it reaches everyone, so it asks first. */
-  const [askReset, setAskReset] = useState(false);
-  /** The poll, replies and action button going out with the update, and how the live one is doing. */
-  const [updateDraft, setUpdateDraft] = useState<UpdateExtrasDraft>({ pollOptions: [], allowReplies: false, action: null });
-  const [liveUpdate, setLiveUpdate] = useState<UpdateState | null>(null);
-  const [updateReplies, setUpdateReplies] = useState<UpdateReply[]>([]);
-  const announcementDirty = useRef(false);
-  const [pendingBan, setPendingBan] = useState<string | null>(null);
   const [appealDraft, setAppealDraft] = useState('');
-  const [reviewingAppeal, setReviewingAppeal] = useState<string | null>(null);
-  const [appealResponse, setAppealResponse] = useState('');
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
   const handleProfile = onProfile ?? ((id: string) => setSelectedProfileUserId(id));
   const names = useMemo(() => new Map(rows.map((row) => [row.userId, row.displayName])), [rows]);
-  const visibleAudit = useMemo(() => {
-    let keptLegacySettings = false;
-    return audit.filter((entry) => {
-      if (entry.action !== 'settings.updated') return true;
-      if (keptLegacySettings) return false;
-      keptLegacySettings = true;
-      return true;
-    }).slice(0, 12);
-  }, [audit]);
-  const legacySettingsCount = useMemo(() => audit.filter((entry) => entry.action === 'settings.updated').length, [audit]);
 
   const refresh = useCallback(async () => {
     if (!open || !userId) return;
@@ -191,49 +62,25 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     const current = () => request === refreshId.current;
     setRefreshing(true);
     try {
-    const nextContext = await fetchCommunityContext(userId);
-    if (!current()) return;
-    if (nextContext.error) throw new Error(nextContext.error);
-    setContext(nextContext);
-    if (!announcementDirty.current) setAnnouncement(nextContext.settings.announcement);
-    if (!nextContext.available) return;
-    if (!nextContext.canJoin) clearChatCache(userId);
-    if (mode === 'room' && !nextContext.chatV2) {
-      const nextMessages = await fetchCommunityMessages();
+      const nextContext = await fetchCommunityContext(userId);
       if (!current()) return;
-      setMessages(nextMessages);
-    }
-    if (mode === 'admin' && nextContext.isAdmin) {
-      const [admin, nextActivity, nextHashtagRequests, quoteResult, hashtagResult, nextUpdate, nextReplies] = await Promise.all([
-        fetchAdminCommunity(nextContext.dayKey), fetchCommunityActivity(), fetchAdminHashtagRequests(),
-        fetchAdminAppQuotes().then((value) => ({ value, error: '' })).catch((error: unknown) => ({ value: [] as AdminAppQuote[], error: error instanceof Error ? error.message : 'Managed quotes are unavailable.' })),
-        fetchAdminCommunityHashtags().then((value) => ({ value, error: '' })).catch((error: unknown) => ({ value: [] as AdminCommunityHashtag[], error: error instanceof Error ? error.message : 'Hashtag management is unavailable.' })),
-        fetchUpdateState(), fetchUpdateReplies(),
-      ]);
-      const reported = await fetchReportedMessages(admin.reports.map((report) => report.messageId));
-      if (!current()) return;
-      setReportMessages(reported);
-      setActivity(nextActivity);
-      setReports(admin.reports); setMembers(admin.members); setAppeals(admin.appeals); setAudit(admin.audit);
-      setHashtagRequests(nextHashtagRequests);
-      setLiveUpdate(nextUpdate);
-      setUpdateReplies(nextReplies);
-      if (!announcementDirty.current) setUpdateDraft(draftFromState(nextUpdate));
-      setManagedHashtags(hashtagResult.value);
-      setHashtagLoadError(hashtagResult.error);
-      setQuotes(quoteResult.value);
-      setQuoteLoadError(quoteResult.error);
-      setAdminLoaded(true);
-      void dismissAdminNotification();
-    }
-    setRefreshError('');
+      if (nextContext.error) throw new Error(nextContext.error);
+      setContext(nextContext);
+      if (!nextContext.available) return;
+      if (!nextContext.canJoin) clearChatCache(userId);
+      if (!nextContext.chatV2) {
+        const nextMessages = await fetchCommunityMessages();
+        if (!current()) return;
+        setMessages(nextMessages);
+      }
+      setRefreshError('');
     } catch (error) {
       if (current()) setRefreshError(error instanceof Error ? error.message : 'Could not refresh. Try again.');
     } finally {
       if (current()) setRefreshing(false);
       window.dispatchEvent(new CustomEvent('youdo-community-refresh-chat'));
     }
-  }, [open, userId, mode]);
+  }, [open, userId]);
 
   useEffect(() => {
     if (!open) return;
@@ -242,7 +89,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     const timer = window.setInterval(visibleRefresh, 30_000);
     document.addEventListener('visibilitychange', visibleRefresh);
     return () => { invalidateRequests(); window.clearInterval(timer); document.removeEventListener('visibilitychange', visibleRefresh); };
-  }, [open, refresh, startInAdmin, invalidateRequests]);
+  }, [open, refresh, invalidateRequests]);
 
   useEffect(() => {
     if (!open) return;
@@ -256,7 +103,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
   }, [open, context.settings.announcement]);
 
   useEffect(() => {
-    if (!open || mode !== 'room') return;
+    if (!open) return;
     const now = Date.now();
     const nextExpiry = messages.reduce((nearest, message) => {
       const expiry = Date.parse(message.expiresAt);
@@ -268,12 +115,11 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
       Math.min(Math.max(nextExpiry - now + 25, 25), 2_147_483_647),
     );
     return () => window.clearTimeout(timer);
-  }, [expiryClock, messages, mode, open]);
+  }, [expiryClock, messages, open]);
 
   if (!open) return null;
   const visibleMessages = messages.filter((message) => isCommunityMessageActive(message, expiryClock));
   const replyTarget = replyToId ? visibleMessages.find((message) => message.id === replyToId) : undefined;
-  const activeMembers = members.filter((member) => member.banned || (member.mutedUntil && new Date(member.mutedUntil) > new Date()));
   const appealAvailableAt = communityAppealAvailableAt(context.appeal);
   const canSubmitAppeal = canSubmitCommunityAppeal(context.appeal);
 
@@ -289,81 +135,6 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     setReplyToId(messageId);
     requestAnimationFrame(() => composerRef.current?.focus());
   };
-  const publishedSignature = draftSignature(context.settings.announcement, draftFromState(liveUpdate));
-  const draftChanged = draftSignature(announcement, updateDraft) !== publishedSignature;
-  const editDraft = (next: UpdateExtrasDraft) => { announcementDirty.current = true; setUpdateDraft(next); };
-  const saveSettings = async () => {
-    const problem = validateDraft(announcement, updateDraft);
-    if (problem) { setStatus(problem); return; }
-    setBusy(true);
-    const text = announcement.trim();
-    const hasExtras = updateDraft.pollOptions.some((o) => o.trim()) || updateDraft.allowReplies || !!updateDraft.action;
-    let result = await publishCommunityUpdate(text, updateDraft);
-    // A server without board_update_extras.sql can still publish plain text.
-    if (!result.ok && !hasExtras && result.error === 'Polls and replies need a server update first.') {
-      result = (await saveCommunitySettings({ ...context.settings, announcement: text })) ? { ok: true } : { ok: false, error: 'Could not save controls.' };
-    }
-    setStatus(result.ok ? (text ? 'Update published.' : 'Update cleared.') : (result.error ?? 'Could not publish the update.'));
-    if (result.ok) { hapticSuccess(); announcementDirty.current = false; setAskNotify(text !== ''); await refresh(); }
-    setBusy(false);
-  };
-  const resetKind = updateResetKind(context.settings.announcement, announcement, updateDraft);
-  const emptyForm = () => {
-    announcementDirty.current = false;
-    setAnnouncement('');
-    setUpdateDraft(EMPTY_UPDATE_DRAFT);
-    setAskReset(false);
-    setAskNotify(false);
-  };
-  const removeBroadcast = async () => {
-    setBusy(true);
-    let result = await publishCommunityUpdate('', EMPTY_UPDATE_DRAFT);
-    // A server without board_update_extras.sql can still clear plain text.
-    if (!result.ok && result.error === SERVER_UPDATE_NEEDED) {
-      result = (await saveCommunitySettings({ ...context.settings, announcement: '' })) ? { ok: true } : { ok: false, error: 'Could not save controls.' };
-    }
-    setStatus(result.ok ? 'Broadcast removed.' : (result.error ?? 'Could not remove the broadcast.'));
-    if (result.ok) { hapticSuccess(); emptyForm(); await refresh(); }
-    else setAskReset(false);
-    setBusy(false);
-  };
-  const endPoll = async () => {
-    setBusy(true);
-    const result = await closeUpdatePoll();
-    setStatus(result.ok ? 'Poll ended.' : (result.error ?? 'Could not end the poll.'));
-    await refresh();
-    setBusy(false);
-  };
-  const sendUpdateNotification = async () => {
-    setBusy(true);
-    const result = await notifyCommunityUpdate();
-    setAskNotify(false);
-    setStatus(!result.ok ? (result.error ?? 'Could not send the notification.')
-      : result.sent ? `Notification sent to ${result.sent} ${result.sent === 1 ? 'member' : 'members'}.` : 'No one to notify yet, or this update was already sent.');
-    setBusy(false);
-  };
-  const setFeature = async (key: 'roomEnabled' | 'appreciationsEnabled', value: boolean) => {
-    if (featureBusy.current || busy) return;
-    featureBusy.current = true;
-    setSavingFeature(true);
-    setStatus('');
-    try {
-      const next = { ...context.settings, [key]: value };
-      const ok = await saveCommunitySettings(next);
-      setStatus(ok ? 'Control saved.' : 'Could not update that control. Try again.');
-      if (ok) { hapticTick(); await refresh(); }
-    } finally {
-      featureBusy.current = false;
-      setSavingFeature(false);
-    }
-  };
-  const moderate = async (target: string, action: 'mute_24h' | 'mute_7d' | 'ban' | 'restore') => {
-    setBusy(true);
-    const ok = await moderateCommunityMember(target, action, 'Board community moderation');
-    if (ok) { if (action === 'restore') hapticSuccess(); else hapticWarn(); }
-    setStatus(ok ? 'Moderation action recorded.' : 'That action could not be completed.');
-    setPendingBan(null); await refresh(); setBusy(false);
-  };
   const submitAppeal = async () => {
     setBusy(true); setStatus('');
     const result = await submitCommunityAppeal(appealDraft);
@@ -371,30 +142,9 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
     if (result.ok) { setAppealDraft(''); await refresh(); }
     setBusy(false);
   };
-  const reviewAppeal = async (appeal: CommunityAppeal, decision: 'approve' | 'decline') => {
-    setBusy(true); setStatus('');
-    const response = appealResponse.trim() || (decision === 'approve' ? 'Your community access has been restored.' : '');
-    const result = await reviewCommunityAppeal(appeal.id, decision, response);
-    setStatus(result.ok ? (decision === 'approve' ? 'Appeal approved and access restored.' : 'Appeal declined with a private note.') : result.error ?? 'Could not review the appeal.');
-    if (result.ok) { setReviewingAppeal(null); setAppealResponse(''); await refresh(); }
-    setBusy(false);
-  };
 
-  return <Overlay open={open} onClose={goBack} align="full" screen={mode === 'admin'}>
-    <div className={`community-shell app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base ${mode === 'admin' ? 'hub' : ''}`}>
-      {mode === 'admin' ? (
-        <HubNavBar
-          title={controlsPage ? CONTROLS_PAGES[controlsPage].title : 'Admin Hub'}
-          subtitle={refreshing ? 'Refreshing…' : controlsPage ? CONTROLS_PAGES[controlsPage].subtitle : 'Community, requests and the Private Hub'}
-          onBack={goBack}
-          backLabel={controlsPage ? 'Back to Controls' : 'Close Admin Hub'}
-          actions={
-            <button type="button" className="hub-icon-button" disabled={refreshing} onClick={() => void refresh()} aria-label="Refresh">
-              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-          }
-        />
-      ) : (
+  return <Overlay open={open} onClose={onClose} align="full">
+    <div className={`community-shell app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base`}>
       <header className={`flex shrink-0 items-center gap-2 bg-elevated px-3 pt-[max(0.75rem,var(--safe-area-top))] ${context.chatV2 ? 'pb-1' : 'border-b border-subtle pb-3'}`}>
         <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-xl text-content-secondary hover:bg-surface" aria-label="Close community"><ArrowLeft size={19} /></button>
         <span className="grid size-9 place-items-center rounded-xl border border-primary/20 bg-primary-soft text-primary"><MessageCircle size={17} /></span>
@@ -402,26 +152,27 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-primary">Board community</p>
           <h2 className="text-[16px] font-bold text-content-primary truncate">Community</h2>
         </div>
-        {mode === 'room' && context.chatV2 && (
+        {context.chatV2 && room && (
+          <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_ROOM_MEMBERS_EVENT))} className="grid size-9 place-items-center rounded-xl text-content-secondary" aria-label={`Members of #${room.label}`} title="Members"><Users size={17} /></button>
+        )}
+        {context.chatV2 && (
           <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_COMMUNITY_REPORTS_EVENT))} className="grid size-9 place-items-center rounded-xl text-content-muted" aria-label="My reports" title="My reports"><Flag size={15} /></button>
         )}
         <button type="button" disabled={refreshing} onClick={() => void refresh()} className="grid size-9 place-items-center rounded-xl text-content-muted" aria-label="Refresh"><RefreshCw size={15} /></button>
       </header>
-      )}
 
       {refreshError && <p role="status" className="mx-4 mt-3 text-[12px] text-error">{refreshError}</p>}
 
       {!context.available ? <div className="m-4 rounded-2xl border border-dashed border-subtle bg-surface p-6 text-center"><ShieldCheck className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Community setup is pending</h3><p className="mt-1 text-[11px] text-content-secondary">Install the protected community database migration to turn this on.</p></div>
-      : mode === 'admin' && !context.isAdmin ? <p className="community-empty">Admin access is not available for this account.</p>
       : context.banned && !context.isAdmin ? <main className="min-h-0 flex-1 overflow-y-auto p-4"><div className="rounded-2xl border border-warning/25 bg-warning/8 p-4"><span className="grid size-10 place-items-center rounded-xl bg-warning/10 text-warning"><ShieldCheck size={18} /></span><h3 className="mt-3 text-[15px] font-semibold text-content-primary">Community access restricted</h3><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">Board ranking, acknowledgements, and the community room are paused. Your Goals, Today, Calendar, focus history, sync, and backups still work normally.</p></div>
         {context.appeal?.status === 'open' ? <div className="mt-3 rounded-[14px] border border-primary/20 bg-primary-soft/20 p-3"><p className="text-[11.5px] font-semibold text-content-primary">Review requested</p><p className="mt-1 text-[10.5px] text-content-secondary">An admin will read your note. You can keep using the rest of YouDO while you wait.</p><p className="mt-2 rounded-xl bg-base px-3 py-2 text-[10.5px] leading-relaxed text-content-muted">{context.appeal.message}</p></div>
         : <div className="mt-3 rounded-[14px] border border-subtle bg-surface p-3.5"><p className="text-[12px] font-semibold text-content-primary">Request a review</p>{context.appeal?.status === 'declined' && <div className="mt-2 rounded-xl border border-error/15 bg-error-soft/30 p-2.5"><p className="text-[10px] font-semibold text-error">Previous request declined</p>{context.appeal.adminResponse && <p className="mt-1 text-[10.5px] leading-relaxed text-content-secondary">{context.appeal.adminResponse}</p>}</div>}{canSubmitAppeal ? <><textarea value={appealDraft} onChange={(event) => setAppealDraft(event.target.value)} maxLength={600} rows={4} placeholder="Briefly explain what happened and how you will keep the community respectful." className="mt-3 w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2.5 text-[11.5px] outline-none focus:border-primary" /><div className="mt-2 flex items-center justify-between"><span className="text-[9px] text-content-muted">{appealDraft.trim().length}/600 · private</span><button type="button" onClick={() => void submitAppeal()} disabled={busy || appealDraft.trim().length < 20} className="h-9 rounded-lg bg-primary px-3 text-[10.5px] font-semibold text-on-primary disabled:opacity-40">Send request</button></div></> : <p className="mt-2 text-[10.5px] leading-relaxed text-content-muted">You can submit another request after {new Date(appealAvailableAt).toLocaleDateString()}.</p>}</div>}
         {status && <p role="status" className="mt-3 text-[10.5px] text-primary">{status}</p>}
       </main>
       : !context.canJoin && !context.isAdmin ? <div className="m-4 rounded-2xl border border-subtle bg-surface p-6 text-center"><Heart className="mx-auto text-primary" size={24} /><h3 className="mt-3 text-[14px] font-semibold text-content-primary">Join the Board first</h3><p className="mt-1 text-[11px] text-content-secondary">Only opted-in Board members can react or enter the daily room.</p></div>
-      : mode === 'room' && context.chatV2 && userId
-        ? <CommunityChat key={userId} userId={userId} context={context} names={names} onProfile={handleProfile} onOpenBoardSettings={onOpenBoardSettings} />
-      : mode === 'room' ? <>
+      : context.chatV2 && userId
+        ? <CommunityChat key={userId} userId={userId} context={context} names={names} onProfile={handleProfile} onOpenBoardSettings={onOpenBoardSettings} onRoomChange={setRoom} onMessage={onMessage} />
+      : <>
         <main className="community-room-main min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <details className="community-guidelines">
             <summary><ShieldCheck size={14} /><span>Encourage the effort.</span><span className="community-guidelines-hint">Room rules</span><ChevronDown size={14} /></summary>
@@ -481,222 +232,7 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           <div className="flex items-end gap-2"><textarea ref={composerRef} value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={240} rows={2} disabled={!context.canPost || !context.settings.roomEnabled} placeholder={context.banned ? 'Community access is disabled' : context.mutedUntil ? 'Posting is temporarily paused' : replyToId ? 'Write a reply…' : 'Share a short encouragement…'} className="min-h-[46px] flex-1 resize-none rounded-xl border border-subtle bg-base px-3 py-2.5 text-[12px] text-content-primary outline-none focus:border-primary" /><button type="button" onClick={() => void send()} disabled={!draft.trim() || busy || !context.canPost || !context.settings.roomEnabled} className="grid size-11 place-items-center rounded-xl bg-primary text-on-primary disabled:opacity-40" aria-label="Send"><Send size={17} /></button></div>
           <p className="mt-1 text-right text-[9px] text-content-muted">{draft.length}/240</p>
         </footer>
-      </> : <main ref={adminBody} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        {!controlsPage && <>
-        <section className="mb-6 rounded-[24px] bg-gradient-to-br from-surface to-base border border-subtle overflow-hidden shadow-sm" aria-label="Community pulse">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-subtle/40 bg-surface/40">
-            <div className="flex items-center gap-2.5 text-primary">
-              <div className="grid place-items-center size-7 rounded-lg bg-primary/10">
-                <Activity size={15} className="animate-pulse" />
-              </div>
-              <h3 className="text-[13px] font-bold tracking-wide">Community Pulse</h3>
-            </div>
-            <span className="text-[10px] font-bold text-content-muted uppercase tracking-widest">{activity ? 'Board members' : refreshing ? 'Loading...' : 'Unavailable'}</span>
-          </div>
-          {activity ? <>
-            <div className="grid grid-cols-2 divide-x divide-subtle/50 p-5">
-              <div className="flex flex-col items-center justify-center text-center px-2">
-                <strong className="text-3xl font-extrabold text-content-primary mb-1.5">{activity.activeRecently}</strong>
-                <span className="text-[10px] font-bold text-content-secondary uppercase tracking-widest">Active recently</span>
-                <small className="text-[9px] text-content-muted mt-1">last 5 min</small>
-              </div>
-              <div className="flex flex-col items-center justify-center text-center px-2">
-                <strong className="text-3xl font-extrabold text-content-primary mb-1.5">{activity.visitedToday}</strong>
-                <span className="text-[10px] font-bold text-content-secondary uppercase tracking-widest">Used today</span>
-                <small className="text-[9px] text-content-muted mt-1">of {activity.boardMembers} members</small>
-              </div>
-            </div>
-          </> : <p className="p-6 text-center text-[12px] text-content-muted">{refreshing ? 'Loading activity...' : 'Activity is unavailable. Refresh to try again.'}</p>}
-        </section>
-        <nav className="hub-segmented mb-4 !gap-0" role="tablist" aria-label="Admin sections">
-          {(['review', 'hashtags', 'controls', 'quotes', 'history'] as const).map((tab) => {
-            const label = tab === 'review' ? 'Review' : tab === 'hashtags' ? 'Tags' : tab === 'controls' ? 'Controls' : tab === 'quotes' ? 'Quotes' : 'Log';
-            const count = tab === 'review' ? reports.length + appeals.length : tab === 'hashtags' ? hashtagRequests.length : 0;
-            const active = adminTab === tab;
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                aria-label={count > 0 ? `${label}, ${count} waiting` : label}
-                onClick={() => { setAdminTab(tab); setStatus(''); }}
-                className="!px-1.5 !text-[13px]"
-              >
-                <span>{label}</span>
-                {count > 0 && <span className="hub-count is-alert !h-[17px] !min-w-[17px] !px-1 !text-[10px]">{count}</span>}
-              </button>
-            );
-          })}
-        </nav>
-        </>}
-        {!adminLoaded && adminTab !== 'controls' && <p role="status" className="community-empty">{refreshError ? 'Moderation records could not be loaded.' : 'Loading moderation records…'}</p>}
-        <div hidden={adminTab !== 'controls'} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div hidden={controlsPage !== null}>
-          <section className="yd-section" aria-label="Community">
-            <h3 className="yd-heading">Community</h3>
-            <div className="yd-card">
-              <ControlsRow
-                icon={MessageCircle}
-                title="Room and Kudos"
-                text={`Room ${context.settings.roomEnabled ? 'on' : 'off'} · Kudos ${context.settings.appreciationsEnabled ? 'on' : 'off'}`}
-                on={context.settings.roomEnabled || context.settings.appreciationsEnabled}
-                onClick={() => setControlsPage('community')}
-              />
-              <ControlsRow
-                icon={Megaphone}
-                title="Board broadcast"
-                text={context.settings.announcement.trim() ? 'Live now' : 'Nothing live'}
-                on={Boolean(context.settings.announcement.trim())}
-                onClick={() => setControlsPage('broadcast')}
-              />
-            </div>
-          </section>
-          <section className="yd-section" aria-label="Support">
-            <h3 className="yd-heading">Support</h3>
-            <div className="yd-card">
-              <ControlsRow
-                icon={Heart}
-                title="Support YouDO"
-                text={supportPaused ? 'Paused' : 'Accepting support'}
-                on={!supportPaused}
-                onClick={() => setControlsPage('support')}
-              />
-              <ControlsRow
-                icon={BadgeCheck}
-                title="Backer claims"
-                text={pendingBackers > 0 ? `${pendingBackers} waiting to be checked` : 'Verify or reject UPI support claims'}
-                on={pendingBackers > 0}
-                onClick={() => setBackersOpen(true)}
-              />
-            </div>
-          </section>
-        </div>
-        <div hidden={controlsPage !== 'support'}>
-          <SupportSettingsAdmin />
-        </div>
-        <div hidden={controlsPage !== 'community'}>
-          <div className="yd-card">
-            <div className="yd-row">
-              <span className="yd-row-main">
-                <span className="yd-row-title">Community room</span>
-                <span className="yd-row-text">Pause messages and automatic notes</span>
-              </span>
-              <Toggle disabled={busy || savingFeature} checked={context.settings.roomEnabled} onChange={() => void setFeature('roomEnabled', !context.settings.roomEnabled)} label="Toggle community room" />
-            </div>
-            <div className="yd-row">
-              <span className="yd-row-main">
-                <span className="yd-row-title">Kudos</span>
-                <span className="yd-row-text">Recognition for the top three</span>
-              </span>
-              <Toggle disabled={busy || savingFeature} checked={context.settings.appreciationsEnabled} onChange={() => void setFeature('appreciationsEnabled', !context.settings.appreciationsEnabled)} label="Toggle Kudos" />
-            </div>
-          </div>
-        </div>
-        <section hidden={controlsPage !== 'broadcast'} className="yd-card">
-          <div className="yd-block">
-          <label htmlFor="community-announcement" className="yd-label">Message</label>
-          <textarea id="community-announcement" value={announcement} onChange={(event) => { announcementDirty.current = true; setAnnouncement(event.target.value); }} rows={4} placeholder="Optional message shown above the community room" className="w-full resize-y rounded-[16px] border border-subtle bg-base p-3.5 text-[12.5px] text-content-primary outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
-          <p className="mt-2.5 text-[10.5px] text-content-muted">Long broadcasts stay folded in the room until a member opens them.</p>
-          {announcement.trim() && <BroadcastExtrasEditor draft={updateDraft} disabled={busy || savingFeature} onChange={editDraft} />}
-          <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-            {resetKind && !askReset && (
-              <button type="button" onClick={() => (resetKind === 'live' ? setAskReset(true) : emptyForm())} disabled={busy || savingFeature} className="mr-auto inline-flex h-10 items-center gap-2 rounded-xl border border-error/30 px-3.5 text-[12px] font-bold text-error disabled:opacity-40 transition-transform active:scale-95">
-                <RotateCcw size={15} /> Reset broadcast
-              </button>
-            )}
-            <button type="button" onClick={() => void saveSettings()} disabled={busy || savingFeature || !draftChanged} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-5 text-[12px] font-bold text-on-primary shadow-sm disabled:opacity-40 transition-transform active:scale-95">
-              <Check size={16} /> Publish Broadcast
-            </button>
-          </div>
-          {askReset && resetKind === 'live' && (
-            <div role="alertdialog" aria-labelledby="reset-broadcast-title" className="mt-4 rounded-[16px] border border-error/30 bg-error-soft p-3.5">
-              <p id="reset-broadcast-title" className="text-[12.5px] font-semibold text-content-primary">Remove this broadcast for everyone?</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">The message, poll and button leave the room. You won't be able to see its poll results or private replies here any more. No one is notified.</p>
-              <div className="mt-3 flex justify-end gap-2">
-                <button type="button" onClick={() => setAskReset(false)} disabled={busy} className="h-9 rounded-xl px-3.5 text-[11.5px] font-semibold text-content-secondary">Cancel</button>
-                <button type="button" onClick={() => void removeBroadcast()} disabled={busy} className="h-9 rounded-xl bg-error px-3.5 text-[11.5px] font-bold text-white disabled:opacity-40">Remove for everyone</button>
-              </div>
-            </div>
-          )}
-          {askNotify && (
-            <div role="alertdialog" aria-labelledby="notify-everyone-title" className="mt-4 rounded-[16px] border border-primary/25 bg-primary-soft/30 p-3.5">
-              <p id="notify-everyone-title" className="text-[12.5px] font-semibold text-content-primary">Notify everyone?</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-content-secondary">Send this update as a notification to Board members. Skip it for small fixes, so phones only buzz for real news.</p>
-              <div className="mt-3 flex justify-end gap-2">
-                <button type="button" onClick={() => setAskNotify(false)} disabled={busy} className="h-9 rounded-xl px-3.5 text-[11.5px] font-semibold text-content-secondary">Not now</button>
-                <button type="button" onClick={() => void sendUpdateNotification()} disabled={busy} className="h-9 rounded-xl bg-primary px-3.5 text-[11.5px] font-bold text-on-primary disabled:opacity-40">Notify everyone</button>
-              </div>
-            </div>
-          )}
-          <BroadcastResults state={liveUpdate} replies={updateReplies} names={names} busy={busy} onEndPoll={() => void endPoll()} />
-          </div>
-        </section>
-        </div>
-        <div hidden={adminTab !== 'hashtags' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center gap-1 p-1 rounded-[16px] bg-surface border border-subtle w-full mb-3">
-            <button
-              onClick={() => setHashtagSubTab('requests')}
-              type="button"
-              className={`flex-1 py-2 px-3 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-2 transition-all ${
-                hashtagSubTab === 'requests'
-                  ? 'bg-elevated text-content-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)] border border-subtle/50'
-                  : 'text-content-secondary hover:text-content-primary hover:bg-surface-hover'
-              }`}
-            >
-              <span>Requests</span>
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${hashtagSubTab === 'requests' ? 'bg-primary text-on-primary' : 'bg-base text-content-muted border border-subtle'}`}>
-                {hashtagRequests.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setHashtagSubTab('approved')}
-              type="button"
-              className={`flex-1 py-2 px-3 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-2 transition-all ${
-                hashtagSubTab === 'approved'
-                  ? 'bg-elevated text-content-primary shadow-[0_1px_3px_rgba(0,0,0,0.1)] border border-subtle/50'
-                  : 'text-content-secondary hover:text-content-primary hover:bg-surface-hover'
-              }`}
-            >
-              <span>Approved</span>
-            </button>
-          </div>
-          {hashtagSubTab === 'requests' && (
-            <div className="animate-in fade-in">
-              <CommunityHashtagAdmin requests={hashtagRequests} names={names} busy={busy} onRefresh={refresh}/>
-            </div>
-          )}
-          {hashtagSubTab === 'approved' && (
-            <div className="animate-in fade-in">
-              <CommunityHashtagManager hashtags={managedHashtags} busy={busy} setupError={hashtagLoadError} onRefresh={refresh}/>
-            </div>
-          )}
-        </div>
-        <div hidden={adminTab !== 'quotes' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <CommunityQuoteAdmin quotes={quotes} busy={busy} setupError={quoteLoadError} onRefresh={refresh}/>
-        </div>
-        <div className="admin-review-stack animate-in fade-in slide-in-from-bottom-2 duration-300" hidden={adminTab !== 'review' || !adminLoaded}>
-        {appeals.length > 0 && <section className="admin-review-section mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-secondary">Appeals</p><h3 className="text-[14px] font-semibold text-content-primary">Private review requests</h3></div><span className="rounded-full bg-secondary-soft px-2 py-1 text-[10px] font-bold text-secondary">{appeals.length}</span></div><div className="space-y-2">{appeals.map((appeal) => { const member = members.find((item) => item.userId === appeal.userId); const name = names.get(appeal.userId) || member?.displayName || appeal.userId.slice(0, 8); const expanded = reviewingAppeal === appeal.id; return <article key={appeal.id} className="rounded-[14px] border border-secondary/20 bg-secondary-soft/15 p-3"><div className="flex items-start gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><div className="min-w-0 flex-1"><p className="text-[11.5px] font-semibold text-content-primary">{name}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{appeal.message}</p><p className="mt-1.5 text-[9px] text-content-muted">Sent {new Date(appeal.createdAt).toLocaleString()}</p></div></div>{!expanded ? <button type="button" onClick={() => { setReviewingAppeal(appeal.id); setAppealResponse(''); }} className="mt-2 h-8 rounded-lg border border-secondary/25 px-3 text-[10px] font-semibold text-secondary">Review</button> : <div className="mt-3 border-t border-subtle pt-3"><textarea value={appealResponse} onChange={(event) => setAppealResponse(event.target.value)} maxLength={600} rows={3} placeholder="Private note to this user" className="w-full resize-none rounded-xl border border-subtle bg-base px-3 py-2 text-[10.5px] outline-none focus:border-primary" /><div className="mt-2 flex flex-wrap gap-1.5"><button type="button" disabled={busy} onClick={() => void reviewAppeal(appeal, 'approve')} className="rounded-lg bg-secondary px-2.5 py-1.5 text-[10px] font-semibold text-on-secondary">Approve & restore</button><button type="button" disabled={busy || appealResponse.trim().length < 5} onClick={() => void reviewAppeal(appeal, 'decline')} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error disabled:opacity-40">Decline</button><button type="button" onClick={() => setReviewingAppeal(null)} className="px-2 text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div></section>}
-        <section className="admin-review-section admin-report-section mt-4"><div className="mb-2 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-wider text-primary">Report queue</p><h3 className="text-[14px] font-semibold text-content-primary">Needs a decision</h3></div><span className="rounded-full bg-error-soft px-2 py-1 text-[10px] font-bold text-error">{reports.length}</span></div>
-          {reports.length === 0 ? <div className="rounded-[14px] border border-dashed border-subtle p-5 text-center text-[11px] text-content-muted">Nothing waiting. Nice and quiet.</div>
-          : <div className="space-y-2">{reports.map((report) => { const message = reportMessages.find((item) => item.id === report.messageId); return <article key={report.id} className="rounded-[14px] border border-error/25 bg-error-soft/20 p-3"><div className="flex gap-2"><AlertTriangle size={14} className="mt-0.5 shrink-0 text-error" /><div className="min-w-0 flex-1"><p className="text-[11px] font-semibold text-content-primary">{names.get(message?.authorId ?? '') ?? 'Board member'}</p><p className="mt-1 text-[11px] leading-relaxed text-content-secondary">{message?.body ?? 'Message unavailable'}</p>{message&&<p className="mt-1 text-[10px] text-content-muted">Room: {message.roomId ? `#${managedHashtags.find(tag=>tag.id===message.roomId)?.label ?? 'Archived exam'}` : 'General'}</p>}</div></div><div className="mt-3 flex flex-wrap gap-1.5"><button type="button" onClick={async () => { await dismissCommunityReport(report.id); await refresh(); }} className="rounded-lg border border-subtle px-2.5 py-1.5 text-[10px] text-content-secondary">Dismiss</button>{message && <><button type="button" onClick={async () => { await removeCommunityMessage(message.id, 'Reported message'); await refresh(); }} className="rounded-lg bg-error-soft px-2.5 py-1.5 text-[10px] font-semibold text-error">Remove</button><button type="button" onClick={() => void moderate(message.authorId, 'mute_24h')} className="rounded-lg bg-primary-soft px-2.5 py-1.5 text-[10px] font-semibold text-primary">Mute 24h</button><button type="button" onClick={() => setPendingBan(message.authorId)} className="rounded-lg border border-error/30 px-2.5 py-1.5 text-[10px] text-error">Ban</button></>}</div>{pendingBan === message?.authorId && <div className="mt-2 rounded-lg border border-error/25 bg-base p-2"><p className="text-[10px] text-content-secondary">Ban this account from community features? Private workspace data is untouched.</p><div className="mt-2 flex gap-2"><button type="button" disabled={busy} onClick={() => void moderate(message!.authorId, 'ban')} className="rounded-md bg-error px-2.5 py-1.5 text-[10px] font-bold text-white">Confirm ban</button><button type="button" onClick={() => setPendingBan(null)} className="text-[10px] text-content-muted">Cancel</button></div></div>}</article>; })}</div>}
-        </section>
-        {activeMembers.length > 0 && <section className="mt-4"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-content-muted">Restrictions</p><div className="overflow-hidden rounded-[14px] border border-subtle bg-surface">{activeMembers.map((member) => <div key={member.userId} className="flex items-center gap-2 border-b border-subtle p-3 last:border-0">{member.banned ? <UserRoundX size={15} className="text-error" /> : <AlertTriangle size={15} className="text-primary" />}<div className="min-w-0 flex-1"><p className="truncate text-[11.5px] font-semibold text-content-primary">{names.get(member.userId) || member.displayName || member.userId.slice(0, 8)}</p><p className="text-[9.5px] text-content-muted">{member.banned ? 'Community banned' : `Muted until ${new Date(member.mutedUntil!).toLocaleString()}`}</p></div><button type="button" disabled={busy} onClick={() => void moderate(member.userId, 'restore')} className="inline-flex items-center gap-1 text-[10px] font-semibold text-secondary"><UserRoundCheck size={13} /> Restore</button></div>)}</div></section>}
-        </div>
-        <div hidden={adminTab !== 'history' || !adminLoaded} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-        {audit.length === 0 && <p className="community-empty">No moderation actions yet.</p>}
-        {audit.length > 0 && <ol className="admin-audit-log">{visibleAudit.map((entry) => {
-          const targetName = names.get(entry.targetUserId ?? '') || members.find((member) => member.userId === entry.targetUserId)?.displayName;
-          const description = describeCommunityAudit(entry, targetName);
-          const detail = entry.action === 'settings.updated' && legacySettingsCount > 1
-            ? `${legacySettingsCount} earlier settings changes were recorded without field details.`
-            : description.detail;
-          return <li key={entry.id}><span className="admin-audit-icon"><ShieldCheck size={13} /></span><div className="min-w-0 flex-1"><div className="admin-audit-title"><p>{description.title}</p><span>{description.category}</span></div><p className="admin-audit-detail">{detail}</p><time dateTime={entry.createdAt}>{new Date(entry.createdAt).toLocaleString()}</time></div></li>;
-        })}</ol>}
-        </div>
-        {status && <p role="status" className="community-status">{status}</p>}
-        <div className="community-privacy mt-4 flex items-start gap-2 rounded-[13px] border border-secondary/20 bg-secondary-soft/40 p-3"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-secondary" /><p className="text-[10px] leading-relaxed text-content-secondary">Community only. Private workspaces stay private.</p></div>
-      </main>}
+      </>}
       {selectedProfileUserId && (
         <UserProfileSheet
           open={Boolean(selectedProfileUserId)}
@@ -704,9 +240,6 @@ export default function CommunitySheet({ open, onClose, userId, rows, initialCon
           boardPreview={rows.find((r) => r.userId === selectedProfileUserId) ?? null}
           onClose={() => setSelectedProfileUserId(null)}
         />
-      )}
-      {mode === 'admin' && context.isAdmin && (
-        <AdminBackersReviewModal open={backersOpen} onClose={() => setBackersOpen(false)} />
       )}
     </div>
   </Overlay>;

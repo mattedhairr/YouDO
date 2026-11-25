@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v9.0.0] - 2026-11-25 - Your Place, Your Colour
+
+- **Three Indian scenes** — The header is now the harvest fields, the Himalaya or the Western Ghats, matched to your colour (Sand, Slate or Sage), under a live sky: the real sunrise and sunset, your earned stars at night, each scene's own weather, and now and then a rainbow after rain. Or take the colour from your own photo.
+- **A calmer first five minutes** — New accounts pick their exam, get a starter plan, put the first chapter on today and start focusing, in four short steps.
+- **Your own photo** — Set a profile picture; Founding Backers wear a gold ring everywhere in YouDO.
+- **Chats like a messenger** — Messages from one person group together with their picture and name, times sit inside the bubbles, and you can see who's in your exam room and add them as friends.
+- **Smaller fixes** — No "Save streak" for a day that only looked missed at midnight, a session's pauses with their times, and a calmer person card for admins.
+- **Android APK** — versionName **9.0.0**, versionCode **101**. Installs over v8.9.0 (100).
+
+---
+
 ## [v8.9.0] - 2026-11-21 - Never Miss A Mention
 
 - **Community pushes** — When someone @mentions you or replies to your message in the community chat or your exam hashtag room, you're notified even with YouDO closed, before the message disappears.

@@ -32,7 +32,7 @@ create or replace function public.save_support_settings(
 ) returns jsonb language plpgsql security definer set search_path='' as $$
 declare clean_upi text := btrim(coalesce(upi_id,''));
 begin
-  if not public.is_community_admin() then raise exception 'Admin required' using errcode='42501'; end if;
+  if not public.is_community_owner() then raise exception 'Owner required' using errcode='42501'; end if;
   if clean_upi !~ '^[A-Za-z0-9._-]{2,255}@[A-Za-z0-9]{2,64}$' then
     raise exception 'Enter a UPI ID like name@bank';
   end if;

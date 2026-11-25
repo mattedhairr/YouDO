@@ -2,8 +2,8 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import type { GoalNode, Task } from '../types';
 import { localISODate } from './dates';
-import { readStorageRaw, STORAGE_KEYS } from './storageKeys';
-import { ACCENT_SWATCHES, resolveAccent } from './accentColors';
+import { STORAGE_KEYS } from './storageKeys';
+import { storedAccentSwatch } from './accentColors';
 
 export type RoomNotificationMode = 'all' | 'mentions' | 'off';
 /**
@@ -19,6 +19,8 @@ export interface AdminHubNotificationPreferences {
   newHashtagRequests: boolean;
   reportedMessages: boolean;
   chatReplies: boolean;
+  /** The owner only: a new backer claim (supabase/backer_push.sql). Missing on older saved settings: on. */
+  backerClaims?: boolean;
 }
 
 export interface NotificationPreferences {
@@ -84,6 +86,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     newHashtagRequests: true,
     reportedMessages: true,
     chatReplies: true,
+    backerClaims: true,
   },
   sound: true,
   vibrate: true,
@@ -268,14 +271,8 @@ export async function ensureNotificationChannels(): Promise<void> {
 
 /** The accent tone Android tints the notification icon with. */
 export function notificationAccentColor(): string | undefined {
-  try {
-    const raw = readStorageRaw(STORAGE_KEYS.theme);
-    const theme = (raw ? JSON.parse(raw) : null) as { darkMode?: boolean; accent?: string } | null;
-    const swatch = ACCENT_SWATCHES[resolveAccent(theme ?? {})];
-    return theme?.darkMode === false ? swatch.light : swatch.dark;
-  } catch {
-    return undefined;
-  }
+  const { swatch, darkMode } = storedAccentSwatch();
+  return darkMode ? swatch.dark : swatch.light;
 }
 
 export function calculateNextBriefingTime(timeStr: string, fromDate = new Date()): Date {

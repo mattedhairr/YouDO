@@ -149,6 +149,8 @@ export interface Profile {
   bio: string;
   stats_private: boolean;
   avatar_url?: string;
+  /** Founding Backer (set by the owner when a claim is approved). */
+  is_backer?: boolean;
   created_at?: string;
   updated_at?: string;
 }

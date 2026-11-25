@@ -22,16 +22,16 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 
 <br />
 
-<img src="docs/screenshots/01-today.png" width="180" alt="Today under the sky header, with goal-linked tasks" />
+<img src="docs/screenshots/01-today.png" width="180" alt="Today under the harvest-fields header at sunrise, with goal-linked tasks" />
 <img src="docs/screenshots/02-today-at-a-glance.png" width="180" alt="Today at a glance" />
 <img src="docs/screenshots/03-goals.png" width="180" alt="A goal broken into papers and chapters" />
-<img src="docs/screenshots/04-focus-session.png" width="180" alt="A running focus session under the sky header" />
+<img src="docs/screenshots/04-focus-session.png" width="180" alt="A running focus session under the Himalaya header" />
 <img src="docs/screenshots/05-calendar.png" width="180" alt="Calendar with the day summary" />
 <img src="docs/screenshots/06-daily-focus-stats.png" width="180" alt="Daily focus stats" />
 <img src="docs/screenshots/07-private-hub-chats.png" width="180" alt="Private Hub chats" />
 <img src="docs/screenshots/08-study-room.png" width="180" alt="A study room with live focus" />
-<img src="docs/screenshots/09-appearance.png" width="180" alt="Appearance: accent colours, app icons and the sky header" />
-<img src="docs/screenshots/10-summit.png" width="180" alt="The Summit header: your nearest goal as a mountain at dusk" />
+<img src="docs/screenshots/09-appearance.png" width="180" alt="Appearance: the three scenes and their colours, or a colour from your photo" />
+<img src="docs/screenshots/10-scenes.png" width="180" alt="The Western Ghats header on a monsoon afternoon" />
 <img src="docs/screenshots/11-focus-sky.png" width="180" alt="Focus Sky: the ambient timer under today's earned stars, a constellation and Saturn" />
 
 </div>
@@ -174,6 +174,9 @@ Signed-in users get a private space next to the public Board:
 - **Room chat with @mentions**: type @ to pick a member, or @all for the whole room.
 - **Notifications that respect your attention**: messages, requests, invites and @mentions arrive even when the app is closed, in rooms and in the community chat (an @mention or a reply to your message); ordinary chat stays quiet unless you choose **All messages** or **All in my room**. Each kind can be switched off in **Settings → Notifications**; the unread dots inside the app always show.
 
+
+Set your own **profile photo** (moved and zoomed to fit, kept small), and Founding Backers wear a gold ring wherever their picture shows. Chats read like a messenger: one person's messages group together with their picture and name, the time sits inside the bubble, and in your exam hashtag room the people button shows who's in it, so you can add them as friends.
+
 ### Make it yours
 
 <p>
@@ -184,9 +187,9 @@ Signed-in users get a private space next to the public Board:
 <img src="public/app-icons/linen/icon-192.png" width="56" alt="Linen icon" />
 </p>
 
-v8 brings a new look: large titles, borderless cards and a floating **Liquid Glass** tab bar. In **Settings → Preferences** pick Dark or Light, one of six accent colours (the start screen, header and notifications follow it) and one of five app icons. **Classic Look** brings back the v7 design ([v7 screenshots](docs/screenshots/v7-classic)).
+v8 brings a new look: large titles, borderless cards and a floating **Liquid Glass** tab bar. In **Settings → Preferences** pick Dark or Light, a scene and its colour (Harvest fields with Sand, Himalaya with Slate, Western Ghats with Sage, or a colour taken from your own photo; the start screen, header, widgets and notifications follow it) and one of five app icons. **Classic Look** brings back the v7 design ([v7 screenshots](docs/screenshots/v7-classic)).
 
-Every tab opens with a **sky header**: a small landscape whose sky follows the real sun for your place (sunrise, noon and sunset from the date and your time zone or Indian state, with no location access), today's earned focus stars at night, a greeting, the countdown to your nearest goal deadline and the day's quote. Set the day's weather (clear, cloudy or rainy) with the button beside the date, and tap the sun to replay today's sky from dawn to now. **Settings → Appearance → Header background** offers the **Summit** instead: your nearest goal as a mountain, with a flag on its deadline and a trail walked from the day you made it to today. Or swap the sky for your own photo.
+Every tab opens with a **sky header**: an illustrated Indian landscape (the harvest fields, the Himalaya or the Western Ghats, the scene that goes with your colour) under a live sky that follows the real sun for your place (sunrise, noon and sunset from the date and your time zone or Indian state, with no location access), today's earned focus stars at night, a greeting, the countdown to your nearest goal deadline and the day's quote. Each scene starts the day with its own weather (sun on the fields, cloud over the Himalaya, monsoon rain in the Ghats, and now and then a rainbow on a rainy morning or evening); change it with the button beside the date, and tap the sun to replay today's sky from dawn to now. In **Settings → Appearance → Scene and colour** pick the scene (and its colour), where your sunrise and sunset are worked out for, and the weather button; or use your own photo as the header and take the app's colour from it.
 
 ## Your data remains yours
 
@@ -204,6 +207,8 @@ Use YouDO without an account (**Continue offline**), or sign in for cloud backup
 - **No paid tier or advertising:** the current project is free and open source.
 
 ## Get YouDO
+
+New here? A four-step tour picks your exam, builds a starter plan with subjects and chapters, puts the first chapter on today and starts your first focus session. Skip it any time; the full guide stays in Settings.
 
 ### Install the Android APK
 

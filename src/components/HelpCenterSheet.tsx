@@ -83,10 +83,10 @@ const USER_GUIDE_STEPS = [
     icon: Calendar,
     title: 'Pick a day for a task',
     where: 'A task in Goals',
-    desc: 'Tap Schedule and choose any date — today or later.',
+    desc: 'Tap Plan and choose any date — today or later.',
     do: [
       'Open the task in Goals.',
-      'Tap Schedule. Pick today, or any other day.',
+      'Tap Plan. Pick today, or any other day.',
       'That date’s work shows on Today when it arrives, and remains visible in Calendar.',
     ],
     mock: 'schedule' as const,
@@ -98,7 +98,7 @@ const USER_GUIDE_STEPS = [
     desc: 'Send only some steps to a date. Leave the rest.',
     do: [
       'If the task has micro-steps, you do not have to take all of them.',
-      'When you schedule, pick only the steps for that date.',
+      'When you tap Plan, pick only the steps for that date.',
       'The other steps stay on the goal until you schedule them.',
     ],
     mock: 'steps' as const,

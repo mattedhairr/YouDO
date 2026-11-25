@@ -54,7 +54,7 @@ export default function PrivateHubView({
   const [privateSubTab, setPrivateSubTab] = useState<'dms' | 'rooms'>('dms');
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [openRoomId, setOpenRoomId] = useState<string | null>(null);
-  const [showDmInbox, setShowDmInbox] = useState<{ id: string; name: string; avatar: string } | null>(null);
+  const [showDmInbox, setShowDmInbox] = useState<{ id: string; name: string; avatar: string; backer?: boolean } | null>(null);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
   const [friendsListOpen, setFriendsListOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -189,7 +189,7 @@ export default function PrivateHubView({
       const friend = friends.find((f) => f.id === userId) ?? (await fetchProfile(userId));
       if (!friend) return;
       setPrivateSubTab('dms');
-      setShowDmInbox({ id: friend.id, name: profileDisplayLabel(friend), avatar: friend.avatar_url ?? '' });
+      setShowDmInbox({ id: friend.id, name: profileDisplayLabel(friend), avatar: friend.avatar_url ?? '', backer: friend.is_backer === true });
     },
     [friends],
   );
@@ -329,10 +329,10 @@ export default function PrivateHubView({
                               key={friend.id}
                               type="button"
                               className="hub-row"
-                              onClick={() => setShowDmInbox({ id: friend.id, name: title, avatar: friend.avatar_url ?? '' })}
+                              onClick={() => setShowDmInbox({ id: friend.id, name: title, avatar: friend.avatar_url ?? '', backer: friend.is_backer === true })}
                               aria-label={unread > 0 ? `${title}, ${unread} unread` : title}
                             >
-                              <HubAvatar url={friend.avatar_url} name={title} />
+                              <HubAvatar url={friend.avatar_url} name={title} backer={friend.is_backer === true} />
                               <span className="hub-row-main">
                                 <span className="hub-row-title">
                                   <span className="hub-truncate flex-1">{title}</span>
@@ -388,6 +388,7 @@ export default function PrivateHubView({
               id: friend.id,
               name: friend.display_name,
               avatar: friend.avatar_url ?? '',
+              backer: friend.is_backer === true,
             });
             setProfileUserId(null);
           }
@@ -416,6 +417,7 @@ export default function PrivateHubView({
             id: friend.id,
             name: profileDisplayLabel(friend),
             avatar: friend.avatar_url ?? '',
+            backer: friend.is_backer === true,
           });
         }}
       />
@@ -442,6 +444,7 @@ export default function PrivateHubView({
         friendId={showDmInbox?.id || null}
         friendName={showDmInbox?.name}
         friendAvatar={showDmInbox?.avatar}
+        friendBacker={showDmInbox?.backer === true}
         onClose={() => {
           setShowDmInbox(null);
           void refreshDmPreviews();

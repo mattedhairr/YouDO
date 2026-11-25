@@ -1,6 +1,6 @@
 import './community.css';
 import '../chat/youDoChat.css';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, Check, ChevronDown, Heart, Lock, Megaphone, MessageSquare, RefreshCw, Reply, Send, ShieldCheck, X } from 'lucide-react';
 import { fetchUserCommunityReports, markCommunityUpdatesRead, removeCommunityMessage, reportCommunityMessage, type CommunityContext, type UserCommunityReport } from '../../lib/community';
 import { markChatRoomRead } from '../../lib/communityChat';
@@ -20,11 +20,23 @@ import { useChatMessageGestures } from '../chat/useChatMessageGestures';
 import { STORAGE_KEYS } from '../../lib/storageKeys';
 import { hapticTick } from '../../lib/haptics';
 import { useStore } from '../../store';
+import { fetchAvatarFacts, type AvatarFact } from '../../lib/avatarFacts';
+import { avatarKind, ProfileAvatarVisual } from '../../lib/profileAvatar';
+import { chatDayLabels, chatRuns, nameTone } from '../../lib/chatRuns';
 
-interface Props { userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void }
+interface Props {
+  userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void;
+  /** The open hashtag room (null in General), so the header can offer its members. */
+  onRoomChange?: (room: { id: string; label: string } | null) => void;
+  /** Message a friend from the room's members list. */
+  onMessage?: (id: string) => void;
+}
+/** The header's Members button asks the chat to open the open room's members. */
+export const OPEN_ROOM_MEMBERS_EVENT = 'youdo-community-room-members';
+const RoomMembersSheet = lazy(() => import('./RoomMembersSheet'));
 const clock = new Intl.DateTimeFormat(undefined,{ hour:'numeric',minute:'2-digit' });
 const MESSAGE_ACTION_WINDOW_MS = 15 * 60 * 1000;
-export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings }: Props) {
+export default function CommunityChat({ userId, context, names, onProfile, onOpenBoardSettings, onRoomChange, onMessage }: Props) {
   const { pacePrefs } = useStore();
   const [selectedHashtag, setSelectedHashtagState] = useState<string | undefined>(() => {
     try {
@@ -59,6 +71,15 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const [messages,setMessages] = useState(initial.messages);
   const [hasOlder,setHasOlder] = useState(initial.hasOlder);
   const [loading,setLoading] = useState(initial.messages.length===0);
+  // Each author's picture or emoji, and the Founding Backer ring.
+  const [faces,setFaces] = useState<Map<string,AvatarFact>>(()=>new Map());
+  const authorKey = useMemo(()=>[...new Set(messages.map(message=>message.authorId))].filter(id=>id!==userId).sort().join(','),[messages,userId]);
+  useEffect(()=>{
+    if(!authorKey)return;
+    let live=true;
+    fetchAvatarFacts(authorKey.split(',')).then(next=>{if(live)setFaces(next);}).catch(()=>{});
+    return()=>{live=false;};
+  },[authorKey]);
   const [error,setError] = useState('');
   const [draft,setDraft] = useState('');
   const [reply,setReply] = useState<ChatMessage|null>(null);
@@ -92,6 +113,19 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     return () => window.removeEventListener(OPEN_COMMUNITY_REPORTS_EVENT, open);
   }, [openReports]);
 
+  // The open room's members (an exam hashtag room only, never General).
+  const [membersOpen, setMembersOpen] = useState(false);
+  const openRoomLabel = roomContext.hashtags.find(h => h.id === selectedHashtag)?.label;
+  useEffect(() => {
+    onRoomChange?.(selectedHashtag && openRoomLabel ? { id: selectedHashtag, label: openRoomLabel } : null);
+  }, [onRoomChange, selectedHashtag, openRoomLabel]);
+  useEffect(() => () => onRoomChange?.(null), [onRoomChange]);
+  useEffect(() => {
+    const open = () => setMembersOpen(true);
+    window.addEventListener(OPEN_ROOM_MEMBERS_EVENT, open);
+    return () => window.removeEventListener(OPEN_ROOM_MEMBERS_EVENT, open);
+  }, []);
+
   const [dismissedWaitingBannerIds, setDismissedWaitingBannerIds] = useState<Set<string>>(new Set());
 
   const waitingHashtagRequest = useMemo(() => {
@@ -122,6 +156,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const restoreAnchor=useRef<{id:string;offset:number;top:number}|null>(null);
   const loadedCount=useRef(Math.max(CHAT_PAGE_SIZE,initial.messages.filter(m=>m.delivery==='sent').length));
   const map=useMemo(()=>new Map(messages.map(m=>[m.id,m])),[messages]);
+  const runs=useMemo(()=>chatRuns(messages.map(m=>({author:m.authorId,at:Date.parse(m.createdAt),alone:m.kind==='kudos'}))),[messages]);
+  const dayLabels=useMemo(()=>chatDayLabels(messages.map(m=>Date.parse(m.createdAt))),[messages]);
 
   const capturePosition=useCallback(()=>{
     const root=scroll.current;
@@ -355,6 +391,13 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const currentHashtagObj = roomContext.hashtags.find(h => h.id === selectedHashtag);
 
   return <section className="yd-chat c-chat no-swipe" aria-label="Chat">
+    {membersOpen && selectedHashtag && openRoomLabel && (
+      <Suspense fallback={null}>
+        <RoomMembersSheet open roomId={selectedHashtag} roomLabel={openRoomLabel} userId={userId} onClose={() => setMembersOpen(false)}
+          onProfile={onProfile ? (id) => { setMembersOpen(false); onProfile(id); } : undefined}
+          onMessage={onMessage ? (id) => { setMembersOpen(false); onMessage(id); } : undefined} />
+      </Suspense>
+    )}
     {/* Top Sticky Modern Navigation Bar */}
     <header className="c-chat-top-bar">
       <CommunityHashtagBar
@@ -439,15 +482,24 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
       {hasOlder && <button className="c-text-button c-load" disabled={loading} onClick={()=>void loadOlder()}>{loading?'Loading…':'Earlier messages'}</button>}
       {loading && messages.length===0 ? <div className="c-skeleton" role="status" aria-label="Loading chat"><i/><i/><i/></div>
         : messages.length===0 && !error ? <div className="c-empty"><Heart size={28}/><h3>A quiet room. A shared ambition.</h3><p>{selectedHashtag ? `Welcome to #${currentHashtagObj?.label ?? 'your room'}. Share questions and tips!` : 'Share a useful thought or encourage a fellow aspirant.'}</p><p className="c-empty-rules">Be respectful. No spam, links or personal details. Use replies to keep conversations clear. Chat disappears after 24 hours.</p></div>:null}
-      <ol className="yd-chat-list">{messages.map(message=>{
+      <ol className="yd-chat-list">{messages.map((message,index)=>{
         const mine=message.authorId===userId;
         const parent=message.replyToId?map.get(message.replyToId):undefined;
-        if(message.kind==='kudos')return <li key={message.id} data-message={message.id} className="yd-chat-kudos"><Heart size={13}/>{message.body}</li>;
+        const day=dayLabels[index];
+        const dayChip=day?<li key={`day-${message.id}`} className="yd-chat-day" aria-hidden="true">{day}</li>:null;
+        if(message.kind==='kudos')return [dayChip,<li key={message.id} data-message={message.id} className="yd-chat-kudos"><Heart size={13}/>{message.body}</li>];
         const authorName=mine?'You':names.get(message.authorId)??'Board member';
         const staff=context.staffIds.includes(message.authorId);
-        return <li key={message.id} data-message={message.id} className={`yd-chat-row ${mine?'is-mine':''} ${message.delivery==='failed'?'is-failed':''}`}>
+        const face=faces.get(message.authorId);
+        const run=runs[index];
+        const profileLabel=`View ${authorName}'s profile${face?.backer ? ', Founding Backer' : ''}`;
+        return [dayChip,<li key={message.id} data-message={message.id} className={`yd-chat-row ${mine?'is-mine':'has-face'} ${run.first?'is-first':''} ${run.last?'is-last':''} ${message.delivery==='failed'?'is-failed':''}`}>
+          {!mine && (run.last
+            ? <button type="button" className={`yd-chat-face ${avatarKind(face?.avatarUrl)==='emoji'?'is-emoji':''} ${face?.backer?'yd-backer-ring':''}`} onClick={() => onProfile?.(message.authorId)} disabled={!onProfile} title={profileLabel} aria-label={profileLabel}>
+                <ProfileAvatarVisual avatarUrl={face?.avatarUrl} displayName={authorName} imgClassName="" />
+              </button>
+            : <span className="yd-chat-face is-spacer" aria-hidden="true" />)}
           <div className="yd-chat-bubble-wrap">
-          <div className="yd-chat-cluster">
           <div className="yd-chat-clip" data-yd-chat-anchor={message.id}>
           <article
             className="yd-chat-bubble"
@@ -455,31 +507,20 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             aria-label={`${authorName}: ${message.body}`}
             {...getMessageProps(message)}
           >
-            {!mine && (
-              <div className="yd-chat-author">
-                <button
-                  type="button"
-                  className="yd-chat-author-btn"
-                  onClick={() => onProfile?.(message.authorId)}
-                  disabled={!onProfile}
-                  title={`View ${authorName}'s profile`}
-                  aria-label={`View ${authorName}'s profile`}
-                >
-                  <span className="yd-chat-author-avatar" aria-hidden="true">
-                    {authorName.charAt(0).toUpperCase()}
-                  </span>
-                  <span>{authorName}</span>
-                </button>
+            {!mine && run.first && (
+              <div className={`yd-chat-name yd-tone-${nameTone(message.authorId)}`}>
+                <button type="button" className="yd-chat-name-btn" onClick={() => onProfile?.(message.authorId)} disabled={!onProfile} title={profileLabel}>{authorName}</button>
                 {staff && <span className="yd-chat-admin">Admin</span>}
               </div>
             )}
             {message.replyToId && (
-              <blockquote className="yd-chat-quote">
-                <strong>{parent?names.get(parent.authorId)??'Board member':'Earlier message'}</strong>
+              <blockquote className={`yd-chat-quote ${parent?`yd-tone-${nameTone(parent.authorId)}`:''}`}>
+                <strong>{parent?parent.authorId===userId?'You':names.get(parent.authorId)??'Board member':'Earlier message'}</strong>
                 <span>{parent?.body??'No longer available'}</span>
               </blockquote>
             )}
             <p className="yd-chat-body">{message.body}</p>
+            <span className="yd-chat-stamp">{message.editedAt?'edited ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time>{mine && (message.delivery==='pending'?' · Sending…':message.delivery==='failed'?' · Not sent':<Check size={13} aria-label="Sent"/>)}</span>
             {message.delivery==='failed' && (
               <div className="yd-chat-retry">
                 <span>{message.error}</span>
@@ -488,13 +529,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
             )}
           </article>
           </div>
-          <div className="yd-chat-meta">
-            <span>{message.editedAt?'Edited · ':''}<time dateTime={message.createdAt}>{clock.format(new Date(message.createdAt))}</time></span>
-            {mine && <span className="yd-chat-meta-status">{message.delivery==='pending'?'Sending…':message.delivery==='failed'?'Not sent':<Check size={11}/>}</span>}
           </div>
-          </div>
-          </div>
-        </li>;
+        </li>];
       })}</ol>
       
         {messages.filter(m=>m.delivery==='sent').length>=CHAT_HISTORY_LIMIT && <p className="c-note">Latest 120 messages · 24-hour room</p>}

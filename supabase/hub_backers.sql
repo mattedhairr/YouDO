@@ -114,8 +114,8 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.is_community_admin() THEN
-    RAISE EXCEPTION 'Unauthorized: only community admins can review backer submissions';
+  IF NOT public.is_community_owner() THEN
+    RAISE EXCEPTION 'Unauthorized: only the owner can review backer submissions';
   END IF;
 
   RETURN coalesce(
@@ -155,8 +155,8 @@ DECLARE
   v_user_id UUID;
   v_username TEXT;
 BEGIN
-  IF NOT public.is_community_admin() THEN
-    RAISE EXCEPTION 'Unauthorized: only community admins can review backer submissions';
+  IF NOT public.is_community_owner() THEN
+    RAISE EXCEPTION 'Unauthorized: only the owner can review backer submissions';
   END IF;
 
   IF p_status NOT IN ('verified', 'rejected') THEN

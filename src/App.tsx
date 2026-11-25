@@ -63,6 +63,7 @@ const SkyHeader = lazy(() => import('./components/SkyHeader'));
 const AdminHubSheet = lazy(() => import('./components/AdminHubSheet'));
 // Only shown during a session; keeps its font and sound picker out of the first load.
 const HelpCenterSheet = lazy(() => import('./components/HelpCenterSheet'));
+const StartTour = lazy(() => import('./components/StartTour'));
 const UpdateInstaller = lazy(() => import('./components/UpdateInstaller'));
 // Android home-screen widgets: none of their code is needed for the first screen.
 const HomeWidgets = lazy(() => import('./hooks/useHomeWidgets'));
@@ -234,6 +235,10 @@ function AppInner() {
   const firstHelpRef = useRef(false);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const briefingPromptedRef = useRef(false);
+  /** The welcome tour, in place of the guide on a fresh install. */
+  const [tourOpen, setTourOpen] = useState(false);
+  // A day with nothing in it gets no briefing full of zeros.
+  const emptyWorkspace = goals.length === 0 && tasks.length === 0;
   /** Opaque hold while a stored session waits for the recovery check (avoids Today flash). */
   const [sessionBootHold, setSessionBootHold] = useState(() => Boolean(activeSession) || !nativeSessionReady);
   const [cloudHint, setCloudHint] = useState<string | null>(null);
@@ -697,7 +702,7 @@ function AppInner() {
 
     if (!activeSession) {
       briefingPromptedRef.current = true;
-      setBriefingOpen(true);
+      if (!emptyWorkspace) setBriefingOpen(true);
       setSessionBootHold(false);
       return;
     }
@@ -718,7 +723,7 @@ function AppInner() {
 
     briefingPromptedRef.current = true;
     setSessionBootHold(false);
-  }, [nativeSessionReady, hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt]);
+  }, [nativeSessionReady, hasSeenHelp, helpOpen, activeSession, recoverySessionPrompt, emptyWorkspace]);
 
   useEffect(() => {
     if (!nativeSessionReady) return;
@@ -1204,8 +1209,25 @@ function AppInner() {
     if (hasSeenHelp || recoverySessionPrompt || helpOpen) return;
     if (firstHelpRef.current) return;
     firstHelpRef.current = true;
-    openHelp();
-  }, [hasSeenHelp, recoverySessionPrompt, helpOpen, openHelp]);
+    // A fresh install gets the welcome tour; a device that already holds a plan, the guide.
+    if (emptyWorkspace) setTourOpen(true);
+    else openHelp();
+  }, [hasSeenHelp, recoverySessionPrompt, helpOpen, openHelp, emptyWorkspace]);
+
+  // Once a day, an anonymous "this phone opened YouDO" for the owner's Growth numbers (src/lib/appOpens.ts).
+  useEffect(() => {
+    const note = () => { if (document.visibilityState === 'visible') void import('./lib/appOpens').then((m) => m.noteAppOpen()).catch(() => undefined); };
+    const timer = window.setTimeout(note, 4000);
+    document.addEventListener('visibilitychange', note);
+    return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', note); };
+  }, []);
+
+  const finishTour = useCallback(() => {
+    // The tour counts as the guide, and its first day gets no briefing.
+    briefingPromptedRef.current = true;
+    setHasSeenHelp(true);
+    setTourOpen(false);
+  }, [setHasSeenHelp]);
 
   useEffect(() => {
     if (!cloudHint) return;
@@ -2082,6 +2104,15 @@ function AppInner() {
         </Overlay>
       )}
 
+      {tourOpen && <Suspense fallback={null}><StartTour
+        tasks={tasks}
+        sessionTaskId={activeSession?.taskId}
+        onAddGoal={addGoalRoot}
+        onPlanToday={(nodeId) => planTask(nodeId, todayISO())}
+        onNavigate={handleNavigateTab}
+        onStartSession={startSession}
+        onFinish={finishTour}
+      /></Suspense>}
       {/* ── Help Center Sheet ── */}
       {helpMounted && <Suspense fallback={null}><HelpCenterSheet
         open={helpOpen}

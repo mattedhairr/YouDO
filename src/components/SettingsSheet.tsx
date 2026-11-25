@@ -1,13 +1,15 @@
 import { useUiPrefs } from '../hooks/useUiPrefs';
 import { setSettingsBackHandler } from '../lib/settingsBack';
 import { ambientAutoOpenEnabled, ambientPlanetEnabled, ambientSkyEnabled, setAmbientAutoOpen, setAmbientPlanet, setAmbientSky } from '../lib/ambient';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
   AlertTriangle,
   ArrowLeft,
   Bell,
+  BarChart3,
+
   Bug,
   Check,
   CheckCircle2,
@@ -52,6 +54,7 @@ import {
 import '../signature.css';
 import Overlay from './Overlay';
 import Toggle from './Toggle';
+import { setUsageCountOn, usageCountOn } from '../lib/appOpens';
 import FocusSoundPicker from './FocusSoundPicker';
 import {
   getNotificationPreferences,
@@ -69,7 +72,7 @@ import { buildMorningBriefingContent, extractBriefingData } from '../lib/morning
 import { useReducedEffects } from '../hooks/useReducedEffects';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { ACCENT_COLORS, ACCENT_SWATCHES, resolveAccent } from '../lib/accentColors';
+import ScenePicker from './ScenePicker';
 import { visitSnapshotLabel } from '../lib/cloudBackup';
 import type { BackupSummary } from '../lib/backup';
 import { formatBackupStamp, formatDuration } from '../lib/format';
@@ -83,7 +86,6 @@ import { localISODate, todayISO } from '../lib/dates';
 import { checkAppUpdateStatus, type AppRelease } from '../lib/appUpdate';
 import UpdateAction from './UpdateAction';
 import { APP_VERSION } from '../lib/version';
-import HeaderBackgroundSettings from './HeaderBackgroundSettings';
 import SignedInDevices from './SignedInDevices';
 import SupportSheet from './SupportSheet';
 import AppIconPicker from './AppIconPicker';
@@ -93,6 +95,10 @@ import type { CommunityHashtagContext } from '../lib/communityHashtags';
 import { parseSyncConflictRecord } from '../lib/syncConflictRecord';
 import { captureAccountSignOutAfterSync, captureWorkspace } from '../lib/workspaceReplacement';
 import { fetchProfile, upsertProfile, normalizeUsername, type Profile } from '../lib/profiles';
+import { BackerSeal, ProfileAvatarVisual, avatarKind } from '../lib/profileAvatar';
+import { fetchAdminRole } from '../lib/adminHub';
+import { removeOldPhotos, uploadProfilePhoto } from '../lib/profilePhoto';
+const PhotoCropSheet = lazy(() => import('./PhotoCropSheet'));
 import { fetchCommunityContext } from '../lib/community';
 
 export type SettingsTab = 'account' | 'preferences' | 'notifications' | 'board' | 'about';
@@ -222,6 +228,7 @@ export default function SettingsSheet({
   const [ambientAutoOpen, setAmbientAutoOpenState] = useState(ambientAutoOpenEnabled);
   const [ambientSky, setAmbientSkyState] = useState(ambientSkyEnabled);
   const [ambientPlanet, setAmbientPlanetState] = useState(ambientPlanetEnabled);
+  const [usageCount, setUsageCount] = useState(usageCountOn);
   const [highlightBoard, setHighlightBoard] = useState(focusSection === 'public-board');
   const contentRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<SettingsTab, HTMLButtonElement | null>>>({});
@@ -252,6 +259,10 @@ export default function SettingsSheet({
   const [profileLoading, setProfileLoading] = useState(false);
   const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
   const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '🎓');
+  // Your own photo: the picked file waits in the crop step; the upload's address goes into editAvatar.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoNote, setPhotoNote] = useState('');
+  const photoInput = useRef<HTMLInputElement>(null);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [securityMode, setSecurityMode] = useState<'email' | 'password' | 'devices' | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -286,7 +297,9 @@ export default function SettingsSheet({
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [testNotifStatus, setTestNotifStatus] = useState<'idle' | 'sent' | 'permission_denied' | 'failed'>('idle');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [accountProfile, setAccountProfile] = useState<Profile | null>(null);
+  const isBacker = Boolean(user && accountProfile?.is_backer);
 
   useEffect(() => {
     if (open) {
@@ -296,12 +309,16 @@ export default function SettingsSheet({
         void fetchProfile(user.id).then(setAccountProfile);
         void fetchCommunityContext(user.id).then((ctx) => {
           setIsAdmin(Boolean(ctx.isAdmin));
+          if (ctx.isAdmin) void fetchAdminRole().then((role) => setIsOwner(role === 'owner')).catch(() => setIsOwner(false));
+          else setIsOwner(false);
         }).catch(() => {
           setIsAdmin(false);
+          setIsOwner(false);
         });
       } else {
         setAccountProfile(null);
         setIsAdmin(false);
+        setIsOwner(false);
       }
     }
   }, [open, user?.id]);
@@ -824,8 +841,10 @@ export default function SettingsSheet({
                 className="settings-home-profile"
                 onClick={() => openPage('account')}
               >
-                <span className="yd-arc" aria-hidden>
-                  <svg viewBox="0 0 72 72"><path d="M12.5 56.5a31 31 0 1 1 47 0" /></svg>
+                <span className={`yd-arc ${isBacker ? 'is-backer' : ''}`} aria-hidden>
+                  {/* A Founding Backer's arc closes into a full gold ring, with the heart seal. */}
+                  <svg viewBox="0 0 72 72"><path d={isBacker ? 'M36 5a31 31 0 1 1 0 62a31 31 0 1 1 0-62' : 'M12.5 56.5a31 31 0 1 1 47 0'} /></svg>
+                  {isBacker && <BackerSeal />}
                   <span className="settings-home-avatar">
                     {!user ? <WifiOff size={24} />
                       : avatar && /^https?:/.test(String(avatar)) ? <img src={String(avatar)} alt="" className="size-full object-cover" />
@@ -919,7 +938,7 @@ export default function SettingsSheet({
                   <div className="flex items-start gap-3.5">
                     {/* Sculpted Avatar with Verified Shield badge */}
                     <div className="relative shrink-0">
-                      <div className="size-[52px] rounded-[18px] bg-gradient-to-br from-primary-soft to-surface border border-primary/30 ring-1 ring-primary/15 grid place-items-center text-[26px] shadow-md select-none overflow-hidden">
+                      <div className={`size-[52px] rounded-[18px] bg-gradient-to-br from-primary-soft to-surface border grid place-items-center text-[26px] select-none overflow-hidden ${isBacker ? 'yd-backer-ring border-transparent' : 'border-primary/30 ring-1 ring-primary/15 shadow-md'}`}>
                         {user.user_metadata?.avatar_url && /^https?:/.test(String(user.user_metadata.avatar_url)) ? (
                           <img
                             src={user.user_metadata.avatar_url}
@@ -1305,8 +1324,65 @@ export default function SettingsSheet({
                         </div>
 
                         <div>
+                          <span className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
+                            Profile picture
+                          </span>
+                          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-surface border border-subtle">
+                            <span className={`size-12 shrink-0 rounded-full overflow-hidden grid place-items-center bg-primary-soft text-2xl ${isBacker ? 'yd-backer-ring' : ''}`}>
+                              <ProfileAvatarVisual avatarUrl={editAvatar} displayName={editName} />
+                            </span>
+                            <div className="flex-1 flex gap-2 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => photoInput.current?.click()}
+                                className="flex-1 h-9 rounded-xl bg-primary text-on-primary text-[12.5px] font-bold active:scale-[0.98] transition-transform"
+                              >
+                                Choose a photo
+                              </button>
+                              {avatarKind(editAvatar) === 'photo' && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditAvatar('🎓'); setPhotoNote(''); }}
+                                  className="h-9 px-3 rounded-xl bg-elevated border border-subtle text-[12.5px] font-bold text-content-primary"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              ref={photoInput}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(event) => {
+                                const picked = event.target.files?.[0];
+                                event.target.value = '';
+                                if (picked) setPhotoFile(picked);
+                              }}
+                            />
+                          </div>
+                          <p className={`text-[10px] mt-1 leading-snug ${photoNote ? 'text-primary font-semibold' : 'text-content-muted'}`}>
+                            {photoNote || 'Remove goes back to your emoji. Admins can remove a photo that breaks the rules.'}
+                          </p>
+                          {photoFile && user && (
+                            <Suspense fallback={null}>
+                              <PhotoCropSheet
+                                file={photoFile}
+                                onCancel={() => setPhotoFile(null)}
+                                onUse={async (photo) => {
+                                  const url = await uploadProfilePhoto(user.id, photo);
+                                  setEditAvatar(url);
+                                  setPhotoFile(null);
+                                  setPhotoNote('Photo ready. Tap Save profile to use it.');
+                                }}
+                              />
+                            </Suspense>
+                          )}
+                        </div>
+
+                        <div>
                           <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1">
-                            Avatar Icon
+                            Or an emoji
                           </label>
                           <div className="flex gap-2 items-center overflow-x-auto no-scrollbar py-1">
                             {['🎓', '⚡', '🏆', '🚀', '🦉', '🧠', '🎯', '📚', '🔥', '👑', '🌟', '💻', '🎨', '🎧', '🏋️', '🌱', '☀️', '🌙', '🌊', '☕'].map((emoji) => (
@@ -1366,7 +1442,9 @@ export default function SettingsSheet({
 
                             if (ok && profileSave.ok) {
                               setEditProfileOpen(false);
+                              setPhotoNote('');
                               setMsg({ text: '✓ Profile updated.' });
+                              void removeOldPhotos(user.id, editAvatar);
                               void fetchProfile(user.id).then(setAccountProfile);
                               if (pacePrefs.optedIn) void publishPublicPace();
                             } else {
@@ -1945,38 +2023,7 @@ export default function SettingsSheet({
               </div>
             </div>
 
-            {!legacyStyle && <div className="settings-data-row p-4 flex flex-col items-stretch gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
-                  <Palette size={16} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xs font-semibold text-content-primary">Accent Color</h3>
-                  <p className="text-[10.5px] text-content-secondary font-medium">{ACCENT_SWATCHES[resolveAccent(theme)].label} tints buttons, rings and links</p>
-                </div>
-              </div>
-              <div role="radiogroup" aria-label="Accent color" className="flex items-center justify-between gap-1 px-1">
-                {ACCENT_COLORS.map((accent) => {
-                  const swatch = ACCENT_SWATCHES[accent];
-                  const selected = resolveAccent(theme) === accent;
-                  return (
-                    <button
-                      key={accent}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      aria-label={swatch.label}
-                      title={swatch.label}
-                      onClick={() => setTheme((prev) => ({ ...prev, accent }))}
-                      className="accent-swatch"
-                      style={{ background: theme.darkMode ? swatch.dark : swatch.light }}
-                    >
-                      {selected && <Check size={16} strokeWidth={3} />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>}
+            {!legacyStyle && <ScenePicker theme={theme} setTheme={setTheme} />}
 
             <div className="settings-data-row p-4 flex flex-col items-stretch gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1991,7 +2038,6 @@ export default function SettingsSheet({
               <AppIconPicker />
             </div>
 
-            {!legacyStyle && <HeaderBackgroundSettings />}
 
             <div className="settings-data-row p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -2754,6 +2800,31 @@ export default function SettingsSheet({
                       label="Support chat replies"
                     />
                   </div>
+
+                  {/* Backer Claims: the owner reviews them, so only the owner gets this push. */}
+                  {isOwner && (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-[11.5px] font-semibold text-content-primary">Backer Claims</h4>
+                          <p className="text-[10px] text-content-secondary">Alerts when someone says they supported YouDO</p>
+                        </div>
+                      </div>
+                      <Toggle
+                        checked={notifPrefs.adminHub?.backerClaims ?? true}
+                        onChange={() =>
+                          updateNotifPrefs((p) => {
+                            const current = p.adminHub ?? { enabled: true, newHashtagRequests: true, reportedMessages: true, chatReplies: true };
+                            return {
+                              ...p,
+                              adminHub: { ...current, backerClaims: !(current.backerClaims ?? true) },
+                            };
+                          })
+                        }
+                        label="Backer claims"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2935,7 +3006,7 @@ export default function SettingsSheet({
                 <div className="min-w-0 flex-1 pl-12">
                   <h3 className="text-xs font-semibold text-content-primary">Planet of the day</h3>
                   <p className="text-[10.5px] text-content-secondary font-medium mt-0.5 leading-snug">
-                    The planet the weekday is named after, crossing the sky. Tap it to see its name and moons.
+                    The planet the weekday is named after, crossing the sky (Sunday is a day off). Tap it to see its name and moons.
                   </p>
                 </div>
                 <Toggle
@@ -2960,7 +3031,7 @@ export default function SettingsSheet({
                 <li><b className="text-content-primary">The music note</b> opens the focus sounds: pick one, set the volume, or let it play with the screen off.</li>
                 <li><b className="text-content-primary">Stars:</b> each day has its own sky, never the same twice. Each 1/36 of your daily bar lights a star (every 13 minutes with an 8h bar), anywhere in the sky; all 36 shine when you reach the bar. Paused time adds none.</li>
                 <li><b className="text-content-primary">Constellation:</b> when you reach your bar, seven of today's brightest stars join into a shape of their own, away from the timer. Each extra 15 minutes adds one more star to it, up to twelve.</li>
-                <li><b className="text-content-primary">Planet of the day:</b> the one the weekday is named after (Sunday the Sun, Monday the Moon, Saturday Saturn, and so on) crosses the sky once a day, starting somewhere new each day. Tap it to see its name and moons for a moment.</li>
+                <li><b className="text-content-primary">Planet of the day:</b> the one the weekday is named after (Monday the Moon, Tuesday Mars, Saturday Saturn, and so on) crosses the sky once a day, starting somewhere new each day. Sunday is a day off: no Sun in a night sky. Tap it to see its name and moons for a moment.</li>
                 <li><b className="text-content-primary">Easy on the screen:</b> true black, small dim stars, and a slow drift of the whole face and of the sky keep any pixel from holding the same light for long, so nothing marks the display. Reduce motion keeps the sky still.</li>
               </ul>
             </details>
@@ -3204,6 +3275,24 @@ export default function SettingsSheet({
           <p className="mt-2 px-1 text-[10px] leading-relaxed text-content-muted">
             For a bug, mention what you were doing, what happened and what you expected. Remove personal information from screenshots.
           </p>
+        </section>
+
+        <section>
+          <SectionLabel icon={<BarChart3 size={13} className="text-primary" />}>PRIVACY</SectionLabel>
+          <div className="settings-card bg-elevated rounded-2xl border border-subtle overflow-hidden shadow-lg">
+            <div className="settings-data-row p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center text-primary shrink-0">
+                  <BarChart3 size={16} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs font-semibold text-content-primary">Count my visits</h3>
+                  <p className="text-[10.5px] text-content-secondary font-medium leading-relaxed">Once a day YouDO says “this phone opened YouDO”, with a random number and the app version. Nothing you plan or study is sent.</p>
+                </div>
+              </div>
+              <Toggle checked={usageCount} onChange={() => { setUsageCountOn(!usageCount); setUsageCount(!usageCount); }} label="Count my visits" />
+            </div>
+          </div>
         </section>
       </div>
 

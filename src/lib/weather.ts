@@ -66,6 +66,9 @@ export interface CloudField {
  * is how much of the sky is cloud (0–1); `scale` the size of the cloud
  * masses in px; the field thins out toward the bottom (the mountains).
  */
+/** How soft a cloud's edge is, in noise units either side of its outline. */
+const CLOUD_EDGE = 0.13;
+
 export function cloudField(width: number, height: number, cover: number, scale: number, seed: number): CloudField {
   const density = new Float32Array(width * height);
   const cells = Math.max(1, Math.round(width / scale));
@@ -78,8 +81,9 @@ export function cloudField(width: number, height: number, cover: number, scale: 
       // A light warp makes the shapes billow instead of looking like blotches.
       const warp = fbm(u + 3.1, v + 7.7, cells, seed + 101) - 0.5;
       const n = fbm(u + warp * 0.9, v + warp * 0.6, cells, seed);
-      const d = Math.max(0, (n - threshold) / Math.max(0.05, 1 - threshold));
-      density[y * width + x] = Math.min(1, Math.pow(d, 0.75) * 1.6) * fadeOut;
+      // A wide, eased edge: each cloud thickens gradually from clear sky, never with a crisp rim.
+      const t = Math.min(1, Math.max(0, (n - threshold + CLOUD_EDGE) / (2 * CLOUD_EDGE)));
+      density[y * width + x] = t * t * (3 - 2 * t) * fadeOut;
     }
   }
   return { width, height, density };
@@ -104,6 +108,8 @@ export interface WeatherLook {
   /** 1: the wind blows to the left; -1: to the right. Clouds and rain agree. */
   direction: 1 | -1;
   rain: { drops: number; wind: number; speed: number; seed: number };
+  /** A rainbow on about one rainy day in three: where its middle stands (fraction of the width) and its size (fraction of the width). */
+  rainbow: { centre: number; radius: number } | null;
 }
 
 /** A date string → a 32-bit seed. */
@@ -136,7 +142,7 @@ export function weatherLook(dateKey: string, weather: Weather): WeatherLook {
       scale: between(76, 108),
       seed: Math.floor(rand() * 100000),
       alpha: rainy ? 0.9 : 0.7,
-      seconds: Math.round((rainy ? 220 : 320) * pace),
+      seconds: Math.round((rainy ? 460 : 660) * pace),
       offsetY: 0,
     },
     {
@@ -144,21 +150,32 @@ export function weatherLook(dateKey: string, weather: Weather): WeatherLook {
       scale: between(48, 70),
       seed: Math.floor(rand() * 100000),
       alpha: rainy ? 0.95 : 0.85,
-      seconds: Math.round((rainy ? 120 : 180) * pace),
+      seconds: Math.round((rainy ? 250 : 380) * pace),
       offsetY: Math.round(between(8, 20)),
     },
   ];
   const heavy = rand(); // 0 drizzle … 1 steady shower
-  return {
-    layers,
-    direction,
-    rain: {
-      drops: Math.round(90 + heavy * 100),
-      wind: between(0.07, 0.24),
-      speed: between(0.88, 1.12),
-      seed: Math.floor(rand() * 2147483646) + 1,
-    },
+  const rain = {
+    drops: Math.round(90 + heavy * 100),
+    wind: between(0.07, 0.24),
+    speed: between(0.88, 1.12),
+    seed: Math.floor(rand() * 2147483646) + 1,
   };
+  // Drawn after everything else, so adding the rainbow changed no day's clouds or rain.
+  const rainbow = rainy && rand() < 1 / 3 ? { centre: between(0.3, 0.52), radius: between(0.3, 0.36) } : null;
+  return { layers, direction, rain, rainbow };
+}
+
+/**
+ * How much of a rainbow shows (0–1): only while the sun is up and low, as a
+ * real one needs (under about 40° high, behind the viewer): mornings and late
+ * afternoons, never at noon or at night. It eases in and out with the sun.
+ */
+export function rainbowStrength(sunUp: boolean, altitude: number, night: number): number {
+  if (!sunUp || night > 0.4) return 0;
+  const rise = Math.min(1, Math.max(0, (altitude - 3) / 7));
+  const high = Math.min(1, Math.max(0, (38 - altitude) / 8));
+  return rise * high * (1 - night / 0.4);
 }
 
 // ── How the weather changes the sky ─────────────────────────────────────────
@@ -172,9 +189,8 @@ export function weatherColors(colors: SkyColors, weather: Weather, night: number
   const toGrey = (c: string) => mixColor(mixColor(c, grey, amount), '#05070b', dim);
   return {
     sky: colors.sky.map(toGrey),
-    layers: colors.layers.map(([a, b]) => [toGrey(a), toGrey(b)]),
-    rim: mixColor(colors.rim, 'rgba(200,205,215,.18)', weather === 'rainy' ? 0.85 : 0.6),
-    mist: mixColor(colors.mist, night > 0.5 ? 'rgba(120,130,150,.22)' : 'rgba(225,230,236,.34)', weather === 'rainy' ? 0.9 : 0.5),
+    // Under cloud the land loses its sunlight: a little greyer and dimmer, more in rain.
+    land: mixColor(mixColor(colors.land, night > 0.5 ? '#2a3140' : '#b9c0c8', weather === 'rainy' ? 0.42 : 0.26), '#05070b', weather === 'rainy' ? 0.14 : 0.05),
   };
 }
 
@@ -200,14 +216,14 @@ export function cloudTones(weather: Weather, night: number, sunLow: number): { l
 /** A change, so an open header follows at once. */
 export const SKY_WEATHER_EVENT = 'youdo-sky-weather';
 
-/** The weather chosen for `dateKey`; a new day starts clear. */
-export function loadDayWeather(dateKey: string): Weather {
+/** The weather chosen for `dateKey`; until the button is tapped that day, the scene's own (`start`). */
+export function loadDayWeather(dateKey: string, start: Weather = 'clear'): Weather {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.skyWeather);
     const saved = raw ? (JSON.parse(raw) as { date?: unknown; weather?: unknown }) : null;
-    return saved && saved.date === dateKey && WEATHERS.includes(saved.weather as Weather) ? (saved.weather as Weather) : 'clear';
+    return saved && saved.date === dateKey && WEATHERS.includes(saved.weather as Weather) ? (saved.weather as Weather) : start;
   } catch {
-    return 'clear';
+    return start;
   }
 }
 

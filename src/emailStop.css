@@ -1,0 +1,3 @@
+#stop-again { min-height: 44px; margin-top: 8px; padding: 0 18px; border: 1px solid #3a3a3c; border-radius: 999px; background: transparent; color: #ffffff; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+#stop-again:disabled { opacity: 0.5; }
+#stop-again:focus-visible { outline: 2px solid #c9a46e; outline-offset: 3px; }

@@ -90,13 +90,44 @@ function LoadingGate({ progress, label }: { progress: number; label: string }) {
 
 export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: { allowOffline: boolean; onContinueOffline: () => void; accountNotice: string | null }) {
   const [{ legacyStyle }] = useUiPrefs();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const summary = useMemo(readLocalWorkspaceSummary, []);
+  // A fresh install starts on Create account; a device with a plan, or one just signed out, on Sign in.
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(() => (summary.hasData || accountNotice ? 'signin' : 'signup'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
-  const summary = useMemo(readLocalWorkspaceSummary, []);
+  /** Signed up, waiting for the email link: Continue signs in with what was just typed. */
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+
+  const continueAfterConfirm = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
+      if (data.session && data.user) await ensureProfileFromAuth(data.user);
+    } catch (error) {
+      const notYet = (error as { code?: string; message?: string })?.code === 'email_not_confirmed'
+        || String((error as { message?: string })?.message ?? '').toLowerCase().includes('email not confirmed');
+      setMessage({ text: notYet ? 'Not confirmed yet. Open the link in the YouDO email (check Spam too), then tap Continue.' : authErrorMessage(error, 'signin'), error: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendConfirmation = async () => {
+    setBusy(true);
+    setMessage(null);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: { emailRedirectTo: resolveAuthRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL) },
+    });
+    setMessage(error ? { text: authErrorMessage(error, 'signup'), error: true } : { text: 'Sent again. Use the newest email.' });
+    setBusy(false);
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -132,11 +163,7 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
           await ensureProfileFromAuth(data.user);
         }
 
-        if (!data.session) {
-          setMessage({
-            text: 'Almost done. Check your inbox and Spam for the YouDO verification email. You cannot sign in until you open its link.',
-          });
-        }
+        if (!data.session) setAwaitingConfirm(true);
       }
     } catch (error) {
       setMessage({ text: authErrorMessage(error, mode), error: true });
@@ -171,7 +198,25 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
           </div>
         )}
 
-        <div className={legacyStyle ? 'auth-card mt-5 rounded-[20px] border border-subtle bg-elevated p-4 shadow-elevated' : 'auth-card mt-6 rounded-[26px] bg-surface p-4'}>
+        {awaitingConfirm ? (
+          <div className={legacyStyle ? 'auth-card mt-5 rounded-[20px] border border-subtle bg-elevated p-5 text-center shadow-elevated' : 'auth-card mt-6 rounded-[26px] bg-surface p-5 text-center'}>
+            <Mail size={30} className="mx-auto text-primary" aria-hidden />
+            <h2 className="mt-3 text-[18px] font-bold text-content-primary">Check your inbox</h2>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-content-secondary">
+              We sent a link to <strong className="text-content-primary">{email.trim()}</strong>. Tap it, then come back here. Check Spam if it isn’t there.
+            </p>
+            {message && <div role="status" className={`mt-3 rounded-[11px] px-3 py-2.5 text-[12px] ${message.error ? 'bg-error-soft text-error' : 'bg-secondary-soft text-secondary'}`}>{message.text}</div>}
+            <button type="button" disabled={busy} onClick={() => void continueAfterConfirm()} className={legacyStyle ? 'mt-4 w-full h-12 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold disabled:opacity-60 flex items-center justify-center gap-2' : 'btn-primary mt-4 w-full h-[50px] text-[17px] disabled:opacity-60 flex items-center justify-center gap-2'}>
+              {busy ? <span className="size-4 rounded-full border-2 border-current/25 border-t-current animate-spin" /> : <>I’ve confirmed, continue <ArrowRight size={16} /></>}
+            </button>
+            <p className="mt-3 text-[12.5px] text-content-muted">
+              Didn’t get it?{' '}
+              <button type="button" disabled={busy} onClick={() => void resendConfirmation()} className="font-semibold text-primary">Send again</button>
+              {' · '}
+              <button type="button" disabled={busy} onClick={() => { setAwaitingConfirm(false); setMessage(null); }} className="font-semibold text-primary">Change email</button>
+            </p>
+          </div>
+        ) : <div className={legacyStyle ? 'auth-card mt-5 rounded-[20px] border border-subtle bg-elevated p-4 shadow-elevated' : 'auth-card mt-6 rounded-[26px] bg-surface p-4'}>
           {mode === 'forgot' ? (
             <div className="flex items-start gap-3 border-b border-subtle pb-3">
               <button type="button" onClick={() => { setMode('signin'); setMessage(null); }} className={legacyStyle ? 'grid size-9 shrink-0 place-items-center rounded-[10px] bg-base text-content-secondary' : 'grid size-9 shrink-0 place-items-center rounded-full bg-fill text-primary'} aria-label="Back to sign in"><ArrowLeft size={16} /></button>
@@ -195,9 +240,9 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
             {message && <div className={`rounded-[11px] px-3 py-2.5 text-[11px] ${message.error ? 'bg-error-soft text-error' : 'bg-secondary-soft text-secondary'}`}>{message.text}</div>}
             <button disabled={busy} className={legacyStyle ? 'w-full h-12 rounded-[12px] bg-primary text-on-primary text-[13px] font-semibold disabled:opacity-60 flex items-center justify-center gap-2' : 'btn-primary w-full h-[50px] text-[17px] disabled:opacity-60 flex items-center justify-center gap-2'}>{busy ? <span className="size-4 rounded-full border-2 border-current/25 border-t-current animate-spin" /> : mode === 'signin' ? 'Open my workspace' : mode === 'signup' ? 'Create my workspace' : 'Send reset link'} {!busy && <ArrowRight size={16} />}</button>
           </form>
-        </div>
+        </div>}
 
-        {allowOffline && mode !== 'forgot' && (
+        {allowOffline && mode !== 'forgot' && !awaitingConfirm && (
           <button type="button" onClick={onContinueOffline} className={legacyStyle ? 'mt-3 flex w-full items-center gap-3 rounded-[15px] border border-subtle bg-surface/60 p-3 text-left active:scale-[0.99]' : 'mt-3 flex w-full items-center gap-3 rounded-[20px] bg-surface p-4 text-left active:scale-[0.99]'}>
             <span className={legacyStyle ? 'grid size-9 shrink-0 place-items-center rounded-[11px] bg-secondary-soft text-secondary' : 'grid size-9 shrink-0 place-items-center rounded-[10px] bg-secondary text-white'}><WifiOff size={legacyStyle ? 16 : 18} /></span>
             <span className="min-w-0 flex-1"><strong className={legacyStyle ? 'block text-[12px] font-semibold text-content-primary' : 'block text-[17px] font-semibold text-content-primary'}>Continue offline</strong><span className={legacyStyle ? 'mt-0.5 block text-[10px] leading-relaxed text-content-muted' : 'mt-0.5 block text-[13px] leading-snug text-content-secondary'}>No account required. This workspace stays on this device until you connect it.</span></span>

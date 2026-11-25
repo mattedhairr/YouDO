@@ -1,0 +1,51 @@
+/* Move and zoom (PhotoCropSheet.tsx): above every sheet. Black like any photo
+   editor in both modes; the actions use the accent. */
+.photo-crop {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #f2f2f4;
+}
+.photo-crop-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--safe-area-top, 0px) + 16px) 18px 10px;
+}
+.photo-crop-bar strong { font-size: 17px; font-weight: 700; }
+.photo-crop-bar button { min-width: 72px; min-height: 40px; color: var(--primary); font-size: 16px; font-weight: 600; text-align: left; }
+.photo-crop-bar button.is-strong { font-weight: 800; text-align: right; display: flex; justify-content: flex-end; align-items: center; }
+.photo-crop-bar button:disabled { opacity: 0.45; }
+.photo-crop-stage {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+.photo-crop-stage img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+.photo-crop-frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 0 0 9999px rgba(0, 0, 0, 0.62);
+  pointer-events: none;
+}
+.photo-crop-foot { display: grid; gap: 12px; padding: 16px 22px calc(env(safe-area-inset-bottom, 0px) + 24px); }
+.photo-crop-zoom { display: flex; align-items: center; gap: 12px; color: rgba(255, 255, 255, 0.6); font-size: 18px; }
+.photo-crop-zoom input { flex: 1; accent-color: var(--primary); }
+.photo-crop-foot p { text-align: center; font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, 0.7); }
+.photo-crop-foot .photo-crop-error { color: #ff8a8a; }

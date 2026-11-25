@@ -100,7 +100,7 @@ export function initPushNotifications(
 
       if (type === 'morning_briefing') {
         callbacks?.onNavigate?.('today');
-      } else if (type === 'admin_request' || type === 'admin_reply' || type === 'admin_report' || type === 'admin_hub') {
+      } else if (type === 'admin_request' || type === 'admin_reply' || type === 'admin_report' || type === 'admin_backer' || type === 'admin_hub') {
         callbacks?.onNavigate?.('admin');
       } else if (type === 'community') {
         // A chat push opens the community chat at its room ('' is General).

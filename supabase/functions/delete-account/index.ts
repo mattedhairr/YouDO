@@ -1,6 +1,19 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { withSupabase } from 'jsr:@supabase/server@^1';
 
+type PhotoBucket = {
+  list: (path: string, options: { limit: number }) => Promise<{ data: { name: string }[] | null }>;
+  remove: (paths: string[]) => Promise<unknown>;
+};
+
+/** Removes someone's uploaded profile photos (avatars/<id>/…), which deleting the account would leave behind. */
+async function removePhotos(admin: { storage: { from: (bucket: string) => PhotoBucket } }, id: string): Promise<void> {
+  const bucket = admin.storage.from('avatars');
+  const { data } = await bucket.list(id, { limit: 100 });
+  const paths = (data ?? []).map((file) => `${id}/${file.name}`);
+  if (paths.length) await bucket.remove(paths);
+}
+
 export default {
   fetch: withSupabase({ auth: 'user' }, async (request, context) => {
     if (request.method !== 'POST') {
@@ -31,6 +44,7 @@ export default {
         );
       }
 
+      await removePhotos(context.supabaseAdmin, userData.user.id).catch((error) => console.warn('photo cleanup skipped', error));
       const { error: deleteError } = await context.supabaseAdmin.auth.admin.deleteUser(
         userData.user.id,
         false,

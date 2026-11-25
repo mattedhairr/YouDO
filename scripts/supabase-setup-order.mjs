@@ -32,5 +32,10 @@ export const SUPABASE_SETUP_ORDER = [
   'hub_push',
   'hub_widget_push',
   'community_push',
+  'admin_hub',
+  'backer_push',
+  'profile_photos',
+  'community_room_members',
+  'admin_email',
   'optimize_auth_rls_policies',
 ];

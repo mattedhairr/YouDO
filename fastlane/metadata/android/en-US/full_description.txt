@@ -1,15 +1,16 @@
 <p><b>Your exam plan is a tree. Not a to-do list.</b></p>
 <p>YouDO connects every layer of your syllabus to the exact work you should finish today, then tracks what moved, what remains and how much focused work you actually did. Built for UPSC, JEE, NEET, GATE, CAT, government exams and every serious preparation.</p>
 <ul>
+<li><b>A quick start</b>: pick your exam and a starter plan is ready, with the first chapter on today.</li>
 <li><b>Goals as a tree</b>: break a goal into papers, subjects and chapters, as deep as you need. Progress, what's next and days left are always in view.</li>
 <li><b>Blueprint Studio</b>: build a large plan quickly with numbered and bulk add, or import one written with an AI assistant.</li>
 <li><b>Today and Backlog</b>: schedule a few steps of a chapter for a day. Unfinished work moves to Backlog instead of disappearing.</li>
 <li><b>Focus sessions</b>: a timer that measures net focus, with pause and resume from the notification.</li>
 <li><b>Calendar and stats</b>: see finished work, net focus and sessions for any day.</li>
 <li><b>Morning briefing</b>: your goal countdown, first task, pace, backlog and streak in one notification.</li>
-<li><b>Private Hub</b>: friends, direct messages and small study rooms with live focus and a shared progress bar. Only messages meant for you notify you.</li>
+<li><b>Private Hub</b>: friends, direct messages and small study rooms with live focus and a shared progress bar, your own profile photo, and chats that read like a messenger. Only messages meant for you notify you.</li>
 <li><b>Public Board</b>: an optional, opt-in focus leaderboard.</li>
-<li><b>A sky over your day</b>: every tab opens with a small landscape whose sky follows the real sun for your place, with your focus stars at night and your goal countdown. Set the day's weather, tap the sun to replay today, or use your own photo.</li>
-<li><b>Your look</b>: Dark or Light, six accent colours, five app icons, Liquid Glass, or the Classic v7 design.</li>
+<li><b>A sky over your day</b>: every tab opens with the harvest fields, the Himalaya or the Western Ghats under a live sky that follows the real sun for your place, with each scene's weather, your focus stars at night and your goal countdown. Tap the sun to replay today, or use your own photo.</li>
+<li><b>Your look</b>: Dark or Light, three scenes with matching colours or a colour from your own photo, five app icons, Liquid Glass, or the Classic v7 design.</li>
 </ul>
 <p>Works offline. Sign in for encrypted cloud backup and multi-device sync. Free and open source (MIT), with no ads.</p>

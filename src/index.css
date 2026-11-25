@@ -81,15 +81,9 @@ html.dark { --on-primary: #14120f; --on-accent: #14120f; }
 html.dark[data-accent='sand'] { --primary: #C9A46E; --accent-tick: #8FB394; }
 html.dark[data-accent='sage'] { --primary: #8FB394; --accent-tick: #D6B784; }
 html.dark[data-accent='slate'] { --primary: #8DA6C9; --accent-tick: #D6B784; }
-html.dark[data-accent='plum'] { --primary: #B39AC8; --accent-tick: #8FB394; }
-html.dark[data-accent='clay'] { --primary: #CC8E6E; --accent-tick: #8FB394; }
-html.dark[data-accent='graphite'] { --primary: #A4A6AB; --accent-tick: #D6B784; }
 html.light-dusky[data-accent='sand'] { --primary: #8C6A3A; --accent-tick: #4E7A57; }
 html.light-dusky[data-accent='sage'] { --primary: #4E7A57; --accent-tick: #8C6A3A; }
 html.light-dusky[data-accent='slate'] { --primary: #4A6A93; --accent-tick: #8C6A3A; }
-html.light-dusky[data-accent='plum'] { --primary: #7A5A8C; --accent-tick: #4E7A57; }
-html.light-dusky[data-accent='clay'] { --primary: #A55A3A; --accent-tick: #4E7A57; }
-html.light-dusky[data-accent='graphite'] { --primary: #5E6066; --accent-tick: #8C6A3A; }
 
 /* Derived tokens — every soft fill and glow follows the active tint. */
 html.dark,
@@ -1173,6 +1167,33 @@ input[type='datetime-local'] {
   display: grid; place-items: center; flex: none; width: 56px; height: 56px; overflow: hidden;
   border-radius: 999px; background: color-mix(in srgb, var(--primary) 18%, var(--bg-surface));
   color: var(--primary); font-size: 24px; font-weight: 600;
+}
+/* Founding Backer: a gold ring around the picture (an outline, so it stays
+   even on any shape and outside the picture's clip), and a heart seal on the
+   big pictures. Gold is fixed on purpose: it means the same with any accent. */
+:root { --backer-gold: #e3b955; }
+:root.light-dusky { --backer-gold: #b5852a; }
+.yd-backer-ring {
+  outline: 2px solid var(--backer-gold); outline-offset: 2px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--backer-gold) 38%, transparent);
+}
+.yd-backer-seal {
+  position: absolute; right: -3px; bottom: -3px; z-index: 1; display: grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 999px; color: #4a2f05;
+  background: linear-gradient(145deg, #fff1c2, var(--backer-gold) 55%, #a87a24);
+  box-shadow: 0 0 0 2px var(--bg-base);
+}
+.yd-backer-seal svg { width: 12px; height: 12px; }
+.yd-backer-label {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; padding: 3px 10px 3px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 800; line-height: 1.35; white-space: nowrap;
+  color: color-mix(in srgb, var(--backer-gold) 70%, var(--text-primary));
+  background: color-mix(in srgb, var(--backer-gold) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--backer-gold) 45%, transparent);
+}
+.yd-arc.is-backer > svg {
+  stroke: var(--backer-gold); stroke-width: 3;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--backer-gold) 45%, transparent));
 }
 .settings-home-profile:active { opacity: 0.7; }
 .settings-home .yd-section { margin-bottom: 18px; }

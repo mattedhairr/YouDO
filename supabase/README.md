@@ -19,6 +19,10 @@ files in this directory.
 - **YouDO — Board Update Push** → `board_update_push.sql` (after `push_dispatch.sql`, `hub_push.sql` and `community_chat.sql`)
 - **YouDO — Board Update Extras** → `board_update_extras.sql` (after `board_update_push.sql`)
 - **YouDO — Community Push** → `community_push.sql` (after `push_dispatch.sql`, `hub_push.sql`, `board_update_push.sql` and `community_rooms.sql`)
+- **YouDO — Admin Hub** → `admin_hub.sql` (after every file in `scripts/supabase-setup-order.mjs` before it)
+- **YouDO — Backer Claim Push** → `backer_push.sql` (after `admin_hub.sql`)
+- **YouDO — Profile Photos** → `profile_photos.sql` (after `backer_push.sql`)
+- **YouDO — Hashtag Room Members** → `community_room_members.sql` (after `profile_photos.sql`): the members list inside an exam hashtag room, Board members only, with each person's friend status.
 - **YouDO — Managed App Quotes** → `app_quotes.sql`
 - **YouDO — Account Sessions** → `account_sessions.sql`
 - **YouDO — Optimize Auth RLS Policies** → `optimize_auth_rls_policies.sql`
@@ -123,6 +127,64 @@ hashtag room for those who choose "All messages"; default mentions and replies)
 and the Admin Hub pushes to admins (a new hashtag request, a requester's answer,
 a reported message), each with its own switch. Inside the app the unread dots
 always show and have no switch.
+
+## Admin Hub: owner and admins (v9.0.0)
+
+`admin_hub.sql` lets the Admin Hub look people up, change staff, show growth
+numbers and delete accounts, so none of that needs a query any more. There is
+one owner (set once with `operations/manage_community_staff.sql`, never from the
+app) and any number of admins:
+
+- Admins and the owner: the queue (reports, appeals, hashtag requests), muting
+  and banning members (never staff), hashtags, quotes, the activity log, and
+  looking people up by name or @username.
+- The owner only: emails and sign-in details, saved-data size, making and
+  removing admins, the Board broadcast and its notification, the room and Kudos
+  switches, Support settings and backer claims, growth numbers, and deleting
+  accounts.
+
+The owner-only rules live in the functions themselves, so v9.0.0 also changes
+`community_chat.sql` (`set_community_settings`), `board_update_extras.sql`
+(`publish_community_update`, `close_community_poll`), `board_update_push.sql`
+(`notify_community_update`), `support_settings.sql` (`save_support_settings`) and
+`hub_backers.sql` (`get_pending_hub_backers`, `review_hub_backer`). On an
+existing project, run only those seven functions, not the whole files:
+re-running `community_chat.sql` would undo the room versions of its chat
+functions from `community_rooms.sql`. Then run `admin_hub.sql` and deploy the
+function that deletes accounts: `npx.cmd supabase functions deploy owner-delete-accounts`.
+It asks `owner_accounts_to_delete()` as the signed-in person (only the owner
+gets ids, re-checked at that moment) and deletes each with Supabase Auth's own
+delete. Junk means: never confirmed and over 7 days old, or confirmed with
+nothing saved (no backup over 1 KB, Board, rooms, friends or messages) and no
+server activity for 60 days. Staff, backers and anyone with data never count.
+
+## Backer claim push and profile photos (v9.0.0)
+
+`backer_push.sql` pushes "New backer claim" to the owner only when someone
+submits a claim (never the UTR, which can show on a lock screen), behind the
+owner's Backer Claims switch (`push_preferences.admin_backers`). A push failure
+never stops the claim being saved.
+
+`profile_photos.sql` creates the public `avatars` bucket (256 KB, WebP, JPEG or
+PNG). Each person can add, replace or delete files only in their own folder
+(`avatars/<user id>/`); the app crops and shrinks the photo to 320 px first.
+`admin_remove_profile_photo(target)` lets an admin or the owner take a photo
+down (never the owner's): the person goes back to the 🎓 emoji in their profile
+and account, and the log records who did it. Both files are safe to re-run.
+
+## Growth, cleanup and room members in the Admin Hub (v9.0.0)
+
+`admin_hub.sql` also keeps `app_opens` (one row per phone per day, India time:
+a random phone number, the app version and, when signed in, who), filled by
+`record_app_open`, the one function a signed-out app may call; it caps 50,000
+phones a day and keeps about a year. Deleting an account leaves one anonymous
+line in `deleted_accounts` (a trigger on `auth.users` that only warns on
+failure), so Growth's sign-up history never shrinks (each of the 12 weeks in
+`owner_growth_report` is 7 days ending today and counts its deleted sign-ups). `owner_cleanup_list` and
+`owner_chosen_accounts_to_delete` give the cleanup its filters and ticks; the
+edge functions `owner-delete-accounts` and `delete-account` remove the
+person's photos before deleting. `community_room_members.sql` adds
+`admin_room_members` for staff. Re-run both files and redeploy both functions.
 
 Projects set up before v8.0.0: run `cleanup_retired_private_hub.sql` once. It
 removes the old Private Hub on/off switch and the waitlist; the app no longer uses them.

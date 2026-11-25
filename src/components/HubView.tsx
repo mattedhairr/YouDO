@@ -79,6 +79,10 @@ export default function HubView({
               setProfileBoardPreview(row ?? null);
               if (paceWindow) setProfileBoardWindow(paceWindow);
             }}
+            onMessage={(id) => {
+              onSwitchToPrivate?.();
+              requestOpenDm(id);
+            }}
           />
         ) : (
           <PrivateHubView

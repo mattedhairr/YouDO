@@ -12,7 +12,7 @@ import {
 import { fetchPaceRowForUser } from '../lib/paceCloud';
 import { type PaceRow, type PaceWindow, windowMs } from '../lib/paceBoard';
 import { formatDuration } from '../lib/format';
-import { ProfileAvatarVisual } from '../lib/profileAvatar';
+import { BackerSeal, ProfileAvatarVisual } from '../lib/profileAvatar';
 import { useAuth } from '../contexts/AuthContext';
 
 const FOCUS_WINDOWS: { id: PaceWindow; label: string }[] = [
@@ -52,6 +52,7 @@ export default function UserProfileSheet({
 
   const isSelf = Boolean(user?.id && userId && user.id === userId);
   const privateHandle = normalizeUsername(profile?.username);
+  const isBacker = profile?.is_backer === true;
   const displayName = profile?.display_name ?? paceRow?.displayName ?? boardPreview?.displayName ?? 'Aspirant';
   const canUsePrivateHub = Boolean(privateHandle);
 
@@ -165,13 +166,14 @@ export default function UserProfileSheet({
               {/* Profile Identity Hero */}
               <div className="rounded-[22px] border border-subtle bg-elevated/50 p-4 flex items-start gap-4 shadow-sm">
                 <div className="relative shrink-0">
-                  <div className="w-16 h-16 shrink-0 aspect-square rounded-full bg-primary-soft border border-primary/25 ring-4 ring-primary/10 flex items-center justify-center text-primary text-3xl font-bold shadow-md overflow-hidden select-none">
+                  <div className={`w-16 h-16 shrink-0 aspect-square rounded-full bg-primary-soft border flex items-center justify-center text-primary text-3xl font-bold overflow-hidden select-none ${isBacker ? 'yd-backer-ring border-transparent' : 'border-primary/25 ring-4 ring-primary/10 shadow-md'}`}>
                     <ProfileAvatarVisual
                       avatarUrl={profile?.avatar_url}
                       displayName={displayName}
                       className="text-3xl leading-none flex items-center justify-center select-none"
                     />
                   </div>
+                  {isBacker && !isSelf && <BackerSeal />}
                   {isSelf && (
                     <span className="absolute -bottom-0.5 -right-0.5 text-[8.5px] font-extrabold uppercase tracking-wider bg-primary text-on-primary px-1.5 py-0.5 rounded-full border-2 border-surface shadow-sm">
                       You
@@ -181,7 +183,10 @@ export default function UserProfileSheet({
 
                 <div className="flex-1 min-w-0">
                   <h1 className="text-[17px] font-bold text-content-primary truncate tracking-tight">{displayName}</h1>
-                  
+                  {isBacker && (
+                    <span className="yd-backer-label"><Sparkles size={12} aria-hidden />Founding Backer</span>
+                  )}
+
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {privateHandle ? (
                       <span className="inline-flex items-center text-[11.5px] font-bold text-primary bg-primary-soft/90 border border-primary/20 px-2 py-0.5 rounded-full">

@@ -1,12 +1,149 @@
 # Where We Left Off
 
-Last updated **2026-11-21**, while releasing **v8.9.0**. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-25**, while releasing **v9.0.0** (versionCode 101, "Your Place, Your Colour") from the branch `release-v9.0.0`. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+
+---
+
+## v9.0.0 (versionCode 101): what it contains
+
+Version, CHANGELOG, store text (changelog 101), README and screenshots are updated on the branch. Left for the owner: the pull request into `main`, the tag, the signed APK and the GitHub Release (steps 5–10 of RELEASE_PROCEDURE.md), then Orion's screenshot addresses pinned to the v9.0.0 commit (new order: 01 Today, 10 Scenes, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance; Summit is gone). The mocks in `docs/mocks/` stay local and are never committed.
+
+**1. A new Admin Hub, with one owner and many admins** (`src/components/AdminHubSheet.tsx`, `src/components/admin/`, `src/lib/adminHub.ts`, `supabase/admin_hub.sql`).
+- Five tabs:
+  - **Home:** today's numbers and everything waiting.
+  - **Queue:** reports, appeals, hashtag requests and backer claims in one list, each with its choices on the card.
+  - **People:** search and filter everyone; a person's card can mute, ban, restore, make or remove an admin, or delete the account.
+  - **Community:** the room and Kudos switches, the broadcast, hashtags, quotes and the activity log, which now says who did what.
+  - **Owner:** growth by week, account cleanup, staff, Support and backer claims, and database size.
+- The old admin screens inside `CommunitySheet.tsx` are gone; that file is now only the community room.
+- **Who may do what** (the server enforces it; the app only hides what would be refused):
+  - **Admins:** the queue, muting and banning members (never staff), hashtags, quotes, the log, and looking people up by name or @username.
+  - **The owner only:**
+    - emails and sign-in details, and saved-data size;
+    - making and removing admins, and their badge;
+    - the broadcast and "Notify everyone", and the room and Kudos switches;
+    - Support settings and backer claims;
+    - growth numbers, and deleting accounts.
+  - **Ownership** changes only in Supabase (`operations/manage_community_staff.sql`), so a lost phone can't hand YouDO over.
+- **Account cleanup:**
+  - It deletes only accounts never confirmed for over 7 days, or confirmed with nothing saved (no backup over 1 KB, Board, rooms, friends or messages) and quiet for 60+ days.
+  - Staff, backers and anyone with data never count.
+  - You type `DELETE <count>` to confirm. The edge function `owner-delete-accounts` re-checks the list and deletes through Supabase Auth.
+  - Deleting one person needs their @username typed.
+- **Tests:**
+  - 49 SQL checks (`tests/sql/test-admin-hub-sql.mjs`); the support-settings test now uses an owner and an admin.
+  - Unit tests: `src/lib/adminHub.test.ts`, `src/components/admin/AdminHub.test.ts`.
+  - **Never tried against the real server or on a phone:** production doesn't have `admin_hub.sql` yet.
+
+**2. The first five minutes** (`src/components/StartTour.tsx`, `src/lib/starterGoals.ts`, `AuthGate.tsx`).
+- A fresh install opens on **Create account**. A device with a plan, or one just signed out, opens on Sign in.
+- **After signing up:** "Check your inbox" offers **I've confirmed, continue**, which signs in with what was just typed, plus Send again and Change email. The confirmation page now says to go back and tap it (`confirmationStatus` returns `signup`).
+- **Fresh installs (no goals or tasks) get a 4-step tour** instead of the auto-opening guide:
+  1. "What are you preparing for?" (JEE, NEET, UPSC, GATE, CAT, Boards, or a name of your own) makes a real starter goal with subjects, chapters and three steps each, and no deadline.
+  2. On Goals, one tap plans the first chapter for today.
+  3. On Today, one tap starts a focus session. The session's own ambient-clock tip shows, not a second one.
+  4. A short recap.
+  - Skip works anywhere.
+  - A device that already holds a plan still gets the guide.
+- **No daily briefing on a day with nothing in it**, including right after the tour.
+- **The guide says "Plan"**, matching the button (it said "Schedule").
+- **Tried in the browser at phone width** (dev server, offline, dark and light): the whole tour with UPSC and with "Something else", Skip, and a reload afterwards.
+- **Not tried:**
+  - the sign-up and Continue path (it would create a real account);
+  - the Classic Look.
+
+**3. The Founding Backer ring, and real pictures in community chat** (mocked on the real screens and chosen by the owner; `HubAvatar` in `src/components/hub/HubParts.tsx`, `src/lib/avatarFacts.ts`, `.yd-backer-*` in `src/index.css`).
+- Approving a claim already set `profiles.is_backer`, but the app never showed it. Now a backer's picture has a gold ring everywhere it appears (Hub chats, friends, DMs, rooms, requests, community chat); large pictures add a heart seal (Settings, the profile card). The "Founding Backer" label shows only on their profile card. Small stacked pictures stay plain. Gold is fixed (not the accent) on purpose.
+- Community chat showed only initials: each author's photo or emoji now loads from their profile (once per person) on its own 22 px disc, so emoji and initials no longer melt into the bubble.
+- No server change.
+
+**4. Your own profile photo, and the owner's push for a new backer claim** (mocked on the real screens and chosen by the owner).
+- **Photo** (`src/components/PhotoCropSheet.tsx`, `src/lib/profilePhoto.ts`, `supabase/profile_photos.sql`): Settings → Account → Edit Profile → Profile picture → Choose a photo → Move and zoom (drag, pinch or the slider; the circle is always covered) → Use photo uploads a 320 px WebP (JPEG if the phone can't make WebP) to `avatars/<id>/<time>`; Save profile keeps it and only then deletes your older photos. Remove goes back to the 🎓 emoji. Admins and the owner get "Remove photo" on a person's card (never the owner's photo); it resets profile and account to 🎓 and is logged.
+- **Push** (`supabase/backer_push.sql`): a new claim pushes "New backer claim: @x says they sent ₹50…" to the owner only, never with the UTR; tapping opens the Admin Hub. Settings → Notifications → Admin Hub → Backer Claims (owner only), synced as `push_preferences.admin_backers`. An older server without the column keeps syncing the other switches.
+- Tested: 34 SQL checks (`tests/sql/test-photos-and-backer-push-sql.mjs`, with Storage stand-ins in the harness) and unit tests; the crop step and upload request tried in the browser with a made-up picture. **Never tried against the real server or on a phone** (the picker on Android is the system one).
+
+**5. Members of a hashtag room** (mocked on the real room screen and chosen by the owner; `src/components/community/RoomMembersSheet.tsx`, `src/lib/roomMembers.ts`, `supabase/community_room_members.sql`).
+- Inside an exam hashtag room (never General) a people button in the community header opens the room's members: you first, then friends, then the most active; search by name or @username. Each row: Message (a friend; closes the community and opens the chat in the Private Hub), Accept (they asked you), Requested, Add friend (needs their @username), or Can't add yet. Tap a row for the profile card.
+- Only Board members are listed (the Board already shows everyone's hashtag), never banned people or anyone blocked either way; only Board members can open it. 24 SQL checks (`tests/sql/test-room-members-sql.mjs`) and unit tests. The finished sheet was not seen in the browser: the dev preview kept re-drawing (its fake server and a blocked clock service), so look at it on the phone.
+
+**6. Chat bubbles like a messaging app** (mocked and chosen by the owner after the first phone test; `src/components/chat/youDoChat.css`, `src/lib/chatRuns.ts`). One person's messages in a row form a run: in community and Private Hub rooms the picture sits outside on the run's last message (gold ring for backers) and the name, in that person's own colour, inside its first bubble (Admin tag beside it); DMs drop both (they are in the header). The time (and your ✓ in the community) sits inside the bubble at the bottom right; a "Today"/"Yesterday" label opens each day; runs break after 5 quiet minutes. Tried in the browser on a DM and a hashtag room (a full-width message keeps its time inside). **Not on a phone yet** (it came after the first test APK).
+
+**7. Growth, Account cleanup and room members in the Admin Hub** (mocked and chosen by the owner; `src/components/admin/AdminOwner.tsx`, `AdminRoomMembersSheet.tsx`, `src/lib/adminGrowth.ts`, `src/lib/appOpens.ts`, `supabase/admin_hub.sql`, `community_room_members.sql`).
+- **Owner → Growth** (reworked after the second phone test; mocked and chosen by the owner): no tiles, one readout per chart that shows this week until a bar is tapped. **People using YouDO:** N people opened YouDO this week against last, signed in · without an account · regulars (3+ days); a 30-day chart (signed in stacked under without an account, this week a shade lighter, days before v9 flat) with a dashed "usual day" line (the average of the counted, finished days); a tapped day shows its numbers against a usual day, ✕ or a second tap goes back. **New people arriving:** 12 weeks of 7 days ending today (confirmed under not yet); this week against last (confirmed · not yet · made a plan); a tapped week against a usual week (confirmed · made a plan · came back after day one). Studied left Growth. "From sign-up to habit" (biggest drop in one sentence) and downloads per release from GitHub (website, in-app updates and Orion; Telegram files aren't counted) stay.
+- **Admin Hub → Home** (same mock): today only. Today so far: Opened YouDO (against the same weekday last week), Studying now (live dot, N focused today), New accounts (N confirmed), Without an account (phones today). Waiting for you as before. **Worth a look** appears only when something is: yesterday under 75% of a usual day (once 7 days are counted), 10+ accounts to clean up, the database 80%+ full, a release out less than 14 days (its downloads); each opens the Owner tab (cleanup opens Account cleanup). Then Live. "Came back since v8" and "New this week" are gone. Admins see Studying now and Used the Board today. Rules: `worthALook` and the readouts in `src/lib/adminGrowth.ts`; screen: `src/components/admin/AdminHome.tsx`.
+- **Opens:** once a day an online app sends a random phone number and its version (`record_app_open`, callable signed out; the server adds who is signed in and caps 50,000 phones a day). Settings → About and updates → Privacy → Count my visits turns it off. Counting starts when people install v9, so "Opened" begins empty. There is no privacy page in the repo; mention the daily count in the store text at release.
+- **History stays true:** deleting an account leaves one anonymous line (`deleted_accounts`: sign-up date, confirmed, started, came back), counted in the chart and the funnel, through a trigger on `auth.users` that never blocks a delete.
+- **Account cleanup:** filters (never confirmed / nothing saved, signed up over 7/30/90 days, last sign-in), search by email or @username, each account's email and last sign-in, and ticks; "Delete N" (type DELETE N) sends only the ticked ids and the server keeps those the rules still allow (never staff, backers, you or anyone with data).
+- **Photos on delete:** both delete functions (`owner-delete-accounts`, `delete-account`) remove the person's `avatars/<id>/` files first; everything else already went by cascade.
+- **Hashtag rooms → a room:** everyone in it for admins and the owner (`admin_room_members`), muted and banned marked, filters, search; tapping a person opens their Admin card.
+- Tested: 67 Admin Hub SQL checks (filters, ticks, opens, the deleted tally), 30 room members checks, unit tests; the three screens seen in the browser with made-up data. **Never tried against the real server or on a phone.**
+
+**8. Scenes: the header's landscape and the app's colour, chosen together** (mocked and chosen by the owner; `src/lib/headerScenes.ts`, `src/components/ScenePicker.tsx`, `src/lib/accentColors.ts`).
+- **Why:** at midday the old blue sky clashed with the default Sand accent around it. Now each accent comes with its own landscape and skies, so they always match.
+- **Three scenes, from the owner's pictures** (made in Gemini from prompts in one shared style, so they look like a set; reworked after the drawn versions didn't read as their places): **Harvest fields** (Sand, the default): wheat, haystacks, a dirt track, kikar trees. **Himalaya** (Slate): a snow massif and glaciers, misty valleys, pines and a small stupa (labelled "Snow peaks of the Himalaya": the picture is Himachal-like, not Ladakh's bare desert). **Western Ghats** (Sage): flat-topped basalt cliffs, waterfalls, a river gorge, monsoon mist, terraces, palms, a ghat road. Each picture's sky was removed (src/assets/scenes/*.webp, 2000 px wide, 64–82 KB, loaded with the lazy header and precached for offline), so the live sky, sun, glare, lens flare, weather, earned stars and constellation and the time-lapse work as before; the sun rises and sets behind each picture's traced ridge (`sceneLand`). Each sky time sets the light on the land (`land`, multiplied in: golden at sunrise, rose at golden hour, deep blue at night), with a gentle lean toward the scene's accent; cloud and rain dim it. On Today the picture is zoomed in on its best part; on the other tabs it sits lower, under the title. The drawn landscapes (sceneShape, the marks) are gone. Same header sizes. **Default weather per scene** (owner's idea): a new day starts clear on the fields, cloudy over the Himalaya and rainy in the Ghats (`SceneInfo.weather`, `loadDayWeather(date, start)`); the weather button still changes it, switching scenes before tapping it follows the new scene, and with the button off the sky stays clear. **Clouds** have wide, eased edges (no crisp rims) and drift about half as fast as before (`CLOUD_EDGE`, `weatherLook` seconds). **A rainbow** on about one rainy day in three (`weatherLook().rainbow`, from the date, so steady all day and the same on every device), only while the sun is up and low (3°–38°: mornings and late afternoons, never noon or night, `rainbowStrength`): faint, soft overlapping bands behind the land, clearest across the middle, its ends fading before the ground, the sky a touch lighter inside; never on cloudy or clear days or with a photo header. **The Summit was retired** (owner's choice, after the scenes): a saved Summit choice shows the scene; summit.ts is gone; `docs/screenshots/10-summit.png` left the README and should leave Orion's list at the next screenshot update. Thar, Deccan and Konkan were drawn and dropped by the owner.
+- **Accents:** Sand, Slate, Sage, or **Your photo**. Older choices move: clay to Sand; plum and graphite to Slate (`resolveAccent`).
+- **Your photo:** Settings → Appearance → Scene and colour → Your photo picks a photo (or uses the header photo), then suggests five colours found in it (k-means on the phone, `photoColors`), or a tap anywhere on the photo takes that spot. It becomes a soft dark-mode tone and a deeper light-mode one (`accentFromColor`), set as inline `--primary` / `--accent-tick` on <html>; widgets and notification icons follow it (`storedAccentSwatch`). Choosing a scene card switches a photo header back to the scene. The photo, its colour, its placement (Horizontal, Vertical, Opacity), Change and Remove all live in Your photo; under the cards (while a scene is the header) are "Sunrise and sunset for" (the sky location) and the weather button. The old Header background card is gone.
+- **The header has no planet any more:** its night sky is only the stars you earned and the constellation. The planet of the day stays on the ambient screen, and on Sundays there it shows nothing (no Sun in a night sky).
+- Tested: unit tests for the scenes (land stays under the words, deterministic, the fields' sunset on the horizon), accents (retired ones, custom, photo colours); the headers rendered from sunrise to night, cloudy and light mode, and the picker with a made-up photo in the browser. **Not on a phone yet.**
+- **Screenshots** retaken with made-up data for the release (01, 03, 04, 05, 09 and the new 10-scenes); 02, 06, 07, 08 and 11 are unchanged.
+
+**9. Email from the Admin Hub, Owner → Backers, and a clearer tour** (mocked and chosen by the owner: `docs/mocks/v9-email-backers-tour.png`).
+- **Email** (People tab → Email, a person's card → Email, Backers → Thank): `src/components/admin/AdminEmail.tsx`, `src/lib/adminEmail.ts`, `supabase/admin_email.sql`, edge functions `admin-email` and `email-stop`. To: Everyone, Backers (owner) or picked people (up to 50); kinds: News (big title), Thank you (owner; gold Founding Backer seal, `{amount}`), Note (signed with the sender's name). `{name}` is the first name; a blank line is a paragraph, a link on its own line a button, `**bold**`. Preview (the real template, `supabase/functions/_shared/emailTemplate.ts`, shared by the app and the sender), Send me a test, then a confirm step. It sends about one a second while the screen is open; Pause or closing it leaves the rest, and the Sent list has **Send the rest**. Limit 450 a day (`email_daily_limit`), shared by everyone. Admins never see addresses (the function reads them with the service key). Each send is in the activity log. Every email ends with **Stop these emails** (`email-stop.html` on the website, plus Gmail's one-click unsubscribe); it drops anything still waiting for that person and can be undone on the same page. Never banned people, unconfirmed addresses or people who stopped emails (a banned person picked by hand can get a note).
+- **Sender:** `team.youdo.app@gmail.com` (made for this; `youdo.auth@gmail.com` stays the backup for sign-in mails), never the one that sends sign-in mails (`youdo.services@gmail.com`) (owner's choice, so a big send can't hold up confirmations). Gmail SMTP on port 465 with an app password.
+- **Owner → Backers** (replaces the Backer claims row; claims waiting open the same review sheet as before): `AdminBackers.tsx`, `owner_backers()`. Totals, each backer's approved claims added up, since when, "thanked" once a thank-you went; tap one to open their card or thank only them; Thank all of them by email.
+- **Tour** (`StartTour.tsx`): while any sheet is open the tip becomes a small pill at the top ("3 of 4 · Tap Start focus session below"), so the sheet's buttons are free (reported overlap); starting focus from the card's own sheet completes the step; the planned card is ringed. Fuller text: Goals shows the plan's shape (goal → subject → chapter → steps), Today explains focus, stars, the bar and streak, and Backlog; the recap adds where each tab is.
+- **Templates** (asked for after the first test): **Start from** at the top of Write lists saved texts (`email_templates`); tapping one fills the look, subject and message, and asks before replacing anything already written. The **Look** row (News, Thank you, Note) now only changes how the email looks. **Save as template** (or **Update "name"** for the one you started from) under the message; **Edit templates** lists them to rename, change or delete (New template too). The owner edits them; admins can start from them, never a thank-you. The first three (Release news, Thank a backer, Personal note) are made once by `admin_email.sql` when the table is empty. Backers → Thank opens on the owner's thank-you template. The thank-you now ends "Thank you for believing in YouDO from the start."
+- **Sent, help and the person card** (after the owner's walk-through): the Sent list shows **Not finished** sends first, then the latest three, with **See all**. Tapping a send opens it: what was sent (See the email), Sent / Not sent yet / Didn't arrive counts, and everyone by name with filters (`admin_email_send_detail`; names only, never addresses), with **Send the rest** or a line saying why it can't (today's limit used up, or only who wrote it and the owner can). Under the message, **Codes and tips** lists what can be typed and what YouDO adds by itself, and **Copy AI prompt** copies a prompt for any AI chat to draft a template that fits (`src/lib/emailHelp.ts`). A person's card in People was a squashed row (Growth's `.ah-facts` style overrode it): now four numbers at a glance and quiet label / value rows (`.ah-person-*`). Its message count is labelled "last 8 days": community messages are deleted 7 days after they disappear (`prune_community_history`).
+- Tested: 66 SQL checks (`tests/sql/test-admin-email-sql.mjs`), unit tests for the template, stop links, templates, the help and the screens; Email (with templates), Backers and the tour tried in the browser at phone width with made-up data. One real test email through Gmail (server step 14).
+
+**On the server (all done 2026-11-24, before the release):**
+1. **Done 2026-11-24:** the seven functions that became owner-only. Only those were run, not the whole files (re-running `community_chat.sql` would undo `community_rooms.sql`). Checked: the live versions match the files, and there is one owner.
+2. **Done 2026-11-24:** `admin_hub.sql`. Checked: all 10 functions exist; signed-out visitors can call none; the two internal ones are closed to everyone.
+3. **Done:** `owner-delete-accounts` deployed (active, sign-in required; a call without sign-in gets 401).
+4. The server has exactly one owner and no admins. Opening the Admin Hub on the phone (it should say OWNER) confirms the owner is you.
+5. **Done 2026-11-24:** `backer_push.sql`. Checked: the `admin_backers` column (on by default), both functions internal only, the trigger enabled next to `hub_backers_claims_open`, and ₹50 / ₹100 formatting.
+6. **Done 2026-11-24:** `profile_photos.sql`. Checked: the public `avatars` bucket (256 KB; WebP, JPEG, PNG), its four own-folder policies for signed-in people, and `admin_remove_profile_photo` callable only when signed in (the function itself checks for staff).
+7. **Done 2026-11-24:** `community_room_members.sql`. Checked: callable only when signed in (the function itself requires the Board), security definer.
+8. **Done 2026-11-24:** `admin_hub.sql` and `community_room_members.sql` again. Checked: the trigger on `auth.users` is enabled; `app_opens` and `deleted_accounts` have RLS and no direct access; signed-out phones may only call `record_app_open` (not growth, the cleanup list or ticked deletes); the week helper and the trigger function are closed to everyone; `admin_room_members` is callable only when signed in (it checks for staff itself).
+9. **Done 2026-11-24 (the owner):** `owner-delete-accounts` and `delete-account` redeployed (ticked deletes and photo removal). Checked: both answer 401 without a sign-in.
+10. **Done 2026-11-24:** `owner_growth_report` from `admin_hub.sql` (the only part that changed: weeks of 7 days ending today, India time, with deleted accounts counted in their sign-up week, plus a `deleted` count per week). Checked: one copy, security definer, closed to signed-out visitors; a dry run as the owner returns 12 weeks (the last starting 6 days ago, each with `deleted`) and 30 days.
+
+**Server steps for item 9 (all done 2026-11-25):**
+11. The owner: on `team.youdo.app@gmail.com`, turn on 2-Step Verification, make an app password, and add the Supabase secrets `YOUDO_MAIL_USER` (that address) and `YOUDO_MAIL_APP_PASSWORD`. Optional: `EMAIL_LINK_SECRET` (any long random text) for the stop links; without it they use the service key.
+12. **Done 2026-11-25:** `admin_email.sql`. Checked: the three tables have RLS and no access for the app; signed-out visitors can call none of the functions; signed-in people only the six Admin Hub ones (each checks for staff itself); the batch, mark, stop, audience and totals functions only with the service key. (Step 11 done too: both secrets saved.)
+13. **Done 2026-11-25:** `admin-email` and `email-stop` deployed (`npx.cmd supabase functions deploy <name> --remote=iyrnywfaxakvjkmddmqv --use-api --yes`; `email-stop` with `--no-verify-jwt`). Checked: `admin-email` answers 401 without a sign-in; `email-stop` refuses a made-up link (400) and accepts the website's preflight.
+14. **Done 2026-11-25:** Send me a test from the Admin Hub (local app, signed in as the owner) arrived in the owner's Gmail on the phone, from YouDO <team.youdo.app@gmail.com>, with the card, the button and the footer. The first try showed an error after sending (closing the Gmail connection); fixed and `admin-email` redeployed. Still to try: a note to one test account, and its Stop these emails link.
+15. **Done 2026-11-25:** the templates part of `admin_email.sql` (`email_templates`, its three functions and grants; the rest of the file was already live and unchanged). Checked: the three starting templates exist (the thank-you ends with the new line); the table has RLS and no access for the app; the three functions are security definer, closed to signed-out visitors, callable when signed in (each checks for staff or the owner itself). No function redeploy was needed.
+16. **Done 2026-11-25:** `admin_email_send_detail` and the new `admin_email_overview` (keeps the last 50 sends, was 20) from `admin_email.sql`, with their grants. Checked: both security definer, closed to signed-out visitors, callable when signed in (each checks for staff itself); the overview has the new limit.
+
+**Phone checks for this release:**
+- **Email:** open a finished send and one with some not sent yet (filters, See the email, Send the rest); Codes and tips and Copy AI prompt (paste it somewhere); Start from each template; edit one and save; Send me a test (News, Thank you, Note) in Gmail light and dark; a note to a test account; Stop these emails on it, then Start them again; Pause partway through a send to two test accounts and Send the rest; as an admin, no Backers or Thank you.
+- **Backers:** totals and each backer's amount; thank one; "thanked" appears.
+- **Tour (fresh install):** tap the planned card on Today: the tip moves to a pill at the top; Start focus session in the sheet finishes the step.
+- **As the owner:** People search by email; open someone; make, then remove, an admin; growth numbers; the cleanup list (delete only if the numbers look right).
+- **As an admin (a test account):**
+  - no Owner tab, no emails, and no room switches;
+  - mute and restore a member;
+  - remove a reported message.
+- **Fresh install:** Create account, confirm on the phone, Continue; the tour; the first session; no briefing that day.
+- **Backer ring:** the approved backer's ring in your Hub chats, friends, a DM and community chat, and the label on their profile card; on their phone, the ring and seal in Settings; emoji and initials in community chat on their discs; light mode.
+- **Your photo:** choose one from the gallery, move and zoom, Use photo, Save profile; it shows in Settings, your profile card and (for others) chats; Remove goes back to the emoji. As an admin, "Remove photo" on a test account's card.
+- **Backer claim push:** submit a claim from a test account with YouDO closed on your phone; the push arrives, tapping opens the Admin Hub; turn Backer Claims off and submit again: nothing arrives.
+- **Room members:** in your hashtag room tap the people button; search; Add friend, then Requested; Message a friend opens the chat; Accept a request; the button is not in General.
+- **Old install:** opens on Sign in; nothing changes for existing data.
+- **Chat bubbles:** a run of messages in a hashtag room, General, a Private Hub room and a DM; a long message; a reply; light mode.
+- **Growth:** the next day, the readout and chart show yesterday's phones; tap a few days and weeks, ✕ goes back; downloads load. **Home:** today's tiles, Worth a look (cleanup opens Account cleanup), and as an admin only the two tiles.
+- **Count my visits:** turn it off in Settings; it stays off after a restart.
+- **Account cleanup:** each filter; search; tick one obvious junk account and delete it (type DELETE 1); it disappears and Growth's sign-ups for its week stay the same.
+- **Scenes:** each of the three pictures at dawn, noon, sunset and night, sharp on the phone (fine wheat and pines); the Ghats raining by default, the Himalaya cloudy, the fields clear, and the weather button still changing them; soft, slow clouds; on a rainy morning or late afternoon, sometimes a faint rainbow (none at noon or night); Goals, Calendar and Hub headers with the land under the title; switch between them in Settings; Your photo: choose one, try a suggested colour and a tap on the photo, check buttons in dark and light mode, a widget and a notification icon; an old install that used plum, clay or graphite opens on the nearest scene; no planet in the header at night.
+- **Streak restore:** after a day that only looked missed at midnight (a session running past it, or focus synced later), no "Save streak" card or chips the next day (`reconcileStreakMeta` closes a restore whose missed day reached the bar). **Session Summary:** a "Session" chip with its times and a "Paused …" chip per pause.
+- **Room members (Admin Hub):** Community → Hashtag rooms → tap a room; Muted and Banned filters; tap a person, their Admin card opens.
 
 ---
 
 ## Current state
 
-- **Latest release:** v8.9.0, versionCode 100 (released 2026-11-21). Before it: v8.8.0, versionCode 99, released 2026-11-20.
+- **Latest release:** v9.0.0, versionCode 101 (being released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -18,7 +155,8 @@ Last updated **2026-11-21**, while releasing **v8.9.0**. Read this file first wh
   - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
   - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success);
   - v8.5.4, v8.5.5, v8.6.0, v8.7.0 and v8.8.0 had no server changes;
-  - v8.9.0 added `community_push.sql`, run in production on 2026-11-21 before the release (checked: the four `push_preferences` columns with their defaults and the three triggers exist).
+  - v8.9.0 added `community_push.sql`, run in production on 2026-11-21 before the release (checked: the four `push_preferences` columns with their defaults and the three triggers exist);
+  - v9.0.0 added `admin_hub.sql`, `backer_push.sql`, `profile_photos.sql`, `community_room_members.sql`, `admin_email.sql` and the functions `owner-delete-accounts`, `admin-email` and `email-stop` (redeployed `delete-account`), all applied and checked 2026-11-24/25 before the release (see the server steps under v9.0.0).
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;

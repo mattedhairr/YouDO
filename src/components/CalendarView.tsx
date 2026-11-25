@@ -647,14 +647,19 @@ export default function CalendarView({ tasks, onAddTask, onJumpToGoal }: Props) 
                               <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${outcomeClass}`}>
                                 {summary.outcome}
                               </span>
-                              {summary.pauseCount > 0 && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface text-content-muted border border-subtle">
+                                Session <span className="font-mono">{summary.wallClockRange}</span>
+                              </span>
+                              {summary.pauseRanges.slice(0, 4).map((range, i) => (
+                                <span key={i} className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface text-content-secondary border border-subtle">
+                                  Paused <span className="font-mono">{range}</span>
+                                </span>
+                              ))}
+                              {summary.pauseCount > 4 && (
                                 <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface text-content-secondary border border-subtle">
-                                  {summary.pauseCount} pause{summary.pauseCount === 1 ? '' : 's'}
+                                  +{summary.pauseCount - 4} more pauses
                                 </span>
                               )}
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-surface text-content-muted border border-subtle font-mono">
-                                {summary.wallClockRange}
-                              </span>
                             </div>
 
                             {summary.hasSteps && (

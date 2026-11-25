@@ -36,6 +36,14 @@ export function weekdayOf(dateKey: string): number {
   return new Date(y, (m || 1) - 1, d || 1).getDay();
 }
 
+/**
+ * Whether the sky shows a body of the day: Sunday is a day off, with no Sun
+ * crossing a night sky on the ambient screen.
+ */
+export function hasBodyOfTheDay(dateKey: string): boolean {
+  return weekdayOf(dateKey) !== 0;
+}
+
 function seedOf(key: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < key.length; i++) {

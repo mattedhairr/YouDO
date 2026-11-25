@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Reply, Target, X } from 'lucide-react';
 import Overlay from './Overlay';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,7 @@ import ShareGoalSheet from './chat/ShareGoalSheet';
 import GoalShareCard from './chat/GoalShareCard';
 import GoalSharePreview from './chat/GoalSharePreview';
 import { useStore } from '../store';
+import { chatDayLabels, chatRuns } from '../lib/chatRuns';
 import {
   buildGoalShare,
   goalShareMessage,
@@ -31,6 +32,7 @@ interface Props {
   friendId: string | null;
   friendName?: string;
   friendAvatar?: string;
+  friendBacker?: boolean;
 }
 
 interface Message {
@@ -38,12 +40,14 @@ interface Message {
   sender: string | null | undefined;
   text: string;
   time: string;
+  /** Sent time in ms (unset while sending). */
+  at?: number;
   replyToId?: string;
   /** Set when the message carries a goal: the parsed share, or null if it can't be read. */
   goal?: GoalShare | null;
 }
 
-export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Friend', friendAvatar = '' }: Props) {
+export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Friend', friendAvatar = '', friendBacker = false }: Props) {
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -67,6 +71,7 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
         sender: d.sender_id,
         text: d.content,
         time: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        at: Date.parse(d.created_at),
         replyToId: d.reply_to_id || undefined,
         ...(d.goal_share != null ? { goal: parseGoalShare(d.goal_share) } : {}),
       })),
@@ -170,6 +175,9 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
     setSavedShares(markGoalShareSaved(msg.id));
   };
 
+  const runs = useMemo(() => chatRuns(messages.map((m) => ({ author: m.sender, at: m.at }))), [messages]);
+  const dayLabels = useMemo(() => chatDayLabels(messages.map((m) => m.at)), [messages]);
+
   const previewMsg = previewId ? messages.find((m) => m.id === previewId) : undefined;
 
   const deleteMessage = async (id: string) => {
@@ -189,22 +197,24 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
           subtitle="Messages disappear after 24 hours"
           onBack={onClose}
           backLabel="Back to chats"
-          actions={<HubAvatar url={friendAvatar} name={friendName} size="sm" />}
+          actions={<HubAvatar url={friendAvatar} name={friendName} size="sm" backer={friendBacker} />}
         />
 
         <div className="yd-chat flex-1 min-h-0">
           <div className="yd-chat-scroll">
             <ol className="yd-chat-list">
-              {messages.map(msg => {
+              {messages.map((msg, index) => {
                 const isMe = msg.sender === user?.id;
                 const repliedTo = msg.replyToId ? messages.find(m => m.id === msg.replyToId) : null;
                 const replyAuthor =
-                  repliedTo?.sender === user?.id ? 'yourself' : friendName;
+                  repliedTo?.sender === user?.id ? 'You' : friendName;
+                const run = runs[index];
+                const day = dayLabels[index];
 
-                return (
-                  <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : ''}`}>
+                return [
+                  day ? <li key={`day-${msg.id}`} className="yd-chat-day" aria-hidden="true">{day}</li> : null,
+                  <li key={msg.id} className={`yd-chat-row ${isMe ? 'is-mine' : ''} ${run.first ? 'is-first' : ''} ${run.last ? 'is-last' : ''}`}>
                     <div className="yd-chat-bubble-wrap">
-                    <div className="yd-chat-cluster">
                     <div className="yd-chat-clip" data-yd-chat-anchor={msg.id}>
                     <article
                       className={`yd-chat-bubble ${msg.goal !== undefined ? 'is-goal' : ''}`}
@@ -212,11 +222,6 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
                       aria-label={`${isMe ? 'You' : friendName}: ${msg.text}`}
                       {...getMessageProps(msg)}
                     >
-                      {!isMe && (
-                        <div className="yd-chat-author">
-                          <span>{friendName}</span>
-                        </div>
-                      )}
                       {msg.replyToId && repliedTo && (
                         <blockquote className="yd-chat-quote">
                           <strong>{replyAuthor}</strong>
@@ -234,15 +239,12 @@ export default function DmInboxSheet({ open, onClose, friendId, friendName = 'Fr
                       ) : (
                         <p className="yd-chat-body">{msg.text}</p>
                       )}
+                      <span className="yd-chat-stamp"><time>{msg.time}</time></span>
                     </article>
                     </div>
-                    <div className="yd-chat-meta">
-                      <time>{msg.time}</time>
                     </div>
-                    </div>
-                    </div>
-                  </li>
-                );
+                  </li>,
+                ];
               })}
             </ol>
           </div>

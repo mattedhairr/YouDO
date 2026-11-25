@@ -22,17 +22,25 @@
 .yd-chat-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+/* A run: one person's messages in a row sit close together; the picture
+   (rooms only) is on the last, the name on the first. */
 .yd-chat-row {
   display: flex;
+  align-items: flex-end;
+  gap: 8px;
   width: 100%;
   justify-content: flex-start;
   animation: yd-chat-row-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.yd-chat-row.is-last {
+  margin-bottom: 8px;
 }
 
 .yd-chat-row.is-mine {
@@ -49,37 +57,39 @@
   min-width: 0;
 }
 
-.yd-chat-cluster {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 6px;
-  max-width: 100%;
-}
-
-.yd-chat-row.is-mine .yd-chat-cluster {
-  flex-direction: row-reverse;
-}
-
-.yd-chat-row.is-mine .yd-chat-bubble-wrap {
-  margin-left: auto;
-}
-
 .yd-chat-clip {
   position: relative;
-  flex: 0 0 auto;
   width: fit-content;
   max-width: min(20rem, calc(100vw - 5.5rem));
 }
 
+.yd-chat-row.has-face .yd-chat-clip {
+  max-width: min(18rem, calc(100vw - 7rem));
+}
+
+.yd-chat-day {
+  align-self: center;
+  margin: 6px auto 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
 .yd-chat-bubble {
   position: relative;
+  /* Holds the floated time when it drops to its own line. */
+  display: flow-root;
   box-sizing: border-box;
   width: auto;
   max-width: 100%;
-  padding: 10px 14px 9px;
-  border-radius: 18px;
-  font-size: 14.5px;
-  line-height: 1.46;
+  padding: 6px 10px 6px 11px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.38;
   letter-spacing: -0.01em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
@@ -106,72 +116,10 @@
   }
 }
 
-.yd-chat-author button,
-.yd-chat-author span {
-  font: inherit;
-  font-weight: 700;
-  color: var(--primary);
-  padding: 0;
-  background: none;
-  border: none;
-  min-width: 0;
-}
-
-.yd-chat-author button {
-  cursor: pointer;
-}
-
-@media (hover: hover) {
-  .yd-chat-author button:hover {
-    text-decoration: underline;
-  }
-}
-
-.yd-chat-author-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font: inherit;
-  font-weight: 700;
-  color: var(--primary);
-  padding: 0;
-  background: none;
-  border: none;
-  min-width: 0;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-@media (hover: hover) {
-  .yd-chat-author-btn:hover span:not(.yd-chat-author-avatar) {
-    text-decoration: underline;
-  }
-}
-
-.yd-chat-author-btn:disabled {
-  cursor: default;
-}
-
-.yd-chat-author-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--primary-soft);
-  color: var(--primary);
-  border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
-  font-size: 8.5px;
-  font-weight: 800;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
 .yd-chat-row:not(.is-mine) .yd-chat-bubble {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-bottom-left-radius: 4px;
+  border-top-left-radius: 6px;
   box-shadow: 0 1px 4px color-mix(in srgb, var(--text-primary) 3%, transparent);
 }
 
@@ -179,22 +127,88 @@
   background: linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 88%, #000) 100%);
   color: var(--on-primary);
   border: 1px solid color-mix(in srgb, var(--primary-glow) 35%, transparent);
-  border-bottom-right-radius: 4px;
+  border-top-right-radius: 6px;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 24%, transparent);
 }
 
-.yd-chat-author {
+.yd-chat-row:not(.is-mine).is-first .yd-chat-bubble { border-top-left-radius: 16px; }
+.yd-chat-row:not(.is-mine).is-last .yd-chat-bubble { border-bottom-left-radius: 4px; }
+.yd-chat-row.is-mine.is-first .yd-chat-bubble { border-top-right-radius: 16px; }
+.yd-chat-row.is-mine.is-last .yd-chat-bubble { border-bottom-right-radius: 4px; }
+
+/* The author's picture, outside the bubble on a run's last message, on its
+   own disc so emoji and initials never melt into the page. */
+.yd-chat-face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--bg-fill);
+  color: var(--primary);
+  border: 1px solid var(--border-subtle);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.yd-chat-face.is-emoji { font-size: 18px; }
+.yd-chat-face img { width: 100%; height: 100%; object-fit: cover; }
+.yd-chat-face:disabled { cursor: default; }
+.yd-chat-face.is-spacer { visibility: hidden; }
+.yd-chat-face.yd-backer-ring {
+  border-color: transparent;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--backer-gold) 35%, transparent);
+}
+
+/* The name, inside a run's first bubble, in that person's own colour. */
+.yd-chat-name {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 4px;
-  font-size: 11.5px;
+  margin: 1px 0 1px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--primary);
-  letter-spacing: 0.01em;
-  line-height: 1.25;
+  line-height: 1.3;
+  white-space: normal;
 }
+
+.yd-chat-name-btn {
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  background: none;
+  border: none;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.yd-chat-name-btn:disabled { cursor: default; }
+
+@media (hover: hover) {
+  .yd-chat-name-btn:not(:disabled):hover { text-decoration: underline; }
+}
+
+.yd-tone-0 { --yd-tone: #e0a86a; }
+.yd-tone-1 { --yd-tone: #7fc8a9; }
+.yd-tone-2 { --yd-tone: #c79be0; }
+.yd-tone-3 { --yd-tone: #7db3e8; }
+.yd-tone-4 { --yd-tone: #e59a9a; }
+.yd-tone-5 { --yd-tone: #d6c36b; }
+html.light-dusky .yd-tone-0 { --yd-tone: #a0601f; }
+html.light-dusky .yd-tone-1 { --yd-tone: #2c7a5a; }
+html.light-dusky .yd-tone-2 { --yd-tone: #7a4b98; }
+html.light-dusky .yd-tone-3 { --yd-tone: #2d68a6; }
+html.light-dusky .yd-tone-4 { --yd-tone: #a64646; }
+html.light-dusky .yd-tone-5 { --yd-tone: #82701a; }
+.yd-chat-name.yd-tone-0, .yd-chat-name.yd-tone-1, .yd-chat-name.yd-tone-2,
+.yd-chat-name.yd-tone-3, .yd-chat-name.yd-tone-4, .yd-chat-name.yd-tone-5 { color: var(--yd-tone); }
 
 .yd-chat-admin {
   display: inline-flex;
@@ -213,19 +227,18 @@
   text-transform: uppercase;
 }
 
-.yd-chat-row.is-mine .yd-chat-author {
-  display: none;
-}
-
 .yd-chat-quote {
-  margin: 0 0 6px;
-  padding: 5px 9px;
+  margin: 3px 0 4px;
+  padding: 4px 8px;
   border: 0;
   border-left: 3px solid var(--secondary);
-  border-radius: 8px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--bg-base) 60%, transparent);
   max-width: 100%;
+  white-space: normal;
 }
+
+.yd-chat-quote[class*='yd-tone-'] { border-left-color: var(--yd-tone); }
 
 .yd-chat-row.is-mine .yd-chat-quote {
   border-left-color: color-mix(in srgb, var(--on-primary) 70%, transparent);
@@ -234,12 +247,14 @@
 
 .yd-chat-quote strong {
   display: block;
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   margin: 0;
   color: var(--secondary);
 }
+
+.yd-chat-quote[class*='yd-tone-'] strong { color: var(--yd-tone); }
 
 .yd-chat-row.is-mine .yd-chat-quote strong {
   color: color-mix(in srgb, var(--on-primary) 92%, transparent);
@@ -248,58 +263,51 @@
 .yd-chat-quote span {
   display: block;
   margin-top: 1px;
-  font-size: 11.5px;
+  font-size: 13px;
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .yd-chat-row.is-mine .yd-chat-quote span {
   color: color-mix(in srgb, var(--on-primary) 75%, transparent);
 }
 
-.yd-chat-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex: 0 0 auto;
-  gap: 2px;
-  padding-bottom: 5px;
-  font-size: 9px;
-  line-height: 1.15;
+/* The time (and your tick), inside the bubble at the bottom right, on the
+   last line when it fits. */
+.yd-chat-stamp {
+  float: right;
+  position: relative;
+  top: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 7px 0 -2px 10px;
+  font-size: 10.5px;
+  line-height: 1;
   font-weight: 500;
   color: var(--text-muted);
-  opacity: 0.8;
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
 }
 
-.yd-chat-row:not(.is-mine) .yd-chat-meta {
-  align-items: flex-start;
-  text-align: left;
+.yd-chat-row.is-mine .yd-chat-stamp {
+  color: color-mix(in srgb, var(--on-primary) 62%, transparent);
 }
 
-.yd-chat-meta-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 8px;
-  opacity: 0.9;
-}
-
-.yd-chat-meta-status svg {
-  width: 10px;
-  height: 10px;
+.yd-chat-stamp svg {
+  width: 13px;
+  height: 13px;
 }
 
 .yd-chat-body {
-  display: block;
+  display: inline;
   margin: 0;
-  font-size: 14.5px;
-  line-height: 1.46;
+  font-size: 15px;
+  line-height: 1.38;
 }
 
 .yd-chat-mention {

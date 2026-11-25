@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { readStorageRaw, STORAGE_KEYS } from '../lib/storageKeys';
-import { DEFAULT_ACCENT, resolveAccent, type AccentColor } from '../lib/accentColors';
+import { accentSwatch, DEFAULT_ACCENT, resolveAccent, type AccentChoice, type CustomAccent } from '../lib/accentColors';
 
 export interface Theme {
   darkMode: boolean;
   /** Optional so themes stored before v8 keep loading unchanged. */
-  accent?: AccentColor;
+  accent?: AccentChoice;
+  /** The colour picked from the user's header photo, when the accent is "custom". */
+  custom?: CustomAccent;
 }
 
 export const DEFAULT_THEME: Theme = {
@@ -17,6 +19,24 @@ export const DEFAULT_THEME: Theme = {
 function applyMode(darkMode: boolean) {
   document.documentElement.classList.toggle('dark', darkMode);
   document.documentElement.classList.toggle('light-dusky', !darkMode);
+}
+
+/**
+ * The accent on the page: presets through index.css (data-accent), a custom
+ * colour as inline variables on <html>, in the tone for the current mode.
+ */
+function applyAccent(theme: Theme) {
+  const root = document.documentElement;
+  const accent = resolveAccent(theme);
+  root.dataset.accent = accent;
+  if (accent === 'custom') {
+    const swatch = accentSwatch(theme);
+    root.style.setProperty('--primary', theme.darkMode ? swatch.dark : swatch.light);
+    root.style.setProperty('--accent-tick', theme.darkMode ? swatch.tickDark : swatch.tickLight);
+  } else {
+    root.style.removeProperty('--primary');
+    root.style.removeProperty('--accent-tick');
+  }
 }
 
 /** Puts the saved mode and accent on the page before it first paints, so the
@@ -30,20 +50,22 @@ export function applyStoredTheme(): void {
     /* keep the default look */
   }
   applyMode(Boolean(theme.darkMode));
-  document.documentElement.dataset.accent = resolveAccent(theme);
+  applyAccent(theme);
 }
 
 export function useTheme() {
   const [theme, setTheme] = useLocalStorage<Theme>(STORAGE_KEYS.theme, DEFAULT_THEME);
   const accent = resolveAccent(theme);
+  const customDark = theme.custom?.dark;
+  const customLight = theme.custom?.light;
 
   useEffect(() => {
     applyMode(Boolean(theme.darkMode));
   }, [theme.darkMode]);
 
   useEffect(() => {
-    document.documentElement.dataset.accent = accent;
-  }, [accent]);
+    applyAccent({ darkMode: theme.darkMode, accent, custom: customDark && customLight ? { dark: customDark, light: customLight } : undefined });
+  }, [accent, theme.darkMode, customDark, customLight]);
 
   return [theme, setTheme] as const;
 }

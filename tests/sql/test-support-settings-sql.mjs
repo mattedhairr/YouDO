@@ -21,11 +21,15 @@ try{
     alter default privileges in schema public grant usage,select on sequences to authenticated;`);
   await db.exec(`create table public.user_backups(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,backup_data text not null,updated_at timestamptz not null default now(),constraint user_backups_user_id_key unique(user_id));`);
   for(const file of ['user_backups','public_pace','community'])await db.exec(await load(file));
+  // The owner role (as in community_chat.sql): only the owner handles money.
+  await db.exec(`alter table public.community_admins add column if not exists role text not null default 'admin';
+    create or replace function public.is_community_owner(candidate uuid default auth.uid()) returns boolean language sql stable security definer
+      as $$select exists(select 1 from public.community_admins where user_id=candidate and role='owner')$$;`);
   // hub_backers.sql's badge flags need the Private Hub profiles table.
   await db.exec(`create table if not exists public.profiles(id uuid primary key references auth.users(id),username text,display_name text,is_backer boolean default false,backer_tier text,bio text);`);
   for(const file of ['hub_backers','support_settings'])await db.exec(await load(file));
-  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4)',[id(1),'admin@example.com',id(2),'member@example.com']);
-  await db.query('insert into public.community_admins(user_id) values($1)',[id(1)]);
+  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6)',[id(1),'owner@example.com',id(2),'member@example.com',id(3),'admin@example.com']);
+  await db.query("insert into public.community_admins(user_id,role) values($1,'owner'),($2,'admin')",[id(1),id(3)]);
 
   await as(0);
   const first=(await rows('select public.support_settings() s'))[0].s;
@@ -36,10 +40,14 @@ try{
   await denied("select public.save_support_settings(true,'other@bank',true,true)");
   check((await rows(claim))[0].submit_hub_backer.success===true,'claims are accepted while open');
 
+  await as(3);
+  await denied("select public.save_support_settings(true,'admin.fund@okaxis',true,true)");
+  await denied('select public.get_pending_hub_backers()');
+
   await as(1);
   await denied("select public.save_support_settings(true,'not an id',true,true)");
   const saved=(await rows("select public.save_support_settings(true,' study.fund@okaxis ',false,false) s"))[0].s;
-  check(saved.upiId==='study.fund@okaxis'&&saved.qrEnabled===false&&saved.claimsEnabled===false,'the admin saves a trimmed UPI ID and the switches');
+  check(saved.upiId==='study.fund@okaxis'&&saved.qrEnabled===false&&saved.claimsEnabled===false,'the owner saves a trimmed UPI ID and the switches');
   check((await rows("select count(*)::int n from public.community_audit_log where action='support.updated'"))[0].n===1,'the change is in the admin log');
 
   await as(2);

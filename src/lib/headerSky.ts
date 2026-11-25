@@ -9,7 +9,6 @@
 
 import { skyRandom, skySeed, starMap, type SkyStar } from './focusSky';
 import { daysBetweenLocalISO } from './dates';
-import { goalStart } from './summit';
 import { sunAltitude, type SunDay } from './sunPath';
 
 type Rgba = [number, number, number, number];
@@ -17,39 +16,22 @@ type Rgba = [number, number, number, number];
 export interface SkyColors {
   /** Four colours down the sky, top to horizon. */
   sky: string[];
-  /** Four mountain ranges, far to near: [top, bottom] of each. */
-  layers: [string, string][];
-  /** The thin light along each ridge line. */
-  rim: string;
-  /** The haze at the foot of each range. */
-  mist: string;
+  /** The light on the scene's land (headerScenes.ts), multiplied into its picture. */
+  land: string;
 }
 
-interface Palette {
-  sky: string[];
-  layers: [string, string][];
-  rim: string;
-  mist: string;
-}
-
-const PALETTES: Record<'night' | 'morning' | 'day' | 'evening' | 'dusk', Palette> = {
-  night: { sky: ['#010209', '#050a1e', '#0c1736', '#16244a'], layers: [['#1b2747', '#141e39'], ['#121a33', '#0d1428'], ['#0b1022', '#070b18'], ['#05070f', '#020306']], rim: 'rgba(160,185,255,.35)', mist: 'rgba(120,140,200,.08)' },
-  morning: { sky: ['#16244a', '#5d5a86', '#d98d7a', '#f6cf9c'], layers: [['#8a7f9e', '#6d6587'], ['#5b5578', '#433f60'], ['#36324f', '#26233a'], ['#191726', '#0c0b14']], rim: 'rgba(255,226,190,.55)', mist: 'rgba(255,236,220,.22)' },
-  day: { sky: ['#1f5a92', '#3f86c2', '#8fc0e0', '#d9ebf3'], layers: [['#a7c2d8', '#8daec8'], ['#6b95b5', '#557f9f'], ['#2f6283', '#224c69'], ['#12324a', '#08192a']], rim: 'rgba(255,255,255,.5)', mist: 'rgba(225,238,248,.1)' },
-  evening: { sky: ['#120f28', '#3f2852', '#a64f68', '#f09a62'], layers: [['#6e3c5c', '#5a3150'], ['#4a2945', '#3a2038'], ['#2b1830', '#1e1123'], ['#120b17', '#07050a']], rim: 'rgba(255,180,140,.6)', mist: 'rgba(255,170,150,.14)' },
-  dusk: { sky: ['#06061a', '#1a1534', '#3b2346', '#5a2f44'], layers: [['#33264a', '#2a1f3f'], ['#221a36', '#1a142b'], ['#14101f', '#0d0a15'], ['#08060c', '#030205']], rim: 'rgba(220,160,190,.4)', mist: 'rgba(200,150,190,.1)' },
-};
+export type SkyPalettes = Record<'night' | 'morning' | 'day' | 'evening' | 'dusk', SkyColors>;
 
 /**
  * When each sky is fully itself, in clock hours, set by the day's real
  * sunrise (R) and sunset (S): dawn colours as the sun comes up, daylight a
  * few hours later, golden light just before sunset, dusk after it, then night.
  */
-function skyKeys(day: SunDay): [number, keyof typeof PALETTES][] {
+function skyKeys(day: SunDay): [number, keyof SkyPalettes][] {
   const R = day.sunrise;
   const S = day.sunset;
   const mid = (R + S) / 2;
-  const keys: [number, keyof typeof PALETTES][] = [
+  const keys: [number, keyof SkyPalettes][] = [
     [R - 1.3, 'night'], [R + 0.4, 'morning'], [Math.min(R + 3, mid), 'day'], [Math.max(S - 2, mid), 'day'],
     [S - 0.1, 'evening'], [S + 0.7, 'dusk'], [S + 1.6, 'night'],
   ];
@@ -83,8 +65,8 @@ export function hourOf(date: Date): number {
   return date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
 }
 
-/** The sky's colours at `hour` (0–24) on `day`, blended smoothly between the five skies. */
-export function skyColors(hour: number, day: SunDay): SkyColors {
+/** The sky's colours at `hour` (0–24) on `day`, blended smoothly between a scene's five skies. */
+export function skyColors(hour: number, day: SunDay, palettes: SkyPalettes): SkyColors {
   const h = ((hour % 24) + 24) % 24;
   const keys = skyKeys(day);
   let i = 0;
@@ -92,13 +74,11 @@ export function skyColors(hour: number, day: SunDay): SkyColors {
   const [h0, a] = keys[i];
   const [h1, b] = keys[i + 1];
   const t = smooth(clamp((h - h0) / (h1 - h0)));
-  const A = PALETTES[a];
-  const B = PALETTES[b];
+  const A = palettes[a];
+  const B = palettes[b];
   return {
     sky: A.sky.map((c, k) => mixColor(c, B.sky[k], t)),
-    layers: A.layers.map(([top, bottom], k) => [mixColor(top, B.layers[k][0], t), mixColor(bottom, B.layers[k][1], t)]),
-    rim: mixColor(A.rim, B.rim, t),
-    mist: mixColor(A.mist, B.mist, t),
+    land: mixColor(A.land, B.land, t),
   };
 }
 
@@ -149,34 +129,12 @@ export function greeting(hour: number): string {
   return 'Still at it,';
 }
 
-/**
- * A mountain line across `width` (midpoint displacement, seeded so it never
- * changes): low in the valley at `valleyX`, higher toward both sides.
- */
-export function ridgeLine(seed: number, width: number, base: number, amp: number, valleyX: number, rough = 0.55): [number, number][] {
-  const next = skyRandom(seed);
-  const n = 64;
-  const y = new Array<number>(n + 1).fill(0);
-  y[0] = (next() - 0.5) * 0.3;
-  y[n] = (next() - 0.5) * 0.3;
-  for (let step = n; step > 1; step /= 2) {
-    const k = Math.pow(rough, Math.log2(n / step) + 1);
-    for (let i = step / 2; i < n; i += step) y[i] = (y[i - step / 2] + y[i + step / 2]) / 2 + (next() - 0.5) * 2 * k;
-  }
-  return y.map((v, i) => {
-    const x = (i * width) / n;
-    const lift = 0.35 + 0.65 * Math.min(1, Math.pow(Math.abs(x - valleyX) / 180, 1.2));
-    return [x, base - amp * lift * (0.6 + v)];
-  });
-}
-
 export interface DeadlineGoal {
   id: string;
   title: string;
   days: number;
-  /** Its end date, and the day it began (start date, or the day it was made): the Summit's trail. */
+  /** Its end date. */
   end: string;
-  start: string | null;
 }
 
 /** Top-level goals with an end date today or later, nearest first. */
@@ -191,7 +149,6 @@ export function upcomingDeadlines(
       title: g.title,
       days: daysBetweenLocalISO(today, g.endDate as string),
       end: (g.endDate as string).slice(0, 10),
-      start: goalStart(g),
     }))
     .filter((g) => g.days >= 0)
     .sort((a, b) => a.days - b.days || a.title.localeCompare(b.title));

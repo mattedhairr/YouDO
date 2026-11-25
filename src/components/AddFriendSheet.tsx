@@ -212,7 +212,7 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
                           setErrorMsg('');
                         }}
                       >
-                        <HubAvatar url={profile.avatar_url} name={profile.display_name} />
+                        <HubAvatar url={profile.avatar_url} name={profile.display_name} backer={profile.is_backer === true} />
                         <span className="hub-row-main">
                           <span className="hub-row-title"><span className="hub-truncate">{profile.display_name}</span></span>
                           <span className="hub-row-subtitle hub-truncate block">@{profile.username}{profile.bio ? ` · ${profile.bio}` : ''}</span>
@@ -230,7 +230,7 @@ export default function AddFriendSheet({ open, onClose, onOpenProfile }: Props) 
           ) : (
             <>
               <div className="mb-5 flex flex-col items-center gap-1.5 text-center">
-                <HubAvatar url={selected.avatar_url} name={selected.display_name} size="lg" />
+                <HubAvatar url={selected.avatar_url} name={selected.display_name} size="lg" backer={selected.is_backer === true} />
                 <p className="mt-1 text-[22px] font-bold tracking-tight">{selected.display_name}</p>
                 <p className="text-[15px] text-content-secondary">@{selected.username}</p>
                 <button

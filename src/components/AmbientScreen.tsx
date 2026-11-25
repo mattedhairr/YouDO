@@ -14,6 +14,7 @@ import { ambientClockDriftRange, ambientDigits, ambientDrift, ambientPlanetEnabl
 import { todayISO } from '../lib/dates';
 import FocusSky from './FocusSky';
 import PlanetOfTheDay from './PlanetOfTheDay';
+import { hasBodyOfTheDay } from '../lib/planet';
 import '@fontsource/quicksand/600.css';
 import './ambient.css';
 
@@ -209,7 +210,7 @@ export function AmbientScreen({
         >
           {skyOn && <FocusSky focusMs={todayFocusMs + elapsed * 1000} barHours={barHours} dateKey={todayISO()} />}
           {/* A new day brings its own planet, fading in (keyed by the date). */}
-          {skyOn && planetOn && <PlanetOfTheDay key={todayISO()} dateKey={todayISO()} />}
+          {skyOn && planetOn && hasBodyOfTheDay(todayISO()) && <PlanetOfTheDay key={todayISO()} dateKey={todayISO()} />}
           <div className="ambient-top">
             <span>{clock}</span>
             <span>
