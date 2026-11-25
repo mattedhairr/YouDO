@@ -121,7 +121,7 @@ Whenever `docs/screenshots/` changes, after the release is merged:
 
 Orion has no limit on the number (some listings carry dozens), but its home page shows only the first one or two, so put the most striking first.
 
-Last set (2026-11-22): eight, pinned to the merge commit of the pull request that added `10-summit.png` and `11-focus-sky.png`, in this order: 01 Today, 10 Summit, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance.
+Last set (2026-11-25, RookieEnough/Orion-Data#3415): eight, pinned to the v9.0.0 merge commit (6a48e9c), in this order: 01 Today, 10 Scenes, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance.
 
 ### CHANGELOG entry template
 

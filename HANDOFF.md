@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-25**, while releasing **v9.0.0** (versionCode 101, "Your Place, Your Colour") from the branch `release-v9.0.0`. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-25**, just after releasing **v9.0.0** (versionCode 101, "Your Place, Your Colour"; pull request #95, merge commit 6a48e9c, tag v9.0.0). Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
 ## v9.0.0 (versionCode 101): what it contains
 
-Version, CHANGELOG, store text (changelog 101), README and screenshots are updated on the branch. Left for the owner: the pull request into `main`, the tag, the signed APK and the GitHub Release (steps 5–10 of RELEASE_PROCEDURE.md), then Orion's screenshot addresses pinned to the v9.0.0 commit (new order: 01 Today, 10 Scenes, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance; Summit is gone). The mocks in `docs/mocks/` stay local and are never committed.
+Released 2026-11-25 from pull request #95 (merge 6a48e9c, tag v9.0.0). The first APK build on main failed on a Maven Central rate limit (429) and passed on a re-run. Orion's screenshots were requested pinned to 6a48e9c (RookieEnough/Orion-Data#3415; order: 01 Today, 10 Scenes, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance). None of this has been tried on a phone yet: the phone checks below come next. The mocks in `docs/mocks/` stay local and are never committed.
 
 **1. A new Admin Hub, with one owner and many admins** (`src/components/AdminHubSheet.tsx`, `src/components/admin/`, `src/lib/adminHub.ts`, `supabase/admin_hub.sql`).
 - Five tabs:
@@ -143,7 +143,7 @@ Version, CHANGELOG, store text (changelog 101), README and screenshots are updat
 
 ## Current state
 
-- **Latest release:** v9.0.0, versionCode 101 (being released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
+- **Latest release:** v9.0.0, versionCode 101 (released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
