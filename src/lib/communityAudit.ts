@@ -49,6 +49,7 @@ export function describeCommunityAudit(entry: CommunityAuditEntry, targetName?: 
     'staff.demote': { category: 'Staff', title: `Removed ${subject} as admin`, detail: 'They are a member again.' },
     'staff.show_badge': { category: 'Staff', title: `Showed ${subject}’s Admin badge`, detail: 'Members see the badge on their name.' },
     'staff.hide_badge': { category: 'Staff', title: `Hid ${subject}’s Admin badge`, detail: 'They stay an admin without the badge.' },
+    'email.sent': { category: 'Admin', title: 'Sent an email', detail: entry.reason || 'An email went out from the Admin Hub.' },
     'account.deleted': { category: 'Account', title: 'Deleted an account', detail: 'The account and everything saved with it were removed.' },
     'accounts.cleanup': { category: 'Account', title: `Cleaned up ${entry.reason || 'junk'} accounts`, detail: 'Unconfirmed or empty accounts were removed.' },
   };

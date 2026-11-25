@@ -279,3 +279,61 @@ button.ah-ro-chip { min-height: 26px; color: var(--primary); }
 /* Admin Hub → a room's members: the tags sit small beside the name. */
 .room-members-text strong .ah-tag { display: inline-block; margin: 0 0 0 6px; padding: 1px 5px; font-size: 8.5px; line-height: 1.4; vertical-align: 2px; }
 .ah-live { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); vertical-align: 5px; }
+
+/* People → Email (AdminEmail.tsx) */
+.ah-mail-quota { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 2px 14px; color: var(--text-secondary); font-size: 12px; }
+.ah-mail-quota b { color: var(--text-primary); }
+.ah-mail-quota > i { flex: 1; min-width: 80px; height: 5px; overflow: hidden; border-radius: 3px; background: var(--bg-fill); }
+.ah-mail-quota > i > i { display: block; height: 100%; border-radius: 3px; background: var(--primary); }
+.ah-mail-quota small { flex-basis: 100%; color: var(--text-muted); font-size: 11px; }
+.ah-mail-running { margin-bottom: 14px; border-color: color-mix(in srgb, var(--primary) 35%, var(--border-subtle)); }
+.ah-mail-running-title { overflow: hidden; color: var(--text-primary); font-size: 14px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.ah-mail-preview { margin-top: 12px; }
+.ah-mail-preview iframe { display: block; width: 100%; height: 520px; margin-top: 6px; border: 1px solid var(--border-subtle); border-radius: 16px; background: #0f0e0c; }
+.ah-mail-confirm { margin-top: 12px; padding: 13px; border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.ah-mail-confirm h4 { color: var(--text-primary); font-size: 14px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.ah-mail-confirm p { margin-top: 4px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+.ah-mail-picked { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ah-mail-pick { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 5px 6px 5px 11px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--text-primary); font-size: 12.5px; font-weight: 700; }
+.ah-mail-pick button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: var(--text-secondary); }
+.ah-page code { padding: 1px 4px; border-radius: 5px; background: var(--bg-fill); color: var(--text-primary); font-size: 11px; }
+
+/* Owner → Backers (AdminBackers.tsx) */
+.ah-backer-amount { flex: none; text-align: right; }
+.ah-backer-amount b { display: block; color: var(--text-primary); font-size: 14.5px; font-weight: 800; }
+.ah-backer-amount small { display: block; margin-top: 1px; color: var(--text-muted); font-size: 11px; font-weight: 700; }
+.ah-backer-amount small.is-thanked { color: var(--success); }
+.ah-mail-link { display: inline-flex; align-items: center; gap: 5px; color: var(--primary); font-size: 12px; font-weight: 700; }
+.ah-mail-link:disabled { opacity: 0.45; }
+
+/* A person's card (AdminPeople.tsx): numbers at a glance, then quiet label / value rows. */
+.ah-person-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 8px; padding: 12px 14px; }
+.ah-person-stats > div { min-width: 0; padding: 10px 8px; border-radius: 14px; background: var(--bg-fill); text-align: center; }
+.ah-person-stats b { display: block; color: var(--text-primary); font-size: 17px; font-weight: 800; line-height: 1.15; }
+.ah-person-stats span { display: block; margin-top: 3px; color: var(--text-muted); font-size: 10.5px; font-weight: 600; line-height: 1.25; }
+.ah-person-facts { margin: 0; padding: 2px 14px 6px; }
+.ah-person-facts > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; border-top: 0.5px solid var(--separator, var(--border-subtle)); }
+.ah-person-facts > div:first-child { border-top: 0; }
+.ah-person-facts dt { flex: none; color: var(--text-secondary); font-size: 13px; }
+.ah-person-facts dd { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; color: var(--text-primary); font-size: 13px; font-weight: 600; text-align: right; }
+.ah-person-facts dd.is-good { color: var(--success); }
+.ah-person-facts dd.is-warn { color: var(--warning); }
+.ah-person-show { flex: none; color: var(--primary); font-size: 12px; font-weight: 700; }
+.ah-person-note { margin: 0 14px 14px; padding: 10px 12px; border-radius: 12px; background: var(--bg-fill); color: var(--text-secondary); font-size: 12.5px; line-height: 1.45; }
+.ah-person-note b { display: block; margin-bottom: 2px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* Email: the writing help and a send's people. */
+.ah-mail-help { margin-top: 8px; border-radius: 14px; background: var(--bg-fill); }
+.ah-mail-help-toggle { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; width: 100%; padding: 9px 11px; color: var(--text-muted); font-size: 11.5px; text-align: left; }
+.ah-mail-help-toggle svg { transition: transform 160ms ease; }
+.ah-mail-help-body { padding: 0 11px 12px; }
+.ah-mail-help-title { margin: 10px 0 5px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ah-mail-help dl { margin: 0; }
+.ah-mail-help dl > div { display: flex; gap: 10px; padding: 4px 0; font-size: 12px; line-height: 1.4; }
+.ah-mail-help dt { flex: none; width: 118px; }
+.ah-mail-help dd { margin: 0; color: var(--text-secondary); }
+.ah-mail-help ul { margin: 0; padding-left: 16px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; list-style: disc; }
+.ah-mail-state { flex: none; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.ah-mail-state.is-sent { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+.ah-mail-state.is-waiting { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
+.ah-mail-state.is-failed { background: color-mix(in srgb, var(--error) 14%, transparent); color: var(--error); }

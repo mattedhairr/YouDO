@@ -12,13 +12,16 @@ import { PeopleList, PersonPage } from './admin/AdminPeople';
 import AdminCommunity from './admin/AdminCommunity';
 import AdminOwner from './admin/AdminOwner';
 import AdminHome from './admin/AdminHome';
+import AdminEmail, { type EmailStart } from './admin/AdminEmail';
+import AdminBackers from './admin/AdminBackers';
 import { COMMUNITY_PAGE_TITLES, OWNER_PAGE_TITLES, queueCounts, type CommunityPage, type OwnerPage, type QueueFilter } from './admin/adminHubShared';
 import '../signature.css';
 import './community/community.css';
 import './admin/adminHub.css';
 
 type Tab = 'home' | 'queue' | 'people' | 'community' | 'owner';
-type Page = { kind: 'person'; id: string } | { kind: 'community'; page: CommunityPage } | { kind: 'owner'; page: OwnerPage };
+type Page = { kind: 'person'; id: string } | { kind: 'community'; page: CommunityPage } | { kind: 'owner'; page: OwnerPage }
+  | { kind: 'email'; start?: EmailStart; key: number };
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Home', icon: Home },
@@ -69,10 +72,12 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
   const tabs = TABS.filter((item) => item.id !== 'owner' || can(role, 'growth'));
   const counts = queueCounts(data);
   const title = page?.kind === 'person' ? 'Person'
+    : page?.kind === 'email' ? 'Email'
     : page?.kind === 'community' ? COMMUNITY_PAGE_TITLES[page.page]
     : page?.kind === 'owner' ? OWNER_PAGE_TITLES[page.page]
     : TAB_TITLES[tab];
   const openPerson = (id: string) => setPage({ kind: 'person', id });
+  const openEmail = (start?: EmailStart) => setPage({ kind: 'email', start, key: Date.now() });
 
   return (
     <Overlay open onClose={goBack} align="full" screen>
@@ -96,21 +101,25 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
           <>
             <main ref={body} className="ah-body">
               {page?.kind === 'person' && (
-                <PersonPage key={page.id} id={page.id} role={role} selfId={userId}
+                <PersonPage key={page.id} id={page.id} role={role} selfId={userId} onEmail={openEmail}
                   onChanged={() => { setPeopleKey((key) => key + 1); void reload(); }}
                   onDeleted={() => { setPage(null); setPeopleKey((key) => key + 1); void reload(); }} />
               )}
               {page?.kind === 'community' && <AdminCommunity data={data} selfId={userId} page={page.page} onPage={(next) => setPage({ kind: 'community', page: next })} onRefresh={reload} onOpenPerson={openPerson} />}
-              {page?.kind === 'owner' && <AdminOwner data={data} page={page.page} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onOpenBackers={() => setBackersOpen(true)} onRefresh={reload} />}
+              {page?.kind === 'email' && <AdminEmail key={page.key} role={role} selfId={userId} start={page.start} />}
+              {page?.kind === 'owner' && page.page === 'backers' && (
+                <AdminBackers pendingClaims={data.pendingBackers} onReviewClaims={() => setBackersOpen(true)} onEmail={openEmail} onOpenPerson={openPerson} />
+              )}
+              {page?.kind === 'owner' && page.page !== 'backers' && <AdminOwner data={data} page={page.page} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onRefresh={reload} />}
               {!page && tab === 'home' && (
                 <AdminHome data={data} onQueue={(filter) => { setQueueFilter(filter); setTab('queue'); }}
                   onBroadcast={() => (can(role, 'broadcast') ? setPage({ kind: 'community', page: 'broadcast' }) : setTab('community'))}
                   onOwner={(next) => { setTab('owner'); if (next) setPage({ kind: 'owner', page: next }); }} />
               )}
               {!page && tab === 'queue' && <AdminQueue data={data} filter={queueFilter} onFilter={setQueueFilter} onRefresh={reload} onOpenBackers={() => setBackersOpen(true)} onOpenPerson={openPerson} />}
-              {!page && tab === 'people' && <PeopleList key={peopleKey} role={role} onOpen={openPerson} />}
+              {!page && tab === 'people' && <PeopleList key={peopleKey} role={role} onOpen={openPerson} onEmail={() => openEmail()} />}
               {!page && tab === 'community' && <AdminCommunity data={data} selfId={userId} page={null} onPage={(next) => setPage({ kind: 'community', page: next })} onRefresh={reload} />}
-              {!page && tab === 'owner' && <AdminOwner data={data} page={null} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onOpenBackers={() => setBackersOpen(true)} onRefresh={reload} />}
+              {!page && tab === 'owner' && <AdminOwner data={data} page={null} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onRefresh={reload} />}
             </main>
             <nav className="ah-tabs" role="tablist" aria-label="Admin Hub">
               {tabs.map(({ id, label, icon: Icon }) => {

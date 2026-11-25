@@ -302,12 +302,11 @@ function Staff({ onOpenPerson }: { onOpenPerson: (id: string) => void }) {
   );
 }
 
-export default function AdminOwner({ data, page, onPage, onOpenPerson, onOpenBackers, onRefresh }: {
+export default function AdminOwner({ data, page, onPage, onOpenPerson, onRefresh }: {
   data: AdminHubData;
   page: OwnerPage | null;
   onPage: (page: OwnerPage) => void;
   onOpenPerson: (id: string) => void;
-  onOpenBackers: () => void;
   onRefresh: () => Promise<void>;
 }) {
   if (page === 'cleanup') return <Cleanup onDone={() => void onRefresh()} />;
@@ -344,10 +343,10 @@ export default function AdminOwner({ data, page, onPage, onOpenPerson, onOpenBac
               <span className="yd-row-main"><span className="yd-row-title">Support YouDO</span><span className="yd-row-text">UPI ID, QR code and claims</span></span>
               <ChevronRight size={17} className="text-content-muted" aria-hidden />
             </button>
-            <button type="button" className="yd-row" onClick={onOpenBackers}>
+            <button type="button" className="yd-row" onClick={() => onPage('backers')}>
               <span className="yd-tile" aria-hidden><BadgeCheck size={18} /></span>
-              <span className="yd-row-main"><span className="yd-row-title">Backer claims</span>
-                <span className={`yd-row-text ${data.pendingBackers ? 'is-on' : ''}`}>{data.pendingBackers ? `${data.pendingBackers} waiting` : 'None waiting'}</span></span>
+              <span className="yd-row-main"><span className="yd-row-title">Backers</span>
+                <span className={`yd-row-text ${data.pendingBackers ? 'is-on' : ''}`}>{data.pendingBackers ? `${data.pendingBackers} ${data.pendingBackers === 1 ? 'claim' : 'claims'} waiting` : 'Who backed YouDO, what they gave, thank-yous'}</span></span>
               <ChevronRight size={17} className="text-content-muted" aria-hidden />
             </button>
           </div>

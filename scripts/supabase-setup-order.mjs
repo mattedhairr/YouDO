@@ -36,5 +36,6 @@ export const SUPABASE_SETUP_ORDER = [
   'backer_push',
   'profile_photos',
   'community_room_members',
+  'admin_email',
   'optimize_auth_rls_policies',
 ];

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronRight, Lock, Search } from 'lucide-react';
+import { ChevronRight, Lock, Mail, Search } from 'lucide-react';
 import {
   activeLabel, can, deleteAccounts, fetchPeople, fetchPerson, formatBytes, isMuted, personLabel, removeProfilePhoto, setStaff,
   type AdminPerson, type AdminRole, type PeopleFilter, type PeoplePage, type StaffAction,
@@ -8,6 +8,7 @@ import { moderateCommunityMember } from '../../lib/community';
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
 import { fetchAvatarFacts } from '../../lib/avatarFacts';
 import { avatarKind } from '../../lib/profileAvatar';
+import type { EmailStart } from './AdminEmail';
 
 const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const hours = (ms: number) => { const minutes = Math.round(ms / 60000); return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`; };
@@ -36,7 +37,7 @@ function summary(person: AdminPerson, owner: boolean): string {
   return parts.filter(Boolean).join(' · ');
 }
 
-export function PeopleList({ role, onOpen }: { role: AdminRole; onOpen: (id: string) => void }) {
+export function PeopleList({ role, onOpen, onEmail }: { role: AdminRole; onOpen: (id: string) => void; onEmail: () => void }) {
   const owner = can(role, 'emails');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<PeopleFilter>('all');
@@ -70,6 +71,11 @@ export function PeopleList({ role, onOpen }: { role: AdminRole; onOpen: (id: str
 
   return (
     <div className="ah-page">
+      <div className="yd-card mb-3"><button type="button" className="yd-row w-full" onClick={onEmail}>
+        <span className="yd-tile" aria-hidden><Mail size={18} strokeWidth={1.8} /></span>
+        <span className="yd-row-main"><span className="yd-row-title">Email</span><span className="yd-row-text">Write to everyone{owner ? ', backers' : ''} or a few people</span></span>
+        <ChevronRight size={17} className="shrink-0 text-content-muted" aria-hidden />
+      </button></div>
       <label className="ah-search">
         <Search size={16} aria-hidden />
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={owner ? 'Name, @username or email' : 'Name or @username'}
@@ -109,10 +115,11 @@ export function PeopleList({ role, onOpen }: { role: AdminRole; onOpen: (id: str
   );
 }
 
-export function PersonPage({ id, role, selfId, onChanged, onDeleted }: {
+export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail }: {
   id: string;
   role: AdminRole;
   selfId: string;
+  onEmail: (start: EmailStart) => void;
   onChanged: () => void;
   onDeleted: () => void;
 }) {
@@ -211,20 +218,31 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted }: {
             <span className="yd-row-text">{[person.username && person.name ? `@${person.username}` : '', person.hashtag ? `#${person.hashtag}` : ''].filter(Boolean).join(' · ') || 'No exam room'}</span>
           </span>
         </div>
-        <div className="ah-facts">
-          <div><span>Joined</span>{day(person.joined)}</div>
-          <div><span>Last active</span>{person.lastActive ? activeLabel(person.lastActive) : 'never'}</div>
-          {owner && <div className="col-span-2"><span>Email</span>{showEmail ? email : maskedEmail}
-            {email && <button type="button" className="ml-2 text-[12px] font-bold text-primary" onClick={() => setShowEmail((value) => !value)}>{showEmail ? 'Hide' : 'Show'}</button>}</div>}
-          {owner && <div><span>Email confirmed</span>{person.confirmed ? 'Yes' : 'No'}</div>}
-          {owner && <div><span>Saved data</span>{person.backupBytes ? `${formatBytes(person.backupBytes)} · ${activeLabel(person.backupUpdated)}` : 'Nothing'}</div>}
-          <div><span>Board</span>{person.onBoard ? `On · ${hours(person.boardWeekMs)} this week` : 'Off'}</div>
-          <div><span>Rooms</span>{person.rooms}</div>
-          {owner && <div><span>Friends</span>{person.friends ?? 0}</div>}
-          <div><span>Messages</span>{person.messages} · {person.reported} reported</div>
-          {person.note && <div className="col-span-2"><span>Last moderation note</span>{person.note}</div>}
+        {/* A few numbers at a glance, then the details as quiet rows (label left, value right). */}
+        <div className="ah-person-stats">
+          <div><b>{person.onBoard ? hours(person.boardWeekMs) : 'Off'}</b><span>{person.onBoard ? 'Board this week' : 'Board'}</span></div>
+          <div><b>{person.rooms}</b><span>{person.rooms === 1 ? 'Room' : 'Rooms'}</span></div>
+          {owner && <div><b>{person.friends ?? 0}</b><span>{person.friends === 1 ? 'Friend' : 'Friends'}</span></div>}
+          {/* Community messages are deleted 7 days after they disappear, so this is only the last ~8 days. */}
+          <div><b>{person.messages}</b><span>{person.reported ? `Messages, 8 days · ${person.reported} reported` : 'Messages, last 8 days'}</span></div>
         </div>
+        <dl className="ah-person-facts">
+          <div><dt>Joined</dt><dd>{day(person.joined)}</dd></div>
+          <div><dt>Last active</dt><dd>{person.lastActive ? activeLabel(person.lastActive) : 'Never'}</dd></div>
+          {owner && (
+            <div><dt>Email</dt><dd>
+              <span className="truncate">{showEmail ? email : maskedEmail || '—'}</span>
+              {email && <button type="button" className="ah-person-show" onClick={() => setShowEmail((value) => !value)}>{showEmail ? 'Hide' : 'Show'}</button>}
+            </dd></div>
+          )}
+          {owner && <div><dt>Email confirmed</dt><dd className={person.confirmed ? 'is-good' : 'is-warn'}>{person.confirmed ? 'Yes' : 'Not yet'}</dd></div>}
+          {owner && <div><dt>Saved data</dt><dd>{person.backupBytes ? `${formatBytes(person.backupBytes)} · ${activeLabel(person.backupUpdated)}` : 'Nothing'}</dd></div>}
+        </dl>
+        {person.note && <p className="ah-person-note"><b>Last moderation note</b>{person.note}</p>}
       </div>
+      <button type="button" className="ah-btn is-ghost is-wide mt-3 w-full" onClick={() => onEmail({ audience: 'people', kind: 'note', people: [{ id: person.id, label: personLabel(person) }] })}>
+        <Mail size={14} /> Email {itsMe ? 'yourself' : person.name?.split(/\s+/)[0] ?? 'them'}
+      </button>
 
       {!staff && !itsMe && (
         <section className="yd-section mt-4">

@@ -9,6 +9,7 @@ import AdminQueue from './AdminQueue';
 import AdminCommunity from './AdminCommunity';
 import AdminOwner from './AdminOwner';
 import AdminHome from './AdminHome';
+import AdminEmail from './AdminEmail';
 import { queueCounts } from './adminHubShared';
 import type { AdminHubData } from './useAdminHubData';
 import type { AdminRole } from '../../lib/adminHub';
@@ -101,7 +102,7 @@ describe('the Admin Hub', () => {
 
   it('shows the owner growth, cleanup and money', () => {
     const html = renderToStaticMarkup(createElement(AdminOwner, {
-      data: hub('owner'), page: null, onPage: noop, onOpenPerson: noop, onOpenBackers: noop, onRefresh: refresh,
+      data: hub('owner'), page: null, onPage: noop, onOpenPerson: noop, onRefresh: refresh,
     }));
     expect(html).toContain('People using YouDO');
     expect(html).toContain('This week');
@@ -114,7 +115,7 @@ describe('the Admin Hub', () => {
     expect(html).toContain('From sign-up to habit');
     expect(html).toContain('Confirmed their email');
     expect(html).toContain('135 unconfirmed or empty');
-    expect(html).toContain('2 waiting');
+    expect(html).toContain('2 claims waiting');
     expect(html).toContain('41 MB of 500 MB');
   });
 
@@ -133,5 +134,15 @@ describe('the Admin Hub', () => {
     expect(admin).toContain('Used the Board today');
     expect(admin).not.toContain('Opened YouDO');
     expect(admin).not.toContain('Worth a look');
+  });
+  it('lets only the owner write to backers or thank them', () => {
+    const admin = renderToStaticMarkup(createElement(AdminEmail, { role: 'admin', selfId: 'u5' }));
+    expect(admin).toContain('Pick people');
+    expect(admin).not.toContain('Backers');
+    expect(admin).not.toContain('Thank you');
+    const owner = renderToStaticMarkup(createElement(AdminEmail, { role: 'owner', selfId: 'u1', start: { audience: 'backers', kind: 'thanks' } }));
+    expect(owner).toContain('Thank you for backing YouDO');
+    expect(owner).toContain('{amount}');
+    expect(owner).toContain('Stop these emails');
   });
 });
