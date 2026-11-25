@@ -149,6 +149,7 @@ function ModernTaskCard({
     <>
       <div
         ref={cardRef}
+        data-task-id={task.id}
         className={`
           overflow-hidden relative rounded-[20px]
           bg-surface shadow-card transition-all duration-300 ease-spring

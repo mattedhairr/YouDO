@@ -2106,6 +2106,7 @@ function AppInner() {
 
       {tourOpen && <Suspense fallback={null}><StartTour
         tasks={tasks}
+        sessionTaskId={activeSession?.taskId}
         onAddGoal={addGoalRoot}
         onPlanToday={(nodeId) => planTask(nodeId, todayISO())}
         onNavigate={handleNavigateTab}

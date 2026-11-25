@@ -147,6 +147,7 @@ export default function LegacyTaskCard({
     <>
       <div
         ref={cardRef}
+        data-task-id={task.id}
         className={`
           overflow-hidden relative rounded-[12px] border
           bg-surface shadow-card border-subtle transition-all duration-200

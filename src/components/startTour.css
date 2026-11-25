@@ -114,3 +114,49 @@
 .start-tour-checks li svg { flex: none; width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: color-mix(in srgb, var(--success, #8FB394) 22%, transparent); color: var(--success, #8FB394); }
 .start-tour-checks li.is-todo { color: var(--text-secondary); }
 .start-tour-checks li i { display: grid; flex: none; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--bg-fill); font-style: normal; color: var(--text-muted); }
+
+/* The tip's points, the plan's shape (Goals) and the recap's map. */
+.start-tour-points { margin-top: 8px; }
+.start-tour-points li { display: flex; gap: 10px; padding: 4px 0; color: var(--text-secondary); font-size: 12.5px; line-height: 1.42; }
+.start-tour-points li i { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); }
+.start-tour-tree { margin-top: 8px; padding: 8px 10px; border-radius: 12px; background: var(--bg-fill); color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
+.start-tour-tree b { color: var(--text-primary); }
+.start-tour-tree p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-tour-tree p.is-1 { padding-left: 12px; }
+.start-tour-tree p.is-2 { padding-left: 24px; }
+.start-tour-tree p.is-3 { padding-left: 36px; }
+.start-tour-tree p[class^='is-']::before { content: '└ '; color: var(--text-muted); }
+.start-tour-map { margin-top: 8px; padding: 8px 10px; border-radius: 12px; background: var(--bg-fill); }
+.start-tour-map p { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; color: var(--text-secondary); font-size: 12px; line-height: 1.4; }
+.start-tour-map svg { flex: none; margin-top: 1px; color: var(--primary); }
+.start-tour-map b { color: var(--text-primary); }
+
+/* While a sheet is open the tip steps aside to a pill at the top. */
+.start-tour-coach {
+  position: fixed;
+  top: calc(var(--safe-area-top, 0px) + 10px);
+  left: 50%;
+  z-index: 1500;
+  max-width: calc(100% - 28px);
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border-subtle));
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.start-tour-coach b { color: var(--primary); }
+
+/* The card the tour planned, on Today. */
+.start-tour-target { border-radius: 18px; box-shadow: 0 0 0 2px var(--primary), 0 0 0 7px color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .start-tour-target { animation: start-tour-pulse 1.8s ease-in-out infinite; }
+}
+@keyframes start-tour-pulse { 50% { box-shadow: 0 0 0 2px var(--primary), 0 0 0 11px color-mix(in srgb, var(--primary) 8%, transparent); } }
