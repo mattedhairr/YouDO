@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ImagePlus, Trash2 } from 'lucide-react';
 import { ACCENT_COLORS, ACCENT_SWATCHES, resolveAccent, type AccentColor, type CustomAccent, type Rgb } from '../lib/accentColors';
 import { accentFromColor, photoColors } from '../lib/photoAccent';
-import { SCENES, sceneShape, SCENE_OF_ACCENT, type SceneMark, type ScenePalette } from '../lib/headerScenes';
+import { SCENES, sceneLand, SCENE_OF_ACCENT, type ScenePalette } from '../lib/headerScenes';
+import { SCENE_ART } from './sceneArt';
 import { mixColor } from '../lib/headerSky';
 import {
   HEADER_BACKGROUND_EVENT,
@@ -18,54 +19,29 @@ import SkyOptions from './SkyOptions';
 
 /** Late-afternoon light: between a scene's day and its golden evening. */
 function afternoon(day: ScenePalette, evening: ScenePalette): ScenePalette {
-  const t = 0.45;
-  return {
-    sky: day.sky.map((c, i) => mixColor(c, evening.sky[i], t)),
-    layers: day.layers.map(([a, b], i) => [mixColor(a, evening.layers[i][0], t), mixColor(b, evening.layers[i][1], t)]),
-    rim: mixColor(day.rim, evening.rim, t),
-    mist: mixColor(day.mist, evening.mist, t),
-    snow: day.snow && evening.snow ? mixColor(day.snow, evening.snow, t) : undefined,
-  };
+  const t = 0.3;
+  return { sky: day.sky.map((c, i) => mixColor(c, evening.sky[i], t)), land: mixColor(day.land, evening.land, t) };
 }
 
-/** A scene's land in late-afternoon light, drawn small for its card (no stars or weather). */
+/** A scene in late-afternoon light, small for its card: its sky, a low sun and its land (no stars or weather). */
 function ScenePreview({ accent }: { accent: AccentColor }) {
   const id = SCENE_OF_ACCENT[accent];
-  const shape = useMemo(() => sceneShape(id, 412, 14), [id]);
+  const land = useMemo(() => sceneLand(id, 412, 214, true), [id]);
   const c = useMemo(() => afternoon(SCENES[id].palettes.day, SCENES[id].palettes.evening), [id]);
-  const fill = (pts: [number, number][]) => `M0 230 L${pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L')} L412 230 Z`;
-  const paint = (m: SceneMark, k: number) => {
-    if (m.paint === 'haze' || m.paint === 'face-l' || m.paint === 'face-r' || m.dusk) return null;
-    const color = m.paint === 'snow' ? c.snow ?? '#fff'
-      : m.paint === 'land' ? c.layers[m.layer][0]
-        : m.paint === 'wheat' ? mixColor(c.layers[1][0], '#fff1cf', 0.22)
-          : m.paint === 'foam' ? mixColor(c.sky[3], '#ffffff', 0.55)
-            : m.paint === 'shine' ? c.rim
-              : mixColor(c.layers[m.layer][1], '#000000', m.paint === 'edge' ? 0.45 : 0.3);
-    const clip = m.clip ? `url(#sp-${id}-${m.layer})` : undefined;
-    return m.stroke
-      ? <path key={k} d={m.d} clipPath={clip} fill="none" stroke={color} strokeWidth={m.stroke} opacity={m.opacity ?? 1} />
-      : <path key={k} d={m.d} clipPath={clip} fill={color} opacity={m.opacity ?? 1} />;
-  };
+  const [r, g, b] = (c.land.match(/[\d.]+/g) ?? ['255', '255', '255']).slice(0, 3).map((v) => (Number(v) / 255).toFixed(3));
   return (
-    <svg viewBox="0 42 412 120" preserveAspectRatio="xMidYMid slice" className="block h-full w-full" aria-hidden>
+    <svg viewBox="0 70 412 144" preserveAspectRatio="xMidYMax slice" className="block h-full w-full" aria-hidden>
       <defs>
         <linearGradient id={`sp-${id}-sky`} x1="0" y1="0" x2="0" y2="1">
           {c.sky.map((s, i) => <stop key={i} offset={[0, 0.4, 0.72, 1][i]} stopColor={s} />)}
         </linearGradient>
-        {shape.ranges.map((_, i) => (
-          <linearGradient key={i} id={`sp-${id}-l${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={c.layers[i][0]} /><stop offset="1" stopColor={c.layers[i][1]} /></linearGradient>
-        ))}
-        {shape.ranges.map((pts, i) => <clipPath key={`c${i}`} id={`sp-${id}-${i}`}><path d={fill(pts)} /></clipPath>)}
+        <filter id={`sp-${id}-light`} colorInterpolationFilters="sRGB" x="0" y="0" width="100%" height="100%">
+          <feColorMatrix type="matrix" values={`${r} 0 0 0 0  0 ${g} 0 0 0  0 0 ${b} 0 0  0 0 0 1 0`} />
+        </filter>
       </defs>
-      <rect x="0" y="0" width="412" height="230" fill={`url(#sp-${id}-sky)`} />
-      <circle cx={412 * shape.sun.valley} cy={shape.sun.base - 6} r={9} fill="#ffe2bd" />
-      {shape.ranges.map((pts, i) => (
-        <g key={i}>
-          <path d={fill(pts)} fill={`url(#sp-${id}-l${i})`} />
-          {shape.marks.filter((m) => m.layer === i).map(paint)}
-        </g>
-      ))}
+      <rect x="0" y="0" width="412" height="214" fill={`url(#sp-${id}-sky)`} />
+      <circle cx={412 * land.sun.valley + 40} cy={land.sun.base - 34} r={9} fill="#fff1d6" />
+      <image href={SCENE_ART[id]} x={land.x} y={land.y} width={land.w} height={land.h} preserveAspectRatio="none" filter={`url(#sp-${id}-light)`} />
     </svg>
   );
 }

@@ -1,17 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { SKY_STARS } from './focusSky';
 import { sunDay } from './sunPath';
-import { dustStars, greeting, headerConstellation, headerStars, lensFlare, mixColor, nightness, ridgeLine, skyColors, softStops, sunState, upcomingDeadlines } from './headerSky';
+import { SCENES } from './headerScenes';
+import { dustStars, greeting, headerConstellation, headerStars, lensFlare, mixColor, nightness, skyColors, softStops, sunState, upcomingDeadlines } from './headerSky';
 
 const channels = (c: string) => (c.match(/[\d.]+/g) ?? []).map(Number);
 // Delhi on 20 Nov 2026: sunrise 6:47, sunset 17:25 (timeanddate.com).
 const DAY = sunDay('2026-11-20', 28.61, 77.21, 5.5);
+const SKIES = SCENES.himalaya.palettes;
 
 describe('the header sky through the day', () => {
   it('changes smoothly: no jump between one minute and the next', () => {
     for (let m = 0; m < 24 * 60; m++) {
-      const a = skyColors(m / 60, DAY);
-      const b = skyColors((m + 1) / 60, DAY);
+      const a = skyColors(m / 60, DAY, SKIES);
+      const b = skyColors((m + 1) / 60, DAY, SKIES);
       a.sky.forEach((c, i) => {
         const x = channels(c);
         const y = channels(b.sky[i]);
@@ -21,8 +23,8 @@ describe('the header sky through the day', () => {
   });
 
   it('is the same sky at midnight from both sides, and wraps past 24h', () => {
-    expect(skyColors(0, DAY)).toEqual(skyColors(24, DAY));
-    expect(skyColors(25, DAY)).toEqual(skyColors(1, DAY));
+    expect(skyColors(0, DAY, SKIES)).toEqual(skyColors(24, DAY, SKIES));
+    expect(skyColors(25, DAY, SKIES)).toEqual(skyColors(1, DAY, SKIES));
   });
 
   it('shows stars only at night, easing in after sunset and out before sunrise', () => {
@@ -76,18 +78,6 @@ describe('the header sky through the day', () => {
   it('mixes colours', () => {
     expect(mixColor('#000000', '#ffffff', 0.5)).toBe('rgba(128,128,128,1)');
     expect(mixColor('rgba(0,0,0,0)', 'rgba(255,255,255,1)', 1)).toBe('rgba(255,255,255,1)');
-  });
-});
-
-describe('the mountains', () => {
-  it('are fixed, and low in the valley, higher toward the sides', () => {
-    const a = ridgeLine(3, 412, 132, 72, 222);
-    expect(ridgeLine(3, 412, 132, 72, 222)).toEqual(a);
-    expect(a).toHaveLength(65);
-    const heightAt = (x: number) => a.reduce((best, p) => (Math.abs(p[0] - x) < Math.abs(best[0] - x) ? p : best))[1];
-    // y grows downward: the valley sits lower (larger y) than the far sides on average.
-    const sides = (heightAt(0) + heightAt(412)) / 2;
-    expect(heightAt(222)).toBeGreaterThan(sides);
   });
 });
 

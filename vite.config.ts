@@ -18,7 +18,7 @@ export default defineConfig({
         // Registration is manual: no virtual PWA helper sends SKIP_WAITING.
         // Activate the downloaded worker; the UI offers a safe page refresh.
         skipWaiting: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,json,woff,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/auth-confirm\.html$/, /^\/email-stop\.html$/],
         cleanupOutdatedCaches: true,

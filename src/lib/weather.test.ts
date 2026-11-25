@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { skyColors } from './headerSky';
+import { SCENES } from './headerScenes';
 import { sunDay } from './sunPath';
-import { cloudField, cloudTones, nextWeather, weatherColors, weatherLook } from './weather';
+import { cloudField, cloudTones, loadDayWeather, nextWeather, rainbowStrength, saveDayWeather, weatherColors, weatherLook } from './weather';
 
 const DAY = sunDay('2026-11-20', 28.61, 77.21, 5.5);
 const brightness = (c: string) => {
@@ -53,12 +54,12 @@ describe('the cloud field', () => {
 
 describe('the weather on the sky', () => {
   it('leaves a clear sky as it is', () => {
-    const c = skyColors(11, DAY);
+    const c = skyColors(11, DAY, SCENES.himalaya.palettes);
     expect(weatherColors(c, 'clear', 0)).toBe(c);
   });
 
   it('greys and dims the sky under cloud, more so in rain', () => {
-    const c = skyColors(11, DAY);
+    const c = skyColors(11, DAY, SCENES.himalaya.palettes);
     const cloudy = weatherColors(c, 'cloudy', 0);
     const rainy = weatherColors(c, 'rainy', 0);
     expect(saturation(cloudy.sky[1])).toBeLessThan(saturation(c.sky[1]));
@@ -112,5 +113,45 @@ describe("each day's clouds and rain", () => {
       expect(cloudy.layers[1].seconds).toBeLessThan(cloudy.layers[0].seconds);
       expect([1, -1]).toContain(cloudy.direction);
     }
+  });
+});
+
+describe('the day’s weather', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('starts each day with the scene’s own weather until the button is tapped', () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) });
+    vi.stubGlobal('window', { dispatchEvent: () => true });
+    expect(loadDayWeather('2026-11-25', 'rainy')).toBe('rainy');
+    expect(loadDayWeather('2026-11-25')).toBe('clear');
+    saveDayWeather('2026-11-25', 'cloudy');
+    expect(loadDayWeather('2026-11-25', 'rainy')).toBe('cloudy');
+    // A new day goes back to the scene's own.
+    expect(loadDayWeather('2026-11-26', 'rainy')).toBe('rainy');
+  });
+});
+
+describe('the rainbow', () => {
+  it('comes on about one rainy day in three, never on cloudy or clear days, the same all day', () => {
+    let rainbows = 0;
+    for (let d = 0; d < 360; d++) {
+      const key = new Date(Date.UTC(2026, 0, 1 + d)).toISOString().slice(0, 10);
+      if (weatherLook(key, 'rainy').rainbow) rainbows++;
+      expect(weatherLook(key, 'cloudy').rainbow).toBeNull();
+      expect(weatherLook(key, 'clear').rainbow).toBeNull();
+      expect(weatherLook(key, 'rainy')).toEqual(weatherLook(key, 'rainy'));
+    }
+    expect(rainbows).toBeGreaterThan(90);
+    expect(rainbows).toBeLessThan(150);
+  });
+
+  it('shows only while the sun is up and low: mornings and late afternoons', () => {
+    expect(rainbowStrength(true, 20, 0)).toBe(1);
+    expect(rainbowStrength(true, 45, 0)).toBe(0); // noon
+    expect(rainbowStrength(true, 1, 0)).toBe(0); // the sun on the horizon
+    expect(rainbowStrength(false, 20, 0)).toBe(0);
+    expect(rainbowStrength(true, 20, 0.6)).toBe(0); // night
+    expect(rainbowStrength(true, 34, 0)).toBeGreaterThan(0);
+    expect(rainbowStrength(true, 34, 0)).toBeLessThan(1); // easing out as the sun climbs
   });
 });

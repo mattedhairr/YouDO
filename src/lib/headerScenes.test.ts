@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { SCENES, SCENE_OF_ACCENT, sceneForAccent, sceneShape, type SceneId } from './headerScenes';
+import { SCENES, SCENE_OF_ACCENT, sceneForAccent, sceneLand, type SceneId } from './headerScenes';
 import { skyColors } from './headerSky';
+import { weatherColors } from './weather';
 
 const IDS: SceneId[] = ['plains', 'himalaya', 'ghats'];
 const day = { sunrise: 6.4, sunset: 17.5, noon: 11.95 } as Parameters<typeof skyColors>[1];
+// The header's scene heights (SkyHeader.tsx: HEIGHT + OFFSET).
+const TODAY = 214;
+const TAB = 150;
 
 describe('header scenes', () => {
   it('give each accent its own landscape; a photo colour shows the fields', () => {
@@ -12,44 +16,60 @@ describe('header scenes', () => {
     expect(sceneForAccent(undefined)).toBe('plains');
   });
 
-  it('have all five skies with four layers of land', () => {
+  it('start each new day with its own weather: sun on the fields, cloud over the Himalaya, monsoon rain in the Ghats', () => {
+    expect(IDS.map((id) => SCENES[id].weather)).toEqual(['clear', 'cloudy', 'rainy']);
+  });
+
+  it('have all five skies, each with the light on its land', () => {
     for (const id of IDS) {
       for (const time of ['night', 'morning', 'day', 'evening', 'dusk'] as const) {
         const p = SCENES[id].palettes[time];
         expect(p.sky).toHaveLength(4);
-        expect(p.layers).toHaveLength(4);
+        expect(p.land).toMatch(/^#[0-9a-f]{6}$/);
       }
+      // By day the land is near its own colours; at night it is dark.
+      expect(SCENES[id].palettes.day.land > SCENES[id].palettes.night.land).toBe(true);
+      expect(SCENES[id].art.ridge).toHaveLength(97);
     }
-    expect(SCENES.himalaya.palettes.day.snow).toBe('#ffffff');
   });
 
-  it('blend a scene’s own colours through the day, snow included', () => {
-    const noon = skyColors(12, day, SCENES.himalaya.palettes);
-    const dusk = skyColors(18.2, day, SCENES.himalaya.palettes);
-    expect(noon.snow).toBeDefined();
-    expect(noon.snow).not.toBe(dusk.snow);
-    expect(skyColors(12, day, SCENES.plains.palettes).layers[1]).not.toEqual(noon.layers[1]);
+  it('light the land through the day, and dim it under cloud and rain', () => {
+    const noon = skyColors(12, day, SCENES.ghats.palettes);
+    const sunset = skyColors(17.4, day, SCENES.ghats.palettes);
+    expect(noon.land).not.toBe(sunset.land);
+    const bright = (c: string) => (c.match(/[\d.]+/g) ?? []).slice(0, 3).reduce((a, v) => a + Number(v), 0);
+    expect(bright(weatherColors(noon, 'rainy', 0).land)).toBeLessThan(bright(weatherColors(noon, 'cloudy', 0).land));
+    expect(bright(weatherColors(noon, 'cloudy', 0).land)).toBeLessThan(bright(noon.land));
   });
 
-  it('keep the land below the words, the same on every visit', () => {
+  it('sit at the foot of the header, below the name and countdown on Today', () => {
     for (const id of IDS) {
-      for (const [width, lift] of [[392, -14], [392, 14], [340, -14]]) {
-        const shape = sceneShape(id, width, lift);
-        expect(shape.ranges).toHaveLength(4);
-        for (const range of shape.ranges) {
-          expect(range[0][0]).toBe(0);
-          expect(range[range.length - 1][0]).toBeCloseTo(width);
-          // On Today (lift −14) the land stays under the name and countdown (scene y ≈ 100).
-          if (lift < 0) expect(Math.min(...range.map((p) => p[1]))).toBeGreaterThan(96);
+      for (const width of [340, 392, 430]) {
+        for (const [height, today] of [[TODAY, true], [TAB, false]] as const) {
+          const land = sceneLand(id, width, height, today);
+          // It fills the width and reaches the bottom edge.
+          expect(land.x).toBeLessThanOrEqual(0);
+          expect(land.x + land.w).toBeGreaterThanOrEqual(width - 0.01);
+          expect(land.y + land.h).toBeGreaterThanOrEqual(height);
+          // The ridge spans the width, inside the picture.
+          expect(land.ridge[0][0]).toBe(0);
+          expect(land.ridge[land.ridge.length - 1][0]).toBeCloseTo(width);
+          const top = Math.min(...land.ridge.map((p) => p[1]));
+          expect(top).toBeGreaterThanOrEqual(land.y - 0.01);
+          // On Today the land stays under the name and countdown (scene y ≈ 96); on a tab under the title (≈ 92).
+          expect(top).toBeGreaterThan(today ? 96 : 92);
+          expect(JSON.stringify(sceneLand(id, width, height, today))).toBe(JSON.stringify(land));
         }
-        expect(JSON.stringify(sceneShape(id, width, lift))).toBe(JSON.stringify(shape));
       }
     }
   });
 
-  it('let the sun set on the fields’ horizon', () => {
-    const plains = sceneShape('plains', 392, -14);
-    expect(plains.sun.base).toBeGreaterThan(plains.ranges[0][0][1]);
-    expect(plains.marks.some((m) => m.dusk)).toBe(true);
+  it('set the sun behind the land, and keep it under the top row at noon', () => {
+    for (const id of IDS) {
+      const land = sceneLand(id, 392, TODAY, true);
+      const valleyY = land.ridge[Math.round(land.sun.valley * 48)][1];
+      expect(land.sun.base).toBeGreaterThan(valleyY);
+      expect(land.sun.base - land.sun.span).toBeGreaterThanOrEqual(44);
+    }
   });
 });
