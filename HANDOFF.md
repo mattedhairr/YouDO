@@ -1,6 +1,6 @@
 # Where We Left Off
 
-Last updated **2026-11-25**, just after releasing **v9.0.1** (versionCode 102: the rainbow removed, and the 10-scenes screenshot retaken without it), the same day as **v9.0.0** (versionCode 101, "Your Place, Your Colour"; pull request #95, merge commit 6a48e9c). Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-25**, just after releasing **v9.0.2** (versionCode 103: email previews show a real recipient, `previewRecipient` in `src/lib/adminEmail.ts`, never the old sample "Riya" / ₹300), after **v9.0.1** (versionCode 102: the rainbow removed, the 10-scenes screenshot retaken without it), both the same day as **v9.0.0** (versionCode 101, "Your Place, Your Colour"; pull request #95, merge commit 6a48e9c). Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
@@ -143,7 +143,7 @@ Released 2026-11-25 from pull request #95 (merge 6a48e9c, tag v9.0.0). The first
 
 ## Current state
 
-- **Latest release:** v9.0.1, versionCode 102 (released 2026-11-25): only removes the rainbow, no server change. Before it: v9.0.0, versionCode 101 (released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
+- **Latest release:** v9.0.2, versionCode 103 (released 2026-11-25): real-recipient email previews, no server change. Before it: v9.0.1, versionCode 102: only removes the rainbow, no server change. Before it: v9.0.0, versionCode 101 (released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.

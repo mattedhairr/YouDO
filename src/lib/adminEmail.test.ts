@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backerTotals, parseBackers, parseEmailOverview, parseTemplates, sendStatus } from './adminEmail';
+import { backerTotals, parseBackers, parseEmailOverview, parseTemplates, previewRecipient, sendStatus } from './adminEmail';
 
 describe('admin email', () => {
   it('reads the Email screen, hiding backers from admins', () => {
@@ -44,5 +44,34 @@ describe('admin email', () => {
       { id: 't2', name: 'Odd', kind: 'update', subject: '', body: 'x' },
     ]);
     expect(parseTemplates({})).toEqual([]);
+  });
+});
+
+describe('the email preview', () => {
+  const backers = parseBackers([
+    { user_id: 'b1', display_name: 'Anjali Rao', username: 'anjali', total: '100', claims: 1, confirmed: true },
+    { user_id: 'b2', display_name: null, username: 'kabir', total: '50', claims: 1, confirmed: true },
+  ]);
+
+  it('shows a sent email as the first person who got it, with their own amount, never sample values', () => {
+    const shown = previewRecipient({ audience: 'people', backers, recipients: [
+      { id: 'w', name: 'Waiting Person', status: 'waiting' },
+      { id: 'b1', name: 'Anjali Rao', status: 'sent' },
+    ] });
+    expect(shown).toEqual({ name: 'Anjali', amount: 100, label: 'Anjali Rao' });
+    const one = previewRecipient({ audience: 'people', recipients: [{ id: 'x', name: 'Nikita Shah', status: 'sent' }] });
+    expect(one.name).toBe('Nikita');
+    expect(one.amount).toBeUndefined(); // the sender writes "support", not ₹300
+  });
+
+  it('before sending: the picked person, the first backer, or yourself for Everyone', () => {
+    expect(previewRecipient({ audience: 'people', picked: [{ id: 'b1', label: 'Anjali Rao' }], backers })).toEqual({ name: 'Anjali', amount: 100, label: 'Anjali Rao' });
+    expect(previewRecipient({ audience: 'backers', backers }).name).toBe('Anjali');
+    expect(previewRecipient({ audience: 'everyone', self: { id: 'me', name: 'Itachi Uchiha' } })).toEqual({ name: 'Itachi', amount: undefined, label: 'you' });
+  });
+
+  it('fills {name} only from a display name, as the sender does: an @username gets "there"', () => {
+    expect(previewRecipient({ audience: 'people', picked: [{ id: 'k', label: '@kabir' }] }).name).toBeUndefined();
+    expect(previewRecipient({ audience: 'people', recipients: [{ id: 'k', username: 'kabir', status: 'sent' }] })).toEqual({ name: undefined, amount: undefined, label: '@kabir' });
   });
 });

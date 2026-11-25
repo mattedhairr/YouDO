@@ -1,0 +1,1 @@
+Admin Hub: an email's preview and a sent email's "See the email" now show exactly what a real person gets, with their own name and amount, never sample values.

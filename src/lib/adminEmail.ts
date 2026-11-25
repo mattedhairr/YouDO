@@ -244,3 +244,49 @@ export async function fetchSendDetail(id: string): Promise<EmailSendDetail> {
   if (error) throw new Error(failure(error, 'Could not open this email.'));
   return parseSendDetail(data);
 }
+
+/** The real person an email preview is shown as, with what the sender fills in for them. */
+export interface PreviewRecipient {
+  /** For {name}: their first name, as the sender reads it; none means the sender writes "there". */
+  name?: string;
+  /** For {amount}: their own approved total; none means the sender writes "support". */
+  amount?: number;
+  /** Who it is, for the line above the preview. */
+  label: string;
+}
+
+// The sender fills {name} from a display name only, never an @username.
+const first = (value?: string) => (value && !value.startsWith('@') && value !== 'No name yet' ? value.trim().split(/\s+/)[0] || undefined : undefined);
+
+/**
+ * A preview is the email as one real recipient gets it, never made-up values:
+ * the first picked person, the first backer for Backers, yourself for Everyone,
+ * or after sending, the first person it went to. A backer's amount is their
+ * own approved total, as the sender looks it up.
+ */
+export function previewRecipient(input: {
+  audience: EmailAudience;
+  picked?: { id: string; label: string }[];
+  recipients?: EmailRecipient[];
+  backers?: Backer[] | null;
+  self?: { id: string; name?: string };
+}): PreviewRecipient {
+  const amountFor = (id?: string) => (id ? input.backers?.find((b) => b.id === id)?.total || undefined : undefined);
+  const sent = input.recipients?.find((person) => person.status === 'sent') ?? input.recipients?.[0];
+  if (sent) return { name: first(sent.name), amount: amountFor(sent.id), label: sent.name ?? (sent.username ? `@${sent.username}` : 'the first person') };
+  const picked = input.audience === 'people' ? input.picked?.[0] : undefined;
+  if (picked) return { name: first(picked.label), amount: amountFor(picked.id), label: picked.label };
+  if (input.audience === 'backers') {
+    const backer = input.backers?.find((b) => b.confirmed && !b.stopped) ?? input.backers?.[0];
+    if (backer) return { name: first(backer.name), amount: backer.total || undefined, label: backer.name ?? `@${backer.username ?? 'a backer'}` };
+    return { label: 'a backer' };
+  }
+  return { name: first(input.self?.name), amount: amountFor(input.self?.id), label: 'you' };
+}
+
+/** Your own names, as the sender reads them: {name} from the display name; a Note signed with it (or your @username). */
+export async function fetchSelfName(id: string): Promise<{ name?: string; signer?: string }> {
+  const { data } = await supabase.from('profiles').select('display_name, username').eq('id', id).maybeSingle();
+  const row = record(data);
+  return { name: text(row.display_name), signer: text(row.display_name) ?? text(row.username) };
+}

@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookmarkPlus, ChevronDown, ChevronRight, Copy, Eye, EyeOff, Pause, Pencil, Search, Send, X } from 'lucide-react';
 import { can, fetchPeople, personLabel, type AdminRole } from '../../lib/adminHub';
 import {
-  createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSendDetail, fetchEmailReach, fetchTemplates, saveTemplate, sendNextEmails, sendStatus, sendTestEmail,
+  createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSelfName, fetchSendDetail, fetchEmailReach, fetchTemplates, previewRecipient, saveTemplate, sendNextEmails, sendStatus, sendTestEmail,
   type Backer, type EmailAudience, type EmailOverview, type EmailProgress, type EmailSendDetail, type EmailSendSummary, type EmailTemplate, type RecipientStatus,
 } from '../../lib/adminEmail';
 import { EMAIL_CODES, EMAIL_FIXED, aiTemplatePrompt } from '../../lib/emailHelp';
-import { EMAIL_KINDS, emailProblem, firstName, formatRupees, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
+import { EMAIL_KINDS, emailProblem, formatRupees, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
 
 /** How the Email page opens: from People (blank), a person's card, or Backers. */
@@ -125,22 +125,24 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const problem = emailProblem(draft.subject, draft.body)
     ?? (draft.audience === 'people' && !draft.people.length ? 'Pick at least one person.' : null)
     ?? (overview && count === 0 ? 'No one here can get email yet.' : null);
-  // The preview shows a real recipient where it can: the picked person, or for backers the first backer with their own amount.
+  // The preview is the email exactly as one real person gets it (previewRecipient): never made-up names or amounts.
   const wantBackers = preview && owner && (draft.kind === 'thanks' || draft.audience === 'backers');
   useEffect(() => {
     if (wantBackers && backers === null) fetchBackers().then(setBackers).catch(() => setBackers([]));
   }, [wantBackers, backers]);
-  const shown = useMemo(() => {
-    const picked = draft.audience === 'people' ? draft.people[0] : undefined;
-    const backer = draft.audience === 'backers'
-      ? (backers ?? []).find((b) => b.confirmed && !b.stopped) ?? backers?.[0]
-      : picked ? backers?.find((b) => b.id === picked.id) : undefined;
-    const name = backer ? firstName(backer.name ?? backer.username) : picked ? firstName(picked.label) : '';
-    return { name: name || 'Riya', amount: backer?.total || undefined, real: Boolean(name) };
-  }, [draft.audience, draft.people, backers]);
+  const [self, setSelf] = useState<{ name?: string; signer?: string } | null>(null);
+  useEffect(() => {
+    if (preview && self === null) fetchSelfName(selfId).then(setSelf).catch(() => setSelf({}));
+  }, [preview, self, selfId]);
+  const shown = useMemo(() => previewRecipient({
+    audience: draft.audience,
+    picked: draft.people,
+    backers,
+    self: { id: selfId, name: self?.name },
+  }), [draft.audience, draft.people, backers, selfId, self?.name]);
   const rendered = useMemo(() => (preview
-    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject yet)', body: draft.body, name: shown.name, amount: draft.kind === 'thanks' ? shown.amount ?? 300 : undefined, signer: 'You' })
-    : null), [preview, draft, shown]);
+    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject yet)', body: draft.body, name: shown.name, amount: draft.kind === 'thanks' ? shown.amount : undefined, signer: self?.signer })
+    : null), [preview, draft, shown, self?.signer]);
 
   const run = async (id: string, subject: string, total: number) => {
     stop.current = false;
@@ -319,9 +321,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
           </div>
           {rendered && (
             <div className="ah-mail-preview">
-              <p className="ah-note">{shown.real
-                ? `How ${shown.name} sees it in Gmail${draft.kind === 'thanks' && shown.amount ? ` (${formatRupees(shown.amount)})` : ''}. Everyone gets their own name${draft.kind === 'thanks' ? ' and amount' : ''}.`
-                : `How it looks in Gmail, with a sample name${draft.kind === 'thanks' ? ' and ₹300' : ''}. Everyone gets their own.`}</p>
+              <p className="ah-note">{`Exactly as ${shown.label} gets it${draft.kind === 'thanks' && shown.amount ? ` (${formatRupees(shown.amount)})` : ''}.${draft.audience === 'people' && draft.people.length === 1 ? '' : ` Everyone gets their own name${draft.kind === 'thanks' ? ' and amount' : ''}.`}`}</p>
               <iframe title="Email preview" sandbox="" srcDoc={rendered.html} />
             </div>
           )}
@@ -603,9 +603,16 @@ function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }:
 
   const count = (status: RecipientStatus) => detail?.recipients.filter((person) => person.status === status).length ?? 0;
   const people = detail?.recipients.filter((person) => filter === 'all' || person.status === filter) ?? [];
-  const rendered = useMemo(() => (detail && showEmail
-    ? renderEmail({ kind: detail.kind, subject: detail.subject, body: detail.body, name: 'Riya', amount: detail.kind === 'thanks' ? 300 : undefined, signer: detail.sentByName })
-    : null), [detail, showEmail]);
+  // Shown exactly as the first person got it: their own name and, for a thank-you, their own amount.
+  const [backers, setBackers] = useState<Backer[] | null>(null);
+  const needsAmount = Boolean(detail && showEmail && (detail.kind === 'thanks' || detail.audience === 'backers'));
+  useEffect(() => {
+    if (needsAmount && backers === null) fetchBackers().then(setBackers).catch(() => setBackers([]));
+  }, [needsAmount, backers]);
+  const shownAs = useMemo(() => (detail ? previewRecipient({ audience: detail.audience, recipients: detail.recipients, backers }) : null), [detail, backers]);
+  const rendered = useMemo(() => (detail && showEmail && shownAs
+    ? renderEmail({ kind: detail.kind, subject: detail.subject, body: detail.body, name: shownAs.name, amount: detail.kind === 'thanks' ? shownAs.amount : undefined, signer: detail.sentByName })
+    : null), [detail, showEmail, shownAs]);
 
   return (
     <div className="ah-page">
@@ -631,7 +638,12 @@ function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }:
               </div>
               {running && <p className="ah-note mt-2">Sending now · {sendStatus(running, true)}</p>}
               {!running && count('waiting') > 0 && !canSendRest && restNote && <p className="ah-note mt-2">{restNote}</p>}
-              {rendered && <div className="ah-mail-preview"><iframe title="The email that was sent" sandbox="" srcDoc={rendered.html} /></div>}
+              {rendered && shownAs && (
+                <div className="ah-mail-preview">
+                  <p className="ah-note">{`Exactly as ${shownAs.label} got it${detail.kind === 'thanks' && shownAs.amount ? ` (${formatRupees(shownAs.amount)})` : ''}.${detail.recipients.length > 1 ? ` Everyone got their own name${detail.kind === 'thanks' ? ' and amount' : ''}.` : ''}`}</p>
+                  <iframe title="The email that was sent" sandbox="" srcDoc={rendered.html} />
+                </div>
+              )}
             </div>
           </section>
 
