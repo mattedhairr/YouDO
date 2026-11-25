@@ -105,15 +105,8 @@ export function useHubAttention(userId: string | undefined, publicBoardOptedIn =
     };
     window.addEventListener('youdo-community-read', onCommunityRead);
 
-    // Also poll community unread on a 60s interval and on app foreground so the
-    // nav-tab dot stays accurate even when BoardView hasn't been opened yet.
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible' && publicBoardOptedIn) void refreshCommunity();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    const communityPollTimer = publicBoardOptedIn
-      ? window.setInterval(() => { void refreshCommunity(); }, 60_000)
-      : undefined;
+    // Community unread has no realtime: the fallback sync above re-checks it with
+    // everything else once a minute and whenever the app comes back to the front.
 
     const onPrivateSync = (e: Event) => {
       const reason = (e as CustomEvent<{ reason?: PrivateHubSyncReason }>).detail?.reason ?? 'all';
@@ -127,8 +120,6 @@ export function useHubAttention(userId: string | undefined, publicBoardOptedIn =
       stopRealtime();
       stopPoll();
       window.removeEventListener('youdo-community-read', onCommunityRead);
-      document.removeEventListener('visibilitychange', onVisibility);
-      if (communityPollTimer !== undefined) window.clearInterval(communityPollTimer);
       window.removeEventListener(PRIVATE_HUB_SYNC_EVENT, onPrivateSync);
     };
   }, [userId, publicBoardOptedIn, refreshAll, refreshCommunity, refreshPrivate, refreshDmInbox, refreshSquadChat]);

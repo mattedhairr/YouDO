@@ -17,9 +17,11 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
-## [v9.0.2] - 2026-11-25 - True Previews
+## [v9.0.2] - 2026-11-25 - True Previews, Lighter on the Server
 
 - **Email previews show the real email** — In the Admin Hub, an email's preview and a sent email's "See the email" now show exactly what a real person gets: their own name and amount, and your name on a note, never sample values.
+- **Lighter on the server** — The Hub no longer re-checks everything every few seconds: new DMs, friend requests and room messages still arrive the moment they happen, and the rest is checked once a minute and whenever you come back to the app.
+- **Community chat stays live** — While a conversation is going, or while you type, new messages show within about 2½ seconds; in a quiet room, within 6.
 - **Android APK** — versionName **9.0.2**, versionCode **103**. Installs over v9.0.1 (102).
 
 ---

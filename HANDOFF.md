@@ -1,6 +1,6 @@
 # Where We Left Off
 
-Last updated **2026-11-25**, just after releasing **v9.0.2** (versionCode 103: email previews show a real recipient, `previewRecipient` in `src/lib/adminEmail.ts`, never the old sample "Riya" / ₹300), after **v9.0.1** (versionCode 102: the rainbow removed, the 10-scenes screenshot retaken without it), both the same day as **v9.0.0** (versionCode 101, "Your Place, Your Colour"; pull request #95, merge commit 6a48e9c). Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-25**, just after releasing **v9.0.2** (versionCode 103: email previews show a real recipient, `previewRecipient` in `src/lib/adminEmail.ts`, never the old sample "Riya" / ₹300; and far fewer server requests: the Hub's own check went from every 3.5 s to once a minute, with a catch-up when realtime rejoins and when the app returns, and community chat polls 2.5 s while busy or typing, easing to 6 s when quiet, `src/lib/chatPolling.ts`. Supabase's log ingestion had reached 1.24 of 1 GB this cycle, mostly from that polling and this session's testing; it is not counted until a grace period ends in early 2027), after **v9.0.1** (versionCode 102: the rainbow removed, the 10-scenes screenshot retaken without it), both the same day as **v9.0.0** (versionCode 101, "Your Place, Your Colour"; pull request #95, merge commit 6a48e9c). Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
@@ -143,7 +143,7 @@ Released 2026-11-25 from pull request #95 (merge 6a48e9c, tag v9.0.0). The first
 
 ## Current state
 
-- **Latest release:** v9.0.2, versionCode 103 (released 2026-11-25): real-recipient email previews, no server change. Before it: v9.0.1, versionCode 102: only removes the rainbow, no server change. Before it: v9.0.0, versionCode 101 (released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
+- **Latest release:** v9.0.2, versionCode 103 (released 2026-11-25): real-recipient email previews and far fewer server requests, no server change. Before it: v9.0.1, versionCode 102: only removes the rainbow, no server change. Before it: v9.0.0, versionCode 101 (released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
