@@ -1,12 +1,12 @@
 # Where We Left Off
 
-Last updated **2026-11-24**, while building **the next release (v9.0.0)** on the branch `release-v9.0.0`. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
+Last updated **2026-11-25**, while releasing **v9.0.0** (versionCode 101, "Your Place, Your Colour") from the branch `release-v9.0.0`. Read this file first when coming back, then [AGENTS.md](AGENTS.md) (how we work) and [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md) (how we ship).
 
 ---
 
-## In progress: the next release (v9.0.0), branch `release-v9.0.0`
+## v9.0.0 (versionCode 101): what it contains
 
-Committed on the branch, not pushed or merged. The owner has more to add before releasing. The owner approved working from the mocks in `docs/mocks/v9-admin-and-tour.html` (rendered: `docs/mocks/v9-mocks.png`; local only, `docs/mocks/` is never committed), and asked that the plan be reviewed and built without waiting.
+Version, CHANGELOG, store text (changelog 101), README and screenshots are updated on the branch. Left for the owner: the pull request into `main`, the tag, the signed APK and the GitHub Release (steps 5–10 of RELEASE_PROCEDURE.md), then Orion's screenshot addresses pinned to the v9.0.0 commit (new order: 01 Today, 10 Scenes, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance; Summit is gone). The mocks in `docs/mocks/` stay local and are never committed.
 
 **1. A new Admin Hub, with one owner and many admins** (`src/components/AdminHubSheet.tsx`, `src/components/admin/`, `src/lib/adminHub.ts`, `supabase/admin_hub.sql`).
 - Five tabs:
@@ -85,7 +85,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Your photo:** Settings → Appearance → Scene and colour → Your photo picks a photo (or uses the header photo), then suggests five colours found in it (k-means on the phone, `photoColors`), or a tap anywhere on the photo takes that spot. It becomes a soft dark-mode tone and a deeper light-mode one (`accentFromColor`), set as inline `--primary` / `--accent-tick` on <html>; widgets and notification icons follow it (`storedAccentSwatch`). Choosing a scene card switches a photo header back to the scene. The photo, its colour, its placement (Horizontal, Vertical, Opacity), Change and Remove all live in Your photo; under the cards (while a scene is the header) are "Sunrise and sunset for" (the sky location) and the weather button. The old Header background card is gone.
 - **The header has no planet any more:** its night sky is only the stars you earned and the constellation. The planet of the day stays on the ambient screen, and on Sundays there it shows nothing (no Sun in a night sky).
 - Tested: unit tests for the scenes (land stays under the words, deterministic, the fields' sunset on the horizon), accents (retired ones, custom, photo colours); the headers rendered from sunrise to night, cloudy and light mode, and the picker with a made-up photo in the browser. **Not on a phone yet.**
-- **Screenshots** (README, store, Orion) still show the old sky: retake them with made-up data before the release.
+- **Screenshots** retaken with made-up data for the release (01, 03, 04, 05, 09 and the new 10-scenes); 02, 06, 07, 08 and 11 are unchanged.
 
 **9. Email from the Admin Hub, Owner → Backers, and a clearer tour** (mocked and chosen by the owner: `docs/mocks/v9-email-backers-tour.png`).
 - **Email** (People tab → Email, a person's card → Email, Backers → Thank): `src/components/admin/AdminEmail.tsx`, `src/lib/adminEmail.ts`, `supabase/admin_email.sql`, edge functions `admin-email` and `email-stop`. To: Everyone, Backers (owner) or picked people (up to 50); kinds: News (big title), Thank you (owner; gold Founding Backer seal, `{amount}`), Note (signed with the sender's name). `{name}` is the first name; a blank line is a paragraph, a link on its own line a button, `**bold**`. Preview (the real template, `supabase/functions/_shared/emailTemplate.ts`, shared by the app and the sender), Send me a test, then a confirm step. It sends about one a second while the screen is open; Pause or closing it leaves the rest, and the Sent list has **Send the rest**. Limit 450 a day (`email_daily_limit`), shared by everyone. Admins never see addresses (the function reads them with the service key). Each send is in the activity log. Every email ends with **Stop these emails** (`email-stop.html` on the website, plus Gmail's one-click unsubscribe); it drops anything still waiting for that person and can be undone on the same page. Never banned people, unconfirmed addresses or people who stopped emails (a banned person picked by hand can get a note).
@@ -108,7 +108,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 9. **Done 2026-11-24 (the owner):** `owner-delete-accounts` and `delete-account` redeployed (ticked deletes and photo removal). Checked: both answer 401 without a sign-in.
 10. **Done 2026-11-24:** `owner_growth_report` from `admin_hub.sql` (the only part that changed: weeks of 7 days ending today, India time, with deleted accounts counted in their sign-up week, plus a `deleted` count per week). Checked: one copy, security definer, closed to signed-out visitors; a dry run as the owner returns 12 weeks (the last starting 6 days ago, each with `deleted`) and 30 days.
 
-**Still to do on the server for item 9, one step at a time:**
+**Server steps for item 9 (all done 2026-11-25):**
 11. The owner: on `team.youdo.app@gmail.com`, turn on 2-Step Verification, make an app password, and add the Supabase secrets `YOUDO_MAIL_USER` (that address) and `YOUDO_MAIL_APP_PASSWORD`. Optional: `EMAIL_LINK_SECRET` (any long random text) for the stop links; without it they use the service key.
 12. **Done 2026-11-25:** `admin_email.sql`. Checked: the three tables have RLS and no access for the app; signed-out visitors can call none of the functions; signed-in people only the six Admin Hub ones (each checks for staff itself); the batch, mark, stop, audience and totals functions only with the service key. (Step 11 done too: both secrets saved.)
 13. **Done 2026-11-25:** `admin-email` and `email-stop` deployed (`npx.cmd supabase functions deploy <name> --remote=iyrnywfaxakvjkmddmqv --use-api --yes`; `email-stop` with `--no-verify-jwt`). Checked: `admin-email` answers 401 without a sign-in; `email-stop` refuses a made-up link (400) and accepts the website's preflight.
@@ -143,7 +143,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 
 ## Current state
 
-- **Latest release:** v8.9.0, versionCode 100 (released 2026-11-21). Before it: v8.8.0, versionCode 99, released 2026-11-20.
+- **Latest release:** v9.0.0, versionCode 101 (being released 2026-11-25). Before it: v8.9.0, versionCode 100, released 2026-11-21.
   - It is on GitHub Releases with `YouDO.apk`.
   - The website https://youdo-app.vercel.app deploys from `main`.
 - **Git:** only the `main` branch should remain once `fixes` is merged and deleted.
@@ -155,7 +155,8 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
   - v8.3.5, v8.4.0, v8.5.0, v8.5.1 and v8.5.2 had no server changes;
   - v8.5.3 changed `hub_focus_status.sql` and `hub_widget_push.sql`, both run in production on 2026-11-12 before the release (the owner reported success);
   - v8.5.4, v8.5.5, v8.6.0, v8.7.0 and v8.8.0 had no server changes;
-  - v8.9.0 added `community_push.sql`, run in production on 2026-11-21 before the release (checked: the four `push_preferences` columns with their defaults and the three triggers exist).
+  - v8.9.0 added `community_push.sql`, run in production on 2026-11-21 before the release (checked: the four `push_preferences` columns with their defaults and the three triggers exist);
+  - v9.0.0 added `admin_hub.sql`, `backer_push.sql`, `profile_photos.sql`, `community_room_members.sql`, `admin_email.sql` and the functions `owner-delete-accounts`, `admin-email` and `email-stop` (redeployed `delete-account`), all applied and checked 2026-11-24/25 before the release (see the server steps under v9.0.0).
 - **What v8.3.2 contained:** Admin Hub → Controls → Support settings (UPI ID, QR code on/off, badge claims on/off, Support on/off). The QR is drawn from the UPI ID.
 - **What v8.3.1 contained:**
   - widgets that move on to a new day without the app;
