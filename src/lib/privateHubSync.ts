@@ -144,7 +144,18 @@ export function subscribePrivateHubRealtime(userId: string, handlers: HubSyncHan
       },
     );
 
-  channel.subscribe();
+  // After a dropped connection rejoins, catch up on anything missed while it was down.
+  let joined = false;
+  channel.subscribe((status) => {
+    if (status !== 'SUBSCRIBED') return;
+    if (joined) {
+      pending();
+      friends();
+      dms();
+      squads();
+    }
+    joined = true;
+  });
 
   return () => {
     void supabase.removeChannel(channel);
@@ -195,8 +206,17 @@ export function subscribePrivateHubInbox(
   };
 }
 
+/**
+ * How often the open app re-checks the Hub by itself. Realtime brings friend
+ * requests, DMs and room changes as they happen, and the app re-checks when it
+ * comes back to the front or realtime reconnects, so this is only a safety net.
+ * It was 3.5 s: about 8 requests each time from every open app, which filled
+ * the server's logs.
+ */
+export const HUB_FALLBACK_SYNC_MS = 60_000;
+
 /** Fallback while app is open — WebSocket can lag on mobile or if Realtime isn't enabled in Supabase. */
-export function startPrivateHubForegroundSync(onTick: () => void, intervalMs = 3_500): () => void {
+export function startPrivateHubForegroundSync(onTick: () => void, intervalMs = HUB_FALLBACK_SYNC_MS): () => void {
   const tick = () => {
     if (document.visibilityState === 'visible') onTick();
   };

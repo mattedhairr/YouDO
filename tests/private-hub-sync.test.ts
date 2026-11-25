@@ -3,6 +3,7 @@ import {
   subscribePrivateHubInbox,
   subscribePrivateHubRealtime,
   startPrivateHubForegroundSync,
+  HUB_FALLBACK_SYNC_MS,
   PRIVATE_HUB_SYNC_EVENT,
 } from '../src/lib/privateHubSync';
 import { supabase } from '../src/lib/supabase';
@@ -100,7 +101,29 @@ describe('privateHubSync', () => {
     expect(removeChannelSpy).toHaveBeenCalledWith(mockChannel);
   });
 
-  it('startPrivateHubForegroundSync uses 3500ms interval and responds to visibility', () => {
+  it('subscribePrivateHubRealtime catches up after a dropped connection rejoins, not on the first join', () => {
+    let onStatus: (status: string) => void = () => {};
+    const mockChannel = {
+      on: vi.fn(() => mockChannel),
+      subscribe: vi.fn((cb: (status: string) => void) => { onStatus = cb; return mockChannel; }),
+    };
+    vi.spyOn(supabase, 'channel').mockReturnValue(mockChannel as unknown as ReturnType<typeof supabase.channel>);
+    vi.spyOn(supabase, 'removeChannel').mockResolvedValue('ok' as unknown as ReturnType<typeof supabase.removeChannel>);
+    vi.stubGlobal('window', { dispatchEvent: vi.fn() });
+    const onPending = vi.fn(); const onDms = vi.fn(); const onSquads = vi.fn(); const onFriends = vi.fn();
+    const unsubscribe = subscribePrivateHubRealtime(userId, { onPending, onDms, onSquads, onFriends });
+    onStatus('SUBSCRIBED');
+    expect(onPending).not.toHaveBeenCalled(); // the app loads everything on start anyway
+    onStatus('CHANNEL_ERROR');
+    onStatus('SUBSCRIBED');
+    expect(onPending).toHaveBeenCalledTimes(1);
+    expect(onDms).toHaveBeenCalledTimes(1);
+    expect(onSquads).toHaveBeenCalledTimes(1);
+    expect(onFriends).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it('startPrivateHubForegroundSync is a one-minute safety net (realtime does the rest) and responds to visibility', () => {
     vi.useFakeTimers();
     const tick = vi.fn();
     
@@ -122,16 +145,19 @@ describe('privateHubSync', () => {
     // Initial immediate tick
     expect(tick).toHaveBeenCalledTimes(1);
 
-    // Fast-forward 3500ms
-    vi.advanceTimersByTime(3500);
+    expect(HUB_FALLBACK_SYNC_MS).toBe(60_000);
+    // Nothing more for most of a minute (it used to fire every 3.5 s).
+    vi.advanceTimersByTime(HUB_FALLBACK_SYNC_MS - 1);
+    expect(tick).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
     expect(tick).toHaveBeenCalledTimes(2);
 
-    vi.advanceTimersByTime(3500);
+    vi.advanceTimersByTime(HUB_FALLBACK_SYNC_MS);
     expect(tick).toHaveBeenCalledTimes(3);
 
     // Cleanup
     stop();
-    vi.advanceTimersByTime(7000);
+    vi.advanceTimersByTime(HUB_FALLBACK_SYNC_MS * 2);
     expect(tick).toHaveBeenCalledTimes(3);
 
     vi.useRealTimers();

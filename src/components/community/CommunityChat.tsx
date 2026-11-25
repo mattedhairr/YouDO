@@ -23,6 +23,7 @@ import { useStore } from '../../store';
 import { fetchAvatarFacts, type AvatarFact } from '../../lib/avatarFacts';
 import { avatarKind, ProfileAvatarVisual } from '../../lib/profileAvatar';
 import { chatDayLabels, chatRuns, nameTone } from '../../lib/chatRuns';
+import { CHAT_POLL_MIN_MS, nextChatPollMs } from '../../lib/chatPolling';
 
 interface Props {
   userId: string; context: CommunityContext; names: Map<string,string>; onProfile?: (id: string) => void; onOpenBoardSettings: () => void;
@@ -152,6 +153,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
   const acknowledged = useRef(new Set<string>());
   const updateReading = useRef(false);
   const messagesRef = useRef(messages); messagesRef.current=messages;
+  const wakePoll = useRef<() => void>(() => {});
   const olderRef=useRef(hasOlder); olderRef.current=hasOlder;
   const restoreAnchor=useRef<{id:string;offset:number;top:number}|null>(null);
   const loadedCount=useRef(Math.max(CHAT_PAGE_SIZE,initial.messages.filter(m=>m.delivery==='sent').length));
@@ -190,8 +192,8 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     return()=>observer.disconnect();
   },[]);
 
-  const refresh=useCallback(async()=>{
-    if(fetching.current || !context.canJoin)return;
+  const refresh=useCallback(async():Promise<boolean>=>{
+    if(fetching.current || !context.canJoin)return false;
     const version=refreshVersion.current;
     fetching.current=true;
     try {
@@ -203,13 +205,15 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
         fresh.push(...page);full=page.length===CHAT_PAGE_SIZE;
         if(!full)break;before=page[page.length-1]?.sequence;
       }
-      if(!mounted.current||version!==refreshVersion.current)return;
+      if(!mounted.current||version!==refreshVersion.current)return false;
       capturePosition();
-      if(!follow.current && fresh.some(m=>!messagesRef.current.some(old=>old.id===m.id)))setNewBelow(true);
+      const foundNew=fresh.some(m=>!messagesRef.current.some(old=>old.id===m.id));
+      if(!follow.current && foundNew)setNewBelow(true);
       // Refresh the entire loaded window, so removals and bans leave no ghosts.
       setMessages(current=>mergeChatPage(current.filter(m=>m.delivery!=='sent'),fresh));
       setHasOlder(full && fresh.length<CHAT_HISTORY_LIMIT);setError('');
-    } catch(e){if(mounted.current&&version===refreshVersion.current)setError(e instanceof Error?e.message:'Could not refresh chat.');}
+      return foundNew;
+    } catch(e){if(mounted.current&&version===refreshVersion.current)setError(e instanceof Error?e.message:'Could not refresh chat.');return false;}
     finally{if(version===refreshVersion.current){fetching.current=false;if(mounted.current)setLoading(false);}}
   },[capturePosition,context.canJoin,selectedHashtag]);
   useEffect(()=>{
@@ -219,13 +223,21 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     setMessages(saved.messages);setHasOlder(saved.hasOlder);setLoading(saved.messages.length===0);
     scrollPosition.current=saved.scrollTop;follow.current=saved.scrollTop==null;loadedCount.current=Math.max(CHAT_PAGE_SIZE,saved.messages.filter(m=>m.delivery==='sent').length);
     acknowledged.current.clear();setNewBelow(false);setError('');setDraft('');setReply(null);setEditing(null);setSelected(null);setActionBusy(false);void refresh();void dismissCommunityNotification();
-    const onVisible=()=>{if(document.visibilityState==='visible'){void refresh();void dismissCommunityNotification();}};
-    const timer=window.setInterval(onVisible,2_000);
+    // No realtime here: check quickly while the room is busy, easing off while it is quiet (chatPolling.ts).
+    let delay=CHAT_POLL_MIN_MS;let timer:number|undefined;let stopped=false;
+    const schedule=()=>{if(timer)clearTimeout(timer);if(!stopped)timer=window.setTimeout(check,delay);};
+    const check=async()=>{
+      if(document.visibilityState==='visible'){const foundNew=await refresh();delay=nextChatPollMs(delay,foundNew);}
+      schedule();
+    };
+    wakePoll.current=()=>{delay=CHAT_POLL_MIN_MS;schedule();};
+    schedule();
+    const onVisible=()=>{if(document.visibilityState==='visible'){void refresh();void dismissCommunityNotification();wakePoll.current();}};
     document.addEventListener('visibilitychange',onVisible);window.addEventListener('online',onVisible);
     window.addEventListener('youdo-community-refresh-chat', refresh);
     const generation=cacheLease.current;
     return()=>{
-      mounted.current=false;clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);window.removeEventListener('online',onVisible);
+      mounted.current=false;stopped=true;if(timer)clearTimeout(timer);wakePoll.current=()=>{};document.removeEventListener('visibilitychange',onVisible);window.removeEventListener('online',onVisible);
       window.removeEventListener('youdo-community-refresh-chat', refresh);
       saveChatCache(userId,{messages:messagesRef.current,scrollTop:scrollPosition.current,hasOlder:olderRef.current},generation,roomScope);
     };
@@ -265,7 +277,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     setMessages(current=>current.map(m=>m.id===message.id?{...m,delivery:'pending',error:undefined}:m));
     try{
       const sent=await sendChatMessage(message);
-      if(mounted.current&&currentScope.current===scope){capturePosition();setMessages(current=>mergeChatPage(current,[sent]));}
+      if(mounted.current&&currentScope.current===scope){capturePosition();setMessages(current=>mergeChatPage(current,[sent]));wakePoll.current();}
     }catch(e){if(mounted.current&&currentScope.current===scope)setMessages(current=>current.map(m=>m.id===message.id?{...m,delivery:'failed',error:e instanceof Error?e.message:'Could not send.'}:m));}
     finally{inFlight.current.delete(message.id);}
   };
