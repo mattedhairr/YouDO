@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { skyColors } from './headerSky';
 import { SCENES } from './headerScenes';
 import { sunDay } from './sunPath';
-import { cloudField, cloudTones, loadDayWeather, nextWeather, rainbowStrength, saveDayWeather, weatherColors, weatherLook } from './weather';
+import { cloudField, cloudTones, loadDayWeather, nextWeather, saveDayWeather, weatherColors, weatherLook } from './weather';
 
 const DAY = sunDay('2026-11-20', 28.61, 77.21, 5.5);
 const brightness = (c: string) => {
@@ -128,30 +128,5 @@ describe('the day’s weather', () => {
     expect(loadDayWeather('2026-11-25', 'rainy')).toBe('cloudy');
     // A new day goes back to the scene's own.
     expect(loadDayWeather('2026-11-26', 'rainy')).toBe('rainy');
-  });
-});
-
-describe('the rainbow', () => {
-  it('comes on about one rainy day in three, never on cloudy or clear days, the same all day', () => {
-    let rainbows = 0;
-    for (let d = 0; d < 360; d++) {
-      const key = new Date(Date.UTC(2026, 0, 1 + d)).toISOString().slice(0, 10);
-      if (weatherLook(key, 'rainy').rainbow) rainbows++;
-      expect(weatherLook(key, 'cloudy').rainbow).toBeNull();
-      expect(weatherLook(key, 'clear').rainbow).toBeNull();
-      expect(weatherLook(key, 'rainy')).toEqual(weatherLook(key, 'rainy'));
-    }
-    expect(rainbows).toBeGreaterThan(90);
-    expect(rainbows).toBeLessThan(150);
-  });
-
-  it('shows only while the sun is up and low: mornings and late afternoons', () => {
-    expect(rainbowStrength(true, 20, 0)).toBe(1);
-    expect(rainbowStrength(true, 45, 0)).toBe(0); // noon
-    expect(rainbowStrength(true, 1, 0)).toBe(0); // the sun on the horizon
-    expect(rainbowStrength(false, 20, 0)).toBe(0);
-    expect(rainbowStrength(true, 20, 0.6)).toBe(0); // night
-    expect(rainbowStrength(true, 34, 0)).toBeGreaterThan(0);
-    expect(rainbowStrength(true, 34, 0)).toBeLessThan(1); // easing out as the sun climbs
   });
 });

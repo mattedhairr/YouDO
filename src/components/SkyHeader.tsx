@@ -30,7 +30,7 @@ import { SCENES, sceneForAccent, sceneLand, type SceneId } from '../lib/headerSc
 import { SCENE_ART } from './sceneArt';
 import type { GoalNode } from '../types';
 import { deviceTimeZone, formatClock, isIndiaTimeZone, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACE_EVENT, SKY_PLACES, skyInviteDone, sunDayForPlace } from '../lib/skyPlaces';
-import { loadDayWeather, nextWeather, rainbowStrength, saveDayWeather, SKY_WEATHER_EVENT, weatherButtonEnabled, weatherColors, weatherLook, type Weather } from '../lib/weather';
+import { loadDayWeather, nextWeather, saveDayWeather, SKY_WEATHER_EVENT, weatherButtonEnabled, weatherColors, type Weather } from '../lib/weather';
 import Overlay from './Overlay';
 import SkyWeather from './SkyWeather';
 import { sunAltitude, type SunDay } from '../lib/sunPath';
@@ -265,12 +265,8 @@ function SunLens({ x, y, intensity, warm, flare, width, height }: {
   );
 }
 
-const RAINBOW = ['#7d6bc4', '#5c86d8', '#5bb8c9', '#7cc78a', '#e2d576', '#efa868', '#e07468'];
-
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, land, place, sunPathD, quoteShade, flareLevel, palettes, rainbow }: {
-  /** Some rainy days' rainbow, behind the land: its centre, radius and how much shows (0–1). */
-  rainbow?: { cx: number; cy: number; r: number; strength: number } | null;
+function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, land, place, sunPathD, quoteShade, flareLevel, palettes }: {
   /** A scene's five skies and the light on its land (headerScenes.ts). */
   palettes: SkyPalettes;
   /** The scene's land: its picture and where it sits (sceneLand()). */
@@ -331,19 +327,6 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
         <SoftGlow id="sky-starbloom" color={(a) => `rgba(220,230,255,${a})`} peak={0.5} sigma={0.45} />
         <linearGradient id="sky-textshade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="rgba(0,0,0,.32)" /><stop offset=".5" stopColor="rgba(0,0,0,0)" /></linearGradient>
         <linearGradient id="sky-quoteshade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="rgba(4,14,26,0)" /><stop offset=".45" stopColor="rgba(4,14,26,.22)" /><stop offset="1" stopColor="rgba(4,12,22,.4)" /></linearGradient>
-        {rainbow && (
-          <>
-            {/* Clearest across the middle; its ends fade into the rain before they reach the ground. */}
-            <linearGradient id="sky-bow-along" x1="0" y1="0" x2="1" y2="0">
-              {[[0, 0], [0.22, 0.35], [0.4, 0.9], [0.5, 1], [0.6, 0.9], [0.78, 0.35], [1, 0]].map(([o, a]) => <stop key={o} offset={o} stopColor="#fff" stopOpacity={a} />)}
-            </linearGradient>
-            <linearGradient id="sky-bow-down" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0.45" stopColor="#fff" /><stop offset="0.72" stopColor="#777" /><stop offset="0.95" stopColor="#000" />
-            </linearGradient>
-            <mask id="sky-bow-along-mask"><rect x={rainbow.cx - rainbow.r - 20} y={top} width={2 * rainbow.r + 40} height={height - top} fill="url(#sky-bow-along)" /></mask>
-            <mask id="sky-bow-mask"><g mask="url(#sky-bow-along-mask)"><rect x={rainbow.cx - rainbow.r - 20} y={rainbow.cy - rainbow.r} width={2 * rainbow.r + 40} height={rainbow.r + 30} fill="url(#sky-bow-down)" /></g></mask>
-          </>
-        )}
         <filter id="sky-landlight" colorInterpolationFilters="sRGB" x="0" y="0" width="100%" height="100%">
           <feColorMatrix type="matrix" values={`${lr} 0 0 0 0  0 ${lg} 0 0 0  0 0 ${lb} 0 0  0 0 0 1 0`} />
         </filter>
@@ -371,15 +354,6 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
         </g>
       )}
       {sunPathD && <path d={sunPathD} className="sky-sunpath" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth={1.3} strokeDasharray="0.5 5" strokeLinecap="round" />}
-      {rainbow && rainbow.strength > 0.01 && (
-        <g mask="url(#sky-bow-mask)">
-          {/* The sky is a touch lighter inside a rainbow. */}
-          <circle cx={rainbow.cx} cy={rainbow.cy} r={rainbow.r - 2} fill="#fff" opacity={0.07 * rainbow.strength} />
-          <g opacity={0.55 * rainbow.strength} fill="none">
-            {RAINBOW.map((c, i) => <circle key={c} cx={rainbow.cx} cy={rainbow.cy} r={rainbow.r + i * 2.4} stroke={c} strokeWidth={4.2} strokeOpacity={0.6} />)}
-          </g>
-        </g>
-      )}
       <image href={land.src} x={land.x} y={land.y} width={land.w} height={land.h} preserveAspectRatio="none" filter="url(#sky-landlight)" />
       {sun.visible && lens > 0.005 && <SunLens x={sunX} y={sunY} intensity={lens} warm={1 - sun.elevation} flare={flare} width={width} height={height} />}
       {quoteShade && <rect x="0" y={height - 92} width={width} height={92} fill="url(#sky-quoteshade)" />}
@@ -582,13 +556,6 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const place = useMemo(() => sunPlacement(width, sceneHour, day, track), [width, sceneHour, day, track]);
   const sunNow = useMemo(() => sunPlacement(width, hour, day, track), [width, hour, day, track]);
   const sunPath = useMemo(() => sunPathFor(width, day, ridges, track), [width, day, ridges, track]);
-  // About one rainy day in three has a rainbow (weatherLook), showing while the sun is low: mornings and late afternoons.
-  const bowLook = useMemo(() => (weather === 'rainy' && !photo ? weatherLook(dateKey, weather).rainbow : null), [dateKey, weather, photo]);
-  const bow = bowLook ? (() => {
-    const r = width * bowLook.radius;
-    const top = today ? 112 : 92;
-    return { cx: width * bowLook.centre, cy: top + r, r, strength: rainbowStrength(place.state.visible, sunAltitude(day, sceneHour), sceneNight) };
-  })() : null;
   const sunTappable = !photo && weather !== 'rainy' && sunNow.state.visible && replayHour === null;
   const daylightLeft = Math.max(0, day.sunset - hour);
   const playDay = () => {
@@ -639,7 +606,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ) : (
       <>
         <div className="sky-art-wrap" style={{ height: height + OFFSET }}>
-          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} land={{ src: SCENE_ART[sceneId], x: land.x, y: land.y, w: land.w, h: land.h }} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} flareLevel={lensFlare(sceneHour, day)} palettes={palettes} rainbow={bow} />
+          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} land={{ src: SCENE_ART[sceneId], x: land.x, y: land.y, w: land.w, h: land.h }} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} flareLevel={lensFlare(sceneHour, day)} palettes={palettes} />
           <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} />
         </div>
       </>
