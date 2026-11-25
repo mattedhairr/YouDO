@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookmarkPlus, ChevronDown, ChevronRight, Copy, Eye, EyeOff, Pause, Pencil, Search, Send, X } from 'lucide-react';
 import { can, fetchPeople, personLabel, type AdminRole } from '../../lib/adminHub';
 import {
-  createEmailSend, deleteTemplate, fetchEmailOverview, fetchSendDetail, fetchEmailReach, fetchTemplates, saveTemplate, sendNextEmails, sendStatus, sendTestEmail,
-  type EmailAudience, type EmailOverview, type EmailProgress, type EmailSendDetail, type EmailSendSummary, type EmailTemplate, type RecipientStatus,
+  createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSendDetail, fetchEmailReach, fetchTemplates, saveTemplate, sendNextEmails, sendStatus, sendTestEmail,
+  type Backer, type EmailAudience, type EmailOverview, type EmailProgress, type EmailSendDetail, type EmailSendSummary, type EmailTemplate, type RecipientStatus,
 } from '../../lib/adminEmail';
 import { EMAIL_CODES, EMAIL_FIXED, aiTemplatePrompt } from '../../lib/emailHelp';
-import { EMAIL_KINDS, emailProblem, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
+import { EMAIL_KINDS, emailProblem, firstName, formatRupees, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
 
 /** How the Email page opens: from People (blank), a person's card, or Backers. */
@@ -71,6 +71,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const [naming, setNaming] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
   const [openSend, setOpenSend] = useState<string | null>(null);
+  const [backers, setBackers] = useState<Backer[] | null>(null);
   const [allSends, setAllSends] = useState(false);
   const stop = useRef(false);
   const alive = useRef(true);
@@ -124,10 +125,22 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const problem = emailProblem(draft.subject, draft.body)
     ?? (draft.audience === 'people' && !draft.people.length ? 'Pick at least one person.' : null)
     ?? (overview && count === 0 ? 'No one here can get email yet.' : null);
-  const sample = draft.audience === 'people' && draft.people[0] ? draft.people[0].label.replace(/^@/, '').split(/\s+/)[0] : 'Riya';
+  // The preview shows a real recipient where it can: the picked person, or for backers the first backer with their own amount.
+  const wantBackers = preview && owner && (draft.kind === 'thanks' || draft.audience === 'backers');
+  useEffect(() => {
+    if (wantBackers && backers === null) fetchBackers().then(setBackers).catch(() => setBackers([]));
+  }, [wantBackers, backers]);
+  const shown = useMemo(() => {
+    const picked = draft.audience === 'people' ? draft.people[0] : undefined;
+    const backer = draft.audience === 'backers'
+      ? (backers ?? []).find((b) => b.confirmed && !b.stopped) ?? backers?.[0]
+      : picked ? backers?.find((b) => b.id === picked.id) : undefined;
+    const name = backer ? firstName(backer.name ?? backer.username) : picked ? firstName(picked.label) : '';
+    return { name: name || 'Riya', amount: backer?.total || undefined, real: Boolean(name) };
+  }, [draft.audience, draft.people, backers]);
   const rendered = useMemo(() => (preview
-    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject yet)', body: draft.body, name: sample, amount: draft.kind === 'thanks' ? 300 : undefined, signer: 'You' })
-    : null), [preview, draft, sample]);
+    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject yet)', body: draft.body, name: shown.name, amount: draft.kind === 'thanks' ? shown.amount ?? 300 : undefined, signer: 'You' })
+    : null), [preview, draft, shown]);
 
   const run = async (id: string, subject: string, total: number) => {
     stop.current = false;
@@ -306,7 +319,9 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
           </div>
           {rendered && (
             <div className="ah-mail-preview">
-              <p className="ah-note">How it looks in Gmail, with a sample name{draft.kind === 'thanks' ? ' and ₹300' : ''}.</p>
+              <p className="ah-note">{shown.real
+                ? `How ${shown.name} sees it in Gmail${draft.kind === 'thanks' && shown.amount ? ` (${formatRupees(shown.amount)})` : ''}. Everyone gets their own name${draft.kind === 'thanks' ? ' and amount' : ''}.`
+                : `How it looks in Gmail, with a sample name${draft.kind === 'thanks' ? ' and ₹300' : ''}. Everyone gets their own.`}</p>
               <iframe title="Email preview" sandbox="" srcDoc={rendered.html} />
             </div>
           )}
