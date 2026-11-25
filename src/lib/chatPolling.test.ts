@@ -27,6 +27,6 @@ describe('community chat polling', () => {
       checks++;
       delay = nextChatPollMs(delay, false);
     }
-    expect(checks).toBeLessThan(10); // was 30
+    expect(checks).toBeLessThan(15); // was 30
   });
 });

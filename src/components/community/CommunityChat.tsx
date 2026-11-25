@@ -224,13 +224,14 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
     scrollPosition.current=saved.scrollTop;follow.current=saved.scrollTop==null;loadedCount.current=Math.max(CHAT_PAGE_SIZE,saved.messages.filter(m=>m.delivery==='sent').length);
     acknowledged.current.clear();setNewBelow(false);setError('');setDraft('');setReply(null);setEditing(null);setSelected(null);setActionBusy(false);void refresh();void dismissCommunityNotification();
     // No realtime here: check quickly while the room is busy, easing off while it is quiet (chatPolling.ts).
-    let delay=CHAT_POLL_MIN_MS;let timer:number|undefined;let stopped=false;
-    const schedule=()=>{if(timer)clearTimeout(timer);if(!stopped)timer=window.setTimeout(check,delay);};
+    let delay=CHAT_POLL_MIN_MS;let timer:number|undefined;let due=0;let stopped=false;
+    const schedule=()=>{if(timer)clearTimeout(timer);if(!stopped){due=Date.now()+delay;timer=window.setTimeout(check,delay);}};
     const check=async()=>{
       if(document.visibilityState==='visible'){const foundNew=await refresh();delay=nextChatPollMs(delay,foundNew);}
       schedule();
     };
-    wakePoll.current=()=>{delay=CHAT_POLL_MIN_MS;schedule();};
+    // Back to the quick pace; it only ever brings the next check sooner, so steady typing can't keep postponing it.
+    wakePoll.current=()=>{delay=CHAT_POLL_MIN_MS;if(due-Date.now()>CHAT_POLL_MIN_MS)schedule();};
     schedule();
     const onVisible=()=>{if(document.visibilityState==='visible'){void refresh();void dismissCommunityNotification();wakePoll.current();}};
     document.addEventListener('visibilitychange',onVisible);window.addEventListener('online',onVisible);
@@ -568,7 +569,7 @@ export default function CommunityChat({ userId, context, names, onProfile, onOpe
           value={draft}
           disabled={!context.canPost || !canWriteRoom}
           placeholder={!canWriteRoom ? 'Read-only room…' : context.canPost ? (selectedHashtag ? `Message #${currentHashtagObj?.label ?? 'room'}…` : pacePrefs.optedIn ? 'Share with General room…' : 'Join Public Board to post in General…') : 'Posting is paused for now'}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => { setDraft(event.target.value); wakePoll.current(); }}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
