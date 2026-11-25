@@ -77,7 +77,13 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
 
   const reload = () => fetchEmailOverview().then(setOverview).catch((error) => setStatus(error instanceof Error ? error.message : 'Could not open Email.'));
   const reloadTemplates = () => fetchTemplates().then((list) => { if (alive.current) setTemplates(list); });
-  useEffect(() => { void reload(); void reloadTemplates(); return () => { alive.current = false; stop.current = true; }; }, []);
+  useEffect(() => {
+    // Set on every mount: React may mount, unmount and mount again (Strict Mode), and a stale "gone" would drop results.
+    alive.current = true;
+    void reload();
+    void reloadTemplates();
+    return () => { alive.current = false; stop.current = true; };
+  }, []);
   // Opened from Backers: start from the owner's own thank-you template once it has loaded.
   useEffect(() => {
     if (!templates || start?.kind !== 'thanks') return;
