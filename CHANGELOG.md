@@ -17,6 +17,13 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v9.0.2] - 2026-11-25 - True Previews
+
+- **Email previews show the real email** — In the Admin Hub, an email's preview and a sent email's "See the email" now show exactly what a real person gets: their own name and amount, and your name on a note, never sample values.
+- **Android APK** — versionName **9.0.2**, versionCode **103**. Installs over v9.0.1 (102).
+
+---
+
 ## [v9.0.1] - 2026-11-25 - No Rainbow
 
 - **No rainbow** — The rainbow on some rainy days is gone: it didn't look real. The rain, clouds and each scene's weather stay as they were.
