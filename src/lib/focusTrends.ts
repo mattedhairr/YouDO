@@ -324,6 +324,13 @@ export function reconcileStreakMeta(input: {
   const yesterdayMissed = !dayQualifies(input.byDate.get(yesterday) ?? 0, yesterday, optsNow());
   const openTodayIds = input.openTodayIds ?? [];
 
+  // A miss that turned out not to be one closes its restore: the day's focus arrived after the
+  // check (a session running past midnight, or one synced from another device), so the streak
+  // never broke and there is nothing to save.
+  if (meta.revive && !meta.revive.revivedOn && dayQualifies(input.byDate.get(meta.revive.brokenOn) ?? 0, meta.revive.brokenOn, optsNow())) {
+    meta = { ...meta, revive: null };
+  }
+
   if (yesterdayMissed) {
     const lastQ = lastQualifyingDate(input.byDate, shiftLocalISO(yesterday, -1), optsNow());
     if (lastQ) {

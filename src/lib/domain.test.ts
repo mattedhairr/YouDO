@@ -219,6 +219,36 @@ describe('streak bar and backlog revive', () => {
     expect(status.revive?.challengeBarHours).toBe(1.5);
   });
 
+  it('closes a restore when the missed day turns out to have reached the bar', () => {
+    // Just after midnight a session still running left yesterday short: a restore opens.
+    const early = new Map([
+      ['2026-08-14', hour],
+      ['2026-08-15', hour],
+      ['2026-08-16', hour / 2],
+    ]);
+    const spotted = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: early,
+      meta: baseMeta,
+      openBacklogIds: ['b1'],
+      isTaskStillOpen: () => true,
+    });
+    expect(spotted.status.revive?.active).toBe(true);
+    // The session ends and yesterday reaches the bar: the streak never broke.
+    const later = new Map(early);
+    later.set('2026-08-16', hour);
+    const { meta, status } = reconcileStreakMeta({
+      todayISO: '2026-08-17',
+      byDate: later,
+      meta: spotted.meta,
+      openBacklogIds: ['b1'],
+      isTaskStillOpen: () => true,
+    });
+    expect(meta.revive).toBeNull();
+    expect(status.revive).toBeNull();
+    expect(status.current).toBe(3);
+  });
+
   it('revives with a 1.5× challenge day when there was no backlog', () => {
     const six = 6 * hour;
     const prior = new Map([
@@ -1341,6 +1371,20 @@ describe('session summary', () => {
     const session: TaskSession = { ...sessionAt('2026-08-16', 30 * 60_000), completed: false };
     const { short } = buildSessionSummary(session, task);
     expect(short).toBe('DPP-1 — focused, no steps logged');
+  });
+
+  it('lists each pause with its clock times; one still open runs to the end', () => {
+    const base = sessionAt('2026-08-16', 30 * 60_000);
+    const at = (h: number, m: number) => new Date(2026, 7, 16, h, m).getTime();
+    const session: TaskSession = {
+      ...base,
+      startTime: at(21, 54),
+      endTime: at(23, 59),
+      pauses: [{ start: at(22, 10), end: at(22, 25) }, { start: at(23, 48) }],
+    };
+    const { pauseRanges, pauseCount } = buildSessionSummary(session, task);
+    expect(pauseCount).toBe(2);
+    expect(pauseRanges).toEqual(['10:10 PM – 10:25 PM', '11:48 PM – 11:59 PM']);
   });
 });
 

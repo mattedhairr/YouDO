@@ -116,6 +116,7 @@ Committed on the branch, not pushed or merged. The owner has more to add before 
 - **Count my visits:** turn it off in Settings; it stays off after a restart.
 - **Account cleanup:** each filter; search; tick one obvious junk account and delete it (type DELETE 1); it disappears and Growth's sign-ups for its week stay the same.
 - **Scenes:** each of the three at dawn, noon, sunset and night; switch between them in Settings; Your photo: choose one, try a suggested colour and a tap on the photo, check buttons in dark and light mode, a widget and a notification icon; an old install that used plum, clay or graphite opens on the nearest scene; no planet in the header at night.
+- **Streak restore:** after a day that only looked missed at midnight (a session running past it, or focus synced later), no "Save streak" card or chips the next day (`reconcileStreakMeta` closes a restore whose missed day reached the bar). **Session Summary:** a "Session" chip with its times and a "Paused …" chip per pause.
 - **Room members (Admin Hub):** Community → Hashtag rooms → tap a room; Muted and Banned filters; tap a person, their Admin card opens.
 
 ---

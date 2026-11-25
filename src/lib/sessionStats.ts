@@ -2,7 +2,7 @@ import type { ActiveSession, SessionPause, Task, TaskSession } from '../types';
 import { formatDuration, formatWallClock } from './format';
 import { uid } from './ids';
 import { localISODate, nextLocalMidnight } from './dates';
-import { sessionClockRange } from './sessionClock';
+import { sessionClockLabel, sessionClockRange } from './sessionClock';
 
 export const MIN_COUNTABLE_MS = 15_000;
 export const STALE_HEARTBEAT_MS = 300_000;
@@ -368,6 +368,8 @@ export interface SessionSummary {
   outcome: string;
   outcomeTone: SessionOutcomeTone;
   pauseCount: number;
+  /** Each pause as clock times ("11:48 PM – 12:27 AM"); one still open runs to the session's end. */
+  pauseRanges: string[];
 }
 
 function outcomeLabel(completed: TaskSession['completed'], stepCount: number, totalSteps: number): string {
@@ -440,5 +442,9 @@ export function buildSessionSummary(
     outcome: outcomeLabel(session.completed, stepNames.length, totalSteps),
     outcomeTone: outcomeTone(session.completed, stepNames.length),
     pauseCount: session.pauses.length,
+    pauseRanges: session.pauses.map((p) => {
+      const end = typeof p.end === 'number' && p.end >= p.start ? p.end : session.endTime;
+      return `${sessionClockLabel(p.start, p.wallClockStart ?? '')} – ${sessionClockLabel(end, p.end ? p.wallClockEnd ?? '' : '')}`;
+    }),
   };
 }
