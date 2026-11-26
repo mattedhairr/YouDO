@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v9.1.0] - 2026-11-27 - Skies That Look Real
+
+- **A sky that looks real** — The header's sky now follows real light from dawn to night, and each scene has its own: golden mornings and evenings over the harvest fields, the bluest sky and sunlit peaks in the Himalaya, and clouds lit gold, orange and rose over the Western Ghats.
+- **Light on the land** — The land is lit by the same sky: the mountain tops catch the first and last light, far hills fade softly into the air, and everything dims gently after sunset.
+- **A cleaner Admin Hub** — Today, Inbox, People, Community and Owner in a simpler layout, with everyone's picture and real name, one back button that always goes one step back, and a list to choose people from when writing an email.
+- **Emails that read like letters** — Emails from YouDO now look like a personal letter, signed by whoever sent it.
+- **Smaller fixes** — Create account needs a real name (spaces alone no longer count), and the countdown stays easy to read on bright skies.
+- **Android APK** — versionName **9.1.0**, versionCode **104**. Installs over v9.0.2 (103).
+
+---
+
 ## [v9.0.2] - 2026-11-25 - True Previews, Lighter on the Server
 
 - **Email previews show the real email** — In the Admin Hub, an email's preview and a sent email's "See the email" now show exactly what a real person gets: their own name and amount, and your name on a note, never sample values.

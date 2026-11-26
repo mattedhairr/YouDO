@@ -31,7 +31,7 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 <img src="docs/screenshots/07-private-hub-chats.png" width="180" alt="Private Hub chats" />
 <img src="docs/screenshots/08-study-room.png" width="180" alt="A study room with live focus" />
 <img src="docs/screenshots/09-appearance.png" width="180" alt="Appearance: the three scenes and their colours, or a colour from your photo" />
-<img src="docs/screenshots/10-scenes.png" width="180" alt="The Western Ghats header on a monsoon afternoon" />
+<img src="docs/screenshots/10-scenes.png" width="180" alt="The Western Ghats header at sunset, its clouds lit orange" />
 <img src="docs/screenshots/11-focus-sky.png" width="180" alt="Focus Sky: the ambient timer under today's earned stars, a constellation and Saturn" />
 
 </div>
@@ -189,7 +189,7 @@ Set your own **profile photo** (moved and zoomed to fit, kept small), and Foundi
 
 v8 brings a new look: large titles, borderless cards and a floating **Liquid Glass** tab bar. In **Settings → Preferences** pick Dark or Light, a scene and its colour (Harvest fields with Sand, Himalaya with Slate, Western Ghats with Sage, or a colour taken from your own photo; the start screen, header, widgets and notifications follow it) and one of five app icons. **Classic Look** brings back the v7 design ([v7 screenshots](docs/screenshots/v7-classic)).
 
-Every tab opens with a **sky header**: an illustrated Indian landscape (the harvest fields, the Himalaya or the Western Ghats, the scene that goes with your colour) under a live sky that follows the real sun for your place (sunrise, noon and sunset from the date and your time zone or Indian state, with no location access), today's earned focus stars at night, a greeting, the countdown to your nearest goal deadline and the day's quote. Each scene starts the day with its own weather (sun on the fields, cloud over the Himalaya, monsoon rain in the Ghats); change it with the button beside the date, and tap the sun to replay today's sky from dawn to now. In **Settings → Appearance → Scene and colour** pick the scene (and its colour), where your sunrise and sunset are worked out for, and the weather button; or use your own photo as the header and take the app's colour from it.
+Every tab opens with a **sky header**: an illustrated Indian landscape (the harvest fields, the Himalaya or the Western Ghats, the scene that goes with your colour) under a live sky that follows the real sun for your place (sunrise, noon and sunset from the date and your time zone or Indian state, with no location access) and is worked out from real light, each scene with its own air: golden mornings and evenings over the fields, the bluest sky and sunlit peaks in the Himalaya, clouds lit gold and rose over the Ghats, today's earned focus stars at night, a greeting, the countdown to your nearest goal deadline and the day's quote. Each scene starts the day with its own weather (sun on the fields, cloud over the Himalaya, monsoon rain in the Ghats); change it with the button beside the date, and tap the sun to replay today's sky from dawn to now. In **Settings → Appearance → Scene and colour** pick the scene (and its colour), where your sunrise and sunset are worked out for, and the weather button; or use your own photo as the header and take the app's colour from it.
 
 ## Your data remains yours
 
