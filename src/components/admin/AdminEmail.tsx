@@ -12,6 +12,7 @@ import Overlay from '../Overlay';
 import { LargeTitle, NumberStrip, Segmented } from './AdminUI';
 import { useHubBack } from './hubBack';
 import { Avatar } from './AdminPeople';
+import { useAvatarFacts } from './useAvatarFacts';
 import { PICK_LIMIT, chosenLine, matchParts } from '../../lib/peoplePick';
 
 /** How the Email page opens: from People (blank), a person's card, or Backers. */
@@ -557,6 +558,7 @@ function PeoplePicker({ picked, reach, selfId, onChange }: {
   const [loadingMore, setLoadingMore] = useState(false);
   const request = useRef(0);
   const end = useRef<HTMLDivElement>(null);
+  const facts = useAvatarFacts(list?.people.map((person) => person.id) ?? []);
 
   const load = async (offset: number) => {
     const id = ++request.current;
@@ -629,12 +631,11 @@ function PeoplePicker({ picked, reach, selfId, onChange }: {
             return (
               <button key={person.id} type="button" role="checkbox" aria-checked={on} aria-disabled={!on && full}
                 className={`yd-row ah-pick-row ${!on && full ? 'is-off' : ''}`} onClick={() => toggle(person)}>
-                <Avatar person={person} />
+                <Avatar person={person} fact={facts.get(person.id)} />
                 <span className="yd-row-main">
                   <span className="yd-row-title truncate"><Marked text={label} search={query} /></span>
                   <span className="yd-row-text truncate">
-                    {person.username ? <>@<Marked text={person.username} search={query} /> · </>
-                      : person.email && <><Marked text={person.email} search={query} /> · </>}
+                    {person.username && <>@<Marked text={person.username} search={query} /> · </>}
                     {person.lastActive ? `active ${activeLabel(person.lastActive)}` : 'never active'}
                   </span>
                 </span>

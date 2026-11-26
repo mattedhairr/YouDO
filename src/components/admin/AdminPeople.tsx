@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ban, ChevronRight, Crown, ImageOff, Lock, Mail, RotateCcw, Search, Trash2, VolumeX, type LucideIcon } from 'lucide-react';
 import {
-  activeLabel, can, deleteAccounts, fetchPeople, fetchPerson, formatBytes, isMuted, personLabel, removeProfilePhoto, setStaff,
+  activeLabel, can, deleteAccounts, lastActive, fetchPeople, fetchPerson, formatBytes, isMuted, personLabel, removeProfilePhoto, setStaff,
   type AdminPerson, type AdminRole, type PeopleFilter, type PeoplePage, type StaffAction,
 } from '../../lib/adminHub';
 import { moderateCommunityMember } from '../../lib/community';
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
-import { fetchAvatarFacts } from '../../lib/avatarFacts';
+import { fetchAvatarFacts, type AvatarFact } from '../../lib/avatarFacts';
 import { avatarKind } from '../../lib/profileAvatar';
+import { HubAvatar } from '../hub/HubParts';
+import { useAvatarFacts } from './useAvatarFacts';
 import type { EmailStart } from './AdminEmail';
 import { LargeTitle, NumberStrip } from './AdminUI';
 
@@ -35,19 +37,9 @@ function Tags({ person }: { person: AdminPerson }) {
   </>;
 }
 
-export function Avatar({ person, big = false, photo }: { person: AdminPerson; big?: boolean; photo?: string }) {
-  const letter = (person.name ?? person.username ?? '?').replace('@', '').charAt(0).toUpperCase() || '?';
-  if (photo) return <span className={`ah-avatar ${big ? 'is-big' : ''} overflow-hidden`} aria-hidden><img src={photo} alt="" className="size-full object-cover" /></span>;
-  return <span className={`ah-avatar ${big ? 'is-big' : ''}`} aria-hidden>{letter}</span>;
-}
-
-function summary(person: AdminPerson, owner: boolean): string {
-  const parts = [person.username ? `@${person.username}` : owner ? `Signed up ${day(person.joined)}` : ''];
-  parts.push(person.lastActive ? `active ${activeLabel(person.lastActive)}` : 'never active');
-  if (person.rooms) parts.push(`${person.rooms} room${person.rooms === 1 ? '' : 's'}`);
-  else if (person.onBoard) parts.push('Board');
-  if (owner && person.junk) parts.push(person.junk === 'unconfirmed' ? 'never confirmed' : 'nothing saved');
-  return parts.filter(Boolean).join(' · ');
+/** Their picture or emoji as chats show it (gold ring for backers); the initial when they have none. */
+export function Avatar({ person, fact, big = false }: { person: AdminPerson; fact?: AvatarFact; big?: boolean }) {
+  return <HubAvatar url={fact?.avatarUrl} name={personLabel(person)} size={big ? 'lg' : 'md'} backer={fact?.backer ?? person.backer === true} />;
 }
 
 export function PeopleList({ role, onOpen, onEmail }: { role: AdminRole; onOpen: (id: string) => void; onEmail: () => void }) {
@@ -58,6 +50,7 @@ export function PeopleList({ role, onOpen, onEmail }: { role: AdminRole; onOpen:
   const [error, setError] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
   const request = useRef(0);
+  const facts = useAvatarFacts(page?.people.map((person) => person.id) ?? []);
 
   const load = useCallback(async (offset: number) => {
     const id = ++request.current;
@@ -110,10 +103,10 @@ export function PeopleList({ role, onOpen, onEmail }: { role: AdminRole; onOpen:
         <div className="yd-card">
           {page.people.map((person) => (
             <button key={person.id} type="button" className="yd-row !min-h-[58px]" onClick={() => onOpen(person.id)}>
-              <Avatar person={person} />
+              <Avatar person={person} fact={facts.get(person.id)} />
               <span className="yd-row-main">
                 <span className="yd-row-title truncate">{personLabel(person)}<Tags person={person} /></span>
-                <span className="yd-row-text truncate">{summary(person, owner)}</span>
+                <span className="yd-row-text truncate">{lastActive(person)}</span>
               </span>
               <ChevronRight size={17} className="ah-chev" aria-hidden />
             </button>
@@ -148,16 +141,13 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail, on
   const [showEmail, setShowEmail] = useState(false);
   const [confirm, setConfirm] = useState<'ban' | 'promote' | 'delete' | null>(null);
   const [typed, setTyped] = useState('');
-  const [photo, setPhoto] = useState<string | undefined>();
+  const [fact, setFact] = useState<AvatarFact | undefined>();
   const loaded = useRef(onLoaded);
   useEffect(() => { loaded.current = onLoaded; });
 
   useEffect(() => {
     let live = true;
-    fetchAvatarFacts([id]).then((facts) => {
-      const url = facts.get(id)?.avatarUrl;
-      if (live) setPhoto(avatarKind(url) === 'photo' ? url : undefined);
-    }).catch(() => {});
+    fetchAvatarFacts([id]).then((facts) => { if (live) setFact(facts.get(id)); }).catch(() => {});
     return () => { live = false; };
   }, [id]);
 
@@ -173,6 +163,7 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail, on
 
   const staff = Boolean(person.role);
   const itsMe = person.id === selfId;
+  const photo = avatarKind(fact?.avatarUrl) === 'photo';
   const muted = isMuted(person);
 
   const moderate = async (action: 'mute_24h' | 'mute_7d' | 'ban' | 'restore') => {
@@ -202,7 +193,7 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail, on
     try {
       await removeProfilePhoto(person.id);
       hapticWarn();
-      setPhoto(undefined);
+      setFact((current) => current && { ...current, avatarUrl: undefined });
       setStatus('Photo removed. They are back to their emoji.');
       onChanged();
     } catch (caught) {
@@ -232,7 +223,7 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail, on
   return (
     <div className="ah-page">
       <div className="ah-hero">
-        <Avatar person={person} big photo={photo} />
+        <Avatar person={person} fact={fact} big />
         <h2>{personLabel(person)}<Tags person={person} /></h2>
         <p>{[person.username && person.name ? `@${person.username}` : '', person.hashtag ? `#${person.hashtag}` : '', person.backer ? 'Founding Backer' : ''].filter(Boolean).join(' · ') || 'No exam room'}</p>
       </div>

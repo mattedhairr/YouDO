@@ -135,19 +135,6 @@
   color: var(--text-muted);
 }
 .ah-search input { flex: 1; min-width: 0; background: transparent; color: var(--text-primary); font-size: 14px; outline: none; }
-.ah-avatar {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--primary) 22%, var(--bg-surface));
-  color: var(--primary);
-  font-size: 14px;
-  font-weight: 800;
-}
-.ah-avatar.is-big { width: 50px; height: 50px; font-size: 19px; }
 .ah-tag {
   display: inline-block;
   margin-left: 6px;
@@ -410,7 +397,7 @@ html.dark .ah-seg button[aria-pressed='true'] { background: color-mix(in srgb, v
 
 /* A person, like a contact card. */
 .ah-hero { display: flex; flex-direction: column; align-items: center; padding: 6px 0 16px; text-align: center; }
-.ah-hero .ah-avatar { width: 78px; height: 78px; margin-bottom: 10px; font-size: 30px; }
+.ah-hero .hub-avatar { margin: 8px 0 10px; }
 .ah-hero h2 { color: var(--text-primary); font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
 .ah-hero p { margin-top: 3px; color: var(--text-muted); font-size: 13px; }
 .ah-cell-danger .yd-row-title { color: var(--error); }
