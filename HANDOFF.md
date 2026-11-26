@@ -4,6 +4,17 @@ Last updated **2026-11-25**, just after releasing **v9.0.2** (versionCode 103: e
 
 ---
 
+## In progress: the next release (v9.1.0), branch `release-v9.1.0`
+
+Committed on the branch, not pushed. The owner is gathering a few more fixes and enhancements before releasing.
+
+1. **Account totals** (mocked and chosen by the owner: `docs/mocks/owner-accounts.png`). Owner → Accounts opens with four numbers: accounts, confirmed, not yet, and active in the last 30 days, with a line on how many were deleted so far (Growth still counts them). Account cleanup shows "N accounts now · N confirmed" above its list, refreshed after a delete. `accountTotals` in `src/lib/adminGrowth.ts`; the counts were already in `owner_growth_report`, so no server change. Tested with a unit test and a render test with made-up data; not seen in the browser (the pane was signed out).
+
+**Phone checks for the next release:**
+- Owner → Accounts: the four numbers match what you expect; open Account cleanup, delete one obvious junk account, and both counts go down by one.
+
+---
+
 ## v9.0.0 (versionCode 101): what it contains
 
 Released 2026-11-25 from pull request #95 (merge 6a48e9c, tag v9.0.0). The first APK build on main failed on a Maven Central rate limit (429) and passed on a re-run. Orion's screenshots were first requested pinned to 6a48e9c (RookieEnough/Orion-Data#3415, closed because 10-scenes showed the rainbow) and requested again pinned to the v9.0.1 merge commit (same order: 01 Today, 10 Scenes, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance). None of this has been tried on a phone yet: the phone checks below come next. The mocks in `docs/mocks/` stay local and are never committed.
