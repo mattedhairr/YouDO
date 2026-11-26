@@ -66,7 +66,6 @@ describe('a person', () => {
   it('names people, falling back to the username and then to "No name yet"', () => {
     expect(personLabel({ name: 'Meera Shah', username: 'meera_s' })).toBe('Meera Shah');
     expect(personLabel({ username: 'meera_s' })).toBe('@meera_s');
-    expect(personLabel({ email: 'meera@example.com' })).toBe('meera@example.com');
     expect(personLabel({})).toBe('No name yet');
   });
 

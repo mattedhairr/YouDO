@@ -87,9 +87,8 @@ export function parseAdminPerson(raw: unknown): AdminPerson | null {
 }
 
 /** The person's name as the hub shows it. */
-/** Their name, else @username, else (for the owner) their email; "No name yet" only for an admin. */
-export function personLabel(person: Pick<AdminPerson, 'name' | 'username' | 'email'>): string {
-  return person.name ?? (person.username ? `@${person.username}` : person.email ?? 'No name yet');
+export function personLabel(person: Pick<AdminPerson, 'name' | 'username'>): string {
+  return person.name ?? (person.username ? `@${person.username}` : 'No name yet');
 }
 
 /** Under a name in a list: only when they were last active; everything else is on their card. */
