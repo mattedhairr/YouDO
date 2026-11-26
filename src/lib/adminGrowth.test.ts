@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('./supabase', () => ({ supabase: {}, supabaseAnonKey: '', supabaseUrl: '' }));
 
 import {
-  accountTotals, arrivalsReadout, biggestDrop, changeAgainst, cleanupLine, growthFunnel, parseCleanupList, parseReleases, peopleReadout, sameDayLastWeek,
+  accountTotals, arrivalsReadout, niceCeil, biggestDrop, changeAgainst, cleanupLine, growthFunnel, parseCleanupList, parseReleases, peopleReadout, sameDayLastWeek,
   usualDay, usualWeek, worthALook,
 } from './adminGrowth';
 import type { GrowthDay, GrowthReport, GrowthWeek } from './adminHub';
@@ -13,6 +13,13 @@ const growth = {
   accounts: 150, confirmed: 120, started: 45, cameBack: 27, active30d: 20,
   deleted: { count: 14, confirmed: 2, started: 0, cameBack: 0 },
 } as GrowthReport;
+
+describe('chart scale', () => {
+  it('tops out at a round number at or above the highest bar, with a whole half', () => {
+    expect([0, 1, 2, 3, 7, 9, 12, 55, 71, 150, 1234].map(niceCeil)).toEqual([2, 2, 2, 4, 8, 10, 20, 60, 80, 200, 2000]);
+    for (const top of [2, 4, 8, 20, 60, 80, 200]) expect(Number.isInteger(top / 2)).toBe(true);
+  });
+});
 
 describe('account totals', () => {
   it('counts the accounts there are now, without deleted ones', () => {
@@ -72,7 +79,7 @@ describe('people using YouDO', () => {
   it('shows this week against last until a day is tapped', () => {
     expect(peopleReadout(report, null, name)).toMatchObject({
       when: 'This week', picked: false, value: 38, change: { label: '▲ 6 more than last week' },
-      facts: [{ value: 27, label: 'signed in' }, { value: 11, label: 'without an account' }, { value: 9, label: 'regulars, 3+ days' }],
+      facts: [{ value: 27, label: 'signed in' }, { value: 11, label: 'guests' }, { value: 9, label: 'regulars, 3+ days' }],
     });
     expect(peopleReadout({ ...report, opensSince: undefined }, null, name)).toMatchObject({ value: null, note: 'Counting starts once people install v9.' });
   });

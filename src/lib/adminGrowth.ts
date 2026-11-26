@@ -18,6 +18,17 @@ export function changeAgainst(now: number, before: number, what: string): Change
 }
 
 /** Opens are counted from v9 on; earlier days show flat. */
+/**
+ * The top of a chart's scale: the smallest round number (2, 4, 6, 8 or 10 times a
+ * power of ten) at or above the highest bar, so the scale reads 0 · half · top
+ * in whole numbers.
+ */
+export function niceCeil(value: number): number {
+  const mag = 10 ** Math.floor(Math.log10(Math.max(1, value)));
+  for (const step of [2, 4, 6, 8, 10]) if (step * mag >= value) return step * mag;
+  return 10 * mag;
+}
+
 export function isCounted(day: Pick<GrowthDay, 'day'>, opensSince: string | undefined): boolean {
   return Boolean(opensSince) && day.day >= (opensSince ?? '');
 }
@@ -51,7 +62,7 @@ export function peopleReadout(growth: GrowthReport, picked: number | null, dayNa
       change: changeAgainst(thisWeek.opened, lastWeek.opened, 'last week'),
       facts: [
         { value: thisWeek.opened - thisWeek.withoutAccount, label: 'signed in', key: 'main' },
-        { value: thisWeek.withoutAccount, label: 'without an account', key: 'rest' },
+        { value: thisWeek.withoutAccount, label: 'guests', key: 'rest' },
         { value: thisWeek.regulars, label: 'regulars, 3+ days' },
       ],
     };
@@ -67,7 +78,7 @@ export function peopleReadout(growth: GrowthReport, picked: number | null, dayNa
     change: usual === null || isToday ? undefined : changeAgainst(day.opened, usual, 'a usual day'),
     facts: [
       { value: day.signedIn, label: 'signed in', key: 'main' },
-      { value: day.withoutAccount, label: 'without an account', key: 'rest' },
+      { value: day.withoutAccount, label: 'guests', key: 'rest' },
       ...(usual === null ? [] : [{ value: usual, label: 'a usual day' }]),
     ],
   };

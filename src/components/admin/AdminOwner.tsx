@@ -3,7 +3,7 @@ import { BadgeCheck, Check, ChevronRight, Crown, Eraser, Heart, LineChart, Searc
 import { fetchPeople, formatBytes, personLabel, type AdminPerson, type GrowthReport } from '../../lib/adminHub';
 import {
   accountTotals, arrivalsReadout, biggestDrop, cleanupLine, DEFAULT_CLEANUP_FILTERS, deleteChosenAccounts, fetchCleanupList, fetchReleaseDownloads, FREE_DATABASE_BYTES,
-  growthFunnel, isCounted, peopleReadout, usualDay, type CleanupFilters, type CleanupKind, type CleanupList, type CleanupSignIn, type Readout, type ReleaseDownloads,
+  growthFunnel, isCounted, niceCeil, peopleReadout, usualDay, type CleanupFilters, type CleanupKind, type CleanupList, type CleanupSignIn, type Readout, type ReleaseDownloads,
 } from '../../lib/adminGrowth';
 import { hapticWarn } from '../../lib/haptics';
 import SupportSettingsAdmin from '../community/SupportSettingsAdmin';
@@ -51,16 +51,51 @@ function ReadoutHead({ readout, span, onClear }: { readout: Readout; span: strin
   );
 }
 
-/** A stacked bar: the main part (signed in, confirmed) below the rest. */
-function Bar({ total, main, peak, flat, tone, label, picked, onClick }: {
-  total: number; main: number; peak: number; flat?: boolean; tone: 'is-week' | ''; label: string; picked: boolean; onClick: () => void;
+type ChartBar = { index: number; key: string; total: number; main: number; label: string; tick: string };
+const weekdayShort = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' });
+
+/**
+ * One bar chart for Growth (v9.1): each bar one rounded stack (the main part,
+ * signed in or confirmed, under the rest), a light 0 · half · top scale on the
+ * right, the dashed usual day, and a tapped bar kept bright with its number
+ * while the others step back. A few bars get a label each and keep a sensible
+ * width; many get three labels along the bottom.
+ */
+function BarChart({ bars, picked, now, usual, ends, onPick, weeks = false }: {
+  bars: ChartBar[];
+  picked: number | null;
+  now?: number;
+  usual?: number | null;
+  ends: [string, string, string];
+  onPick: (index: number) => void;
+  weeks?: boolean;
 }) {
-  const height = flat ? 0 : Math.max(total ? 4 : 0, (total / peak) * 100);
-  const mainShare = total ? (main / total) * 100 : 0;
+  const top = niceCeil(Math.max(usual ?? 0, ...bars.map((bar) => bar.total)));
+  const few = bars.length <= 7;
+  const pct = (value: number) => `${(value / top) * 100}%`;
   return (
-    <button type="button" className={`ah-bar ${tone} ${picked ? 'is-picked' : ''} ${flat ? 'is-flat' : ''}`} onClick={onClick} aria-label={label} aria-pressed={picked}>
-      <span style={{ height: flat ? undefined : `${height}%` }}><i className="is-rest" /><i className="is-main" style={{ height: `${mainShare}%` }} /></span>
-    </button>
+    <>
+      <div className={`ah-chart ${few ? 'is-few' : ''} ${weeks ? 'is-weeks' : ''} ${picked !== null ? 'has-pick' : ''}`}>
+        <div className="ah-grid" style={{ bottom: '100%' }}><span>{top}</span></div>
+        <div className="ah-grid" style={{ bottom: '50%' }}><span>{top / 2}</span></div>
+        <div className="ah-grid is-base" style={{ bottom: 0 }}><span>0</span></div>
+        {usual !== null && usual !== undefined && <div className="ah-usual-line" style={{ bottom: pct(usual) }}><span>usual {usual}</span></div>}
+        <div className="ah-chart-bars">
+          {bars.map((bar) => (
+            <button key={bar.key} type="button" className={`ah-cbar ${picked === bar.index ? 'is-on' : ''} ${now === bar.index ? 'is-now' : ''}`}
+              onClick={() => onPick(bar.index)} aria-label={bar.label} aria-pressed={picked === bar.index}>
+              <span className="ah-cbar-stack" style={{ height: bar.total ? `max(3px, ${pct(bar.total)})` : '0' }}>
+                <span className="ah-cbar-fill"><i className="is-rest" /><i className="is-main" style={{ height: bar.total ? `${(bar.main / bar.total) * 100}%` : '0' }} /></span>
+                {picked === bar.index && <b className="ah-cbar-tip" aria-hidden>{bar.total}</b>}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={`ah-chart-x ${few ? 'is-few' : ''}`} aria-hidden>
+        {few ? bars.map((bar) => <span key={bar.key}>{bar.tick}</span>) : ends.map((end) => <span key={end}>{end}</span>)}
+      </div>
+    </>
   );
 }
 
@@ -83,8 +118,16 @@ export function GrowthPage({ growth }: { growth: GrowthReport }) {
   const people = peopleReadout(growth, day, longDay);
   const arrivals = arrivalsReadout(growth, week, shortDay);
   const usual = usualDay(days, opensSince);
-  const dayPeak = Math.max(1, usual ?? 0, ...days.filter((item) => isCounted(item, opensSince)).map((item) => item.opened));
-  const weekPeak = Math.max(1, ...weeks.map((item) => item.signups));
+  // Only the days YouDO has counted: no empty days from before counting started.
+  const dayBars: ChartBar[] = days.flatMap((item, index) => (isCounted(item, opensSince) ? [{
+    index, key: item.day, total: item.opened, main: item.signedIn, tick: weekdayShort(item.day),
+    label: `${longDay(item.day)}: ${item.opened} people`,
+  }] : []));
+  const weekBars: ChartBar[] = weeks.map((item, index) => ({
+    index, key: item.week, total: item.signups, main: item.confirmed, tick: shortDay(item.week),
+    label: `Week of ${shortDay(item.week)}: ${item.signups} new accounts`,
+  }));
+  const middle = <T,>(list: T[]) => list[Math.floor(list.length / 2)];
   const steps = growthFunnel(growth);
   const drop = biggestDrop(steps);
   return (
@@ -94,43 +137,21 @@ export function GrowthPage({ growth }: { growth: GrowthReport }) {
         options={[{ id: 'people', label: 'People using YouDO' }, { id: 'arrivals', label: 'New people' }]} />
       {chart === 'people' ? (
         <div className="yd-card yd-block">
-          <ReadoutHead readout={people} span={`last ${days.length} days`} onClear={() => setDay(null)} />
-          {days.length > 0 && (
-            <>
-              <div className="ah-bars is-days">
-                {days.map((item, index) => {
-                  const counted = isCounted(item, opensSince);
-                  return (
-                    <Bar key={item.day} total={item.opened} main={item.signedIn} peak={dayPeak} flat={!counted}
-                      tone={day === null && index >= days.length - 7 ? 'is-week' : ''} picked={day === index}
-                      label={`${longDay(item.day)}: ${counted ? `${item.opened} people` : 'not counted'}`}
-                      onClick={() => setDay(day === index ? null : index)} />
-                  );
-                })}
-                {usual !== null && <div className="ah-usual" style={{ bottom: `${(usual / dayPeak) * 100}%` }}><span>usual day {usual}</span></div>}
-              </div>
-              <div className="ah-axis"><span>{shortDay(days[0].day)}</span><span>{shortDay(days[Math.floor(days.length / 2)].day)}</span><span>today</span></div>
-            </>
-          )}
-          {day === null && <p className="ah-note mt-2">Tap a day to compare it with a usual day.</p>}
+          <ReadoutHead readout={people} span={dayBars.length && dayBars.length < days.length ? `since ${shortDay(dayBars[0].key)}` : `last ${days.length} days`} onClear={() => setDay(null)} />
+          {dayBars.length > 0 ? (
+            <BarChart bars={dayBars} picked={day} usual={usual} onPick={(index) => setDay(day === index ? null : index)}
+              ends={[shortDay(dayBars[0].key), shortDay(middle(dayBars).key), 'today']} />
+          ) : <p className="ah-note mt-3">Counting starts when people open v9.</p>}
+          {day === null && dayBars.length > 0 && <p className="ah-note mt-3">Tap a day to see it.{usual === null ? ' The usual-day line appears after a few days.' : ''}</p>}
         </div>
       ) : (
         <div className="yd-card yd-block">
           <ReadoutHead readout={arrivals} span={`last ${weeks.length} weeks`} onClear={() => setWeek(null)} />
-          {weeks.length > 0 && (
-            <>
-              <div className="ah-bars is-weeks">
-                {weeks.map((item, index) => (
-                  <Bar key={item.week} total={item.signups} main={item.confirmed} peak={weekPeak}
-                    tone={week === null && index === weeks.length - 1 ? 'is-week' : ''} picked={week === index}
-                    label={`Week of ${shortDay(item.week)}: ${item.signups} new accounts`}
-                    onClick={() => setWeek(week === index ? null : index)} />
-                ))}
-              </div>
-              <div className="ah-axis"><span>{shortDay(weeks[0].week)}</span><span>{shortDay(weeks[Math.floor(weeks.length / 2)].week)}</span><span>this week</span></div>
-            </>
+          {weekBars.length > 0 && (
+            <BarChart weeks bars={weekBars} picked={week} now={weekBars.length - 1} onPick={(index) => setWeek(week === index ? null : index)}
+              ends={[shortDay(weekBars[0].key), shortDay(middle(weekBars).key), 'this week']} />
           )}
-          {week === null && <p className="ah-note mt-2">Tap a week to see it. Deleted accounts still count in the week they signed up.</p>}
+          {week === null && <p className="ah-note mt-3">Tap a week to see it. Deleted accounts still count in the week they signed up.</p>}
         </div>
       )}
 

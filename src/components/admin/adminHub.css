@@ -488,3 +488,29 @@ html.dark .ah-seg button[aria-pressed='true'] { background: color-mix(in srgb, v
 .ah-alert-buttons .is-strong { font-weight: 700; }
 .ah-alert-buttons button:disabled { opacity: 0.45; }
 .ah-apple .yd-card.ah-done > * + *, .ah-apple .yd-card.ah-confirm-row > * + * { border-top: 0; }
+
+/* Growth charts (v9.1): one rounded stack per bar, a light scale on the right, the dashed usual day,
+   a tapped bar kept bright with its number. */
+.ah-chart { position: relative; height: 150px; margin: 22px 30px 0 0; }
+.ah-grid { position: absolute; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, var(--text-primary) 10%, transparent); }
+.ah-grid.is-base { border-top: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent); }
+.ah-grid span { position: absolute; top: -7px; right: -30px; width: 26px; color: var(--text-muted); font-size: 10.5px; line-height: 1; }
+.ah-usual-line { position: absolute; z-index: 1; left: 0; right: 0; border-top: 1.5px dashed color-mix(in srgb, var(--text-primary) 45%, transparent); pointer-events: none; }
+.ah-usual-line span { position: absolute; top: -17px; left: 0; padding-right: 4px; background: var(--bg-surface); color: var(--text-secondary); font-size: 10.5px; }
+.ah-chart-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 3px; }
+.ah-chart.is-weeks .ah-chart-bars { gap: 6px; }
+.ah-chart.is-few .ah-chart-bars { justify-content: space-evenly; gap: 0; }
+.ah-cbar { display: flex; flex: 1; align-items: flex-end; justify-content: center; height: 100%; min-width: 0; padding: 0; }
+.ah-chart.is-few .ah-cbar { flex: 0 0 28px; }
+.ah-cbar-stack { position: relative; width: 100%; transition: opacity 0.15s ease; }
+.ah-cbar-fill { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 5px 5px 2px 2px; }
+.ah-cbar-fill i { display: block; }
+.ah-cbar-fill .is-rest { flex: 1; background: color-mix(in srgb, var(--primary) 38%, var(--bg-fill)); }
+.ah-cbar-fill .is-main { flex: none; background: var(--primary); }
+.ah-chart.is-weeks:not(.has-pick) .ah-cbar:not(.is-now) .ah-cbar-stack { opacity: 0.72; }
+.ah-chart.has-pick .ah-cbar:not(.is-on) .ah-cbar-stack { opacity: 0.35; }
+.ah-cbar-tip { position: absolute; bottom: calc(100% + 5px); left: 50%; transform: translateX(-50%); padding: 2px 6px; border-radius: 6px; background: var(--bg-elevated); color: var(--text-primary); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.ah-chart-x { display: flex; justify-content: space-between; margin: 7px 30px 0 0; color: var(--text-muted); font-size: 10.5px; }
+.ah-chart-x.is-few { justify-content: space-evenly; }
+.ah-chart-x.is-few span { width: 28px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .ah-cbar-stack { transition: none; } }
