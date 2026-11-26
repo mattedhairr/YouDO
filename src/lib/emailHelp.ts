@@ -1,4 +1,4 @@
-import { BODY_MAX, EMAIL_KINDS, SUBJECT_MAX, type EmailKind } from '../../supabase/functions/_shared/emailTemplate.ts';
+import { BODY_MAX, EMAIL_KINDS, OFFERED_KINDS, SUBJECT_MAX } from '../../supabase/functions/_shared/emailTemplate.ts';
 
 /**
  * The Email screen's help: what can be typed in a message, and a prompt to
@@ -10,21 +10,20 @@ export const EMAIL_CODES: { code: string; meaning: string }[] = [
   { code: '{name}', meaning: 'Each person’s first name (“there” if they have none).' },
   { code: '{amount}', meaning: 'What a backer gave, like ₹300. Only in thank-yous.' },
   { code: 'Blank line', meaning: 'Starts a new paragraph.' },
-  { code: 'Link on its own line', meaning: 'Becomes a big button (YouDO’s own link says “Open YouDO”).' },
+  { code: 'Link on its own line', meaning: 'Becomes a button (YouDO’s own link says “Open YouDO”).' },
   { code: 'Link inside a sentence', meaning: 'Stays a normal link.' },
   { code: '**words**', meaning: 'Bold.' },
 ];
 
 /** The parts YouDO adds by itself, which a message never needs to repeat. */
 export const EMAIL_FIXED = [
-  'The YouDO icon and name at the top, and the dark card.',
-  'News and Thank you: the title is the subject (Thank you adds a gold Founding Backer seal).',
-  'The sign-off: “The YouDO team”, or your name on a Note.',
+  'The YouDO name at the top, over a thin sand line, like a letter.',
+  'The sign-off: your name, with “YouDO” under it.',
   'The footer with “Stop these emails”.',
 ];
 
 export function aiTemplatePrompt(): string {
-  const looks = (Object.keys(EMAIL_KINDS) as EmailKind[]).map((kind) => `- ${EMAIL_KINDS[kind].label}: ${EMAIL_KINDS[kind].hint}`).join('\n');
+  const looks = OFFERED_KINDS.map((kind) => `- ${EMAIL_KINDS[kind].label}: ${EMAIL_KINDS[kind].hint}`).join('\n');
   const codes = EMAIL_CODES.map((item) => `- ${item.code}: ${item.meaning}`).join('\n');
   return `Write an email template for YouDO, a study planner and focus app for students in India preparing for exams (JEE, NEET, UPSC, GATE, CAT, Boards).
 
@@ -45,13 +44,13 @@ ${codes}
 Rules:
 - Subject: under ${SUBJECT_MAX} characters, clear, no clickbait.
 - Message: under ${BODY_MAX} characters; start with "Hi {name}," on its own line, then a blank line.
-- Short paragraphs (2–3 sentences), friendly and plain, like a person writing, not marketing.
+- Short paragraphs (2–3 sentences), friendly and plain, like a person writing, not marketing: no ALL CAPS, no emojis, and any money amount after the first paragraph.
 - At most one button link (https://youdo-app.vercel.app opens YouDO), on its own line.
 - Don't promise things that aren't true, and don't ask for passwords, payments or personal details.
 
 Reply in exactly this form so I can paste each part:
 Name: (a short template name, under 60 characters)
-Look: (News, Thank you or Note)
+Look: (Thank you or Note)
 Subject: ...
 Message:
 ...`;

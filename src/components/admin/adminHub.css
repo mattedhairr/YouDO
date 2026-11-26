@@ -289,7 +289,7 @@ button.ah-ro-chip { min-height: 26px; color: var(--primary); }
 .ah-mail-running { margin-bottom: 14px; border-color: color-mix(in srgb, var(--primary) 35%, var(--border-subtle)); }
 .ah-mail-running-title { overflow: hidden; color: var(--text-primary); font-size: 14px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .ah-mail-preview { margin-top: 12px; }
-.ah-mail-preview iframe { display: block; width: 100%; height: 520px; margin-top: 6px; border: 1px solid var(--border-subtle); border-radius: 16px; background: #0f0e0c; }
+.ah-mail-preview iframe { display: block; width: 100%; height: 520px; margin-top: 6px; border: 1px solid var(--border-subtle); border-radius: 16px; background: #ffffff; }
 .ah-mail-confirm { margin-top: 12px; padding: 13px; border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .ah-mail-confirm h4 { color: var(--text-primary); font-size: 14px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
 .ah-mail-confirm p { margin-top: 4px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }

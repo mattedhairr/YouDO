@@ -12,7 +12,7 @@ describe('email help', () => {
     expect(prompt).toContain('[Describe it here');
     expect(prompt).toContain('do NOT write any of this');
     expect(prompt).toContain('Stop these emails');
-    expect(prompt).toContain('- News:');
+    expect(prompt).not.toContain('News'); // retired: release news lives in the app's updates
     expect(prompt).toContain('- Thank you:');
     expect(prompt).toContain('- Note:');
     expect(prompt).toContain('{amount}');

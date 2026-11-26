@@ -6,7 +6,7 @@ import {
   type Backer, type EmailAudience, type EmailOverview, type EmailProgress, type EmailSendDetail, type EmailSendSummary, type EmailTemplate, type RecipientStatus,
 } from '../../lib/adminEmail';
 import { EMAIL_CODES, EMAIL_FIXED, aiTemplatePrompt } from '../../lib/emailHelp';
-import { EMAIL_KINDS, emailProblem, formatRupees, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
+import { EMAIL_KINDS, emailProblem, formatRupees, OFFERED_KINDS, PREVIEW_STOP_URL, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
 
 /** How the Email page opens: from People (blank), a person's card, or Backers. */
@@ -38,8 +38,9 @@ const untouched = (draft: Draft) => {
   const base = draft.base ?? { subject: EMAIL_KINDS[draft.kind].subject, body: EMAIL_KINDS[draft.kind].body };
   return draft.subject === base.subject && draft.body === base.body;
 };
+const offered = (kind: EmailKind): EmailKind => (OFFERED_KINDS.includes(kind) ? kind : 'note');
 const fromTemplate = (draft: Draft, template: EmailTemplate): Draft => ({
-  ...draft, kind: template.kind, subject: template.subject, body: template.body, templateId: template.id,
+  ...draft, kind: offered(template.kind), subject: template.subject, body: template.body, templateId: template.id,
   base: { subject: template.subject, body: template.body },
 });
 const audienceLabel = (item: Pick<EmailSendSummary, 'audience' | 'total'>) =>
@@ -58,7 +59,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const [draft, setDraft] = useState<Draft>(() => {
     if (start) return fresh(start.kind, start.audience, start.people ?? []);
     const saved = readDraft();
-    return saved && (owner || (saved.audience !== 'backers' && saved.kind !== 'thanks')) ? saved : fresh('update', 'everyone');
+    return saved && (owner || (saved.audience !== 'backers' && saved.kind !== 'thanks')) ? { ...saved, kind: offered(saved.kind) } : fresh('note', 'everyone');
   });
   const [reach, setReach] = useState<number | null>(null);
   const [preview, setPreview] = useState(false);
@@ -141,7 +142,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
     self: { id: selfId, name: self?.name },
   }), [draft.audience, draft.people, backers, selfId, self?.name]);
   const rendered = useMemo(() => (preview
-    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject yet)', body: draft.body, name: shown.name, amount: draft.kind === 'thanks' ? shown.amount : undefined, signer: self?.signer })
+    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject yet)', body: draft.body, name: shown.name, amount: draft.kind === 'thanks' ? shown.amount : undefined, signer: self?.signer, unsubscribeUrl: PREVIEW_STOP_URL })
     : null), [preview, draft, shown, self?.signer]);
 
   const run = async (id: string, subject: string, total: number) => {
@@ -172,7 +173,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
     try {
       const created = await createEmailSend({ ...draft, people: draft.people.map((person) => person.id) });
       writeDraft(null);
-      setDraft(fresh('update', 'everyone'));
+      setDraft(fresh('note', 'everyone'));
       setConfirming(false);
       setPreview(false);
       setBusy(false);
@@ -197,7 +198,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
     ...(owner ? [['backers', `Backers${overview?.backers !== undefined ? ` ${overview.backers}` : ''}`]] as [EmailAudience, string][] : []),
     ['people', 'Pick people'],
   ];
-  const kinds = (Object.keys(EMAIL_KINDS) as EmailKind[]).filter((kind) => owner || kind !== 'thanks');
+  const kinds = OFFERED_KINDS.filter((kind) => owner || kind !== 'thanks');
   const current = templates?.find((template) => template.id === draft.templateId);
 
   if (openSend) {
@@ -473,13 +474,13 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
           <div className="yd-card">
             <div className="yd-block">
               <label className="yd-label block" htmlFor="ah-tpl-name">Name</label>
-              <input id="ah-tpl-name" className="yd-field" value={editing.name} maxLength={60} placeholder="Release news"
+              <input id="ah-tpl-name" className="yd-field" value={editing.name} maxLength={60} placeholder="Personal note"
                 onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
             </div>
             <div className="yd-block">
               <p className="yd-label">Look</p>
               <div className="ah-chips !mb-1" role="group" aria-label="How the email looks">
-                {(Object.keys(EMAIL_KINDS) as EmailKind[]).map((kind) => (
+                {OFFERED_KINDS.map((kind) => (
                   <button key={kind} type="button" className="ah-chip" aria-pressed={editing.kind === kind} onClick={() => setEditing({ ...editing, kind })}>{EMAIL_KINDS[kind].label}</button>
                 ))}
               </div>
@@ -527,7 +528,7 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
         {templates.length === 0 ? <p className="ah-empty">No templates yet.</p> : (
           <div className="yd-card">
             {templates.map((template) => (
-              <button key={template.id} type="button" className="yd-row w-full !items-start" onClick={() => { setEditing({ ...template }); setStatus(''); }}>
+              <button key={template.id} type="button" className="yd-row w-full !items-start" onClick={() => { setEditing({ ...template, kind: offered(template.kind) }); setStatus(''); }}>
                 <span className="yd-row-main">
                   <span className="yd-row-title !text-[13.5px] truncate">{template.name}</span>
                   <span className="yd-row-text truncate">{EMAIL_KINDS[template.kind].label} · {template.subject || template.body.replace(/\s+/g, ' ').slice(0, 60) || 'Empty'}</span>
@@ -537,7 +538,7 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
             ))}
           </div>
         )}
-        <button type="button" className="ah-btn is-primary is-wide mt-3 w-full" onClick={() => setEditing({ name: '', kind: 'update', subject: '', body: 'Hi {name},\n\n' })}>
+        <button type="button" className="ah-btn is-primary is-wide mt-3 w-full" onClick={() => setEditing({ name: '', kind: 'note', subject: '', body: 'Hi {name},\n\n' })}>
           <BookmarkPlus size={15} /> New template
         </button>
         <p className="yd-note">Admins can start from these too, except thank-yous. Changing a template never changes emails already sent.</p>
@@ -611,7 +612,7 @@ function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }:
   }, [needsAmount, backers]);
   const shownAs = useMemo(() => (detail ? previewRecipient({ audience: detail.audience, recipients: detail.recipients, backers }) : null), [detail, backers]);
   const rendered = useMemo(() => (detail && showEmail && shownAs
-    ? renderEmail({ kind: detail.kind, subject: detail.subject, body: detail.body, name: shownAs.name, amount: detail.kind === 'thanks' ? shownAs.amount : undefined, signer: detail.sentByName })
+    ? renderEmail({ kind: detail.kind, subject: detail.subject, body: detail.body, name: shownAs.name, amount: detail.kind === 'thanks' ? shownAs.amount : undefined, signer: detail.sentByName, unsubscribeUrl: PREVIEW_STOP_URL })
     : null), [detail, showEmail, shownAs]);
 
   return (

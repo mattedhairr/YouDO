@@ -73,7 +73,7 @@ export default {
         const links = await stopUrl(self.user_id);
         const mail = renderEmail({
           kind, subject: `[Test] ${body.subject ?? ''}`, body: body.body ?? '',
-          name: firstName(self.name), amount: kind === 'thanks' ? Number(self.amount) || 50 : undefined, signer: self.name ?? undefined,
+          name: firstName(self.name), amount: kind === 'thanks' ? Number(self.amount) || undefined : undefined, signer: self.name ?? undefined,
           unsubscribeUrl: links.page,
         });
         const out = mailer();

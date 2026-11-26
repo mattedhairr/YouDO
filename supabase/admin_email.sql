@@ -303,8 +303,9 @@ begin
       where r.send_id = found.id), '[]'::jsonb));
 end; $$;
 
--- Saved texts to start an email from. The first three are made once, when
+-- Saved texts to start an email from. The first two are made once, when
 -- the table is empty; after that they are the owner's to change or delete.
+-- ('update', News, is retired in the app but stays allowed for older rows.)
 create table if not exists public.email_templates (
   id uuid primary key default gen_random_uuid(),
   name text not null check (pg_catalog.char_length(pg_catalog.btrim(name)) between 1 and 60),
@@ -320,10 +321,9 @@ revoke all on public.email_templates from public, anon, authenticated;
 
 insert into public.email_templates (name, kind, subject, body)
 select v.name, v.kind, v.subject, v.body from (values
-  (1, 'Release news', 'update', '', E'Hi {name},\n\n\n\nhttps://youdo-app.vercel.app'),
-  (2, 'Thank a backer', 'thanks', 'Thank you for backing YouDO',
-    E'Hi {name},\n\nYour {amount} helped keep YouDO free, ad-free and growing. You are one of the very first people to back it, and that means a lot.\n\nYour Founding Backer ring now shows around your picture everywhere in YouDO.\n\nThank you for believing in YouDO from the start.'),
-  (3, 'Personal note', 'note', '', E'Hi {name},\n\n')
+  (1, 'Thank a backer', 'thanks', 'Thank you for backing YouDO',
+    E'Hi {name},\n\nThank you for backing YouDO. You are one of the very first people to do it, and that means a lot.\n\nYour {amount} helps keep YouDO free, ad-free and growing, and your Founding Backer ring now shows around your picture everywhere in the app.\n\nThank you for believing in YouDO from the start.'),
+  (2, 'Personal note', 'note', '', E'Hi {name},\n\n')
 ) as v(position, name, kind, subject, body)
 where not exists (select 1 from public.email_templates)
 order by v.position;
