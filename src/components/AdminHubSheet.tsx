@@ -15,6 +15,7 @@ import AdminHome from './admin/AdminHome';
 import AdminEmail, { type EmailStart } from './admin/AdminEmail';
 import AdminBackers from './admin/AdminBackers';
 import { COMMUNITY_PAGE_TITLES, OWNER_PAGE_TITLES, queueCounts, type CommunityPage, type OwnerPage, type QueueFilter } from './admin/adminHubShared';
+import { LargeTitle } from './admin/AdminUI';
 import '../signature.css';
 import './community/community.css';
 import './admin/adminHub.css';
@@ -24,13 +25,13 @@ type Page = { kind: 'person'; id: string } | { kind: 'community'; page: Communit
   | { kind: 'email'; start?: EmailStart; key: number };
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'queue', label: 'Queue', icon: Inbox },
+  { id: 'home', label: 'Today', icon: Home },
+  { id: 'queue', label: 'Inbox', icon: Inbox },
   { id: 'people', label: 'People', icon: Users },
   { id: 'community', label: 'Community', icon: Sparkles },
   { id: 'owner', label: 'Owner', icon: Crown },
 ];
-const TAB_TITLES: Record<Tab, string> = { home: 'Admin Hub', queue: 'Queue', people: 'People', community: 'Community', owner: 'Owner' };
+const TAB_TITLES: Record<Tab, string> = { home: 'Today', queue: 'Inbox', people: 'People', community: 'Community', owner: 'Owner' };
 
 /**
  * The Admin Hub, opened by holding the Settings button or from Settings → Admin Hub.
@@ -71,22 +72,22 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
   const role = data.role;
   const tabs = TABS.filter((item) => item.id !== 'owner' || can(role, 'growth'));
   const counts = queueCounts(data);
-  const title = page?.kind === 'person' ? 'Person'
-    : page?.kind === 'email' ? 'Email'
-    : page?.kind === 'community' ? COMMUNITY_PAGE_TITLES[page.page]
-    : page?.kind === 'owner' ? OWNER_PAGE_TITLES[page.page]
-    : TAB_TITLES[tab];
+  // Titles are large, inside each screen (v9.1); a deeper page that has none of its own gets one here.
+  const pageTitle = page?.kind === 'community' ? COMMUNITY_PAGE_TITLES[page.page]
+    : page?.kind === 'owner' && page.page !== 'growth' ? OWNER_PAGE_TITLES[page.page]
+    : null;
   const openPerson = (id: string) => setPage({ kind: 'person', id });
   const openEmail = (start?: EmailStart) => setPage({ kind: 'email', start, key: Date.now() });
 
   return (
     <Overlay open onClose={goBack} align="full" screen>
-      <div className="community-shell hub app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base">
+      <div className="community-shell hub ah-apple app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base">
         <HubNavBar
-          title={title}
+          title=""
           subtitle={refreshing ? 'Refreshing…' : undefined}
           onBack={goBack}
-          backLabel={page ? 'Back' : 'Close Admin Hub'}
+          backLabel={page ? `Back to ${TAB_TITLES[tab]}` : 'Close Admin Hub'}
+          backText={page ? TAB_TITLES[tab] : undefined}
           actions={<>
             {role && !page && <span className="ah-role">{role === 'owner' ? 'Owner' : 'Admin'}</span>}
             <button type="button" className="hub-icon-button" disabled={refreshing} onClick={() => void reload()} aria-label="Refresh">
@@ -100,6 +101,7 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
         ) : (
           <>
             <main ref={body} className="ah-body">
+              {pageTitle && <LargeTitle title={pageTitle} />}
               {page?.kind === 'person' && (
                 <PersonPage key={page.id} id={page.id} role={role} selfId={userId} onEmail={openEmail}
                   onChanged={() => { setPeopleKey((key) => key + 1); void reload(); }}

@@ -337,3 +337,154 @@ button.ah-ro-chip { min-height: 26px; color: var(--primary); }
 .ah-mail-state.is-sent { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
 .ah-mail-state.is-waiting { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
 .ah-mail-state.is-failed { background: color-mix(in srgb, var(--error) 14%, transparent); color: var(--error); }
+
+/* ── v9.1: the Apple-style hub ────────────────────────────────────────────
+   Large titles, plain grouped lists, small coloured icon tiles, a strip of
+   numbers, segmented switches. Scoped to the hub (.ah-apple), so the rest of
+   the app keeps its signature style; colours stay theme tokens. */
+.ah-apple .ah-body { padding: 0 16px 28px; }
+.ah-apple .yd-section { margin-bottom: 22px; }
+.ah-apple .yd-heading { margin: 0 6px 7px; color: var(--text-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.05em; }
+.ah-apple .yd-heading::after { display: none; }
+.ah-apple .yd-card { border: 0; border-radius: 14px; background: var(--bg-surface); box-shadow: none; }
+.ah-apple .yd-row { min-height: 48px; padding: 10px 14px; gap: 12px; }
+.ah-apple button.yd-row:active { background: var(--bg-fill); }
+.ah-apple .yd-row-title { font-size: 15px; font-weight: 500; }
+.ah-apple .yd-row-text { font-size: 12.5px; }
+.ah-apple .yd-tile { width: 30px; height: 30px; border-radius: 8px; background: var(--primary); color: var(--on-primary); }
+.ah-apple .yd-tile svg { width: 16px; height: 16px; }
+.ah-apple .yd-tile.is-red { background: var(--error); color: #fff; }
+.ah-apple .yd-tile.is-green { background: var(--success); color: #fff; }
+.ah-apple .yd-tile.is-amber { background: var(--warning); color: #fff; }
+.ah-apple .yd-tile.is-grey { background: color-mix(in srgb, var(--text-muted) 75%, var(--bg-surface)); color: #fff; }
+.ah-apple .yd-note { margin-top: 7px; padding: 0 8px; }
+.ah-apple .ah-btn { border-radius: 10px; font-weight: 600; }
+.ah-apple .ah-btn.is-wide { min-height: 42px; }
+.ah-apple .ah-chip { border-radius: 9px; }
+.ah-apple .ah-search { height: 38px; border-radius: 11px; }
+.ah-apple .ah-person-stats > div { border-radius: 12px; }
+
+/* The hub's navigation bar: a back label beside the chevron on pages. */
+.hub-nav.has-back-text { grid-template-columns: auto minmax(0, 1fr) auto; }
+.hub-nav-back.has-text { width: auto; display: inline-flex; align-items: center; gap: 0; padding: 0 8px 0 2px; font-size: 16px; }
+
+.ah-large { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 4px 4px 14px; }
+.ah-large h1 { color: var(--text-primary); font-size: 30px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
+.ah-large p { margin-top: 3px; color: var(--text-muted); font-size: 13px; }
+
+.ah-strip { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; border-radius: 14px; background: var(--bg-surface); }
+.yd-card > .ah-strip { border-radius: 0; background: transparent; }
+.ah-strip > div { min-width: 0; padding: 12px 4px 11px; border-left: 0.5px solid var(--separator, var(--border-subtle)); text-align: center; }
+.ah-strip > div:first-child { border-left: 0; }
+.ah-strip b { display: block; overflow: hidden; color: var(--text-primary); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.ah-strip span { display: block; margin-top: 2px; overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.ah-live-dot { display: inline-block; width: 7px; height: 7px; margin-left: 4px; border-radius: 50%; background: var(--success); vertical-align: 4px; }
+.ah-strip-note { margin: 7px 8px 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+.ah-strip-note .is-up { color: var(--success); }
+.ah-strip-note .is-down { color: var(--warning); }
+
+.ah-seg { display: flex; gap: 2px; margin: 0 0 14px; padding: 2px; overflow-x: auto; border-radius: 10px; background: var(--bg-fill); scrollbar-width: none; }
+.ah-seg::-webkit-scrollbar { display: none; }
+.ah-seg button { flex: 1 0 auto; min-height: 32px; padding: 0 11px; border-radius: 8px; color: var(--text-secondary); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.ah-seg button[aria-pressed='true'] { background: var(--bg-elevated); color: var(--text-primary); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22); }
+html.dark .ah-seg button[aria-pressed='true'] { background: color-mix(in srgb, var(--text-primary) 22%, var(--bg-elevated)); }
+
+.ah-done { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 16px; color: var(--text-muted); font-size: 13px; text-align: center; }
+.ah-done svg { margin-bottom: 4px; color: var(--success); }
+.ah-done b { color: var(--text-primary); font-size: 15px; font-weight: 600; }
+
+/* Counts beside rows: quiet, red only when it is a report. */
+.ah-apple .ah-count { background: var(--bg-fill); color: var(--text-primary); font-weight: 600; }
+.ah-apple .ah-count.is-hot { background: var(--error); color: #fff; }
+.ah-value { flex: none; max-width: 48%; overflow: hidden; color: var(--text-muted); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.ah-chev { flex: none; color: color-mix(in srgb, var(--text-muted) 70%, transparent); }
+
+/* Inbox items: what it is about, the words in a quiet box, then two clear choices. */
+.ah-apple .ah-item { margin-bottom: 10px; padding: 13px 14px; }
+.ah-item-top { display: flex; justify-content: space-between; gap: 10px; color: var(--text-muted); font-size: 12px; }
+.ah-item-top b { flex: none; color: var(--error); font-weight: 600; }
+.ah-quote { margin: 8px 0 10px; padding: 9px 11px; border-radius: 10px; background: var(--bg-fill); color: var(--text-primary); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.ah-choices { display: flex; gap: 8px; }
+.ah-choices > .ah-btn { flex: 1; justify-content: center; min-height: 38px; }
+.ah-choices > .ah-more { flex: none; width: 42px; justify-content: center; padding: 0; }
+.ah-more-list { margin-top: 8px; }
+
+/* People: the filter as one quiet menu. */
+.ah-filter { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 2px 6px 8px; color: var(--text-muted); font-size: 12.5px; }
+.ah-filter select { max-width: none; padding: 2px 0; border: 0; background: transparent; color: var(--primary); font: inherit; font-weight: 600; outline: none; }
+
+/* A person, like a contact card. */
+.ah-hero { display: flex; flex-direction: column; align-items: center; padding: 6px 0 16px; text-align: center; }
+.ah-hero .ah-avatar { width: 78px; height: 78px; margin-bottom: 10px; font-size: 30px; }
+.ah-hero h2 { color: var(--text-primary); font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.ah-hero p { margin-top: 3px; color: var(--text-muted); font-size: 13px; }
+.ah-cell-danger .yd-row-title { color: var(--error); }
+.ah-cell-primary .yd-row-title { color: var(--primary); }
+.ah-confirm-row { padding: 12px 14px; }
+.ah-confirm-row p { margin-bottom: 9px; color: var(--text-secondary); font-size: 12.5px; line-height: 1.45; }
+
+/* Owner: the week's headline over a small chart. */
+.ah-headline { padding: 13px 14px 4px; }
+.ah-headline b { color: var(--text-primary); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.ah-headline span { margin-left: 6px; color: var(--text-muted); font-size: 13px; }
+.ah-headline em { display: block; margin-top: 2px; color: var(--text-muted); font-size: 12px; font-style: normal; }
+.ah-headline em.is-up { color: var(--success); }
+.ah-headline em.is-down { color: var(--warning); }
+.ah-spark { display: flex; align-items: flex-end; gap: 4px; height: 46px; padding: 6px 14px 12px; }
+.ah-spark i { flex: 1; min-height: 2px; border-radius: 3px 3px 1px 1px; background: color-mix(in srgb, var(--primary) 38%, var(--bg-fill)); }
+.ah-spark i.is-now { background: var(--primary); }
+
+/* Email (v9.1, like Mail): a calm home, New email on its own screen. */
+.ah-mail-new { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; border-radius: 14px; background: var(--primary); color: var(--on-primary); font-size: 16px; font-weight: 700; }
+.ah-mail-new:disabled { opacity: 0.5; }
+.ah-mail-new:active { filter: brightness(0.94); }
+.ah-compose-bar { grid-template-columns: 84px minmax(0, 1fr) 84px; padding-top: max(10px, var(--safe-area-top, 0px)); border-bottom: 0.5px solid var(--separator, var(--border-subtle)); }
+.ah-send { min-height: 32px; padding: 0 15px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: 15px; font-weight: 700; }
+.ah-send:disabled { opacity: 0.4; }
+.ah-field { min-height: 50px; }
+.ah-field-key { flex: none; width: 62px; color: var(--text-muted); font-size: 14.5px; }
+.ah-field .ah-seg { margin: 0; }
+.ah-field-input { flex: 1; min-width: 0; background: transparent; color: var(--text-primary); font-size: 15px; outline: none; }
+.ah-field-input::placeholder { color: var(--text-muted); }
+.ah-compose-text { display: block; width: 100%; min-height: 260px; padding: 14px; resize: vertical; border: 0; border-radius: 14px; background: var(--bg-surface); color: var(--text-primary); font-size: 15px; line-height: 1.6; outline: none; }
+.ah-compose-text:focus { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--primary) 70%, transparent); }
+.ah-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ah-tools button { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 12px; border-radius: 999px; background: var(--bg-surface); color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+.ah-tools button svg { color: var(--primary); }
+.ah-mail-test { display: block; width: 100%; margin-top: 18px; padding: 10px; color: var(--primary); font-size: 15px; font-weight: 600; text-align: center; }
+.ah-mail-test:disabled { opacity: 0.45; }
+.ah-back-link { display: inline-flex; align-items: center; gap: 1px; margin: 0 0 4px -4px; color: var(--primary); font-size: 15px; }
+.ah-apple .ah-mail-help { margin: 0; background: none; }
+.ah-help-code { flex: none; width: 112px; color: var(--text-primary); font-size: 13px; font-weight: 600; }
+.ah-mail-help .yd-block ul { padding-left: 18px; }
+.ah-apple .ah-mail-running { margin-bottom: 14px; }
+
+/* The preview, framed like Gmail shows it: subject, sender, then the email at its full height. */
+.ah-mailview-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.ah-mailview-top .ah-seg { margin: 0; }
+.ah-mailview-top .ah-seg button { min-height: 28px; padding: 0 8px; font-size: 12px; }
+.ah-gmail { overflow: hidden; border: 0.5px solid var(--separator, var(--border-subtle)); border-radius: 16px; background: #ffffff; }
+.ah-gmail-head { padding: 14px 16px 12px; border-bottom: 1px solid #eceff1; color: #202124; font-family: Roboto, 'Segoe UI', system-ui, sans-serif; }
+.ah-gmail-subject { margin-bottom: 10px; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
+.ah-gmail-from { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.ah-gmail-from b { font-weight: 600; }
+.ah-gmail-from small { color: #5f6368; font-size: 12px; }
+.ah-gmail-from em { display: block; color: #5f6368; font-size: 12px; font-style: normal; }
+.ah-gmail-avatar { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #f1d58a; color: #5b4314; font-weight: 700; }
+.ah-gmail iframe { display: block; width: 100%; border: 0; background: #ffffff; pointer-events: none; }
+/* Gmail's dark mode darkens a plain email by itself; this is close to how it looks. */
+.ah-gmail.is-dark { background: #121212; }
+.ah-gmail.is-dark .ah-gmail-head { border-bottom-color: #2a2a2a; background: #1f1f1f; color: #e3e3e3; }
+.ah-gmail.is-dark .ah-gmail-from small, .ah-gmail.is-dark .ah-gmail-from em { color: #a8a8a8; }
+.ah-gmail.is-dark iframe { filter: invert(1) hue-rotate(180deg); }
+
+/* Send asks once, like an iOS alert. */
+.ah-alert { width: min(300px, calc(100vw - 48px)); overflow: hidden; border-radius: 16px; background: var(--bg-elevated); text-align: center; }
+.ah-alert h4 { padding: 18px 16px 4px; color: var(--text-primary); font-size: 16px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.ah-alert p { padding: 0 16px 16px; color: var(--text-secondary); font-size: 13px; line-height: 1.45; }
+.ah-alert-buttons { display: flex; border-top: 0.5px solid var(--separator, var(--border-subtle)); }
+.ah-alert-buttons button { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 6px; min-height: 46px; color: var(--primary); font-size: 16px; }
+.ah-alert-buttons button + button { border-left: 0.5px solid var(--separator, var(--border-subtle)); }
+.ah-alert-buttons .is-strong { font-weight: 700; }
+.ah-alert-buttons button:disabled { opacity: 0.45; }
+.ah-apple .yd-card.ah-done > * + *, .ah-apple .yd-card.ah-confirm-row > * + * { border-top: 0; }

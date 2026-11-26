@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BadgeCheck, Check, ChevronRight, Crown, Database, Heart, Search } from 'lucide-react';
+import { BadgeCheck, Check, ChevronRight, Crown, Eraser, Heart, LineChart, Search, type LucideIcon } from 'lucide-react';
 import { fetchPeople, formatBytes, personLabel, type AdminPerson, type GrowthReport } from '../../lib/adminHub';
 import {
   accountTotals, arrivalsReadout, biggestDrop, cleanupLine, DEFAULT_CLEANUP_FILTERS, deleteChosenAccounts, fetchCleanupList, fetchReleaseDownloads, FREE_DATABASE_BYTES,
@@ -9,6 +9,20 @@ import { hapticWarn } from '../../lib/haptics';
 import SupportSettingsAdmin from '../community/SupportSettingsAdmin';
 import type { AdminHubData } from './useAdminHubData';
 import type { OwnerPage } from './adminHubShared';
+import { LargeTitle, NumberStrip, Segmented } from './AdminUI';
+
+function Cell({ icon: Icon, tone, title, text, value, onClick }: {
+  icon: LucideIcon; tone?: 'red' | 'green' | 'amber' | 'grey'; title: string; text?: string; value?: string; onClick: () => void;
+}) {
+  return (
+    <button type="button" className="yd-row" onClick={onClick}>
+      <span className={`yd-tile ${tone ? `is-${tone}` : ''}`} aria-hidden><Icon size={16} strokeWidth={2} /></span>
+      <span className="yd-row-main"><span className="yd-row-title">{title}</span>{text && <span className="yd-row-text">{text}</span>}</span>
+      {value && <span className="ah-value">{value}</span>}
+      <ChevronRight size={17} className="ah-chev" aria-hidden />
+    </button>
+  );
+}
 
 const shortDay = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 const longDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -50,7 +64,10 @@ function Bar({ total, main, peak, flat, tone, label, picked, onClick }: {
   );
 }
 
-function Growth({ growth }: { growth: GrowthReport }) {
+type Chart = 'people' | 'arrivals';
+
+export function GrowthPage({ growth }: { growth: GrowthReport }) {
+  const [chart, setChart] = useState<Chart>('people');
   const [day, setDay] = useState<number | null>(null);
   const [week, setWeek] = useState<number | null>(null);
   const [downloads, setDownloads] = useState<ReleaseDownloads[] | null>(null);
@@ -70,11 +87,12 @@ function Growth({ growth }: { growth: GrowthReport }) {
   const weekPeak = Math.max(1, ...weeks.map((item) => item.signups));
   const steps = growthFunnel(growth);
   const drop = biggestDrop(steps);
-  const first = steps[0]?.count || 1;
   return (
-    <>
-      <section className="yd-section">
-        <h3 className="yd-heading">People using YouDO</h3>
+    <div className="ah-page">
+      <LargeTitle title="Growth" subtitle={opensSince ? `India time · counting since ${shortDay(opensSince)}` : 'India time · counting starts with v9'} />
+      <Segmented<Chart> label="Chart" value={chart} onChange={setChart}
+        options={[{ id: 'people', label: 'People using YouDO' }, { id: 'arrivals', label: 'New people' }]} />
+      {chart === 'people' ? (
         <div className="yd-card yd-block">
           <ReadoutHead readout={people} span={`last ${days.length} days`} onClear={() => setDay(null)} />
           {days.length > 0 && (
@@ -94,13 +112,9 @@ function Growth({ growth }: { growth: GrowthReport }) {
               <div className="ah-axis"><span>{shortDay(days[0].day)}</span><span>{shortDay(days[Math.floor(days.length / 2)].day)}</span><span>today</span></div>
             </>
           )}
-          {day === null && <p className="ah-note mt-2">Tap a day to see it. {opensSince ? `Counting started ${shortDay(opensSince)}, with v9.` : 'Counting starts with v9.'}</p>}
+          {day === null && <p className="ah-note mt-2">Tap a day to compare it with a usual day.</p>}
         </div>
-
-      </section>
-
-      <section className="yd-section">
-        <h3 className="yd-heading">New people arriving</h3>
+      ) : (
         <div className="yd-card yd-block">
           <ReadoutHead readout={arrivals} span={`last ${weeks.length} weeks`} onClear={() => setWeek(null)} />
           {weeks.length > 0 && (
@@ -118,36 +132,37 @@ function Growth({ growth }: { growth: GrowthReport }) {
           )}
           {week === null && <p className="ah-note mt-2">Tap a week to see it. Deleted accounts still count in the week they signed up.</p>}
         </div>
+      )}
 
-        <div className="yd-card yd-block mt-3">
-          <p className="yd-row-title">From sign-up to habit</p>
-          <div className="ah-funnel">
-            {steps.map((step) => (
-              <div key={step.label}>
-                <div className="ah-funnel-top"><span>{step.label}</span><span>{step.count}{step.percent !== undefined && <em> · {step.percent}%</em>}</span></div>
-                <div className="ah-meter"><i style={{ width: `${Math.max(1, (step.count / first) * 100)}%` }} /></div>
-              </div>
-            ))}
-          </div>
-          <p className="ah-note mt-2">
-            {drop ? `Most people stop between “${drop.from.toLowerCase()}” and “${drop.to.toLowerCase()}” (${drop.lost}).` : 'Too few people yet to see where they stop.'}
-            {growth.deleted.count > 0 ? ` Includes ${growth.deleted.count} deleted ${growth.deleted.count === 1 ? 'account' : 'accounts'}, so cleanups never change it.` : ''}
-          </p>
-        </div>
-
-        <div className="yd-card yd-block mt-3">
-          <p className="yd-row-title">Downloads</p>
-          {downloads === null ? <p className="ah-note mt-2">{downloadsError || 'Asking GitHub…'}</p> : (
-            <div className="ah-list">
-              {downloads.slice(0, 4).map((release) => (
-                <div key={release.version}><span>v{release.version}{release.publishedAt ? ` · ${shortDay(release.publishedAt)}` : ''}</span><b>{release.downloads}</b></div>
-              ))}
+      <section className="yd-section mt-5">
+        <h3 className="yd-heading">From sign-up to habit</h3>
+        <div className="yd-card">
+          {steps.map((step) => (
+            <div key={step.label} className="yd-row">
+              <span className="yd-row-main"><span className="yd-row-title">{step.label}</span></span>
+              <span className="ah-value">{step.count}{step.percent !== undefined ? ` · ${step.percent}%` : ''}</span>
             </div>
-          )}
-          <p className="ah-note mt-2">From GitHub: the website, in-app updates and Orion Store. APKs posted in Telegram aren’t counted (Telegram shows views on the post). Each update counts again.</p>
+          ))}
         </div>
+        <p className="yd-note">
+          {drop ? `Most people stop between “${drop.from.toLowerCase()}” and “${drop.to.toLowerCase()}” (${drop.lost}).` : 'Too few people yet to see where they stop.'}
+          {growth.deleted.count > 0 ? ` Includes ${growth.deleted.count} deleted ${growth.deleted.count === 1 ? 'account' : 'accounts'}, so cleanups never change it.` : ''}
+        </p>
       </section>
-    </>
+
+      <section className="yd-section">
+        <h3 className="yd-heading">Downloads</h3>
+        <div className="yd-card">
+          {downloads === null ? <p className="ah-empty !py-5">{downloadsError || 'Asking GitHub…'}</p> : downloads.slice(0, 4).map((release) => (
+            <div key={release.version} className="yd-row">
+              <span className="yd-row-main"><span className="yd-row-title">v{release.version}{release.publishedAt ? ` · ${shortDay(release.publishedAt)}` : ''}</span></span>
+              <span className="ah-value">{release.downloads}</span>
+            </div>
+          ))}
+        </div>
+        <p className="yd-note">From GitHub: the website, in-app updates and Orion Store. APKs posted in Telegram aren’t counted. Each update counts again.</p>
+      </section>
+    </div>
   );
 }
 
@@ -157,12 +172,7 @@ const SIGN_INS: { id: CleanupSignIn; label: string }[] = [{ id: 'any', label: 'a
 
 /** How many accounts there are right now, at the top of Owner → Accounts. */
 function AccountTotals({ growth }: { growth: GrowthReport }) {
-  const totals = accountTotals(growth);
-  return (
-    <div className="ah-person-stats">
-      {totals.tiles.map((tile) => <div key={tile.label}><b>{tile.value}</b><span>{tile.label}</span></div>)}
-    </div>
-  );
+  return <NumberStrip label="Accounts" items={accountTotals(growth).tiles} />;
 }
 
 function Cleanup({ growth, onDone }: { growth: GrowthReport | null; onDone: () => void }) {
@@ -301,12 +311,12 @@ function Staff({ onOpenPerson }: { onOpenPerson: (id: string) => void }) {
       <div className="yd-card">
         {staff.map((person) => (
           <button key={person.id} type="button" className="yd-row" onClick={() => onOpenPerson(person.id)}>
-            <span className="yd-tile" aria-hidden><Crown size={18} /></span>
+            <span className="yd-tile" aria-hidden><Crown size={16} /></span>
             <span className="yd-row-main">
               <span className="yd-row-title">{personLabel(person)}</span>
               <span className="yd-row-text">{person.role === 'owner' ? 'Owner' : `Admin · badge ${person.badgeVisible ? 'shown' : 'hidden'}`}</span>
             </span>
-            <ChevronRight size={17} className="text-content-muted" aria-hidden />
+            <ChevronRight size={17} className="ah-chev" aria-hidden />
           </button>
         ))}
       </div>
@@ -325,51 +335,54 @@ export default function AdminOwner({ data, page, onPage, onOpenPerson, onRefresh
   if (page === 'cleanup') return <Cleanup growth={data.growth} onDone={() => void onRefresh()} />;
   if (page === 'staff') return <Staff onOpenPerson={onOpenPerson} />;
   if (page === 'support') return <div className="ah-page"><SupportSettingsAdmin /></div>;
+  if (page === 'growth') return data.growth ? <GrowthPage growth={data.growth} /> : <p className="ah-empty">{data.growthError || 'Loading the numbers…'}</p>;
 
   const growth = data.growth;
   const cleanup = growth ? growth.cleanup.unconfirmed + growth.cleanup.empty : 0;
   const used = growth ? Math.min(100, (growth.databaseBytes / FREE_DATABASE_BYTES) * 100) : 0;
+  const week = growth ? peopleReadout(growth, null, longDay) : null;
+  const lastDays = growth ? growth.days.slice(-7) : [];
+  const sparkPeak = Math.max(1, ...lastDays.map((item) => item.opened));
   return (
     <div className="ah-page">
-      {growth ? <Growth growth={growth} /> : <p className="ah-empty">{data.growthError || 'Loading the numbers…'}</p>}
-      <section className="yd-section mt-4">
+      <LargeTitle title="Owner" subtitle="Only you see this" />
+      {!growth ? <p className="ah-empty">{data.growthError || 'Loading the numbers…'}</p> : (
+        <div className="yd-card">
+          <div>
+          <div className="ah-headline">
+            <b>{week?.value ?? '–'}</b><span>{week?.unit ?? ''} this week</span>
+            {week?.change && <em className={`is-${week.change.trend}`}>{week.change.label}</em>}
+          </div>
+          {lastDays.length > 0 && (
+            <div className="ah-spark" aria-hidden>
+              {lastDays.map((item, index) => <i key={item.day} className={index === lastDays.length - 1 ? 'is-now' : undefined} style={{ height: `${Math.max(4, (item.opened / sparkPeak) * 100)}%` }} />)}
+            </div>
+          )}
+          </div>
+          <Cell icon={LineChart} tone="green" title="Growth" value="Charts and funnel" onClick={() => onPage('growth')} />
+        </div>
+      )}
+      <section className="yd-section mt-5">
         <h3 className="yd-heading">Accounts</h3>
         <div className="yd-card">
           {growth && <AccountTotals growth={growth} />}
-          <button type="button" className="yd-row" onClick={() => onPage('cleanup')}>
-            <span className="yd-tile" aria-hidden><Database size={18} /></span>
-            <span className="yd-row-main"><span className="yd-row-title">Account cleanup</span>
-              <span className={`yd-row-text ${cleanup ? 'is-on' : ''}`}>{growth ? (cleanup ? `${cleanup} unconfirmed or empty` : 'Nothing to clean up') : 'Unconfirmed and empty accounts'}</span></span>
-            <ChevronRight size={17} className="text-content-muted" aria-hidden />
-          </button>
-          <button type="button" className="yd-row" onClick={() => onPage('staff')}>
-            <span className="yd-tile" aria-hidden><Crown size={18} /></span>
-            <span className="yd-row-main"><span className="yd-row-title">Staff</span><span className="yd-row-text">You and your admins</span></span>
-            <ChevronRight size={17} className="text-content-muted" aria-hidden />
-          </button>
+          <Cell icon={Eraser} tone="grey" title="Account cleanup" value={growth ? (cleanup ? `${cleanup} to look at` : 'Nothing to clean') : undefined} onClick={() => onPage('cleanup')} />
+          <Cell icon={Crown} title="Staff" value="You and your admins" onClick={() => onPage('staff')} />
         </div>
       </section>
       <section className="yd-section">
-          <h3 className="yd-heading">Money</h3>
-          <div className="yd-card">
-            <button type="button" className="yd-row" onClick={() => onPage('support')}>
-              <span className="yd-tile" aria-hidden><Heart size={18} /></span>
-              <span className="yd-row-main"><span className="yd-row-title">Support YouDO</span><span className="yd-row-text">UPI ID, QR code and claims</span></span>
-              <ChevronRight size={17} className="text-content-muted" aria-hidden />
-            </button>
-            <button type="button" className="yd-row" onClick={() => onPage('backers')}>
-              <span className="yd-tile" aria-hidden><BadgeCheck size={18} /></span>
-              <span className="yd-row-main"><span className="yd-row-title">Backers</span>
-                <span className={`yd-row-text ${data.pendingBackers ? 'is-on' : ''}`}>{data.pendingBackers ? `${data.pendingBackers} ${data.pendingBackers === 1 ? 'claim' : 'claims'} waiting` : 'Who backed YouDO, what they gave, thank-yous'}</span></span>
-              <ChevronRight size={17} className="text-content-muted" aria-hidden />
-            </button>
-          </div>
+        <h3 className="yd-heading">Money</h3>
+        <div className="yd-card">
+          <Cell icon={BadgeCheck} tone="red" title="Backers" value={data.pendingBackers ? `${data.pendingBackers} ${data.pendingBackers === 1 ? 'claim' : 'claims'} waiting` : undefined}
+            text={data.pendingBackers ? undefined : 'Who backed YouDO, thank-yous'} onClick={() => onPage('backers')} />
+          <Cell icon={Heart} tone="green" title="Support YouDO" text="UPI ID, QR code and claims" onClick={() => onPage('support')} />
+        </div>
       </section>
       {growth && (
         <section className="yd-section">
           <h3 className="yd-heading">Server</h3>
           <div className="yd-card yd-block">
-            <p className="yd-row-title">Database · {formatBytes(growth.databaseBytes)} of 500 MB</p>
+            <div className="flex items-center justify-between gap-3"><span className="yd-row-title">Database</span><span className="ah-value">{formatBytes(growth.databaseBytes)} of 500 MB</span></div>
             <div className="ah-meter"><i style={{ width: `${Math.max(1, used)}%` }} /></div>
             {growth.largestTables.length > 0 && (
               <p className="ah-note mt-2">Largest: {growth.largestTables.slice(0, 3).map((table) => `${table.name.replace(/_/g, ' ')} ${formatBytes(table.bytes)}`).join(' · ')}</p>

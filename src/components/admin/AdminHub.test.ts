@@ -64,14 +64,19 @@ describe('the Admin Hub', () => {
     expect(queueCounts(hub('admin'))).toEqual({ reports: 1, hashtags: 0, appeals: 1, backers: 0, all: 2 });
   });
 
-  it('shows the queue with its choices on each card', () => {
+  it('shows the Inbox with two clear choices on each card, and more behind •••', () => {
     const html = renderToStaticMarkup(createElement(AdminQueue, {
       data: hub('admin'), filter: 'all', onFilter: noop, onRefresh: refresh, onOpenBackers: noop, onOpenPerson: noop,
     }));
     expect(html).toContain('Free PYQ pdfs here');
     expect(html).toContain('quickmarks');
-    expect(html).toContain('Remove + mute 7 d');
+    expect(html).toContain('>Inbox</h1>');
+    expect(html).toContain('>Remove</button>');
+    expect(html).toContain('>Keep</button>');
+    expect(html).toContain('aria-label="More choices"');
+    expect(html).not.toContain('Remove + mute 7 days'); // behind •••
     expect(html).toContain('Ravi K.');
+    expect(html).toContain('>Restore</button>');
     expect(html).not.toContain('Backers');
     expect(html).not.toContain('Backer claims');
   });
@@ -80,19 +85,22 @@ describe('the Admin Hub', () => {
     const html = renderToStaticMarkup(createElement(AdminQueue, {
       data: hub('owner'), filter: 'all', onFilter: noop, onRefresh: refresh, onOpenBackers: noop, onOpenPerson: noop,
     }));
-    expect(html).toContain('Backers 2');
+    expect(html).toContain('Claims 2');
     expect(html).toContain('Backer claims');
+    expect(html).toContain('2 claims to check');
   });
 
   it('lets only the owner switch the room or edit the broadcast', () => {
     const admin = renderToStaticMarkup(createElement(AdminCommunity, { data: hub('admin'), selfId: 'u5', page: null, onPage: noop, onRefresh: refresh }));
     expect(admin).not.toContain('role="switch"');
-    expect(admin).toContain('The room switches and the broadcast are the owner’s.');
+    expect(admin).toContain('The switches and the broadcast are the owner’s.');
+    expect(admin).not.toContain('Board broadcast');
     const owner = renderToStaticMarkup(createElement(AdminCommunity, { data: hub('owner'), selfId: 'u1', page: null, onPage: noop, onRefresh: refresh }));
     expect(owner.match(/role="switch"/g)).toHaveLength(2);
-    expect(admin).toContain('You ·');
-    expect(owner).toContain('Anjali R. ·');
-    expect(admin).toContain('Muted quickmarks for 7 days');
+    expect(owner).toContain('Board broadcast');
+    // The log's latest line, with who did it.
+    expect(admin).toContain('Muted quickmarks for 7 days · You');
+    expect(owner).toContain('Muted quickmarks for 7 days · Anjali R.');
   });
 
   it('never renders the broadcast editor for an admin', () => {
@@ -100,21 +108,26 @@ describe('the Admin Hub', () => {
     expect(html).toBe('');
   });
 
-  it('shows the owner growth, cleanup and money', () => {
+  it('shows the owner a short overview, with the charts on their own Growth page', () => {
     const html = renderToStaticMarkup(createElement(AdminOwner, {
       data: hub('owner'), page: null, onPage: noop, onOpenPerson: noop, onRefresh: refresh,
     }));
-    expect(html).toContain('People using YouDO');
-    expect(html).toContain('This week');
-    expect(html).toContain('30<em>people opened YouDO</em>');
+    expect(html).toContain('<b>30</b><span>people opened YouDO this week</span>');
     expect(html).toContain('▲ 5 more than last week');
-    expect(html).toContain('regulars, 3+ days');
-    expect(html).toContain('New people arriving');
-    expect(html).toContain('14<em>new accounts</em>');
-    expect(html).not.toContain('Studied');
-    expect(html).toContain('From sign-up to habit');
-    expect(html).toContain('Confirmed their email');
-    expect(html).toContain('135 unconfirmed or empty');
+    expect(html).toContain('Charts and funnel');
+    expect(html).not.toContain('From sign-up to habit'); // on the Growth page
+    expect(html).toContain('135 to look at');
+    const growth = renderToStaticMarkup(createElement(AdminOwner, {
+      data: hub('owner'), page: 'growth', onPage: noop, onOpenPerson: noop, onRefresh: refresh,
+    }));
+    expect(growth).toContain('>Growth</h1>');
+    expect(growth).toContain('People using YouDO');
+    expect(growth).toContain('New people');
+    expect(growth).toContain('30<em>people opened YouDO</em>');
+    expect(growth).toContain('regulars, 3+ days');
+    expect(growth).not.toContain('Studied');
+    expect(growth).toContain('From sign-up to habit');
+    expect(growth).toContain('Confirmed their email');
     // Account totals right now, at the top of Accounts.
     expect(html).toContain('<b>222</b><span>Accounts</span>');
     expect(html).toContain('<b>191</b><span>Confirmed</span>');
@@ -128,25 +141,28 @@ describe('the Admin Hub', () => {
     expect(html).toContain('41 MB of 500 MB');
   });
 
-  it('keeps Home to today and what needs you', () => {
+  it('keeps Today to today and what needs you', () => {
     const props = { onQueue: noop, onBroadcast: noop, onOwner: noop };
     const owner = renderToStaticMarkup(createElement(AdminHome, { data: hub('owner'), ...props }));
-    expect(owner).toContain('Today so far');
-    expect(owner).toContain('Opened YouDO');
+    expect(owner).toContain('>Today</h1>');
+    expect(owner).toContain('aria-label="Today so far"');
+    expect(owner).toContain('<span>Opened</span>');
     expect(owner).toContain('5 focused today');
-    expect(owner).toContain('1 confirmed');
+    expect(owner).toContain('1 of the new confirmed');
+    expect(owner).toContain('Needs you');
     expect(owner).toContain('Worth a look');
     expect(owner).toContain('135 accounts to clean up');
     expect(owner).not.toContain('Came back');
     expect(owner).not.toContain('New this week');
     const admin = renderToStaticMarkup(createElement(AdminHome, { data: hub('admin'), ...props }));
-    expect(admin).toContain('Used the Board today');
-    expect(admin).not.toContain('Opened YouDO');
+    expect(admin).toContain('Used the Board');
+    expect(admin).not.toContain('<span>Opened</span>');
     expect(admin).not.toContain('Worth a look');
   });
   it('lets only the owner write to backers or thank them', () => {
     const admin = renderToStaticMarkup(createElement(AdminEmail, { role: 'admin', selfId: 'u5' }));
-    expect(admin).toContain('Pick people');
+    expect(admin).toContain('New email');
+    expect(admin).not.toContain('>Templates<'); // editing templates is the owner's
     expect(admin).not.toContain('Backers');
     expect(admin).not.toContain('Thank you');
     const owner = renderToStaticMarkup(createElement(AdminEmail, { role: 'owner', selfId: 'u1', start: { audience: 'backers', kind: 'thanks' } }));

@@ -94,18 +94,21 @@ export function HubNavBar({
   subtitle,
   onBack,
   backLabel = 'Back',
+  backText,
   actions,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   onBack: () => void;
   backLabel?: string;
+  /** Words beside the chevron, like iOS ("‹ People"). */
+  backText?: string;
   actions?: ReactNode;
 }) {
   return (
-    <header className="hub-nav">
-      <button type="button" className="hub-nav-back" onClick={onBack} aria-label={backLabel}>
-        <ChevronLeft size={26} strokeWidth={2.2} />
+    <header className={backText ? 'hub-nav has-back-text' : 'hub-nav'}>
+      <button type="button" className={backText ? 'hub-nav-back has-text' : 'hub-nav-back'} onClick={onBack} aria-label={backLabel}>
+        <ChevronLeft size={26} strokeWidth={2.2} />{backText && <span aria-hidden>{backText}</span>}
       </button>
       <div className="hub-nav-title">
         <strong>{title}</strong>
