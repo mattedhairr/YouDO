@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { isAuthRecoveryUrl, resolveAuthRecoveryUrl, resolveAuthRedirectUrl } from '../lib/authRedirect';
 import { authErrorMessage } from '../lib/authError';
+import { signupName } from '../lib/signupName';
 import { parseBackupPayload } from '../lib/backup';
 import { canContinueOffline, canOpenAccountWorkspace, canOpenOfflineWorkspace } from '../lib/workspaceAccess';
 import { assertWorkspaceUnchanged, captureWorkspace, commitWorkspaceReplacement, prepareWorkspaceReplacement, recoverWorkspaceReplacement, restoreAccountWorkspace } from '../lib/workspaceReplacement';
@@ -147,12 +148,18 @@ export function AuthWelcome({ allowOffline, onContinueOffline, accountNotice }: 
           await ensureProfileFromAuth(data.user);
         }
       } else {
+        // The name is required: one made only of spaces passes the field's own check, not this one.
+        const name = signupName(fullName);
+        if (!name) {
+          setMessage({ text: 'Type your name.', error: true });
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
             data: {
-              full_name: fullName.trim() || undefined,
+              full_name: name,
             },
             emailRedirectTo: resolveAuthRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL),
           },
