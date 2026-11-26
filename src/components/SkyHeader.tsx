@@ -27,6 +27,7 @@ import {
   type SkyPalettes,
 } from '../lib/headerSky';
 import { SCENES, sceneForAccent, sceneLand, type SceneId } from '../lib/headerScenes';
+import { cssColor, skyFrame, type SkyFrame } from '../lib/skySim';
 import { SCENE_ART } from './sceneArt';
 import type { GoalNode } from '../types';
 import { deviceTimeZone, formatClock, isIndiaTimeZone, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACE_EVENT, SKY_PLACES, skyInviteDone, sunDayForPlace } from '../lib/skyPlaces';
@@ -265,10 +266,30 @@ function SunLens({ x, y, intensity, warm, flare, width, height }: {
   );
 }
 
+/**
+ * The simulated sky (skySim.ts), worked out at a fraction of the size and
+ * scaled up smoothly: it is all gentle gradients.
+ */
+function SkyCanvas({ frame, width, height }: { frame: SkyFrame; width: number; height: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useLayoutEffect(() => {
+    const canvas = ref.current;
+    if (!canvas || typeof ImageData === 'undefined') return;
+    if (canvas.width !== frame.cols) canvas.width = frame.cols;
+    if (canvas.height !== frame.rows) canvas.height = frame.rows;
+    canvas.getContext('2d')?.putImageData(new ImageData(frame.pixels, frame.cols, frame.rows), 0, 0);
+  }, [frame]);
+  return <canvas ref={ref} className="sky-canvas" style={{ width, height }} aria-hidden />;
+}
+
 /** The scene: sky, sun or stars, the mountains. Coordinates as in OFFSET. */
-function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, land, place, sunPathD, quoteShade, flareLevel, palettes }: {
-  /** A scene's five skies and the light on its land (headerScenes.ts). */
+function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, land, place, sunPathD, quoteShade, flareLevel, palettes, frame, countShade }: {
+  /** A soft shade behind the countdown when the sky there is bright (the sun's glow), so its words stay readable. */
+  countShade?: boolean;
+  /** A scene's five skies and the light on its land (headerScenes.ts): the fallback when the sky can't be worked out. */
   palettes: SkyPalettes;
+  /** The simulated sky and the light on the land (skySim.ts), drawn under this. */
+  frame: SkyFrame | null;
   /** The scene's land: its picture and where it sits (sceneLand()). */
   land: { src: string; x: number; y: number; w: number; h: number };
   width: number;
@@ -311,6 +332,22 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
   const top = -OFFSET - 40;
   // The light on the land, multiplied into the picture: each channel 0–1.
   const [lr, lg, lb] = (colors.land.match(/[\d.]+/g) ?? ['255', '255', '255']).slice(0, 3).map((v) => (Number(v) / 255).toFixed(3));
+  // How bright the sky is behind the countdown (top right), from the frame.
+  const countGlow = (() => {
+    if (!frame || !countShade) return 0;
+    let sum = 0;
+    let n = 0;
+    for (let j = Math.floor((66 / height) * frame.rows); j <= Math.min(frame.rows - 1, Math.floor((115 / height) * frame.rows)); j++) {
+      for (let i = Math.floor(((width - 150) / width) * frame.cols); i < frame.cols; i++) {
+        const p = (j * frame.cols + i) * 4;
+        sum += (0.2126 * frame.pixels[p] + 0.7152 * frame.pixels[p + 1] + 0.0722 * frame.pixels[p + 2]) / 255;
+        n++;
+      }
+    }
+    return n ? Math.min(1, Math.max(0, (sum / n - 0.55) / 0.3)) : 0;
+  })();
+  const matrix = (m: readonly number[], haze?: readonly number[], a = 0) =>
+    [0, 1, 2].map((k) => [0, 1, 2].map((c) => (c === k ? (m[k] * (1 - a)).toFixed(3) : '0')).join(' ') + ` 0 ${haze ? (haze[k] * a).toFixed(3) : '0'}`).join('  ') + '  0 0 0 1 0';
 
   return (
     <svg className="sky-art" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden>
@@ -325,13 +362,34 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
         <radialGradient id="sky-disc"><stop offset="0" stopColor={discCore} /><stop offset=".62" stopColor={discCore} /><stop offset=".87" stopColor={discRim} /><stop offset="1" stopColor={transparentOf(discRim)} /></radialGradient>
         <SoftGlow id="sky-bloom" color={(a) => `rgba(250,252,255,${a})`} peak={0.5} sigma={0.26} />
         <SoftGlow id="sky-starbloom" color={(a) => `rgba(220,230,255,${a})`} peak={0.5} sigma={0.45} />
+        <radialGradient id="sky-countshade"><stop offset="0" stopColor="rgba(0,0,0,.5)" /><stop offset=".55" stopColor="rgba(0,0,0,.22)" /><stop offset="1" stopColor="rgba(0,0,0,0)" /></radialGradient>
         <linearGradient id="sky-textshade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="rgba(0,0,0,.32)" /><stop offset=".5" stopColor="rgba(0,0,0,0)" /></linearGradient>
         <linearGradient id="sky-quoteshade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="rgba(4,14,26,0)" /><stop offset=".45" stopColor="rgba(4,14,26,.22)" /><stop offset="1" stopColor="rgba(4,12,22,.4)" /></linearGradient>
         <filter id="sky-landlight" colorInterpolationFilters="sRGB" x="0" y="0" width="100%" height="100%">
-          <feColorMatrix type="matrix" values={`${lr} 0 0 0 0  0 ${lg} 0 0 0  0 0 ${lb} 0 0  0 0 0 1 0`} />
+          <feColorMatrix type="matrix" values={frame ? matrix(frame.landLow) : `${lr} 0 0 0 0  0 ${lg} 0 0 0  0 0 ${lb} 0 0  0 0 0 1 0`} />
         </filter>
+        {frame && (
+          <>
+            {/* High ground: its own light (peaks keep the sun longest) and the haze of distance. */}
+            <filter id="sky-landhigh" colorInterpolationFilters="sRGB" x="0" y="0" width="100%" height="100%">
+              <feColorMatrix type="matrix" values={matrix(frame.landHigh, frame.haze, frame.hazeAmount)} />
+            </filter>
+            <linearGradient id="sky-landfade" gradientUnits="userSpaceOnUse" x1="0" y1={land.y + land.h * 0.15} x2="0" y2={land.y + land.h * 0.62}>
+              <stop offset="0" stopColor="#fff" />
+              <stop offset="1" stopColor="#000" />
+            </linearGradient>
+            <mask id="sky-landtop" maskUnits="userSpaceOnUse" x="0" y={top} width={width} height={height - top}>
+              <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-landfade)" />
+            </mask>
+            <radialGradient id="sky-simdisc">
+              <stop offset="0" stopColor={cssColor(frame.sunColor)} />
+              <stop offset=".72" stopColor={cssColor(frame.sunColor)} />
+              <stop offset="1" stopColor={cssColor(frame.sunColor)} stopOpacity="0" />
+            </radialGradient>
+          </>
+        )}
       </defs>
-      <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-grad)" />
+      {!frame && <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-grad)" />}
       {night > 0.01 && starsShow > 0 && (
         <g opacity={night * starsShow}>
           {dust.map((d, i) => <circle key={`d${i}`} cx={d.x} cy={d.y} r={0.38} fill="#fff" opacity={d.opacity} />)}
@@ -344,7 +402,10 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
           ))}
         </g>
       )}
-      {sun.visible && sunShows > 0 && (
+      {frame && sun.visible && sunShows > 0 && frame.sunAlpha > 0.01 && (
+        <ellipse cx={sunX} cy={sunY} rx={sunR * 1.15} ry={sunR * 1.15 * (0.9 + 0.1 * sun.elevation)} fill="url(#sky-simdisc)" opacity={sunShows * frame.sunAlpha} />
+      )}
+      {!frame && sun.visible && sunShows > 0 && (
         <g opacity={sunShows}>
           <ellipse cx={sunX} cy={sunY} rx={190} ry={120} fill="url(#sky-sunglow)" />
           {low > 0.35 && <ellipse cx={sunX} cy={sunY + 10} rx={260} ry={30} fill="url(#sky-horizon)" opacity={(low - 0.35) / 0.65} />}
@@ -355,7 +416,10 @@ function SkyArt({ width, height, hour, day, weather, stars, lines, dust, night, 
       )}
       {sunPathD && <path d={sunPathD} className="sky-sunpath" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth={1.3} strokeDasharray="0.5 5" strokeLinecap="round" />}
       <image href={land.src} x={land.x} y={land.y} width={land.w} height={land.h} preserveAspectRatio="none" filter="url(#sky-landlight)" />
-      {sun.visible && lens > 0.005 && <SunLens x={sunX} y={sunY} intensity={lens} warm={1 - sun.elevation} flare={flare} width={width} height={height} />}
+      {frame && <image href={land.src} x={land.x} y={land.y} width={land.w} height={land.h} preserveAspectRatio="none" filter="url(#sky-landhigh)" mask="url(#sky-landtop)" />}
+      {/* The simulated sky has the sun's glare already: only a touch of the wash, and the noon lens flare. */}
+      {sun.visible && lens > 0.005 && <SunLens x={sunX} y={sunY} intensity={frame ? lens * 0.3 : lens} warm={1 - sun.elevation} flare={flare} width={width} height={height} />}
+      {countGlow > 0.01 && <ellipse cx={width - 80} cy={91} rx={132} ry={46} fill="url(#sky-countshade)" opacity={countGlow} />}
       {quoteShade && <rect x="0" y={height - 92} width={width} height={92} fill="url(#sky-quoteshade)" />}
       <rect x="0" y={top} width={width} height={height - top} fill="url(#sky-textshade)" opacity={1 - night} />
     </svg>
@@ -557,6 +621,27 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
   const sunNow = useMemo(() => sunPlacement(width, hour, day, track), [width, hour, day, track]);
   const sunPath = useMemo(() => sunPathFor(width, day, ridges, track), [width, day, ridges, track]);
   const sunTappable = !photo && weather !== 'rainy' && sunNow.state.visible && replayHour === null;
+  // The sky worked out from light (skySim.ts): a third of the size, a sixth while the time-lapse runs.
+  const fraction = replayHour === null ? 3 : 6;
+  const frame = useMemo(
+    () =>
+      photo
+        ? null
+        : skyFrame({
+            scene: sceneId,
+            hour: sceneHour,
+            day,
+            weather,
+            cols: Math.max(8, Math.round(width / fraction)),
+            rows: Math.max(6, Math.round((height + OFFSET) / fraction)),
+            width,
+            height: height + OFFSET,
+            horizonY: land.y + land.h * 0.3,
+            sun: place.state.visible ? { x: place.x, y: place.y } : null,
+            valley: track.valley,
+          }),
+    [photo, sceneId, sceneHour, day, weather, width, height, fraction, land, place, track],
+  );
   const daylightLeft = Math.max(0, day.sunset - hour);
   const playDay = () => {
     hapticTick();
@@ -606,7 +691,8 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
     ) : (
       <>
         <div className="sky-art-wrap" style={{ height: height + OFFSET }}>
-          <SkyArt width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} land={{ src: SCENE_ART[sceneId], x: land.x, y: land.y, w: land.w, h: land.h }} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} flareLevel={lensFlare(sceneHour, day)} palettes={palettes} />
+          {frame && <SkyCanvas frame={frame} width={width} height={height + OFFSET} />}
+          <SkyArt frame={frame} countShade={Boolean(deadline && today)} width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} land={{ src: SCENE_ART[sceneId], x: land.x, y: land.y, w: land.w, h: land.h }} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} flareLevel={lensFlare(sceneHour, day)} palettes={palettes} />
           <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} />
         </div>
       </>
@@ -634,7 +720,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
       <header
         ref={rootRef}
         className={`sky-header ${photo ? 'has-photo' : ''}`}
-        style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, transition: viewChanged ? 'none' : undefined, ['--sky-bg' as string]: photo ? '#000' : skyNow.sky[0] }}
+        style={{ height: `calc(var(--sky-top) + ${fullHeight}px)`, transition: viewChanged ? 'none' : undefined, ['--sky-bg' as string]: photo ? '#000' : frame ? cssColor(frame.top) : skyNow.sky[0] }}
       >
         <div className="sky-scene">{scene()}</div>
         {sunTappable && (
