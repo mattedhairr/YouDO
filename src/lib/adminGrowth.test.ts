@@ -15,12 +15,10 @@ const growth = {
 } as GrowthReport;
 
 describe('account totals', () => {
-  it('counts the accounts there are now, with deleted ones only in the note', () => {
+  it('counts the accounts there are now, without deleted ones', () => {
     const totals = accountTotals(growth);
     expect(totals.tiles.map((t) => t.value)).toEqual([150, 120, 30, 20]);
     expect(totals.tiles.map((t) => t.label)).toEqual(['Accounts', 'Confirmed', 'Not yet', 'Active 30d']);
-    expect(totals.note).toContain('14 deleted so far');
-    expect(accountTotals({ ...growth, deleted: { count: 0, confirmed: 0, started: 0, cameBack: 0 } }).note).not.toContain('deleted');
   });
 });
 

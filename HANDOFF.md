@@ -8,7 +8,7 @@ Last updated **2026-11-25**, just after releasing **v9.0.2** (versionCode 103: e
 
 Committed on the branch, not pushed. The owner is gathering a few more fixes and enhancements before releasing.
 
-1. **Account totals** (mocked and chosen by the owner: `docs/mocks/owner-accounts.png`). Owner → Accounts opens with four numbers: accounts, confirmed, not yet, and active in the last 30 days, with a line on how many were deleted so far (Growth still counts them). Account cleanup shows "N accounts now · N confirmed" above its list, refreshed after a delete. `accountTotals` in `src/lib/adminGrowth.ts`; the counts were already in `owner_growth_report`, so no server change. Tested with a unit test and a render test with made-up data, and seen in the browser signed in as the owner (2026-11-26: both the tiles and the cleanup line).
+1. **Account totals** (mocked and chosen by the owner: `docs/mocks/owner-accounts.png`). Owner → Accounts opens with four numbers: accounts, confirmed, not yet, and active in the last 30 days, (a line under them about deleted accounts was dropped by the owner). Account cleanup shows "N accounts now · N confirmed" above its list, refreshed after a delete. `accountTotals` in `src/lib/adminGrowth.ts`; the counts were already in `owner_growth_report`, so no server change. Tested with a unit test and a render test with made-up data, and seen in the browser signed in as the owner (2026-11-26: both the tiles and the cleanup line).
 
 **Phone checks for the next release:**
 - Owner → Accounts: the four numbers match what you expect; open Account cleanup, delete one obvious junk account, and both counts go down by one.

@@ -159,12 +159,9 @@ const SIGN_INS: { id: CleanupSignIn; label: string }[] = [{ id: 'any', label: 'a
 function AccountTotals({ growth }: { growth: GrowthReport }) {
   const totals = accountTotals(growth);
   return (
-    <>
-      <div className="ah-person-stats">
-        {totals.tiles.map((tile) => <div key={tile.label}><b>{tile.value}</b><span>{tile.label}</span></div>)}
-      </div>
-      <p className="ah-note ah-totals-note">{totals.note}</p>
-    </>
+    <div className="ah-person-stats">
+      {totals.tiles.map((tile) => <div key={tile.label}><b>{tile.value}</b><span>{tile.label}</span></div>)}
+    </div>
   );
 }
 
