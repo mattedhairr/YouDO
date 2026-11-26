@@ -22,8 +22,16 @@ import './community/community.css';
 import './admin/adminHub.css';
 
 type Tab = 'home' | 'queue' | 'people' | 'community' | 'owner';
-type Page = { kind: 'person'; id: string } | { kind: 'community'; page: CommunityPage } | { kind: 'owner'; page: OwnerPage }
+type Page = { kind: 'person'; id: string; label?: string } | { kind: 'community'; page: CommunityPage } | { kind: 'owner'; page: OwnerPage }
   | { kind: 'email'; start?: EmailStart; key: number };
+
+/** What the back button says when it leads back to this page. */
+function pageLabel(page: Page): string {
+  if (page.kind === 'community') return COMMUNITY_PAGE_TITLES[page.page];
+  if (page.kind === 'owner') return OWNER_PAGE_TITLES[page.page];
+  if (page.kind === 'email') return 'Email';
+  return page.label ?? 'Card';
+}
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Today', icon: Home },
@@ -42,7 +50,11 @@ const TAB_TITLES: Record<Tab, string> = { home: 'Today', queue: 'Inbox', people:
 export default function AdminHubSheet({ userId, onClose }: { userId: string; onClose: () => void }) {
   const { data, error, refreshing, refresh } = useAdminHubData(userId);
   const [tab, setTab] = useState<Tab>('home');
-  const [page, setPage] = useState<Page | null>(null);
+  // Pages open on top of each other, so Back goes one level up (Backers → a card → back to Backers).
+  const [pages, setPages] = useState<Page[]>([]);
+  const page = pages.length ? pages[pages.length - 1] : null;
+  const openPage = (next: Page) => setPages((list) => [...list, next]);
+  const closePage = useCallback(() => setPages((list) => list.slice(0, -1)), []);
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
   const [backersOpen, setBackersOpen] = useState(false);
   const [peopleKey, setPeopleKey] = useState(0);
@@ -60,14 +72,14 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
 
   // Android's Back reaches the Admin Hub through App: it steps back as the button does, then leaves the hub.
   useEffect(() => {
-    setBackStep('admin', inner ? inner.back : page ? () => setPage(null) : null);
+    setBackStep('admin', inner ? inner.back : page ? closePage : null);
     return () => setBackStep('admin', null);
-  }, [page, inner]);
+  }, [page, inner, closePage]);
   useEffect(() => { body.current?.scrollTo?.(0, 0); }, [tab, page, inners.length]);
   // The Settings button's count follows what was handled here.
   useEffect(() => () => { window.dispatchEvent(new Event(ADMIN_QUEUE_EVENT)); }, []);
 
-  const goBack = () => (inner ? inner.back() : page ? setPage(null) : onClose());
+  const goBack = () => (inner ? inner.back() : page ? closePage() : onClose());
   const reload = async () => { await refresh(); window.dispatchEvent(new Event(ADMIN_QUEUE_EVENT)); };
 
   if (!data) {
@@ -87,8 +99,12 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
   const pageTitle = page?.kind === 'community' ? COMMUNITY_PAGE_TITLES[page.page]
     : page?.kind === 'owner' && page.page !== 'growth' ? OWNER_PAGE_TITLES[page.page]
     : null;
-  const openPerson = (id: string) => setPage({ kind: 'person', id });
-  const openEmail = (start?: EmailStart) => setPage({ kind: 'email', start, key: Date.now() });
+  const openPerson = (id: string) => openPage({ kind: 'person', id });
+  const openEmail = (start?: EmailStart) => openPage({ kind: 'email', start, key: Date.now() });
+  const backTo = inner?.label ?? (pages.length > 1 ? pageLabel(pages[pages.length - 2]) : page ? TAB_TITLES[tab] : undefined);
+  // A card names its person once loaded, so a page opened from it can say "‹ Anjali".
+  const namePerson = (id: string, label: string) => setPages((list) => list.map((item) => (
+    item.kind === 'person' && item.id === id && item.label !== label ? { ...item, label } : item)));
 
   return (
     <Overlay open onClose={goBack} align="full" screen>
@@ -97,8 +113,8 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
           title=""
           subtitle={refreshing ? 'Refreshing…' : undefined}
           onBack={goBack}
-          backLabel={inner ? `Back to ${inner.label}` : page ? `Back to ${TAB_TITLES[tab]}` : 'Close Admin Hub'}
-          backText={inner?.label ?? (page ? TAB_TITLES[tab] : undefined)}
+          backLabel={backTo ? `Back to ${backTo}` : 'Close Admin Hub'}
+          backText={backTo}
           actions={<>
             {role && !page && <span className="ah-role">{role === 'owner' ? 'Owner' : 'Admin'}</span>}
             <button type="button" className="hub-icon-button" disabled={refreshing} onClick={() => void reload()} aria-label="Refresh">
@@ -116,24 +132,25 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
               {pageTitle && <LargeTitle title={pageTitle} />}
               {page?.kind === 'person' && (
                 <PersonPage key={page.id} id={page.id} role={role} selfId={userId} onEmail={openEmail}
+                  onLoaded={(label) => namePerson(page.id, label)}
                   onChanged={() => { setPeopleKey((key) => key + 1); void reload(); }}
-                  onDeleted={() => { setPage(null); setPeopleKey((key) => key + 1); void reload(); }} />
+                  onDeleted={() => { closePage(); setPeopleKey((key) => key + 1); void reload(); }} />
               )}
-              {page?.kind === 'community' && <AdminCommunity data={data} selfId={userId} page={page.page} onPage={(next) => setPage({ kind: 'community', page: next })} onRefresh={reload} onOpenPerson={openPerson} />}
+              {page?.kind === 'community' && <AdminCommunity data={data} selfId={userId} page={page.page} onPage={(next) => openPage({ kind: 'community', page: next })} onRefresh={reload} onOpenPerson={openPerson} />}
               {page?.kind === 'email' && <AdminEmail key={page.key} role={role} selfId={userId} start={page.start} />}
               {page?.kind === 'owner' && page.page === 'backers' && (
                 <AdminBackers pendingClaims={data.pendingBackers} onReviewClaims={() => setBackersOpen(true)} onEmail={openEmail} onOpenPerson={openPerson} />
               )}
-              {page?.kind === 'owner' && page.page !== 'backers' && <AdminOwner data={data} page={page.page} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onRefresh={reload} />}
+              {page?.kind === 'owner' && page.page !== 'backers' && <AdminOwner data={data} page={page.page} onPage={(next) => openPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onRefresh={reload} />}
               {!page && tab === 'home' && (
                 <AdminHome data={data} onQueue={(filter) => { setQueueFilter(filter); setTab('queue'); }}
-                  onBroadcast={() => (can(role, 'broadcast') ? setPage({ kind: 'community', page: 'broadcast' }) : setTab('community'))}
-                  onOwner={(next) => { setTab('owner'); if (next) setPage({ kind: 'owner', page: next }); }} />
+                  onBroadcast={() => (can(role, 'broadcast') ? openPage({ kind: 'community', page: 'broadcast' }) : setTab('community'))}
+                  onOwner={(next) => { setTab('owner'); if (next) openPage({ kind: 'owner', page: next }); }} />
               )}
               {!page && tab === 'queue' && <AdminQueue data={data} filter={queueFilter} onFilter={setQueueFilter} onRefresh={reload} onOpenBackers={() => setBackersOpen(true)} onOpenPerson={openPerson} />}
               {!page && tab === 'people' && <PeopleList key={peopleKey} role={role} onOpen={openPerson} onEmail={() => openEmail()} />}
-              {!page && tab === 'community' && <AdminCommunity data={data} selfId={userId} page={null} onPage={(next) => setPage({ kind: 'community', page: next })} onRefresh={reload} />}
-              {!page && tab === 'owner' && <AdminOwner data={data} page={null} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onRefresh={reload} />}
+              {!page && tab === 'community' && <AdminCommunity data={data} selfId={userId} page={null} onPage={(next) => openPage({ kind: 'community', page: next })} onRefresh={reload} />}
+              {!page && tab === 'owner' && <AdminOwner data={data} page={null} onPage={(next) => openPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onRefresh={reload} />}
             </main>
             </HubBackContext.Provider>
             <nav className="ah-tabs" role="tablist" aria-label="Admin Hub">
@@ -142,7 +159,7 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
                 return (
                   <button key={id} type="button" role="tab" className="ah-tab" aria-selected={!page && tab === id}
                     aria-label={count ? `${label}, ${count} waiting` : label}
-                    onClick={() => { setPage(null); setTab(id); if (id === 'queue') setQueueFilter('all'); }}>
+                    onClick={() => { setPages([]); setTab(id); if (id === 'queue') setQueueFilter('all'); }}>
                     <Icon size={20} strokeWidth={tab === id ? 2.3 : 1.8} aria-hidden />
                     {label}
                     {count > 0 && <span className="ah-tab-count" aria-hidden>{count > 99 ? '99+' : count}</span>}

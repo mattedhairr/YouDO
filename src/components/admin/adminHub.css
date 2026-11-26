@@ -354,6 +354,7 @@ button.ah-ro-chip { min-height: 26px; color: var(--primary); }
 /* The hub's navigation bar: a back label beside the chevron on pages. */
 .hub-nav.has-back-text { grid-template-columns: auto minmax(0, 1fr) auto; }
 .hub-nav-back.has-text { width: auto; display: inline-flex; align-items: center; gap: 0; padding: 0 8px 0 2px; font-size: 16px; }
+.hub-nav-back.has-text span { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ah-large { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 4px 4px 14px; }
 .ah-large h1 { color: var(--text-primary); font-size: 30px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }

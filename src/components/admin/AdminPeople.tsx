@@ -130,11 +130,13 @@ export function PeopleList({ role, onOpen, onEmail }: { role: AdminRole; onOpen:
   );
 }
 
-export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail }: {
+export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail, onLoaded }: {
   id: string;
   role: AdminRole;
   selfId: string;
   onEmail: (start: EmailStart) => void;
+  /** Their name, once loaded, for the back button of a page opened from the card. */
+  onLoaded?: (label: string) => void;
   onChanged: () => void;
   onDeleted: () => void;
 }) {
@@ -147,6 +149,8 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail }: 
   const [confirm, setConfirm] = useState<'ban' | 'promote' | 'delete' | null>(null);
   const [typed, setTyped] = useState('');
   const [photo, setPhoto] = useState<string | undefined>();
+  const loaded = useRef(onLoaded);
+  useEffect(() => { loaded.current = onLoaded; });
 
   useEffect(() => {
     let live = true;
@@ -159,7 +163,7 @@ export function PersonPage({ id, role, selfId, onChanged, onDeleted, onEmail }: 
 
   useEffect(() => {
     let cancelled = false;
-    fetchPerson(id).then((next) => { if (!cancelled) setPerson(next); })
+    fetchPerson(id).then((next) => { if (!cancelled) { setPerson(next); loaded.current?.(personLabel(next)); } })
       .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not open this person.'); });
     return () => { cancelled = true; };
   }, [id]);
