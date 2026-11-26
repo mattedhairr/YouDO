@@ -280,9 +280,16 @@ button.ah-ro-chip { min-height: 26px; color: var(--primary); }
 .ah-mail-confirm { margin-top: 12px; padding: 13px; border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .ah-mail-confirm h4 { color: var(--text-primary); font-size: 14px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
 .ah-mail-confirm p { margin-top: 4px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
-.ah-mail-picked { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.ah-mail-pick { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 5px 6px 5px 11px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--text-primary); font-size: 12.5px; font-weight: 700; }
-.ah-mail-pick button { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: var(--text-secondary); }
+/* Choose people: a list to tick, the count above it. */
+.ah-chosen { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-height: 18px; margin: 12px 4px 7px; color: var(--text-secondary); font-size: 12.5px; white-space: nowrap; }
+.ah-chosen span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ah-chosen b { color: var(--text-primary); font-weight: 600; }
+.ah-chosen button { color: var(--primary); font-weight: 600; }
+.ah-chosen-note { margin: 0 0 9px; padding: 9px 11px; border-radius: 11px; background: color-mix(in srgb, var(--primary) 13%, transparent); color: var(--text-primary); font-size: 12.5px; line-height: 1.45; }
+.ah-pick-row.is-off { opacity: 0.4; }
+.ah-tick { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.7px solid var(--text-tertiary, var(--text-secondary)); }
+.ah-tick.is-on { border: 0; background: var(--primary); color: var(--on-primary); }
+.ah-match { background: none; color: var(--primary); font-weight: 700; }
 .ah-page code { padding: 1px 4px; border-radius: 5px; background: var(--bg-fill); color: var(--text-primary); font-size: 11px; }
 
 /* Owner → Backers (AdminBackers.tsx) */

@@ -35,7 +35,7 @@ function Tags({ person }: { person: AdminPerson }) {
   </>;
 }
 
-function Avatar({ person, big = false, photo }: { person: AdminPerson; big?: boolean; photo?: string }) {
+export function Avatar({ person, big = false, photo }: { person: AdminPerson; big?: boolean; photo?: string }) {
   const letter = (person.name ?? person.username ?? '?').replace('@', '').charAt(0).toUpperCase() || '?';
   if (photo) return <span className={`ah-avatar ${big ? 'is-big' : ''} overflow-hidden`} aria-hidden><img src={photo} alt="" className="size-full object-cover" /></span>;
   return <span className={`ah-avatar ${big ? 'is-big' : ''}`} aria-hidden>{letter}</span>;

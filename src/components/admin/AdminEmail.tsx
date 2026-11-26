@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookmarkPlus, Check, ChevronRight, Copy, HelpCircle, LayoutTemplate, Pause, PenLine, Pencil, Plus, Search, Send, X } from 'lucide-react';
-import { can, fetchPeople, personLabel, type AdminRole } from '../../lib/adminHub';
+import { BookmarkPlus, Check, ChevronRight, Copy, HelpCircle, LayoutTemplate, Pause, PenLine, Pencil, Plus, Search, Send } from 'lucide-react';
+import { activeLabel, can, fetchPeople, personLabel, type AdminPerson, type AdminRole } from '../../lib/adminHub';
 import {
   createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSelfName, fetchSendDetail, fetchEmailReach, fetchTemplates, previewRecipient, saveTemplate, sendNextEmails, sendStatus, sendTestEmail, startingText,
   type Backer, type EmailAudience, type EmailOverview, type EmailProgress, type EmailSendDetail, type EmailSendSummary, type EmailTemplate, type RecipientStatus,
@@ -11,6 +11,8 @@ import { hapticSuccess, hapticWarn } from '../../lib/haptics';
 import Overlay from '../Overlay';
 import { LargeTitle, NumberStrip, Segmented } from './AdminUI';
 import { useHubBack } from './hubBack';
+import { Avatar } from './AdminPeople';
+import { PICK_LIMIT, chosenLine, matchParts } from '../../lib/peoplePick';
 
 /** How the Email page opens: from People (blank), a person's card, or Backers. */
 export interface EmailStart {
@@ -106,7 +108,8 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   }, [templates, start?.kind]);
   useEffect(() => { if (!start) writeDraft(untouched(draft) && draft.audience === 'everyone' ? null : draft); }, [draft, start]);
   useEffect(() => {
-    if (draft.audience !== 'people') { setReach(null); return; }
+    setReach(null); // never show the last answer for a new choice
+    if (draft.audience !== 'people') return;
     let live = true;
     fetchEmailReach(draft.people.map((person) => person.id)).then((count) => { if (live) setReach(count); }).catch(() => { if (live) setReach(null); });
     return () => { live = false; };
@@ -156,7 +159,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
     ?? (overview && count === 0 ? 'No one here can get email yet.' : null);
   const toLabel = draft.audience === 'everyone' ? `Everyone${overview ? ` · ${overview.everyone}` : ''}`
     : draft.audience === 'backers' ? `Backers${overview ? ` · ${overview.backers}` : ''}`
-    : draft.people.length === 0 ? 'Pick people' : draft.people.length === 1 ? draft.people[0].label : `${draft.people.length} people`;
+    : draft.people.length === 0 ? 'Choose people' : draft.people.length === 1 ? draft.people[0].label : `${draft.people.length} people`;
 
   // The preview is the email exactly as one real person gets it (previewRecipient): never made-up names or amounts.
   const previewing = composing && mode === 'preview';
@@ -384,7 +387,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
                 {([
                   ['everyone', 'Everyone', overview ? `${overview.everyone} can get email` : ''],
                   ...(owner ? [['backers', 'Backers', overview ? `${overview.backers} ${overview.backers === 1 ? 'backer' : 'backers'}` : '']] : []),
-                  ['people', 'Pick people', 'Up to 50, by name or @username'],
+                  ['people', 'Choose people', 'One person or a few'],
                 ] as [EmailAudience, string, string][]).map(([key, label, detail]) => (
                   <button key={key} type="button" className="yd-row" role="radio" aria-checked={draft.audience === key} onClick={() => pickAudience(key)}>
                     <span className="yd-row-main"><span className="yd-row-title">{label}</span><span className="yd-row-text">{detail}</span></span>
@@ -480,6 +483,8 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
               {count > left
                 ? `Today ${left} can go; the other ${count - left} wait until tomorrow (Send the rest).`
                 : `Each person gets their own copy; nobody sees the others.`}
+              {draft.audience === 'people' && count < draft.people.length
+                && ` ${draft.people.length - count} of those you chose won’t get it: they haven’t confirmed their email or turned emails off.`}
               {' '}An email can’t be taken back.
             </p>
             <div className="ah-alert-buttons">
@@ -529,7 +534,17 @@ export function MailPreview({ html, subject, caption }: { html: string; subject:
   );
 }
 
-/** Search people by name or @username and pick up to 50. */
+/** The search's match shown in the accent colour (the first one). */
+function Marked({ text, search }: { text: string; search: string }) {
+  const [before, match, after] = matchParts(text, search);
+  return match ? <>{before}<mark className="ah-match">{match}</mark>{after}</> : <>{text}</>;
+}
+
+/**
+ * Choose people (v9.1): everyone at once, the most recently active first, more
+ * as you scroll; the search narrows the same list and a tap ticks or unticks.
+ * The server takes at most 50; that limit shows only once it is reached.
+ */
 function PeoplePicker({ picked, reach, selfId, onChange }: {
   picked: { id: string; label: string }[];
   reach: number | null;
@@ -537,49 +552,99 @@ function PeoplePicker({ picked, reach, selfId, onChange }: {
   onChange: (people: { id: string; label: string }[]) => void;
 }) {
   const [search, setSearch] = useState('');
-  const [found, setFound] = useState<{ id: string; label: string; detail: string }[]>([]);
+  const [list, setList] = useState<{ total: number; people: AdminPerson[] } | null>(null);
+  const [error, setError] = useState('');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const request = useRef(0);
+  const end = useRef<HTMLDivElement>(null);
+
+  const load = async (offset: number) => {
+    const id = ++request.current;
+    try {
+      const page = await fetchPeople(search, 'all', offset);
+      if (id !== request.current) return;
+      setList((previous) => (offset && previous ? { total: page.total, people: [...previous.people, ...page.people] } : { total: page.total, people: page.people }));
+      setError('');
+    } catch (caught) {
+      if (id === request.current) setError(caught instanceof Error ? caught.message : 'Could not load people.');
+    }
+  };
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; });
+
   useEffect(() => {
-    if (search.trim().length < 2) { setFound([]); return; }
-    let live = true;
-    const timer = window.setTimeout(() => {
-      fetchPeople(search, 'all', 0, 8).then((page) => {
-        if (live) setFound(page.people.map((person) => ({ id: person.id, label: personLabel(person), detail: person.username ? `@${person.username}` : person.email ?? '' })));
-      }).catch(() => { if (live) setFound([]); });
-    }, 250);
-    return () => { live = false; window.clearTimeout(timer); };
+    const timer = window.setTimeout(() => void loadRef.current(0), search ? 250 : 0);
+    return () => window.clearTimeout(timer);
   }, [search]);
 
+  // More load as the end of the list scrolls into view.
+  const more = Boolean(list && list.people.length < list.total);
+  const shown = list?.people.length ?? 0;
+  useEffect(() => {
+    const target = end.current;
+    if (!more || !target || typeof IntersectionObserver === 'undefined') return undefined;
+    const watcher = new IntersectionObserver(async (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      watcher.disconnect();
+      setLoadingMore(true);
+      await loadRef.current(shown);
+      setLoadingMore(false);
+    });
+    watcher.observe(target);
+    return () => watcher.disconnect();
+  }, [more, shown]);
+
   const has = new Set(picked.map((person) => person.id));
+  const full = picked.length >= PICK_LIMIT;
+  const toggle = (person: AdminPerson) => {
+    if (has.has(person.id)) onChange(picked.filter((item) => item.id !== person.id));
+    else if (!full) onChange([...picked, { id: person.id, label: personLabel(person) }]);
+  };
+  const query = search.trim().replace(/^@/, '');
+
   return (
-    <div className="mt-4">
-      {picked.length < 50 && (
-        <label className="ah-search">
-          <Search size={16} aria-hidden />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or @username" aria-label="Find people" type="search" autoComplete="off" />
-        </label>
-      )}
-      {picked.length > 0 && (
-        <div className="ah-mail-picked mt-3">
-          {picked.map((person) => (
-            <span key={person.id} className="ah-mail-pick">{person.id === selfId ? 'You' : person.label}
-              <button type="button" aria-label={`Remove ${person.label}`} onClick={() => onChange(picked.filter((item) => item.id !== person.id))}><X size={12} /></button>
-            </span>
-          ))}
+    <div className="mt-3.5">
+      <label className="ah-search">
+        <Search size={16} aria-hidden />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or @username" aria-label="Search people" type="search" autoComplete="off" />
+      </label>
+      {/* Always one line, so ticking never moves the list under the finger. */}
+      <div className="ah-chosen">
+        {picked.length === 0 ? <span>No one chosen yet</span> : (
+          <>
+            <span><b>{picked.length} chosen</b>{reach !== null && <> · {chosenLine(picked.length, reach)}</>}</span>
+            <button type="button" onClick={() => onChange([])}>Clear</button>
+          </>
+        )}
+      </div>
+      {full && <p className="ah-chosen-note">That’s the most for one email. For more, send to Everyone.</p>}
+      {error && <p role="status" className="ah-status text-error">{error}</p>}
+      {!list && !error && <p className="ah-empty">Loading people…</p>}
+      {list && list.people.length === 0 && <p className="ah-empty">No one matches.</p>}
+      {list && list.people.length > 0 && (
+        <div className="yd-card">
+          {list.people.map((person) => {
+            const on = has.has(person.id);
+            const label = person.id === selfId ? 'You' : personLabel(person);
+            return (
+              <button key={person.id} type="button" role="checkbox" aria-checked={on} aria-disabled={!on && full}
+                className={`yd-row ah-pick-row ${!on && full ? 'is-off' : ''}`} onClick={() => toggle(person)}>
+                <Avatar person={person} />
+                <span className="yd-row-main">
+                  <span className="yd-row-title truncate"><Marked text={label} search={query} /></span>
+                  <span className="yd-row-text truncate">
+                    {person.username ? <>@<Marked text={person.username} search={query} /> · </>
+                      : person.email && <><Marked text={person.email} search={query} /> · </>}
+                    {person.lastActive ? `active ${activeLabel(person.lastActive)}` : 'never active'}
+                  </span>
+                </span>
+                <span className={`ah-tick ${on ? 'is-on' : ''}`} aria-hidden>{on && <Check size={14} strokeWidth={3} />}</span>
+              </button>
+            );
+          })}
         </div>
       )}
-      {found.length > 0 && (
-        <div className="yd-card mt-2">
-          {found.filter((person) => !has.has(person.id)).map((person) => (
-            <button key={person.id} type="button" className="yd-row" onClick={() => { onChange([...picked, { id: person.id, label: person.label }]); setSearch(''); }}>
-              <span className="yd-row-main"><span className="yd-row-title truncate">{person.label}</span><span className="yd-row-text truncate">{person.detail}</span></span>
-              <Plus size={17} className="text-primary" aria-hidden />
-            </button>
-          ))}
-        </div>
-      )}
-      {picked.length > 0 && reach !== null && (
-        <p className="yd-note">{reach === picked.length ? `All ${reach} can get it.` : `${reach} of ${picked.length} can get it; the others haven’t confirmed their email or turned email off.`}</p>
-      )}
+      {more && <div ref={end} className="ah-empty !py-3">{loadingMore ? 'Loading…' : ''}</div>}
     </div>
   );
 }
