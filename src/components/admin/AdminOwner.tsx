@@ -362,23 +362,14 @@ export default function AdminOwner({ data, page, onPage, onOpenPerson, onRefresh
   const cleanup = growth ? growth.cleanup.unconfirmed + growth.cleanup.empty : 0;
   const used = growth ? Math.min(100, (growth.databaseBytes / FREE_DATABASE_BYTES) * 100) : 0;
   const week = growth ? peopleReadout(growth, null, longDay) : null;
-  const lastDays = growth ? growth.days.slice(-7) : [];
-  const sparkPeak = Math.max(1, ...lastDays.map((item) => item.opened));
   return (
     <div className="ah-page">
       <LargeTitle title="Owner" subtitle="Only you see this" />
       {!growth ? <p className="ah-empty">{data.growthError || 'Loading the numbers…'}</p> : (
         <div className="yd-card">
-          <div>
           <div className="ah-headline">
             <b>{week?.value ?? '–'}</b><span>{week?.unit ?? ''} this week</span>
             {week?.change && <em className={`is-${week.change.trend}`}>{week.change.label}</em>}
-          </div>
-          {lastDays.length > 0 && (
-            <div className="ah-spark" aria-hidden>
-              {lastDays.map((item, index) => <i key={item.day} className={index === lastDays.length - 1 ? 'is-now' : undefined} style={{ height: `${Math.max(4, (item.opened / sparkPeak) * 100)}%` }} />)}
-            </div>
-          )}
           </div>
           <Cell icon={LineChart} tone="green" title="Growth" value="Charts and funnel" onClick={() => onPage('growth')} />
         </div>
