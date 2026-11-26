@@ -56,18 +56,6 @@
   font-weight: 800;
 }
 
-/* Number tiles */
-.ah-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 18px; }
-.ah-tile {
-  padding: 11px 13px;
-  border: 1px solid color-mix(in srgb, var(--primary) 10%, var(--border-subtle));
-  border-radius: 18px;
-  background: linear-gradient(155deg, color-mix(in srgb, var(--primary) 9%, var(--bg-surface)), var(--bg-surface));
-}
-.ah-tile strong { display: block; color: var(--text-primary); font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
-.ah-tile span { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 11.5px; }
-.ah-tile small { display: block; margin-top: 2px; color: var(--text-muted); font-size: 10.5px; }
-
 /* Counts beside rows */
 .ah-count {
   flex: none;
@@ -224,7 +212,6 @@
 @keyframes ah-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Owner → Growth: week tiles with their change, a tappable daily chart, the funnel and downloads. */
-.ah-tile small.ah-trend { font-weight: 700; }
 .ah-trend.is-up { color: var(--success); }
 .ah-trend.is-down { color: var(--warning); }
 /* Growth: one readout per chart (this week until a bar is tapped). */

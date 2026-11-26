@@ -31,8 +31,8 @@ export function BroadcastExtrasEditor({
   return (
     <div className="mt-4 space-y-4 border-t border-subtle pt-4">
       <div>
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-nowrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-[12px] font-semibold text-content-primary">Poll</p>
             <p className="text-[10.5px] text-content-muted">2–6 options, one vote each. Results show after voting.</p>
           </div>
@@ -83,8 +83,8 @@ export function BroadcastExtrasEditor({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-nowrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-[12px] font-semibold text-content-primary">Reply privately</p>
           <p className="text-[10.5px] text-content-muted">Members can send you a short reply. Only admins see replies.</p>
         </div>

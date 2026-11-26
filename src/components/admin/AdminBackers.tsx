@@ -4,6 +4,7 @@ import { backerTotals, fetchBackers, type Backer } from '../../lib/adminEmail';
 import { formatRupees } from '../../../supabase/functions/_shared/emailTemplate.ts';
 import { HubAvatar } from '../hub/HubParts';
 import type { EmailStart } from './AdminEmail';
+import { NumberStrip } from './AdminUI';
 
 const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
@@ -42,9 +43,12 @@ export default function AdminBackers({ pendingClaims, onReviewClaims, onEmail, o
       {error && <p role="status" className="ah-status text-error">{error}</p>}
       {!backers && !error && <p className="ah-empty">Loading backers…</p>}
       {totals && (
-        <div className="ah-tiles">
-          <div className="ah-tile"><strong>{formatRupees(totals.total)}</strong><span>given in all</span></div>
-          <div className="ah-tile"><strong>{totals.count}</strong><span>{totals.count === 1 ? 'backer' : 'backers'}</span>{totals.average > 0 && <small>{formatRupees(totals.average)} on average</small>}</div>
+        <div className="mb-5">
+          <NumberStrip label="Backers in numbers" items={[
+            { value: formatRupees(totals.total), label: 'given in all' },
+            { value: totals.count, label: totals.count === 1 ? 'backer' : 'backers' },
+            ...(totals.average > 0 ? [{ value: formatRupees(totals.average), label: 'on average' }] : []),
+          ]} />
         </div>
       )}
       {backers && backers.length === 0 && <p className="ah-empty">No backers yet. Approved claims appear here.</p>}
