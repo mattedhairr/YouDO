@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Crown, Home, Inbox, Loader2, RefreshCw, Sparkles, Users, type LucideIcon } from 'lucide-react';
 import Overlay from './Overlay';
 import { HubNavBar } from './hub/HubParts';
@@ -16,6 +16,7 @@ import AdminEmail, { type EmailStart } from './admin/AdminEmail';
 import AdminBackers from './admin/AdminBackers';
 import { COMMUNITY_PAGE_TITLES, OWNER_PAGE_TITLES, queueCounts, type CommunityPage, type OwnerPage, type QueueFilter } from './admin/adminHubShared';
 import { LargeTitle } from './admin/AdminUI';
+import { HubBackContext, type HubBack } from './admin/hubBack';
 import '../signature.css';
 import './community/community.css';
 import './admin/adminHub.css';
@@ -46,17 +47,27 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
   const [backersOpen, setBackersOpen] = useState(false);
   const [peopleKey, setPeopleKey] = useState(0);
   const body = useRef<HTMLElement>(null);
+  // Screens inside a page (a send, Templates) take over the one back button (useHubBack); the latest wins.
+  const [inners, setInners] = useState<{ id: number; entry: HubBack }[]>([]);
+  const innerSeq = useRef(0);
+  const registerBack = useCallback((entry: HubBack) => {
+    innerSeq.current += 1;
+    const id = innerSeq.current;
+    setInners((list) => [...list, { id, entry }]);
+    return () => setInners((list) => list.filter((item) => item.id !== id));
+  }, []);
+  const inner = inners.length ? inners[inners.length - 1].entry : null;
 
-  // Android's Back reaches the Admin Hub through App: it leaves a page first, then the hub.
+  // Android's Back reaches the Admin Hub through App: it steps back as the button does, then leaves the hub.
   useEffect(() => {
-    setBackStep('admin', page ? () => setPage(null) : null);
+    setBackStep('admin', inner ? inner.back : page ? () => setPage(null) : null);
     return () => setBackStep('admin', null);
-  }, [page]);
-  useEffect(() => { body.current?.scrollTo?.(0, 0); }, [tab, page]);
+  }, [page, inner]);
+  useEffect(() => { body.current?.scrollTo?.(0, 0); }, [tab, page, inners.length]);
   // The Settings button's count follows what was handled here.
   useEffect(() => () => { window.dispatchEvent(new Event(ADMIN_QUEUE_EVENT)); }, []);
 
-  const goBack = () => (page ? setPage(null) : onClose());
+  const goBack = () => (inner ? inner.back() : page ? setPage(null) : onClose());
   const reload = async () => { await refresh(); window.dispatchEvent(new Event(ADMIN_QUEUE_EVENT)); };
 
   if (!data) {
@@ -86,8 +97,8 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
           title=""
           subtitle={refreshing ? 'Refreshing…' : undefined}
           onBack={goBack}
-          backLabel={page ? `Back to ${TAB_TITLES[tab]}` : 'Close Admin Hub'}
-          backText={page ? TAB_TITLES[tab] : undefined}
+          backLabel={inner ? `Back to ${inner.label}` : page ? `Back to ${TAB_TITLES[tab]}` : 'Close Admin Hub'}
+          backText={inner?.label ?? (page ? TAB_TITLES[tab] : undefined)}
           actions={<>
             {role && !page && <span className="ah-role">{role === 'owner' ? 'Owner' : 'Admin'}</span>}
             <button type="button" className="hub-icon-button" disabled={refreshing} onClick={() => void reload()} aria-label="Refresh">
@@ -100,6 +111,7 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
           <p className="ah-empty">Admin access is not available for this account.</p>
         ) : (
           <>
+            <HubBackContext.Provider value={registerBack}>
             <main ref={body} className="ah-body">
               {pageTitle && <LargeTitle title={pageTitle} />}
               {page?.kind === 'person' && (
@@ -123,6 +135,7 @@ export default function AdminHubSheet({ userId, onClose }: { userId: string; onC
               {!page && tab === 'community' && <AdminCommunity data={data} selfId={userId} page={null} onPage={(next) => setPage({ kind: 'community', page: next })} onRefresh={reload} />}
               {!page && tab === 'owner' && <AdminOwner data={data} page={null} onPage={(next) => setPage({ kind: 'owner', page: next })} onOpenPerson={openPerson} onRefresh={reload} />}
             </main>
+            </HubBackContext.Provider>
             <nav className="ah-tabs" role="tablist" aria-label="Admin Hub">
               {tabs.map(({ id, label, icon: Icon }) => {
                 const count = id === 'queue' ? counts.all : 0;

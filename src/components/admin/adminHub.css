@@ -440,7 +440,6 @@ html.dark .ah-seg button[aria-pressed='true'] { background: color-mix(in srgb, v
 .ah-tools button svg { color: var(--primary); }
 .ah-mail-test { display: block; width: 100%; margin-top: 18px; padding: 10px; color: var(--primary); font-size: 15px; font-weight: 600; text-align: center; }
 .ah-mail-test:disabled { opacity: 0.45; }
-.ah-back-link { display: inline-flex; align-items: center; gap: 1px; margin: 0 0 4px -4px; color: var(--primary); font-size: 15px; }
 .ah-apple .ah-mail-help { margin: 0; background: none; }
 .ah-help-code { flex: none; width: 112px; color: var(--text-primary); font-size: 13px; font-weight: 600; }
 .ah-mail-help .yd-block ul { padding-left: 18px; }

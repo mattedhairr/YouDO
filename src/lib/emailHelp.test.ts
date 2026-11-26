@@ -18,7 +18,7 @@ describe('email help', () => {
     expect(prompt).toContain('{amount}');
     expect(prompt).toContain('under 120 characters');
     expect(prompt).toContain('under 6000 characters');
-    expect(prompt).toMatch(/Name: .*\nLook: .*\nSubject: \.\.\.\nMessage:\n\.\.\.$/);
+    expect(prompt).toMatch(/Name: .*\nKind: .*\nSubject: \.\.\.\nMessage:\n\.\.\.$/);
   });
 });
 

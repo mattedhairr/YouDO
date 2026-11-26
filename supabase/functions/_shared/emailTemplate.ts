@@ -38,13 +38,13 @@ export const EMAIL_KINDS: Record<EmailKind, { label: string; hint: string; subje
   },
   thanks: {
     label: 'Thank you',
-    hint: 'For backers. A letter signed by you; {amount} is what each one gave.',
+    hint: 'For backers: {amount} becomes what each one gave, and Backers marks them thanked. It looks like a note: a plain letter signed by you.',
     subject: 'Thank you for backing YouDO',
     body: 'Hi {name},\n\nThank you for backing YouDO. You are one of the very first people to do it, and that means a lot.\n\nYour {amount} helps keep YouDO free, ad-free and growing, and your Founding Backer ring now shows around your picture everywhere in the app.\n\nThank you for believing in YouDO from the start.',
   },
   note: {
     label: 'Note',
-    hint: 'A letter signed by you. For one person, a few, or everyone.',
+    hint: 'For anyone: one person, a few, or everyone. A plain letter signed by you.',
     subject: '',
     body: 'Hi {name},\n\n',
   },

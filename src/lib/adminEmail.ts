@@ -1,5 +1,5 @@
 import { supabase, supabaseAnonKey, supabaseUrl } from './supabase';
-import type { EmailKind } from '../../supabase/functions/_shared/emailTemplate.ts';
+import { EMAIL_KINDS, type EmailKind } from '../../supabase/functions/_shared/emailTemplate.ts';
 
 /**
  * Admin Hub → People → Email and Owner → Backers (supabase/admin_email.sql and
@@ -177,6 +177,18 @@ export async function sendNextEmails(sendId: string): Promise<EmailProgress & { 
 
 /** A saved text to start an email from (supabase/admin_email.sql, email_templates). */
 export interface EmailTemplate { id: string; name: string; kind: EmailKind; subject: string; body: string }
+
+/**
+ * The words a kind starts from while nothing is written yet (v9.1): a thank-you
+ * from the owner's own thank-you template when there is one, else the built-in
+ * text; a note from "Hi {name},".
+ */
+export function startingText(kind: EmailKind, templates: EmailTemplate[] | null): { subject: string; body: string; templateId?: string } {
+  const template = kind === 'thanks' ? templates?.find((item) => item.kind === 'thanks') : undefined;
+  return template
+    ? { subject: template.subject, body: template.body, templateId: template.id }
+    : { subject: EMAIL_KINDS[kind].subject, body: EMAIL_KINDS[kind].body };
+}
 
 export function parseTemplates(raw: unknown): EmailTemplate[] {
   return (Array.isArray(raw) ? raw : []).map((item) => {

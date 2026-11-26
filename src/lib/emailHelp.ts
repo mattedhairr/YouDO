@@ -35,7 +35,7 @@ The design is fixed and added automatically, so do NOT write any of this:
 ${EMAIL_FIXED.map((line) => `- ${line}`).join('\n')}
 
 I only fill in a Subject and a Message, as plain text (no HTML, no images, no emojis in the subject).
-Choose one Look:
+Choose one Kind (both arrive as the same plain letter):
 ${looks}
 
 In the Message you can use:
@@ -50,7 +50,7 @@ Rules:
 
 Reply in exactly this form so I can paste each part:
 Name: (a short template name, under 60 characters)
-Look: (Thank you or Note)
+Kind: (Thank you or Note)
 Subject: ...
 Message:
 ...`;

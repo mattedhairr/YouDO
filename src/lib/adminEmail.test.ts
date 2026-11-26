@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backerTotals, parseBackers, parseEmailOverview, parseTemplates, previewRecipient, sendStatus } from './adminEmail';
+import { backerTotals, parseBackers, parseEmailOverview, parseTemplates, previewRecipient, sendStatus, startingText } from './adminEmail';
 
 describe('admin email', () => {
   it('reads the Email screen, hiding backers from admins', () => {
@@ -73,5 +73,16 @@ describe('the email preview', () => {
   it('fills {name} only from a display name, as the sender does: an @username gets "there"', () => {
     expect(previewRecipient({ audience: 'people', picked: [{ id: 'k', label: '@kabir' }] }).name).toBeUndefined();
     expect(previewRecipient({ audience: 'people', recipients: [{ id: 'k', username: 'kabir', status: 'sent' }] })).toEqual({ name: undefined, amount: undefined, label: '@kabir' });
+  });
+  it('starts a kind from its own words: a thank-you from the owner’s template, a note from Hi {name}', () => {
+    const templates = [
+      { id: 't1', name: 'Personal note', kind: 'note' as const, subject: '', body: 'Hi {name},\n\n' },
+      { id: 't2', name: 'Thank a backer', kind: 'thanks' as const, subject: 'Thanks, {name}', body: 'Hi {name},\n\nYour {amount} matters.' },
+    ];
+    expect(startingText('thanks', templates)).toEqual({ subject: 'Thanks, {name}', body: 'Hi {name},\n\nYour {amount} matters.', templateId: 't2' });
+    expect(startingText('thanks', []).subject).toBe('Thank you for backing YouDO');
+    expect(startingText('thanks', []).templateId).toBeUndefined();
+    expect(startingText('thanks', null).body).toContain('{amount}');
+    expect(startingText('note', templates)).toEqual({ subject: '', body: 'Hi {name},\n\n' });
   });
 });

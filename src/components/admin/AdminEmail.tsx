@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookmarkPlus, Check, ChevronLeft, ChevronRight, Copy, HelpCircle, LayoutTemplate, Pause, PenLine, Pencil, Plus, Search, Send, X } from 'lucide-react';
+import { BookmarkPlus, Check, ChevronRight, Copy, HelpCircle, LayoutTemplate, Pause, PenLine, Pencil, Plus, Search, Send, X } from 'lucide-react';
 import { can, fetchPeople, personLabel, type AdminRole } from '../../lib/adminHub';
 import {
-  createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSelfName, fetchSendDetail, fetchEmailReach, fetchTemplates, previewRecipient, saveTemplate, sendNextEmails, sendStatus, sendTestEmail,
+  createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSelfName, fetchSendDetail, fetchEmailReach, fetchTemplates, previewRecipient, saveTemplate, sendNextEmails, sendStatus, sendTestEmail, startingText,
   type Backer, type EmailAudience, type EmailOverview, type EmailProgress, type EmailSendDetail, type EmailSendSummary, type EmailTemplate, type RecipientStatus,
 } from '../../lib/adminEmail';
 import { EMAIL_CODES, EMAIL_FIXED, aiTemplatePrompt } from '../../lib/emailHelp';
@@ -10,6 +10,7 @@ import { EMAIL_KINDS, emailProblem, formatRupees, OFFERED_KINDS, PREVIEW_STOP_UR
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
 import Overlay from '../Overlay';
 import { LargeTitle, NumberStrip, Segmented } from './AdminUI';
+import { useHubBack } from './hubBack';
 
 /** How the Email page opens: from People (blank), a person's card, or Backers. */
 export interface EmailStart {
@@ -55,7 +56,7 @@ const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'nu
 
 /**
  * Admin Hub → People → Email (v9.1, like Mail): a calm home with what was sent,
- * and New email on its own full screen, with To, Look and Subject in one card,
+ * and New email on its own full screen, with To, Kind and Subject in one card,
  * Write | Preview, and Send that asks once. One send goes out about one a
  * second while the Admin Hub is open; the list keeps each one and can send the
  * rest later (Gmail allows about 450 a day).
@@ -131,6 +132,13 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
       await reloadTemplates();
     } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not save the template.'); }
     setBusy(false);
+  };
+  // Thank you and Note arrive as the same letter; while nothing is written yet, switching brings in that
+  // kind's own words (the owner's thank-you template), so the switch shows what it is for.
+  const pickKind = (kind: EmailKind) => {
+    if (!untouched(draft)) { edit({ kind }); return; }
+    const { templateId, ...words } = startingText(kind, templates);
+    edit({ kind, ...words, base: words, templateId });
   };
   /** Puts a code where the cursor is (or at the end). */
   const insert = (code: string) => {
@@ -330,8 +338,8 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
               </button>
               {kinds.length > 1 && (
                 <div className="yd-row ah-field">
-                  <span className="ah-field-key">Look</span>
-                  <div className="flex-1"><Segmented<EmailKind> label="How the email looks" value={draft.kind} onChange={(kind) => edit({ kind })}
+                  <span className="ah-field-key">Kind</span>
+                  <div className="flex-1"><Segmented<EmailKind> label="What kind of email" value={draft.kind} onChange={pickKind}
                     options={kinds.map((kind) => ({ id: kind, label: EMAIL_KINDS[kind].label }))} /></div>
                 </div>
               )}
@@ -355,11 +363,11 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
                   {draft.kind === 'thanks' && <button type="button" onClick={() => insert('{amount}')}><Plus size={14} /> Amount</button>}
                   <button type="button" onClick={() => setSheet('help')}><HelpCircle size={14} /> Help</button>
                 </div>
-                <p className="yd-note">{EMAIL_KINDS[draft.kind].hint} Each person gets their own name{draft.kind === 'thanks' ? ' and amount' : ''}.</p>
+                <p className="yd-note">{EMAIL_KINDS[draft.kind].hint} Each person gets their own name.</p>
               </>
             ) : rendered && (
               <MailPreview html={rendered.html} subject={rendered.subject}
-                caption={`Exactly as ${shown.label} gets it${draft.kind === 'thanks' && shown.amount ? ` (${formatRupees(shown.amount)})` : ''}`} />
+                caption={`Exactly as ${shown.label === 'you' ? 'you’ll get it' : `${shown.label} gets it`}${draft.kind === 'thanks' && shown.amount ? ` (${formatRupees(shown.amount)})` : ''}`} />
             )}
             <button type="button" className="ah-mail-test" disabled={busy || Boolean(running)} onClick={() => void test()}>Send me a test</button>
             {status && composing && <p role="status" className="ah-status text-center">{status}</p>}
@@ -579,6 +587,8 @@ function PeoplePicker({ picked, reach, selfId, onChange }: {
 /** Edit templates: the owner's saved texts (name, look, subject, message). */
 function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTemplate[]; onClose: () => void; onChanged: () => Promise<void> }) {
   const [editing, setEditing] = useState<(Omit<EmailTemplate, 'id'> & { id?: string }) | null>(null);
+  useHubBack('Email', onClose);
+  useHubBack(editing ? 'Templates' : null, () => { setEditing(null); setDeleting(false); });
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -602,7 +612,6 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
   if (editing) {
     return (
       <div className="ah-page">
-        <button type="button" className="ah-back-link" onClick={() => { setEditing(null); setDeleting(false); }}><ChevronLeft size={18} /> Templates</button>
         <LargeTitle title={editing.id ? 'Edit template' : 'New template'} />
         <div className="yd-card">
           <label className="yd-row ah-field">
@@ -611,8 +620,8 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
               onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
           </label>
           <div className="yd-row ah-field">
-            <span className="ah-field-key">Look</span>
-            <div className="flex-1"><Segmented<EmailKind> label="How the email looks" value={editing.kind} onChange={(kind) => setEditing({ ...editing, kind })}
+            <span className="ah-field-key">Kind</span>
+            <div className="flex-1"><Segmented<EmailKind> label="What kind of email" value={editing.kind} onChange={(kind) => setEditing({ ...editing, kind })}
               options={OFFERED_KINDS.map((kind) => ({ id: kind, label: EMAIL_KINDS[kind].label }))} /></div>
           </div>
           <label className="yd-row ah-field">
@@ -650,7 +659,6 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
 
   return (
     <div className="ah-page">
-      <button type="button" className="ah-back-link" onClick={onClose}><ChevronLeft size={18} /> Email</button>
       <LargeTitle title="Templates" subtitle="Saved texts to start an email from" />
       {templates.length === 0 ? <div className="yd-card"><p className="ah-empty !py-5">No templates yet.</p></div> : (
         <div className="yd-card">
@@ -727,6 +735,7 @@ function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }:
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<RecipientStatus | 'all'>('all');
   const [showEmail, setShowEmail] = useState(false);
+  useHubBack('Email', onClose);
   useEffect(() => {
     let live = true;
     fetchSendDetail(id).then((next) => { if (live) setDetail(next); }).catch((caught) => { if (live) setError(caught instanceof Error ? caught.message : 'Could not open this email.'); });
@@ -748,7 +757,6 @@ function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }:
 
   return (
     <div className="ah-page">
-      <button type="button" className="ah-back-link" onClick={onClose}><ChevronLeft size={18} /> Email</button>
       {error && <p role="status" className="ah-status text-error">{error}</p>}
       {!detail && !error && <p className="ah-empty">Loading…</p>}
       {detail && (
