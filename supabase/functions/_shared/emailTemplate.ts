@@ -150,7 +150,7 @@ export function renderEmail(content: EmailContent): { subject: string; html: str
   const para = `margin:0 0 16px;font-size:16px;line-height:1.6;color:${INK};`;
   const paragraphs = blocks.map((block) => (block.kind === 'button' ? button(block.url, block.label) : `<p style="${para}">${block.html}</p>`)).join('\n');
   const stop = content.unsubscribeUrl
-    ? `<a href="${escape(content.unsubscribeUrl)}" style="color:#8a8378;text-decoration:underline;">Stop these emails</a> &middot; `
+    ? `<a href="${escape(content.unsubscribeUrl)}" style="color:#8a8378;text-decoration:underline;">Stop these emails</a>`
     : '';
   const title = titled ? `<h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;font-weight:700;letter-spacing:-0.015em;color:${INK};">${escape(subject)}</h1>` : '';
 
@@ -166,8 +166,8 @@ export function renderEmail(content: EmailContent): { subject: string; html: str
       <p style="margin:4px 0 0;font-size:16px;line-height:1.6;color:${INK};">${sign.html}</p>
     </td></tr>
     <tr><td style="padding:28px 0 0;font-size:12px;line-height:1.6;color:#8a8378;">
-      You&rsquo;re getting this because you have a YouDO account.<br>
-      ${stop}<a href="${SITE_URL}" style="color:#8a8378;text-decoration:underline;">youdo-app.vercel.app</a>
+      You&rsquo;re getting this because you have a YouDO account.${stop ? `<br>
+      ${stop}` : ''}
     </td></tr>
   </table>
 </td></tr>

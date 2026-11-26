@@ -35,6 +35,7 @@ describe('email template', () => {
     expect(news.html).toContain('<h1'); // retired News still renders, for sends made before
     expect(news.html).toContain('>Open YouDO</a>');
     expect(news.html).toContain('Stop these emails');
+    expect(news.html).not.toContain('>youdo-app.vercel.app</a>'); // no website link at the bottom (v9.1: Gmail is wary of vercel.app)
     expect(news.html).toContain('The YouDO team');
     expect(news.text).toContain('Open YouDO: https://youdo-app.vercel.app');
     expect(news.text).toContain('Stop these emails: https://');
