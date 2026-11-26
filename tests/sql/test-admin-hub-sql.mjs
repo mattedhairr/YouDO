@@ -52,6 +52,8 @@ try {
     await db.query('insert into public.profiles(id, username, display_name) values ($1, $2, $3)', [id(n), username, name]);
   }
   await db.query("insert into public.community_admins(user_id, role) values ($1, 'owner'), ($2, 'admin')", [id(1), id(2)]);
+  // Quiet 6 typed a name at Create account but never joined the community.
+  await db.query(`update auth.users set raw_user_meta_data = '{"full_name": " Quiet Six "}' where id = $1`, [id(6)]);
   await db.query("insert into public.public_pace(user_id, display_name, week_ms) values ($1, 'Meera Shah', 15000000)", [id(3)]);
   await db.query("insert into public.user_backups(user_id, backup_data, updated_at) values ($1, $2, $3), ($4, $5, $6)",
     [id(3), 'x'.repeat(5000), ago(0), id(8), 'x'.repeat(5000), ago(70)]);
@@ -77,6 +79,7 @@ try {
   const meera = await one('select public.admin_person($1)', [id(3)]);
   check(meera.on_board && 'board_week_ms' in meera && !('email' in meera), 'an admin sees Meera\'s community side only');
   await fails('select public.admin_person($1)', [id(6)], 'an admin cannot open an account with no name');
+  check((await one("select public.admin_people('quiet six', 'all', 40, 0)")).people.length === 0, 'nor find one by the name typed at sign-up');
   await fails("select public.owner_set_staff($1, 'promote')", [id(3)], 'an admin cannot make admins');
   await fails('select public.owner_growth_report()', [], 'an admin cannot see growth');
   await fails('select public.owner_cleanup_preview()', [], 'an admin cannot preview the cleanup');
@@ -89,6 +92,9 @@ try {
   check(list.counts.all === 10 && list.people.length === 10, 'the owner sees every account');
   check(list.people.find((person) => person.user_id === id(3)).email === 'meera@example.com', 'the owner sees emails');
   check((await one("select public.admin_people('quiet6@', 'all', 40, 0)")).people.length === 1, 'the owner searches by email');
+  check((await one('select public.admin_person($1)', [id(6)])).display_name === 'Quiet Six', 'the owner sees the name typed at sign-up');
+  check((await one("select public.admin_people('quiet six', 'all', 40, 0)")).people.length === 1, 'and finds them by it');
+  check(!('display_name' in (await one('select public.admin_person($1)', [id(10)]))), 'no name anywhere stays nameless');
   const junk = (await one("select public.admin_people('', 'junk', 40, 0)")).people.map((person) => person.user_id).sort();
   check(junk.join() === [id(4), id(6)].join(), 'junk is the old unconfirmed account and the quiet empty one, nothing else');
   check((await one("select public.admin_people('', 'staff', 40, 0)")).people.length === 2, 'the staff filter');

@@ -44,7 +44,10 @@ returns table(
   end from (
   select
     u.id as user_id, u.email::text as email, u.created_at, u.email_confirmed_at, u.last_sign_in_at,
-    p.username, coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, '')) as display_name,
+    p.username, coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, ''),
+      -- The name typed at Create account (v9.1), for the owner only: admins still
+      -- see only people who have a name in the community.
+      case when (select public.is_community_owner()) then nullif(pg_catalog.btrim(u.raw_user_meta_data->>'full_name'), '') end) as display_name,
     pg_catalog.octet_length(b.backup_data)::bigint as backup_bytes, b.updated_at as backup_updated_at,
     pp.user_id is not null as on_board, coalesce(pp.week_ms, 0) as board_week_ms,
     (select count(*)::int from public.squad_members sm where sm.user_id = u.id and sm.status = 'accepted') as room_count,

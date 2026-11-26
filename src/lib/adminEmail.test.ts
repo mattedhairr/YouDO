@@ -72,6 +72,7 @@ describe('the email preview', () => {
 
   it('fills {name} only from a display name, as the sender does: an @username gets "there"', () => {
     expect(previewRecipient({ audience: 'people', picked: [{ id: 'k', label: '@kabir' }] }).name).toBeUndefined();
+    expect(previewRecipient({ audience: 'people', picked: [{ id: 'm', label: 'meera@example.com' }] }).name).toBeUndefined();
     expect(previewRecipient({ audience: 'people', recipients: [{ id: 'k', username: 'kabir', status: 'sent' }] })).toEqual({ name: undefined, amount: undefined, label: '@kabir' });
   });
   it('starts a kind from its own words: a thank-you from the owner’s template, a note from Hi {name}', () => {

@@ -268,7 +268,8 @@ export interface PreviewRecipient {
 }
 
 // The sender fills {name} from a display name only, never an @username.
-const first = (value?: string) => (value && !value.startsWith('@') && value !== 'No name yet' ? value.trim().split(/\s+/)[0] || undefined : undefined);
+// {name} comes from a name only: an @username or an email (the owner's label for a nameless account) gets "there".
+const first = (value?: string) => (value && !value.includes('@') && value !== 'No name yet' ? value.trim().split(/\s+/)[0] || undefined : undefined);
 
 /**
  * A preview is the email as one real recipient gets it, never made-up values:

@@ -217,7 +217,7 @@ begin
     returning r.user_id
   )
   select c.user_id, u.email::text,
-    coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, '')),
+    coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, ''), nullif(pg_catalog.btrim(u.raw_user_meta_data->>'full_name'), '')),
     t.total
   from claimed c
   join auth.users u on u.id = c.user_id
@@ -264,7 +264,7 @@ begin
   return coalesce((
     select jsonb_agg(row_to_json(x) order by x.total desc nulls last, x.first_at) from (
       select u.id as user_id, p.username,
-        coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, '')) as display_name,
+        coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, ''), nullif(pg_catalog.btrim(u.raw_user_meta_data->>'full_name'), '')) as display_name,
         p.avatar_url, coalesce(t.total, 0) as total, coalesce(t.claims, 0) as claims, t.first_at,
         (select max(r.sent_at) from public.email_recipients r join public.email_sends s on s.id = r.send_id
           where r.user_id = u.id and r.status = 'sent' and s.kind = 'thanks') as thanked_at,
@@ -295,10 +295,12 @@ begin
     'recipients', coalesce((
       select jsonb_agg(jsonb_build_object(
           'user_id', r.user_id, 'username', p.username,
-          'name', coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, '')),
+          'name', coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, ''),
+            case when (select public.is_community_owner()) then nullif(pg_catalog.btrim(u.raw_user_meta_data->>'full_name'), '') end),
           'status', r.status, 'sent_at', r.sent_at, 'error', r.error)
         order by case r.status when 'failed' then 0 when 'waiting' then 1 when 'sending' then 1 else 2 end, r.sent_at desc nulls last)
       from public.email_recipients r
+      left join auth.users u on u.id = r.user_id
       left join public.profiles p on p.id = r.user_id
       left join public.public_pace pp on pp.user_id = r.user_id
       left join public.community_members cm on cm.user_id = r.user_id

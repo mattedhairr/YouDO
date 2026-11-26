@@ -182,6 +182,18 @@ try {
   await db.query('select public.owner_delete_email_template($1)', [made]);
   check((await one('select public.admin_email_templates()')).length === 2, 'the owner deletes one');
 
+  // Someone who only typed a name at Create account is greeted by it, and the owner sees it.
+  await db.exec('reset role');
+  await db.query(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,'nina@example.com',now(),'{"full_name":"Nina Rao"}')`, [id(8)]);
+  await as(1);
+  const nina = await one("select public.admin_email_create('note','people',$1,'Hello','Hi {name}')", [[id(8)]]);
+  await as('service');
+  check((await rows('select * from public.email_claim_batch($1, 5)', [nina.id]))[0].display_name === 'Nina Rao', 'the email greets them by the name typed at sign-up');
+  await as(1);
+  check((await one('select public.admin_email_send_detail($1)', [nina.id])).recipients[0].name === 'Nina Rao', 'the owner sees it in the send');
+  await as(2);
+  check((await one('select public.admin_email_send_detail($1)', [nina.id])).recipients[0].name == null, 'an admin does not');
+
   console.log(`Admin email SQL: ${checks} checks passed.`);
 } finally {
   await db.close();
