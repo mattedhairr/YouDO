@@ -17,13 +17,13 @@ export function LargeTitle({ title, subtitle, children }: { title: string; subti
   );
 }
 
-/** A few numbers side by side, each with a short label; `live` adds a green dot. */
+/** A few numbers side by side, each with a short label; `live` shows the number in green (something happening now). */
 export function NumberStrip({ items, label }: { items: { value: ReactNode; label: string; live?: boolean }[]; label?: string }) {
   return (
     <div className="ah-strip" role="group" aria-label={label}>
       {items.map((item) => (
         <div key={item.label}>
-          <b>{item.value}{item.live && <i className="ah-live-dot" aria-label="live" />}</b>
+          <b className={item.live ? 'is-live' : undefined}>{item.value}</b>
           <span>{item.label}</span>
         </div>
       ))}

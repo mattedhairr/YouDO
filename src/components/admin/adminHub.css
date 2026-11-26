@@ -378,7 +378,7 @@ button.ah-ro-chip { min-height: 26px; color: var(--primary); }
 .ah-strip > div:first-child { border-left: 0; }
 .ah-strip b { display: block; overflow: hidden; color: var(--text-primary); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .ah-strip span { display: block; margin-top: 2px; overflow: hidden; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.ah-live-dot { display: inline-block; width: 7px; height: 7px; margin-left: 4px; border-radius: 50%; background: var(--success); vertical-align: 4px; }
+.ah-strip b.is-live { color: var(--success); }
 .ah-strip-note { margin: 7px 8px 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
 .ah-strip-note .is-up { color: var(--success); }
 .ah-strip-note .is-down { color: var(--warning); }

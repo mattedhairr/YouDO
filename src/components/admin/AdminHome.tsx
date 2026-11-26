@@ -58,9 +58,9 @@ export default function AdminHome({ data, onQueue, onBroadcast, onOwner }: {
         <>
           <NumberStrip label="Today so far" items={[
             { value: counting ? today?.opened ?? 0 : '–', label: 'Opened' },
-            { value: growth.studyingNow, label: 'Studying', live: growth.studyingNow > 0 },
+            { value: growth.studyingNow, label: 'Studying now', live: growth.studyingNow > 0 },
             { value: today?.newAccounts ?? 0, label: 'New' },
-            { value: counting ? today?.withoutAccount ?? 0 : '–', label: 'No account' },
+            { value: counting ? today?.withoutAccount ?? 0 : '–', label: 'Guests' },
           ]} />
           <p className="ah-strip-note">
             {notes.map((note, index) => (
