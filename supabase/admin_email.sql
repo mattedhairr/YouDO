@@ -163,7 +163,9 @@ begin
 end; $$;
 
 -- Asked by the edge function as the signed-in person before sending: may they
--- send this one, how many may go today, and whose name signs a note.
+-- send this one, how many may go today, whose name signs it, and who it is
+-- for (a mailing to Everyone or Backers carries Gmail's Unsubscribe header;
+-- an email to picked people reads as a personal one, v9.1).
 create or replace function public.admin_email_may_send(send uuid)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 declare found public.email_sends;
@@ -176,7 +178,7 @@ begin
   end if;
   return jsonb_build_object(
     'left_today', greatest(public.email_daily_limit() - public.email_sent_today(), 0),
-    'kind', found.kind, 'subject', found.subject, 'body', found.body,
+    'kind', found.kind, 'audience', found.audience, 'subject', found.subject, 'body', found.body,
     'signer', (select coalesce(nullif(p.display_name, ''), p.username) from public.profiles p where p.id = found.sent_by));
 end; $$;
 

@@ -91,6 +91,7 @@ try {
   check(self.email === 'anjali_r@example.com' && self.name === 'Anjali R', 'a test goes to your own address only');
   const may = await one('select public.admin_email_may_send($1)', [adminSend.id]);
   check(may.left_today === 450 && may.kind === 'update' && may.signer === 'Anjali R', 'the function learns what to send and who signs');
+  check(may.audience === 'everyone', 'and who it is for (a mailing keeps the Unsubscribe header)');
 
   // The owner.
   await as(1);
