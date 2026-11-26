@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { BadgeCheck, Check, ChevronRight, Crown, Database, Heart, Search } from 'lucide-react';
 import { fetchPeople, formatBytes, personLabel, type AdminPerson, type GrowthReport } from '../../lib/adminHub';
 import {
-  arrivalsReadout, biggestDrop, cleanupLine, DEFAULT_CLEANUP_FILTERS, deleteChosenAccounts, fetchCleanupList, fetchReleaseDownloads, FREE_DATABASE_BYTES,
+  accountTotals, arrivalsReadout, biggestDrop, cleanupLine, DEFAULT_CLEANUP_FILTERS, deleteChosenAccounts, fetchCleanupList, fetchReleaseDownloads, FREE_DATABASE_BYTES,
   growthFunnel, isCounted, peopleReadout, usualDay, type CleanupFilters, type CleanupKind, type CleanupList, type CleanupSignIn, type Readout, type ReleaseDownloads,
 } from '../../lib/adminGrowth';
 import { hapticWarn } from '../../lib/haptics';
@@ -155,7 +155,20 @@ const KINDS: { id: CleanupKind; label: string }[] = [{ id: 'both', label: 'Both'
 const AGES = [7, 30, 90];
 const SIGN_INS: { id: CleanupSignIn; label: string }[] = [{ id: 'any', label: 'any' }, { id: 'never', label: 'never' }, { id: '60', label: '60+ days ago' }, { id: '180', label: '180+ days ago' }];
 
-function Cleanup({ onDone }: { onDone: () => void }) {
+/** How many accounts there are right now, at the top of Owner → Accounts. */
+function AccountTotals({ growth }: { growth: GrowthReport }) {
+  const totals = accountTotals(growth);
+  return (
+    <>
+      <div className="ah-person-stats">
+        {totals.tiles.map((tile) => <div key={tile.label}><b>{tile.value}</b><span>{tile.label}</span></div>)}
+      </div>
+      <p className="ah-note ah-totals-note">{totals.note}</p>
+    </>
+  );
+}
+
+function Cleanup({ growth, onDone }: { growth: GrowthReport | null; onDone: () => void }) {
   const [filters, setFilters] = useState<CleanupFilters>(DEFAULT_CLEANUP_FILTERS);
   const [search, setSearch] = useState('');
   const [list, setList] = useState<CleanupList | null>(null);
@@ -182,8 +195,10 @@ function Cleanup({ onDone }: { onDone: () => void }) {
     return () => { live = false; };
   }, [filters, reload]);
 
-  if (error) return <p className="ah-empty">{error}</p>;
-  if (!list) return <p className="ah-empty">Checking every account…</p>;
+  // How many there are now, shown straight away and again after a delete (Growth refreshes then).
+  const now = growth ? <p className="ah-note mb-3">{growth.accounts} {growth.accounts === 1 ? 'account' : 'accounts'} now · {growth.confirmed} confirmed</p> : null;
+  if (error) return <div className="ah-page">{now}<p className="ah-empty">{error}</p></div>;
+  if (!list) return <div className="ah-page">{now}<p className="ah-empty">Checking every account…</p></div>;
   const set = (change: Partial<CleanupFilters>) => setFilters((current) => ({ ...current, ...change }));
   const toggle = (id: string) => setTicked((current) => {
     const next = new Set(current);
@@ -211,6 +226,7 @@ function Cleanup({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="ah-page">
+      {now}
       <p className="ah-label">Which accounts</p>
       <div className="ah-chips">
         {KINDS.map((kind) => (
@@ -309,7 +325,7 @@ export default function AdminOwner({ data, page, onPage, onOpenPerson, onRefresh
   onOpenPerson: (id: string) => void;
   onRefresh: () => Promise<void>;
 }) {
-  if (page === 'cleanup') return <Cleanup onDone={() => void onRefresh()} />;
+  if (page === 'cleanup') return <Cleanup growth={data.growth} onDone={() => void onRefresh()} />;
   if (page === 'staff') return <Staff onOpenPerson={onOpenPerson} />;
   if (page === 'support') return <div className="ah-page"><SupportSettingsAdmin /></div>;
 
@@ -322,6 +338,7 @@ export default function AdminOwner({ data, page, onPage, onOpenPerson, onRefresh
       <section className="yd-section mt-4">
         <h3 className="yd-heading">Accounts</h3>
         <div className="yd-card">
+          {growth && <AccountTotals growth={growth} />}
           <button type="button" className="yd-row" onClick={() => onPage('cleanup')}>
             <span className="yd-tile" aria-hidden><Database size={18} /></span>
             <span className="yd-row-main"><span className="yd-row-title">Account cleanup</span>

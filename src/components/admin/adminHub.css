@@ -308,6 +308,7 @@ button.ah-ro-chip { min-height: 26px; color: var(--primary); }
 
 /* A person's card (AdminPeople.tsx): numbers at a glance, then quiet label / value rows. */
 .ah-person-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 8px; padding: 12px 14px; }
+.ah-totals-note { margin: 0; padding: 0 16px 12px; }
 .ah-person-stats > div { min-width: 0; padding: 10px 8px; border-radius: 14px; background: var(--bg-fill); text-align: center; }
 .ah-person-stats b { display: block; color: var(--text-primary); font-size: 17px; font-weight: 800; line-height: 1.15; }
 .ah-person-stats span { display: block; margin-top: 3px; color: var(--text-muted); font-size: 10.5px; font-weight: 600; line-height: 1.25; }

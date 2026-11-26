@@ -113,6 +113,28 @@ export function sameDayLastWeek(growth: GrowthReport, dayName: (iso: string) => 
   return changeAgainst(today.opened, before.opened, `last ${dayName(before.day)}`);
 }
 
+/**
+ * How many accounts YouDO has right now, after any cleanup: unlike Growth and
+ * the funnel, deleted accounts are not in these, only mentioned in the note.
+ */
+export function accountTotals(growth: Pick<GrowthReport, 'accounts' | 'confirmed' | 'active30d' | 'deleted'>): {
+  tiles: { value: number; label: string }[];
+  note: string;
+} {
+  const deleted = growth.deleted.count;
+  return {
+    tiles: [
+      { value: growth.accounts, label: 'Accounts' },
+      { value: growth.confirmed, label: 'Confirmed' },
+      { value: Math.max(0, growth.accounts - growth.confirmed), label: 'Not yet' },
+      { value: growth.active30d, label: 'Active 30d' },
+    ],
+    note: deleted > 0
+      ? `Right now, after cleanup. ${deleted} deleted so far; Growth still counts them in their sign-up week.`
+      : 'Right now. "Not yet" means they never confirmed their email.',
+  };
+}
+
 export interface FunnelStep { label: string; count: number; percent?: number }
 
 /** Sign-up to habit, deleted accounts included so a cleanup never rewrites it. */

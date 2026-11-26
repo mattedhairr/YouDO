@@ -115,6 +115,15 @@ describe('the Admin Hub', () => {
     expect(html).toContain('From sign-up to habit');
     expect(html).toContain('Confirmed their email');
     expect(html).toContain('135 unconfirmed or empty');
+    // Account totals right now, at the top of Accounts.
+    expect(html).toContain('<b>222</b><span>Accounts</span>');
+    expect(html).toContain('<b>191</b><span>Confirmed</span>');
+    expect(html).toContain('<b>31</b><span>Not yet</span>');
+    expect(html).toContain('<b>21</b><span>Active 30d</span>');
+    const cleanup = renderToStaticMarkup(createElement(AdminOwner, {
+      data: hub('owner'), page: 'cleanup', onPage: noop, onOpenPerson: noop, onRefresh: refresh,
+    }));
+    expect(cleanup).toContain('222 accounts now · 191 confirmed');
     expect(html).toContain('2 claims waiting');
     expect(html).toContain('41 MB of 500 MB');
   });
