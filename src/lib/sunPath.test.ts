@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sunAltitude, sunDay } from './sunPath';
+import { sunAltitude, sunAzimuth, sunDay, sunSwing } from './sunPath';
 
 const hm = (h: number) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
 const near = (actual: number, h: number, m: number, slackMin = 4) =>
@@ -49,5 +49,25 @@ describe('the sun’s height', () => {
   it('stands far higher at noon in summer', () => {
     const june = sunDay('2026-06-21', 28.61, 77.21, 5.5);
     expect(sunAltitude(june, june.noon)).toBeGreaterThan(80);
+  });
+});
+
+describe('where the sun rises and sets', () => {
+  it('rises south of east in winter and north of east in summer (Delhi)', () => {
+    const winter = sunDay('2026-11-27', 28.61, 77.21, 5.5);
+    const summer = sunDay('2026-06-21', 28.61, 77.21, 5.5);
+    expect(sunAzimuth(winter, winter.sunrise)).toBeGreaterThan(108);
+    expect(sunAzimuth(winter, winter.sunrise)).toBeLessThan(120);
+    expect(sunAzimuth(summer, summer.sunrise)).toBeLessThan(68);
+    expect(Math.abs(sunAzimuth(winter, winter.noon) - 180)).toBeLessThan(2);
+    expect(sunAzimuth(winter, winter.sunset)).toBeGreaterThan(240);
+  });
+
+  it('swings wider across the header in summer, within the card', () => {
+    const winter = sunSwing(sunDay('2026-11-27', 28.61, 77.21, 5.5));
+    const summer = sunSwing(sunDay('2026-06-21', 28.61, 77.21, 5.5));
+    expect(winter).toBeGreaterThan(0.3);
+    expect(summer).toBeGreaterThan(winter);
+    expect(summer).toBeLessThanOrEqual(0.4);
   });
 });

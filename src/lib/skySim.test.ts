@@ -100,3 +100,25 @@ describe('the simulated sky', () => {
     expect(between).toBeGreaterThan(day.mie);
   });
 });
+
+describe('sunrise and sunset in each scene', () => {
+  const sat = (c: RGB) => Math.max(...c) - Math.min(...c);
+  it('keeps the upper sky calmer than the glow by the horizon at sunset', () => {
+    for (const scene of SCENES) {
+      const f = frame(scene, 17.3, { sun: { x: W * 0.85, y: 140 } });
+      expect(sat(at(f, 0.3, 0.1))).toBeLessThan(sat(at(f, 0.85, 0.66)));
+    }
+  });
+
+  it("turns the Himalaya's evening sky toward its slate blue, not orange", () => {
+    const top = at(frame('himalaya', 17.3, { sun: { x: W * 0.85, y: 140 } }), 0.2, 0.08);
+    expect(top[2]).toBeGreaterThanOrEqual(top[0]);
+  });
+
+  it('loses the warm glow in rain', () => {
+    const warm = (c: RGB) => c[0] - c[2];
+    const clear = at(frame('plains', 17.3, { sun: { x: W * 0.85, y: 140 } }), 0.8, 0.6);
+    const rain = at(frame('plains', 17.3, { sun: { x: W * 0.85, y: 140 }, weather: 'rainy' }), 0.8, 0.6);
+    expect(warm(rain)).toBeLessThan(warm(clear) * 0.5);
+  });
+});

@@ -59,6 +59,23 @@ describe('the header sky through the day', () => {
     expect(sunState(DAY.sunset - 0.2, DAY).dx).toBeGreaterThan(0);
   });
 
+  it('crosses most of the header, quicker round noon, one way all day (also a long summer day in Chennai)', () => {
+    for (const day of [DAY, sunDay('2026-06-21', 13.08, 80.27, 5.5), sunDay('2026-06-21', 28.61, 77.21, 5.5)]) {
+      const rise = sunState(day.sunrise, day).dx;
+      const set = sunState(day.sunset, day).dx;
+      expect(rise).toBeLessThan(-0.28);
+      expect(set).toBeGreaterThan(0.28);
+      let last = -Infinity;
+      for (let h = day.sunrise; h <= day.sunset; h += 0.1) {
+        const dx = sunState(h, day).dx;
+        expect(dx).toBeGreaterThanOrEqual(last);
+        last = dx;
+      }
+      const step = (h: number) => sunState(h + 0.5, day).dx - sunState(h, day).dx;
+      expect(step(day.noon - 0.25)).toBeGreaterThan(step(day.sunrise));
+    }
+  });
+
   it('climbs with the real altitude: mid-morning well below noon, a winter noon lower than a summer one', () => {
     const at930 = sunState(9.5, DAY);
     const noon = sunState(DAY.noon, DAY);

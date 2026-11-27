@@ -4,6 +4,19 @@ Last updated **2026-11-27**, just after releasing **v9.1.0** (versionCode 104, "
 
 ---
 
+## The next release (in progress on `fixes`, not committed yet)
+
+**Clouds, sunsets and the sun's path** (asked for by the owner after v9.1.0; mocked and chosen: `docs/mocks/evening-clouds.png`, `sky-day-3.png`, `sun-path-wide.png`).
+- **Sunsets keep each scene's colour:** near sunrise and sunset the upper sky turns toward the scene's own tint (sand gold, slate blue, a cool sage) and the glow calms, while a band of glow stays low by the horizon; land and haze follow (`golden` in `SCENE_SKIES`, `src/lib/skySim.ts`).
+- **Clouds that look real:** wide, flat decks, smaller near the horizon, frayed edges, lit through their depth (bright tops, darker bases); their colours come from the simulated sky (white by day, the sun's gold at sunset, the sky's shade underneath, a touch of the accent: `cloudLight` in `src/lib/weather.ts`). A cloudy sky greys less, so blue shows between them.
+- **Rain loses the sun's warm glow** (evenings stay a cool grey).
+- **A wider sun path that follows the season:** the sun crosses about two thirds of the card in winter, more in summer (`sunSwing`, `sunAzimuth` in `src/lib/sunPath.ts`), moving as the real sun does east to west (quicker round noon, one way all day, also where the summer sun passes overhead). Around noon it still sits by the start of "DAYS TO", as before.
+- Tested: unit tests (sun direction and swing, the path, sunset calm, rain, cloud light); all gates green; seen in headless captures of the real app for all three scenes, clear, cloudy and rainy, winter and summer. **Not on a phone yet.**
+
+**Phone checks for the next release:**
+- Each scene at sunrise, noon, 4 pm, sunset and dusk: the sky keeps the scene's colour, a low glow at the horizon; the sun rises near the left and sets near the right behind the hills; tap the sun: the time-lapse and its path look smooth.
+- Cloudy and rainy days in each scene, day and evening; the clouds' drift stays smooth.
+
 ## v9.1.0 (versionCode 104): what it contains
 
 Released 2026-11-27 from pull request #99 (branch `release-v9.1.0`, tag v9.1.0). Its server steps were all done ahead of it on 2026-11-26 (items 2 and 3). The screenshots 01 Today, 03 Goals, 05 Calendar and 10 Scenes were retaken with the new sky (made-up data; 10 Scenes is now the Ghats at sunset); New addresses pinned to 25a3fb2, same eight in the same order, were sent to Orion on 2026-11-27 (RookieEnough/Orion-Data#3499, waiting for its approval).

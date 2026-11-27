@@ -71,16 +71,18 @@ const CLOUD_EDGE = 0.13;
 
 export function cloudField(width: number, height: number, cover: number, scale: number, seed: number): CloudField {
   const density = new Float32Array(width * height);
-  const cells = Math.max(1, Math.round(width / scale));
+  const cells = Math.max(1, Math.round(width / (scale * 1.6)));
   const threshold = 1 - cover;
   for (let y = 0; y < height; y++) {
     const fadeOut = Math.min(1, Math.max(0, (height - 1 - y) / (height * 0.45)));
+    // Seen from below, far clouds lie low and look flatter and smaller: rows shrink toward the horizon.
+    const v = (y / scale) * (1 + 0.5 * (y / height));
     for (let x = 0; x < width; x++) {
       const u = (x / width) * cells;
-      const v = y / scale;
       // A light warp makes the shapes billow instead of looking like blotches.
       const warp = fbm(u + 3.1, v + 7.7, cells, seed + 101) - 0.5;
-      const n = fbm(u + warp * 0.9, v + warp * 0.6, cells, seed);
+      // Wider than tall (cloud decks stretch along the sky), with fine detail fraying the edges.
+      const n = fbm(u + warp * 0.9, v * 1.9 + warp * 0.5, cells, seed) - 0.09 * (fbm(u * 4, v * 6, cells * 4, seed + 57) - 0.5);
       // A wide, eased edge: each cloud thickens gradually from clear sky, never with a crisp rim.
       const t = Math.min(1, Math.max(0, (n - threshold + CLOUD_EDGE) / (2 * CLOUD_EDGE)));
       density[y * width + x] = t * t * (3 - 2 * t) * fadeOut;
@@ -176,6 +178,29 @@ export function weatherColors(colors: SkyColors, weather: Weather, night: number
     // Under cloud the land loses its sunlight: a little greyer and dimmer, more in rain.
     land: mixColor(mixColor(colors.land, night > 0.5 ? '#2a3140' : '#b9c0c8', weather === 'rainy' ? 0.42 : 0.26), '#05070b', weather === 'rainy' ? 0.14 : 0.05),
   };
+}
+
+/**
+ * How the clouds are lit, from the sky they sit in: tops in the sun's own
+ * colour (white by day, gold to peach as it sets), bases in the sky's shade,
+ * a touch of the scene's accent; cool at night, slate grey in rain.
+ */
+export function cloudLight(input: { weather: Weather; night: number; sunLow: number; sun: readonly number[]; sky: readonly number[]; accent: string }): { light: string; dark: string } {
+  const { weather, night, sunLow, sun, sky, accent } = input;
+  const css = (c: readonly number[]) => `rgb(${c.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255)).join(',')})`;
+  const peak = Math.max(sun[0], sun[1], sun[2], 1e-3);
+  const sunTone = css(sun.map((v) => 0.55 + 0.45 * (v / peak)));
+  const warmth = Math.pow(sunLow, 1.6) * 0.85;
+  let light = mixColor('#fbfbf9', sunTone, warmth);
+  let shade = mixColor(mixColor(css(sky), '#76808d', 0.55), '#3e3a4c', 0.15 + 0.3 * warmth);
+  shade = mixColor(shade, accent, 0.12);
+  light = mixColor(light, '#56627d', night);
+  shade = mixColor(shade, '#161c29', night);
+  if (weather === 'rainy') {
+    light = mixColor(light, '#59626f', night > 0.5 ? 0.3 : 0.55);
+    shade = mixColor(shade, '#262c36', 0.6);
+  }
+  return { light, dark: shade };
 }
 
 /** How the clouds are lit: bright tops and dark bases, warm low sun, cool night. */

@@ -9,7 +9,7 @@
 
 import { skyRandom, skySeed, starMap, type SkyStar } from './focusSky';
 import { daysBetweenLocalISO } from './dates';
-import { sunAltitude, type SunDay } from './sunPath';
+import { sunAltitude, sunSwing, type SunDay } from './sunPath';
 
 type Rgba = [number, number, number, number];
 
@@ -95,7 +95,7 @@ export function nightness(hour: number, day: SunDay): number {
 
 export interface SunState {
   visible: boolean;
-  /** Offset from the valley, as a fraction of the sky's width (−0.16 … 0.16). */
+  /** Offset from the valley, as a fraction of the sky's width (about ±0.33 in winter, ±0.4 in summer). */
   dx: number;
   /** Height above the base line, in pixels at full size (0 at rising and setting). */
   rise: number;
@@ -112,10 +112,13 @@ export interface SunState {
 export function sunState(hour: number, day: SunDay): SunState {
   const altitude = sunAltitude(day, hour);
   if (altitude < -1.5 || hour < day.sunrise - 0.3 || hour > day.sunset + 0.3) return { visible: false, dx: 0, rise: 0, elevation: 0 };
-  const s = (hour - day.sunrise) / (day.sunset - day.sunrise);
+  // Across the sky as the real sun moves east to west (quicker round noon), from near one side to near the other.
+  const half = Math.max(0.1, ((day.sunset - day.sunrise) / 2) * 15 * (Math.PI / 180));
+  const k = Math.min(1, 1.4 / half); // long summer days: keep it moving one way all day
+  const along = Math.max(-1.05, Math.min(1.05, Math.sin(15 * (hour - day.noon) * (Math.PI / 180) * k) / Math.sin(half * k)));
   return {
     visible: true,
-    dx: (s - 0.5) * 0.32,
+    dx: along * sunSwing(day),
     rise: 100 * clamp(altitude / 70, -0.03, 1),
     elevation: clamp(altitude / 45),
   };
