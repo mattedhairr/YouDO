@@ -163,7 +163,9 @@ begin
 end; $$;
 
 -- Asked by the edge function as the signed-in person before sending: may they
--- send this one, how many may go today, and whose name signs a note.
+-- send this one, how many may go today, whose name signs it, and who it is
+-- for (a mailing to Everyone or Backers carries Gmail's Unsubscribe header;
+-- an email to picked people reads as a personal one, v9.1).
 create or replace function public.admin_email_may_send(send uuid)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 declare found public.email_sends;
@@ -176,7 +178,7 @@ begin
   end if;
   return jsonb_build_object(
     'left_today', greatest(public.email_daily_limit() - public.email_sent_today(), 0),
-    'kind', found.kind, 'subject', found.subject, 'body', found.body,
+    'kind', found.kind, 'audience', found.audience, 'subject', found.subject, 'body', found.body,
     'signer', (select coalesce(nullif(p.display_name, ''), p.username) from public.profiles p where p.id = found.sent_by));
 end; $$;
 
@@ -215,7 +217,7 @@ begin
     returning r.user_id
   )
   select c.user_id, u.email::text,
-    coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, '')),
+    coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, ''), nullif(pg_catalog.btrim(u.raw_user_meta_data->>'full_name'), '')),
     t.total
   from claimed c
   join auth.users u on u.id = c.user_id
@@ -262,7 +264,7 @@ begin
   return coalesce((
     select jsonb_agg(row_to_json(x) order by x.total desc nulls last, x.first_at) from (
       select u.id as user_id, p.username,
-        coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, '')) as display_name,
+        coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, ''), nullif(pg_catalog.btrim(u.raw_user_meta_data->>'full_name'), '')) as display_name,
         p.avatar_url, coalesce(t.total, 0) as total, coalesce(t.claims, 0) as claims, t.first_at,
         (select max(r.sent_at) from public.email_recipients r join public.email_sends s on s.id = r.send_id
           where r.user_id = u.id and r.status = 'sent' and s.kind = 'thanks') as thanked_at,
@@ -293,18 +295,21 @@ begin
     'recipients', coalesce((
       select jsonb_agg(jsonb_build_object(
           'user_id', r.user_id, 'username', p.username,
-          'name', coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, '')),
+          'name', coalesce(nullif(p.display_name, ''), nullif(pp.display_name, ''), nullif(cm.display_name, ''),
+            case when (select public.is_community_owner()) then nullif(pg_catalog.btrim(u.raw_user_meta_data->>'full_name'), '') end),
           'status', r.status, 'sent_at', r.sent_at, 'error', r.error)
         order by case r.status when 'failed' then 0 when 'waiting' then 1 when 'sending' then 1 else 2 end, r.sent_at desc nulls last)
       from public.email_recipients r
+      left join auth.users u on u.id = r.user_id
       left join public.profiles p on p.id = r.user_id
       left join public.public_pace pp on pp.user_id = r.user_id
       left join public.community_members cm on cm.user_id = r.user_id
       where r.send_id = found.id), '[]'::jsonb));
 end; $$;
 
--- Saved texts to start an email from. The first three are made once, when
+-- Saved texts to start an email from. The first two are made once, when
 -- the table is empty; after that they are the owner's to change or delete.
+-- ('update', News, is retired in the app but stays allowed for older rows.)
 create table if not exists public.email_templates (
   id uuid primary key default gen_random_uuid(),
   name text not null check (pg_catalog.char_length(pg_catalog.btrim(name)) between 1 and 60),
@@ -320,10 +325,9 @@ revoke all on public.email_templates from public, anon, authenticated;
 
 insert into public.email_templates (name, kind, subject, body)
 select v.name, v.kind, v.subject, v.body from (values
-  (1, 'Release news', 'update', '', E'Hi {name},\n\n\n\nhttps://youdo-app.vercel.app'),
-  (2, 'Thank a backer', 'thanks', 'Thank you for backing YouDO',
-    E'Hi {name},\n\nYour {amount} helped keep YouDO free, ad-free and growing. You are one of the very first people to back it, and that means a lot.\n\nYour Founding Backer ring now shows around your picture everywhere in YouDO.\n\nThank you for believing in YouDO from the start.'),
-  (3, 'Personal note', 'note', '', E'Hi {name},\n\n')
+  (1, 'Thank a backer', 'thanks', 'Thank you for backing YouDO',
+    E'Hi {name},\n\nThank you for backing YouDO. You are one of the very first people to do it, and that means a lot.\n\nYour {amount} helps keep YouDO free, ad-free and growing, and your Founding Backer ring now shows around your picture everywhere in the app.\n\nThank you for believing in YouDO from the start.'),
+  (2, 'Personal note', 'note', '', E'Hi {name},\n\n')
 ) as v(position, name, kind, subject, body)
 where not exists (select 1 from public.email_templates)
 order by v.position;

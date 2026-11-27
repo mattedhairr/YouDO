@@ -91,6 +91,11 @@ export function personLabel(person: Pick<AdminPerson, 'name' | 'username'>): str
   return person.name ?? (person.username ? `@${person.username}` : 'No name yet');
 }
 
+/** Under a name in a list: only when they were last active; everything else is on their card. */
+export function lastActive(person: Pick<AdminPerson, 'lastActive'>, now = Date.now()): string {
+  return person.lastActive ? `Active ${activeLabel(person.lastActive, now)}` : 'Never active';
+}
+
 export function isMuted(person: Pick<AdminPerson, 'mutedUntil'>, now = Date.now()): boolean {
   return Boolean(person.mutedUntil && Date.parse(person.mutedUntil) > now);
 }

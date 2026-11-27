@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, Hash, History, Megaphone, MessageCircle, Quote, ShieldCheck, Star } from 'lucide-react';
+import { LargeTitle } from './AdminUI';
 import { saveCommunitySettings } from '../../lib/community';
 import { describeCommunityAudit } from '../../lib/communityAudit';
 import { hapticTick } from '../../lib/haptics';
@@ -14,13 +15,16 @@ import type { CommunityPage } from './adminHubShared';
 
 const ago = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
-function Row({ icon: Icon, title, text, on, onClick }: { icon: typeof Hash; title: string; text: string; on?: boolean; onClick?: () => void }) {
+function Row({ icon: Icon, tone, title, text, value, onClick }: {
+  icon: typeof Hash; tone?: 'green' | 'amber' | 'grey'; title: string; text?: string; value?: string; onClick?: () => void;
+}) {
   const body = <>
-    <span className="yd-tile" aria-hidden><Icon size={19} strokeWidth={1.8} /></span>
-    <span className="yd-row-main"><span className="yd-row-title">{title}</span><span className={`yd-row-text ${on ? 'is-on' : ''}`}>{text}</span></span>
+    <span className={`yd-tile ${tone ? `is-${tone}` : ''}`} aria-hidden><Icon size={16} strokeWidth={2} /></span>
+    <span className="yd-row-main"><span className="yd-row-title">{title}</span>{text && <span className="yd-row-text truncate">{text}</span>}</span>
+    {value && <span className="ah-value">{value}</span>}
   </>;
   return onClick
-    ? <button type="button" className="yd-row" onClick={onClick}>{body}<ChevronRight size={17} className="shrink-0 text-content-muted" aria-hidden /></button>
+    ? <button type="button" className="yd-row" onClick={onClick}>{body}<ChevronRight size={17} className="ah-chev" aria-hidden /></button>
     : <div className="yd-row">{body}</div>;
 }
 
@@ -35,7 +39,7 @@ export function AuditLog({ data, selfId, limit }: { data: AdminHubData; selfId: 
         const description = describeCommunityAudit(entry, target);
         return (
           <div key={entry.id} className="yd-row !items-start">
-            <span className="yd-tile !size-8 !rounded-[10px]" aria-hidden><ShieldCheck size={15} /></span>
+            <span className="yd-tile is-grey" aria-hidden><ShieldCheck size={15} /></span>
             <span className="yd-row-main">
               <span className="yd-row-title !text-[13.5px]">{description.title}</span>
               <span className="yd-row-text">{who} · {ago(entry.createdAt)}</span>
@@ -83,42 +87,49 @@ export default function AdminCommunity({ data, selfId, page, onPage, onRefresh, 
   const activeTags = data.hashtags.filter((tag) => tag.active);
   const liveQuotes = data.quotes.filter((quote) => quote.active).length;
 
+  const latest = data.audit[0];
+  const latestText = latest ? (() => {
+    const who = latest.adminId ? (latest.adminId === selfId ? 'You' : data.names.get(latest.adminId) ?? 'An admin') : 'An admin';
+    return `${describeCommunityAudit(latest, latest.targetUserId ? data.names.get(latest.targetUserId) : undefined).title} · ${who}`;
+  })() : 'Nothing recorded yet';
+  const broadcast = settings.announcement.trim();
+  const activity = data.activity ? `${data.activity.boardMembers} on the Board · ${data.activity.activeRecently} active now` : undefined;
+
   return (
     <div className="ah-page">
+      <LargeTitle title="Community" subtitle={activity} />
       <section className="yd-section">
-        <h3 className="yd-heading">Room</h3>
         <div className="yd-card">
           <div className="yd-row">
-            <span className="yd-tile" aria-hidden><MessageCircle size={19} strokeWidth={1.8} /></span>
+            <span className="yd-tile" aria-hidden><MessageCircle size={16} strokeWidth={2} /></span>
             <span className="yd-row-main"><span className="yd-row-title">Community room</span>
-              <span className={`yd-row-text ${settings.roomEnabled ? 'is-on' : ''}`}>{settings.roomEnabled ? 'On' : 'Paused for everyone'}</span></span>
-            {owner && <Toggle checked={settings.roomEnabled} disabled={saving} onChange={() => void toggle('roomEnabled')} label="Community room" />}
+              <span className="yd-row-text">{settings.roomEnabled ? 'Chat for Board members' : 'Paused for everyone'}</span></span>
+            {owner ? <Toggle checked={settings.roomEnabled} disabled={saving} onChange={() => void toggle('roomEnabled')} label="Community room" />
+              : <span className="ah-value">{settings.roomEnabled ? 'On' : 'Off'}</span>}
           </div>
           <div className="yd-row">
-            <span className="yd-tile" aria-hidden><Star size={19} strokeWidth={1.8} /></span>
+            <span className="yd-tile is-amber" aria-hidden><Star size={16} strokeWidth={2} /></span>
             <span className="yd-row-main"><span className="yd-row-title">Kudos</span>
-              <span className={`yd-row-text ${settings.appreciationsEnabled ? 'is-on' : ''}`}>{settings.appreciationsEnabled ? 'On · recognition for the top three' : 'Paused'}</span></span>
-            {owner && <Toggle checked={settings.appreciationsEnabled} disabled={saving} onChange={() => void toggle('appreciationsEnabled')} label="Kudos" />}
+              <span className="yd-row-text">{settings.appreciationsEnabled ? 'Recognition for the top three' : 'Paused'}</span></span>
+            {owner ? <Toggle checked={settings.appreciationsEnabled} disabled={saving} onChange={() => void toggle('appreciationsEnabled')} label="Kudos" />
+              : <span className="ah-value">{settings.appreciationsEnabled ? 'On' : 'Off'}</span>}
           </div>
-          <Row icon={Megaphone} title="Board broadcast" on={Boolean(settings.announcement.trim())}
-            text={settings.announcement.trim() ? `Live · “${settings.announcement.trim().slice(0, 60)}${settings.announcement.trim().length > 60 ? '…' : ''}”` : 'Nothing live'}
-            onClick={owner ? () => onPage('broadcast') : undefined} />
         </div>
-        {!owner && <p className="yd-note">The room switches and the broadcast are the owner’s.</p>}
+        <p className="yd-note">{owner ? 'Only you can turn these off.' : 'The switches and the broadcast are the owner’s.'}</p>
       </section>
       <section className="yd-section">
-        <h3 className="yd-heading">Hashtags and quotes</h3>
+        <h3 className="yd-heading">Manage</h3>
         <div className="yd-card">
-          <Row icon={Hash} title="Hashtag rooms" text={activeTags.length ? `${activeTags.length} rooms · ${activeTags.slice(0, 3).map((tag) => `#${tag.label}`).join(' ')}` : 'None yet'} onClick={() => onPage('hashtags')} />
-          <Row icon={Quote} title="Header quotes" text={liveQuotes ? `${liveQuotes} active` : 'Using the built-in quotes'} onClick={() => onPage('quotes')} />
+          {owner && <Row icon={Megaphone} title="Board broadcast" text={broadcast ? `“${broadcast.slice(0, 60)}${broadcast.length > 60 ? '…' : ''}”` : 'Nothing live'} onClick={() => onPage('broadcast')} />}
+          <Row icon={Hash} tone="green" title="Hashtag rooms" value={activeTags.length ? String(activeTags.length) : 'None yet'} onClick={() => onPage('hashtags')} />
+          <Row icon={Quote} tone="amber" title="Header quotes" value={liveQuotes ? String(liveQuotes) : 'Built-in'} onClick={() => onPage('quotes')} />
         </div>
       </section>
       <section className="yd-section">
-        <h3 className="yd-heading">Activity log</h3>
-        <AuditLog data={data} selfId={selfId} limit={3} />
-        {data.audit.length > 3 && (
-          <button type="button" className="ah-btn is-ghost is-wide mt-2" onClick={() => onPage('log')}><History size={14} /> See all</button>
-        )}
+        <h3 className="yd-heading">History</h3>
+        <div className="yd-card">
+          <Row icon={History} tone="grey" title="Activity log" text={latestText} onClick={() => onPage('log')} />
+        </div>
       </section>
       {status && <p role="status" className="ah-status">{status}</p>}
     </div>

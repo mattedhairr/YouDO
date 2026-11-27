@@ -91,6 +91,7 @@ try {
   check(self.email === 'anjali_r@example.com' && self.name === 'Anjali R', 'a test goes to your own address only');
   const may = await one('select public.admin_email_may_send($1)', [adminSend.id]);
   check(may.left_today === 450 && may.kind === 'update' && may.signer === 'Anjali R', 'the function learns what to send and who signs');
+  check(may.audience === 'everyone', 'and who it is for (a mailing keeps the Unsubscribe header)');
 
   // The owner.
   await as(1);
@@ -153,25 +154,25 @@ try {
 
   // Templates.
   await db.exec('reset role');
-  check(Number(await one('select count(*) from public.email_templates')) === 3, 'three templates are made the first time');
+  check(Number(await one('select count(*) from public.email_templates')) === 2, 'two templates are made the first time (News is retired)');
   await db.exec(await load('admin_email'));
-  check(Number(await one('select count(*) from public.email_templates')) === 3, 'running again makes no copies');
+  check(Number(await one('select count(*) from public.email_templates')) === 2, 'running again makes no copies');
   await as(1);
   let templates = await one('select public.admin_email_templates()');
-  check(templates.map((t) => t.name).sort().join() === 'Personal note,Release news,Thank a backer', 'the owner sees all three');
+  check(templates.map((t) => t.name).sort().join() === 'Personal note,Thank a backer', 'the owner sees both');
   check(templates.find((t) => t.kind === 'thanks').body.endsWith('believing in YouDO from the start.'), 'the thank-you ends with the new line');
   const made = await one("select public.owner_save_email_template(null, ' Exam week ', 'update', 'Good luck', 'Hi {name}')");
   const thanksTemplate = templates.find((t) => t.kind === 'thanks');
   await db.query("select public.owner_save_email_template($1, 'Thank a backer', 'thanks', 'Thanks!', 'Hi {name}, thank you')", [thanksTemplate.id]);
   templates = await one('select public.admin_email_templates()');
-  check(templates.length === 4 && templates.find((t) => t.id === made).name === 'Exam week', 'the owner adds one (name trimmed)');
+  check(templates.length === 3 && templates.find((t) => t.id === made).name === 'Exam week', 'the owner adds one (name trimmed)');
   check(templates.find((t) => t.id === thanksTemplate.id).subject === 'Thanks!', 'and changes one');
   await fails("select public.owner_save_email_template(null, '', 'note', '', 'x')", [], 'a template needs a name');
   await fails("select public.owner_save_email_template(null, 'x', 'spam', '', 'x')", [], 'and a known kind');
   await fails("select public.owner_save_email_template($1, 'x', 'note', '', 'x')", [id(99)], 'changing a missing template is refused');
   await as(2);
   const adminTemplates = await one('select public.admin_email_templates()');
-  check(adminTemplates.length === 3 && !adminTemplates.some((t) => t.kind === 'thanks'), 'admins see them without the thank-you');
+  check(adminTemplates.length === 2 && !adminTemplates.some((t) => t.kind === 'thanks'), 'admins see them without the thank-you');
   await fails("select public.owner_save_email_template(null, 'Mine', 'note', '', 'x')", [], 'admins cannot add templates');
   await fails('select public.owner_delete_email_template($1)', [made], 'or delete them');
   await fails('select * from public.email_templates', [], 'the table is closed to the app');
@@ -179,7 +180,19 @@ try {
   await fails('select public.admin_email_templates()', [], 'members cannot read templates');
   await as(1);
   await db.query('select public.owner_delete_email_template($1)', [made]);
-  check((await one('select public.admin_email_templates()')).length === 3, 'the owner deletes one');
+  check((await one('select public.admin_email_templates()')).length === 2, 'the owner deletes one');
+
+  // Someone who only typed a name at Create account is greeted by it, and the owner sees it.
+  await db.exec('reset role');
+  await db.query(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,'nina@example.com',now(),'{"full_name":"Nina Rao"}')`, [id(8)]);
+  await as(1);
+  const nina = await one("select public.admin_email_create('note','people',$1,'Hello','Hi {name}')", [[id(8)]]);
+  await as('service');
+  check((await rows('select * from public.email_claim_batch($1, 5)', [nina.id]))[0].display_name === 'Nina Rao', 'the email greets them by the name typed at sign-up');
+  await as(1);
+  check((await one('select public.admin_email_send_detail($1)', [nina.id])).recipients[0].name === 'Nina Rao', 'the owner sees it in the send');
+  await as(2);
+  check((await one('select public.admin_email_send_detail($1)', [nina.id])).recipients[0].name == null, 'an admin does not');
 
   console.log(`Admin email SQL: ${checks} checks passed.`);
 } finally {

@@ -73,7 +73,7 @@ export default {
         const links = await stopUrl(self.user_id);
         const mail = renderEmail({
           kind, subject: `[Test] ${body.subject ?? ''}`, body: body.body ?? '',
-          name: firstName(self.name), amount: kind === 'thanks' ? Number(self.amount) || 50 : undefined, signer: self.name ?? undefined,
+          name: firstName(self.name), amount: kind === 'thanks' ? Number(self.amount) || undefined : undefined, signer: self.name ?? undefined,
           unsubscribeUrl: links.page,
         });
         const out = mailer();
@@ -91,6 +91,10 @@ export default {
         const { data: batch, error: claimError } = await context.supabaseAdmin.rpc('email_claim_batch', { send: body.sendId, batch_size: room });
         if (claimError) throw claimError;
         let refused = false;
+        // Gmail's own Unsubscribe header marks a mailing: kept for Everyone and Backers, left off an email to
+        // picked people so it reads as a personal one. The footer's Stop these emails link is in every email.
+        // An older server that doesn't say the audience keeps the header.
+        const mailing = info.audience !== 'people';
         try {
           for (const [index, person] of ((batch ?? []) as { user_id: string; email: string; display_name: string | null; amount: number | null }[]).entries()) {
             if (refused) { await mark(context.supabaseAdmin, body.sendId, person.user_id, 'retry'); continue; }
@@ -101,7 +105,7 @@ export default {
                 name: firstName(person.display_name), amount: person.amount ?? undefined, signer: info.signer ?? undefined,
                 unsubscribeUrl: links.page,
               });
-              await out.send(person.email, mail, links.oneClick);
+              await out.send(person.email, mail, mailing ? links.oneClick : undefined);
               await mark(context.supabaseAdmin, body.sendId, person.user_id, 'sent');
             } catch (sendError) {
               if (refusedLogin(sendError)) { refused = true; await mark(context.supabaseAdmin, body.sendId, person.user_id, 'retry'); continue; }

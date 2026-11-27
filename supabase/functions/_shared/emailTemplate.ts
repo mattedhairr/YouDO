@@ -1,8 +1,11 @@
 /**
  * YouDO's email template, shared by the Admin Hub's preview (the app) and the
  * admin-email edge function, so what the preview shows is what people get.
- * It matches the sign-up mails (supabase/email-templates/): the dark card, the
- * YouDO mark and the sand line. No imports: Deno and Vite both load this file.
+ * A plain letter (v9.1): the "YouDO" wordmark in text over a thin sand line,
+ * then the message and a signature, on the mail app's own page. No forced dark
+ * page, hidden preview text, badge or remote logo: those read as marketing to
+ * spam filters, and Gmail darkens a plain email by itself in dark mode.
+ * No imports: Deno and Vite both load this file.
  *
  * The message is plain text, as pasted:
  * - a blank line starts a new paragraph, a single line break stays a break;
@@ -12,7 +15,14 @@
  *   backer gave (₹50), for thank-yous.
  */
 
+/** 'update' (News) is retired: release news lives in the app's own updates. It still renders, for sends made before. */
 export type EmailKind = 'update' | 'thanks' | 'note';
+
+/** The looks offered when writing. */
+export const OFFERED_KINDS: EmailKind[] = ['thanks', 'note'];
+
+/** A preview shows the footer's Stop link as people see it; this address goes nowhere. */
+export const PREVIEW_STOP_URL = 'https://youdo-app.vercel.app/email-stop.html';
 
 export const SITE_URL = 'https://youdo-app.vercel.app';
 export const SUBJECT_MAX = 120;
@@ -22,19 +32,19 @@ export const BODY_MAX = 6000;
 export const EMAIL_KINDS: Record<EmailKind, { label: string; hint: string; subject: string; body: string }> = {
   update: {
     label: 'News',
-    hint: 'A big title under “From YouDO”, signed by the YouDO team. For releases and announcements.',
+    hint: 'Retired. Release news lives in the app’s own updates.',
     subject: '',
     body: 'Hi {name},\n\n\n\n' + SITE_URL,
   },
   thanks: {
     label: 'Thank you',
-    hint: 'A gold Founding Backer seal and title, signed by the YouDO team. {amount} is what each backer gave.',
+    hint: 'For backers: {amount} becomes what each one gave, and Backers marks them thanked. It looks like a note: a plain letter signed by you.',
     subject: 'Thank you for backing YouDO',
-    body: 'Hi {name},\n\nYour {amount} helped keep YouDO free, ad-free and growing. You are one of the very first people to back it, and that means a lot.\n\nYour Founding Backer ring now shows around your picture everywhere in YouDO.\n\nThank you for believing in YouDO from the start.',
+    body: 'Hi {name},\n\nThank you for backing YouDO. You are one of the very first people to do it, and that means a lot.\n\nYour {amount} helps keep YouDO free, ad-free and growing, and your Founding Backer ring now shows around your picture everywhere in the app.\n\nThank you for believing in YouDO from the start.',
   },
   note: {
     label: 'Note',
-    hint: 'No title, like a letter, signed with your name. For one person or a few.',
+    hint: 'For anyone: one person, a few, or everyone. A plain letter signed by you.',
     subject: '',
     body: 'Hi {name},\n\n',
   },
@@ -48,7 +58,7 @@ export interface EmailContent {
   name?: string;
   /** What a backer gave in rupees, for {amount}. */
   amount?: number;
-  /** Who signs a note (the sender's name in YouDO). */
+  /** Who signs a thank-you or a note (the sender's name in YouDO). */
   signer?: string;
   /** The person's own "Stop these emails" link; a preview leaves it out. */
   unsubscribeUrl?: string;
@@ -100,9 +110,13 @@ function buttonLabel(url: string): string {
   }
 }
 
+const INK = '#24221f';
+const SAND = '#d8b47a';
+const MUTED = '#7a736a';
+
 const inline = (line: string) => escape(line)
-  .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#f5f2ec;">$1</strong>')
-  .replace(URL_ANYWHERE, (url) => `<a href="${url}" style="color:#d8b47a;text-decoration:underline;">${url}</a>`);
+  .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  .replace(URL_ANYWHERE, (url) => `<a href="${url}" style="color:#8a6420;text-decoration:underline;">${url}</a>`);
 
 /** The message as paragraphs and buttons. */
 export function bodyBlocks(text: string): ({ kind: 'text'; html: string; plain: string } | { kind: 'button'; url: string; label: string })[] {
@@ -113,57 +127,47 @@ export function bodyBlocks(text: string): ({ kind: 'text'; html: string; plain: 
   ));
 }
 
-const button = (url: string, label: string) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;"><tr>
-  <td align="center" bgcolor="#d8b47a" style="border-radius:12px;background:#d8b47a;">
-    <a href="${escape(url)}" style="display:inline-block;padding:14px 24px;font-size:15px;font-weight:700;line-height:1;color:#171612;text-decoration:none;border-radius:12px;">${escape(label)} &rarr;</a>
+const button = (url: string, label: string) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:2px 0 18px;"><tr>
+  <td align="center" bgcolor="${INK}" style="border-radius:10px;background:${INK};">
+    <a href="${escape(url)}" style="display:inline-block;padding:12px 20px;font-size:15px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:10px;">${escape(label)}</a>
   </td></tr></table>`;
+
+/** Who signs it: the sender's name over "YouDO" for a thank-you or a note, else the team. */
+function signature(content: EmailContent): { html: string; text: string } {
+  const name = content.kind !== 'update' ? content.signer?.trim() : '';
+  return name
+    ? { html: `${escape(name)}<br><span style="color:${MUTED};">YouDO</span>`, text: `${name}\nYouDO` }
+    : { html: 'The YouDO team', text: 'The YouDO team' };
+}
 
 /** The whole email: html for mail apps, text for the rest. */
 export function renderEmail(content: EmailContent): { subject: string; html: string; text: string } {
   const subject = fillPlaceholders(content.subject.trim(), content.name, content.amount);
   const body = fillPlaceholders(content.body, content.name, content.amount);
   const blocks = bodyBlocks(body);
-  const thanks = content.kind === 'thanks';
-  const signer = content.kind === 'note' && content.signer?.trim() ? `${content.signer.trim()}, YouDO` : 'The YouDO team';
-  const line = thanks ? 'linear-gradient(90deg,#c9a24a,#f1d58a 50%,#c9a24a)' : 'linear-gradient(90deg,#d8b47a,#e9cf9f 50%,#d8b47a)';
-
-  const eyebrow = thanks
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;"><tr><td style="padding:6px 12px;border:1px solid #6b5626;border-radius:999px;background:#2a2314;font-size:12px;font-weight:700;letter-spacing:0.06em;color:#f1d58a;">&#9829;&nbsp; FOUNDING BACKER</td></tr></table>`
-    : content.kind === 'update' ? '<p style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#d8b47a;">From YouDO</p>' : '';
-  const title = content.kind === 'note' ? '' : `<h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;font-weight:700;letter-spacing:-0.015em;color:#f5f2ec;">${escape(subject)}</h1>`;
-  const paragraphs = blocks.map((block) => block.kind === 'button'
-    ? button(block.url, block.label)
-    : `<p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#d5cfc5;">${block.html}</p>`).join('\n');
+  const titled = content.kind === 'update';
+  const sign = signature(content);
+  const para = `margin:0 0 16px;font-size:16px;line-height:1.6;color:${INK};`;
+  const paragraphs = blocks.map((block) => (block.kind === 'button' ? button(block.url, block.label) : `<p style="${para}">${block.html}</p>`)).join('\n');
   const stop = content.unsubscribeUrl
-    ? `<a href="${escape(content.unsubscribeUrl)}" style="color:#8a8378;text-decoration:underline;">Stop these emails</a> &middot; `
+    ? `<a href="${escape(content.unsubscribeUrl)}" style="color:#8a8378;text-decoration:underline;">Stop these emails</a>`
     : '';
+  const title = titled ? `<h1 style="margin:0 0 14px;font-size:22px;line-height:1.3;font-weight:700;letter-spacing:-0.015em;color:${INK};">${escape(subject)}</h1>` : '';
 
   const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><title>${escape(subject)}</title></head>
-<body style="margin:0;padding:0;background:#0f0e0c;color:#f5f2ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#0f0e0c;">${escape((blocks.find((block) => block.kind === 'text') as { plain?: string } | undefined)?.plain?.slice(0, 120) ?? '')}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f0e0c;">
-<tr><td align="center" style="padding:32px 16px;">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#ffffff;color:${INK};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td align="center" style="padding:28px 20px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
-    <tr><td style="padding:0 4px 20px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td style="vertical-align:middle;"><img src="${SITE_URL}/icon-192.png" width="36" height="36" alt="" style="display:block;border:0;border-radius:9px;"></td>
-        <td style="vertical-align:middle;padding-left:10px;font-size:20px;font-weight:700;letter-spacing:-0.01em;color:#f5f2ec;">You<span style="color:#d8b47a;">DO</span></td>
-      </tr></table>
+    <tr><td style="padding:0 0 12px;font-size:20px;font-weight:700;letter-spacing:-0.01em;color:${INK};">You<span style="color:#b8893f;">DO</span></td></tr>
+    <tr><td style="border-top:2px solid ${SAND};padding:22px 0 0;">
+      ${title}${paragraphs}
+      <p style="margin:4px 0 0;font-size:16px;line-height:1.6;color:${INK};">${sign.html}</p>
     </td></tr>
-    <tr><td style="background:#1c1a17;border:1px solid #33302a;border-radius:20px;overflow:hidden;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr><td style="height:4px;line-height:4px;font-size:0;background:#d8b47a;background-image:${line};">&nbsp;</td></tr>
-        <tr><td style="padding:30px 28px 12px;">
-          ${eyebrow}${title}${paragraphs}
-          <p style="margin:6px 0 18px;font-size:15px;line-height:1.5;color:#ada69b;">&mdash; ${escape(signer)}</p>
-        </td></tr>
-      </table>
-    </td></tr>
-    <tr><td align="center" style="padding:22px 12px 0;font-size:12px;line-height:1.6;color:#6f695f;">
-      You get this because you have a YouDO account.<br>
-      ${stop}<a href="${SITE_URL}" style="color:#8a8378;text-decoration:underline;">YouDO</a> &middot; Built for serious aspirants
+    <tr><td style="padding:28px 0 0;font-size:12px;line-height:1.6;color:#8a8378;">
+      You&rsquo;re getting this because you have a YouDO account.${stop ? `<br>
+      ${stop}` : ''}
     </td></tr>
   </table>
 </td></tr>
@@ -171,9 +175,9 @@ export function renderEmail(content: EmailContent): { subject: string; html: str
 </body></html>`;
 
   const text = [
-    ...(content.kind === 'note' ? [] : [subject, '']),
+    ...(titled ? [subject, ''] : []),
     ...blocks.map((block) => (block.kind === 'button' ? `${block.label}: ${block.url}` : block.plain.replace(/\*\*(.+?)\*\*/g, '$1'))).flatMap((part) => [part, '']),
-    `— ${signer}`,
+    sign.text,
     '',
     content.unsubscribeUrl ? `Stop these emails: ${content.unsubscribeUrl}` : '',
   ].join('\n').trim();

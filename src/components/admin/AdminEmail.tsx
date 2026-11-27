@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookmarkPlus, ChevronDown, ChevronRight, Copy, Eye, EyeOff, Pause, Pencil, Search, Send, X } from 'lucide-react';
-import { can, fetchPeople, personLabel, type AdminRole } from '../../lib/adminHub';
+import { BookmarkPlus, Check, ChevronRight, Copy, HelpCircle, LayoutTemplate, Pause, PenLine, Pencil, Plus, Search, Send } from 'lucide-react';
+import { activeLabel, can, fetchPeople, personLabel, type AdminPerson, type AdminRole } from '../../lib/adminHub';
 import {
-  createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSelfName, fetchSendDetail, fetchEmailReach, fetchTemplates, previewRecipient, saveTemplate, sendNextEmails, sendStatus, sendTestEmail,
+  createEmailSend, deleteTemplate, fetchBackers, fetchEmailOverview, fetchSelfName, fetchSendDetail, fetchEmailReach, fetchTemplates, previewRecipient, saveTemplate, sendNextEmails, sendStatus, sendTestEmail, startingText,
   type Backer, type EmailAudience, type EmailOverview, type EmailProgress, type EmailSendDetail, type EmailSendSummary, type EmailTemplate, type RecipientStatus,
 } from '../../lib/adminEmail';
 import { EMAIL_CODES, EMAIL_FIXED, aiTemplatePrompt } from '../../lib/emailHelp';
-import { EMAIL_KINDS, emailProblem, formatRupees, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
+import { EMAIL_KINDS, emailProblem, formatRupees, OFFERED_KINDS, PREVIEW_STOP_URL, renderEmail, type EmailKind } from '../../../supabase/functions/_shared/emailTemplate.ts';
 import { hapticSuccess, hapticWarn } from '../../lib/haptics';
+import Overlay from '../Overlay';
+import { LargeTitle, NumberStrip, Segmented } from './AdminUI';
+import { useHubBack } from './hubBack';
+import { Avatar } from './AdminPeople';
+import { useAvatarFacts } from './useAvatarFacts';
+import { PICK_LIMIT, chosenLine, matchParts } from '../../lib/peoplePick';
 
 /** How the Email page opens: from People (blank), a person's card, or Backers. */
 export interface EmailStart {
@@ -21,6 +27,9 @@ type Draft = {
   kind: EmailKind; audience: EmailAudience; people: { id: string; label: string }[]; subject: string; body: string;
   templateId?: string; base?: { subject: string; body: string };
 };
+
+/** The address people see an Admin Hub email come from (the admin-email function's sender). */
+const SENDER = 'team.youdo.app@gmail.com';
 
 const DRAFT_KEY = 'youdo-admin-email-draft-v1';
 const readDraft = (): Draft | null => {
@@ -38,8 +47,10 @@ const untouched = (draft: Draft) => {
   const base = draft.base ?? { subject: EMAIL_KINDS[draft.kind].subject, body: EMAIL_KINDS[draft.kind].body };
   return draft.subject === base.subject && draft.body === base.body;
 };
+/** A retired look (News) becomes a Note wherever it would come back: a saved draft or an old template. */
+const offered = (kind: EmailKind): EmailKind => (OFFERED_KINDS.includes(kind) ? kind : 'note');
 const fromTemplate = (draft: Draft, template: EmailTemplate): Draft => ({
-  ...draft, kind: template.kind, subject: template.subject, body: template.body, templateId: template.id,
+  ...draft, kind: offered(template.kind), subject: template.subject, body: template.body, templateId: template.id,
   base: { subject: template.subject, body: template.body },
 });
 const audienceLabel = (item: Pick<EmailSendSummary, 'audience' | 'total'>) =>
@@ -47,10 +58,11 @@ const audienceLabel = (item: Pick<EmailSendSummary, 'audience' | 'total'>) =>
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 /**
- * Admin Hub → People → Email: write once, send to everyone, backers or a few
- * people, from YouDO's Gmail with the YouDO template. One send goes out about
- * one a second while this screen is open; the list below keeps each one and
- * can send the rest later (Gmail allows about 450 a day).
+ * Admin Hub → People → Email (v9.1, like Mail): a calm home with what was sent,
+ * and New email on its own full screen, with To, Kind and Subject in one card,
+ * Write | Preview, and Send that asks once. One send goes out about one a
+ * second while the Admin Hub is open; the list keeps each one and can send the
+ * rest later (Gmail allows about 450 a day).
  */
 export default function AdminEmail({ role, selfId, start }: { role: AdminRole; selfId: string; start?: EmailStart }) {
   const owner = can(role, 'money');
@@ -58,10 +70,13 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const [draft, setDraft] = useState<Draft>(() => {
     if (start) return fresh(start.kind, start.audience, start.people ?? []);
     const saved = readDraft();
-    return saved && (owner || (saved.audience !== 'backers' && saved.kind !== 'thanks')) ? saved : fresh('update', 'everyone');
+    return saved && (owner || (saved.audience !== 'backers' && saved.kind !== 'thanks')) ? { ...saved, kind: offered(saved.kind) } : fresh('note', 'everyone');
   });
+  // Opened from a person's card or Backers: straight into writing.
+  const [composing, setComposing] = useState(Boolean(start));
+  const [mode, setMode] = useState<'write' | 'preview'>('write');
+  const [sheet, setSheet] = useState<'to' | 'templates' | 'help' | null>(null);
   const [reach, setReach] = useState<number | null>(null);
-  const [preview, setPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -75,6 +90,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const [allSends, setAllSends] = useState(false);
   const stop = useRef(false);
   const alive = useRef(true);
+  const text = useRef<HTMLTextAreaElement>(null);
 
   const reload = () => fetchEmailOverview().then(setOverview).catch((error) => setStatus(error instanceof Error ? error.message : 'Could not open Email.'));
   const reloadTemplates = () => fetchTemplates().then((list) => { if (alive.current) setTemplates(list); });
@@ -93,7 +109,8 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   }, [templates, start?.kind]);
   useEffect(() => { if (!start) writeDraft(untouched(draft) && draft.audience === 'everyone' ? null : draft); }, [draft, start]);
   useEffect(() => {
-    if (draft.audience !== 'people') { setReach(null); return; }
+    setReach(null); // never show the last answer for a new choice
+    if (draft.audience !== 'people') return;
     let live = true;
     fetchEmailReach(draft.people.map((person) => person.id)).then((count) => { if (live) setReach(count); }).catch(() => { if (live) setReach(null); });
     return () => { live = false; };
@@ -102,7 +119,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const edit = (patch: Partial<Draft>) => { setDraft((current) => ({ ...current, ...patch })); setConfirming(false); };
   // A template replaces the words; once something was written, it asks first.
   const startFrom = (template: EmailTemplate) => {
-    if (untouched(draft) || !draft.body.trim()) { setDraft((current) => fromTemplate(current, template)); setReplacing(null); }
+    if (untouched(draft) || !draft.body.trim()) { setDraft((current) => fromTemplate(current, template)); setReplacing(null); setSheet(null); }
     else setReplacing(template);
     setConfirming(false);
   };
@@ -114,10 +131,26 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
       setDraft((value) => ({ ...value, templateId: id, base: { subject: value.subject, body: value.body } }));
       setStatus(name === null ? `Template “${current?.name}” updated.` : `Saved as template “${name}”.`);
       setNaming(null);
+      setSheet(null);
       hapticSuccess();
       await reloadTemplates();
     } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not save the template.'); }
     setBusy(false);
+  };
+  // Thank you and Note arrive as the same letter; while nothing is written yet, switching brings in that
+  // kind's own words (the owner's thank-you template), so the switch shows what it is for.
+  const pickKind = (kind: EmailKind) => {
+    if (!untouched(draft)) { edit({ kind }); return; }
+    const { templateId, ...words } = startingText(kind, templates);
+    edit({ kind, ...words, base: words, templateId });
+  };
+  /** Puts a code where the cursor is (or at the end). */
+  const insert = (code: string) => {
+    const area = text.current;
+    const at = area ? area.selectionStart : draft.body.length;
+    const end = area ? area.selectionEnd : at;
+    edit({ body: draft.body.slice(0, at) + code + draft.body.slice(end) });
+    window.requestAnimationFrame(() => { area?.focus(); area?.setSelectionRange(at + code.length, at + code.length); });
   };
 
   const left = overview ? Math.max(0, overview.limit - overview.sentToday) : 0;
@@ -125,24 +158,29 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
   const problem = emailProblem(draft.subject, draft.body)
     ?? (draft.audience === 'people' && !draft.people.length ? 'Pick at least one person.' : null)
     ?? (overview && count === 0 ? 'No one here can get email yet.' : null);
+  const toLabel = draft.audience === 'everyone' ? `Everyone${overview ? ` · ${overview.everyone}` : ''}`
+    : draft.audience === 'backers' ? `Backers${overview ? ` · ${overview.backers}` : ''}`
+    : draft.people.length === 0 ? 'Choose people' : draft.people.length === 1 ? draft.people[0].label : `${draft.people.length} people`;
+
   // The preview is the email exactly as one real person gets it (previewRecipient): never made-up names or amounts.
-  const wantBackers = preview && owner && (draft.kind === 'thanks' || draft.audience === 'backers');
+  const previewing = composing && mode === 'preview';
+  const wantBackers = previewing && owner && (draft.kind === 'thanks' || draft.audience === 'backers');
   useEffect(() => {
     if (wantBackers && backers === null) fetchBackers().then(setBackers).catch(() => setBackers([]));
   }, [wantBackers, backers]);
   const [self, setSelf] = useState<{ name?: string; signer?: string } | null>(null);
   useEffect(() => {
-    if (preview && self === null) fetchSelfName(selfId).then(setSelf).catch(() => setSelf({}));
-  }, [preview, self, selfId]);
+    if (composing && self === null) fetchSelfName(selfId).then(setSelf).catch(() => setSelf({}));
+  }, [composing, self, selfId]);
   const shown = useMemo(() => previewRecipient({
     audience: draft.audience,
     picked: draft.people,
     backers,
     self: { id: selfId, name: self?.name },
   }), [draft.audience, draft.people, backers, selfId, self?.name]);
-  const rendered = useMemo(() => (preview
-    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject yet)', body: draft.body, name: shown.name, amount: draft.kind === 'thanks' ? shown.amount : undefined, signer: self?.signer })
-    : null), [preview, draft, shown, self?.signer]);
+  const rendered = useMemo(() => (previewing
+    ? renderEmail({ kind: draft.kind, subject: draft.subject || '(No subject)', body: draft.body, name: shown.name, amount: draft.kind === 'thanks' ? shown.amount : undefined, signer: self?.signer, unsubscribeUrl: PREVIEW_STOP_URL })
+    : null), [previewing, draft, shown, self?.signer]);
 
   const run = async (id: string, subject: string, total: number) => {
     stop.current = false;
@@ -161,7 +199,7 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
       }
     }
     if (!alive.current) return;
-    if (stop.current && progress.waiting) setStatus(`Paused. ${progress.waiting} still to send: tap Send the rest below when you’re ready.`);
+    if (stop.current && progress.waiting) setStatus(`Paused. ${progress.waiting} still to send: open it below and tap Send the rest when you’re ready.`);
     setRunning(null);
     await reload();
   };
@@ -172,9 +210,10 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
     try {
       const created = await createEmailSend({ ...draft, people: draft.people.map((person) => person.id) });
       writeDraft(null);
-      setDraft(fresh('update', 'everyone'));
+      setDraft(fresh('note', 'everyone'));
       setConfirming(false);
-      setPreview(false);
+      setComposing(false);
+      setMode('write');
       setBusy(false);
       await run(created.id, draft.subject, created.total);
     } catch (error) {
@@ -192,12 +231,12 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
     setBusy(false);
   };
 
-  const audiences: [EmailAudience, string][] = [
-    ['everyone', `Everyone${overview ? ` ${overview.everyone}` : ''}`],
-    ...(owner ? [['backers', `Backers${overview?.backers !== undefined ? ` ${overview.backers}` : ''}`]] as [EmailAudience, string][] : []),
-    ['people', 'Pick people'],
-  ];
-  const kinds = (Object.keys(EMAIL_KINDS) as EmailKind[]).filter((kind) => owner || kind !== 'thanks');
+  const pickAudience = (key: EmailAudience) => {
+    const thanks = templates?.find((template) => template.kind === 'thanks');
+    if (key === 'backers' && untouched(draft) && thanks) setDraft((value) => ({ ...fromTemplate(value, thanks), audience: key }));
+    else edit({ audience: key });
+  };
+  const kinds = OFFERED_KINDS.filter((kind) => owner || kind !== 'thanks');
   const current = templates?.find((template) => template.id === draft.templateId);
 
   if (openSend) {
@@ -215,180 +254,298 @@ export default function AdminEmail({ role, selfId, start }: { role: AdminRole; s
     return <TemplateManager templates={templates ?? []} onClose={() => setManaging(false)} onChanged={() => reloadTemplates()} />;
   }
 
+  // Nothing written and nobody picked: the home offers a clean New email.
+  const blank = untouched(draft) && draft.audience === 'everyone';
+  const waiting = overview?.sends.filter((item) => item.waiting > 0) ?? [];
+  const done = overview?.sends.filter((item) => item.waiting === 0) ?? [];
+  const recent = allSends ? done : done.slice(0, 3);
+  const row = (item: EmailSendSummary) => (
+    <button key={item.id} type="button" className="yd-row w-full" onClick={() => setOpenSend(item.id)}>
+      <span className="yd-row-main">
+        <span className="yd-row-title truncate">{item.subject}</span>
+        <span className="yd-row-text truncate">{audienceLabel(item)} · {when(item.createdAt)}{item.sentBy !== selfId && item.sentByName ? ` · ${item.sentByName}` : ''}</span>
+      </span>
+      <span className={`ah-mail-state ${item.waiting ? 'is-waiting' : item.failed ? 'is-failed' : 'is-sent'}`}>
+        {item.waiting ? `${item.sent} of ${item.total}` : item.failed ? `${item.failed} didn’t arrive` : item.total > 1 ? `✓ ${item.sent}` : '✓ Sent'}
+      </span>
+      <ChevronRight size={17} className="ah-chev" aria-hidden />
+    </button>
+  );
+
   return (
     <div className="ah-page">
-      {overview && (
-        <div className="ah-mail-quota" aria-label={`${left} of ${overview.limit} emails left today`}>
-          <span><b>{left}</b> of {overview.limit} left today</span>
-          <i aria-hidden><i style={{ width: `${Math.min(100, (overview.sentToday / Math.max(1, overview.limit)) * 100)}%` }} /></i>
-          {overview.stopped > 0 && <small>{overview.stopped} {overview.stopped === 1 ? 'person' : 'people'} turned email off</small>}
-        </div>
-      )}
+      <LargeTitle title="Email" subtitle={overview ? `${left} of ${overview.limit} left today${overview.stopped ? ` · ${overview.stopped} turned email off` : ''}` : 'Opening…'} />
 
       {running && (
-        <section className="yd-card ah-mail-running" aria-live="polite"><div className="yd-block">
+        <section className="yd-card yd-block ah-mail-running" aria-live="polite">
           <p className="ah-mail-running-title">Sending “{running.subject}”</p>
           <div className="ah-meter" aria-hidden><i style={{ width: `${((running.progress.sent + running.progress.failed) / Math.max(1, running.progress.total)) * 100}%` }} /></div>
-          <p className="ah-note mt-2">{sendStatus(running.progress, true)} · about one a second. Keep this screen open; closing it pauses, and you can send the rest later.</p>
-          <button type="button" className="ah-btn is-ghost mt-3" onClick={() => { stop.current = true; }}><Pause size={14} /> Pause</button>
-        </div></section>
+          <p className="ah-note mt-2">{sendStatus(running.progress, true)} · about one a second. Keep the Admin Hub open; closing it pauses, and you can send the rest later.</p>
+          <button type="button" className="ah-btn mt-3" onClick={() => { stop.current = true; }}><Pause size={14} /> Pause</button>
+        </section>
       )}
 
-      <section className="yd-section">
-        <h3 className="yd-heading">Write</h3>
-        <div className="yd-card">
-          {templates && (templates.length > 0 || owner) && (
-            <div className="yd-block">
-              <div className="flex items-center justify-between">
-                <p className="yd-label !mb-0">Start from</p>
-                {owner && <button type="button" className="ah-mail-link" onClick={() => setManaging(true)}><Pencil size={12} /> Edit templates</button>}
-              </div>
-              {templates.length > 0 ? (
-                <div className="ah-chips !mb-0 mt-2" role="group" aria-label="Start from a template">
-                  {templates.map((template) => (
-                    <button key={template.id} type="button" className="ah-chip" aria-pressed={draft.templateId === template.id} onClick={() => startFrom(template)}>{template.name}</button>
-                  ))}
-                </div>
-              ) : <p className="ah-note mt-2">No templates yet. Write one and tap Save as template.</p>}
-              {replacing && (
-                <div role="alertdialog" aria-labelledby="ah-mail-replace" className="ah-mail-confirm">
-                  <h4 id="ah-mail-replace">Replace what you wrote with “{replacing.name}”?</h4>
-                  <div className="ah-actions mt-3">
-                    <button type="button" className="ah-btn is-ghost is-wide" onClick={() => setReplacing(null)}>Keep mine</button>
-                    <button type="button" className="ah-btn is-primary is-wide" onClick={() => { setDraft((value) => fromTemplate(value, replacing)); setReplacing(null); }}>Replace</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="yd-block">
-          <p className="yd-label">To</p>
-          <div className="ah-chips !mb-0" role="group" aria-label="Send to">
-            {audiences.map(([key, label]) => (
-              <button key={key} type="button" className="ah-chip" aria-pressed={draft.audience === key}
-                onClick={() => {
-                  const thanks = templates?.find((template) => template.kind === 'thanks');
-                  if (key === 'backers' && untouched(draft) && thanks) setDraft((value) => ({ ...fromTemplate(value, thanks), audience: key }));
-                  else edit({ audience: key });
-                }}>{label}</button>
-            ))}
-          </div>
-          {draft.audience === 'people' && <PeoplePicker picked={draft.people} reach={reach} selfId={selfId} onChange={(people) => edit({ people })} />}
-          </div>
+      <button type="button" className="ah-mail-new" disabled={Boolean(running)} onClick={() => { setComposing(true); setMode('write'); setStatus(''); }}>
+        <PenLine size={18} /> {blank ? 'New email' : 'Continue writing'}
+      </button>
+      {!blank && (
+        <p className="ah-note mt-2 px-2">Draft: “{draft.subject || 'no subject yet'}” · <button type="button" className="font-semibold text-primary" onClick={() => setDraft(fresh('note', 'everyone'))}>Start over</button></p>
+      )}
+      {status && !composing && <p role="status" className="ah-status">{status}</p>}
 
-          <div className="yd-block">
-          <p className="yd-label">Look</p>
-          <div className="ah-chips !mb-1" role="group" aria-label="How the email looks">
-            {kinds.map((kind) => (
-              <button key={kind} type="button" className="ah-chip" aria-pressed={draft.kind === kind} onClick={() => edit({ kind })}>{EMAIL_KINDS[kind].label}</button>
-            ))}
-          </div>
-          <p className="ah-note">{EMAIL_KINDS[draft.kind].hint}</p>
-          </div>
-
-          <div className="yd-block">
-          <label className="yd-label block" htmlFor="ah-mail-subject">Subject</label>
-          <input id="ah-mail-subject" className="yd-field" value={draft.subject} maxLength={120} placeholder="YouDO 9.0 is here"
-            onChange={(event) => edit({ subject: event.target.value })} />
-          <label className="yd-label mt-4 block" htmlFor="ah-mail-body">Message</label>
-          <textarea id="ah-mail-body" value={draft.body} rows={9} maxLength={6000} placeholder="Paste or write the message"
-            onChange={(event) => edit({ body: event.target.value })}
-            className="w-full resize-y rounded-[16px] border border-subtle bg-base p-3.5 text-[13.5px] leading-relaxed text-content-primary outline-none focus:border-primary" />
-          <EmailHelp />
-          {owner && (naming === null ? (
-            <div className="ah-actions mt-3">
-              {current && !untouched(draft) && (
-                <button type="button" className="ah-btn is-ghost" disabled={busy} onClick={() => void saveAsTemplate(null)}>Update “{current.name}”</button>
-              )}
-              <button type="button" className="ah-mail-link" disabled={busy} onClick={() => setNaming('')}><BookmarkPlus size={13} /> Save as template</button>
-            </div>
-          ) : (
-            <div className="mt-3 flex gap-2">
-              <input className="yd-field flex-1" value={naming} maxLength={60} placeholder="Template name" aria-label="Template name" autoFocus
-                onChange={(event) => setNaming(event.target.value)} />
-              <button type="button" className="ah-btn is-primary" disabled={busy || !naming.trim()} onClick={() => void saveAsTemplate(naming.trim())}>Save</button>
-              <button type="button" className="ah-btn is-ghost" onClick={() => setNaming(null)} aria-label="Cancel"><X size={14} /></button>
-            </div>
-          ))}
-          </div>
-
-          <div className="yd-block">
-          <div className="ah-actions">
-            <button type="button" className="ah-btn is-ghost is-wide" onClick={() => setPreview((open) => !open)}>
-              {preview ? <><EyeOff size={14} /> Hide preview</> : <><Eye size={14} /> Preview</>}
-            </button>
-            <button type="button" className="ah-btn is-ghost is-wide" disabled={busy || Boolean(running)} onClick={() => void test()}>Send me a test</button>
-          </div>
-          {rendered && (
-            <div className="ah-mail-preview">
-              <p className="ah-note">{`Exactly as ${shown.label} gets it${draft.kind === 'thanks' && shown.amount ? ` (${formatRupees(shown.amount)})` : ''}.${draft.audience === 'people' && draft.people.length === 1 ? '' : ` Everyone gets their own name${draft.kind === 'thanks' ? ' and amount' : ''}.`}`}</p>
-              <iframe title="Email preview" sandbox="" srcDoc={rendered.html} />
-            </div>
-          )}
-
-          {!confirming ? (
-            <button type="button" className="ah-btn is-primary is-wide mt-3 w-full" disabled={busy || Boolean(running) || Boolean(problem) || !overview}
-              onClick={() => setConfirming(true)}>
-              <Send size={15} /> {problem ?? `Send to ${count} ${count === 1 ? 'person' : 'people'}`}
-            </button>
-          ) : (
-            <div role="alertdialog" aria-labelledby="ah-mail-confirm" className="ah-mail-confirm">
-              <h4 id="ah-mail-confirm">Send “{draft.subject.trim()}” to {count} {count === 1 ? 'person' : 'people'}?</h4>
-              <p>
-                {count > left
-                  ? `Today ${left} can go; the other ${count - left} wait until tomorrow (Send the rest).`
-                  : `It takes about ${Math.max(1, Math.round(count / 50))} minute${count > 75 ? 's' : ''}. Each person gets their own copy; nobody sees the others.`}
-                {' '}An email can’t be taken back.
-              </p>
-              <div className="ah-actions mt-3">
-                <button type="button" className="ah-btn is-ghost is-wide" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button>
-                <button type="button" className="ah-btn is-primary is-wide" disabled={busy} onClick={() => void send()}><Send size={14} /> Send</button>
-              </div>
-            </div>
-          )}
-          </div>
-        </div>
-      </section>
-      {status && <p role="status" className="ah-status">{status}</p>}
-
-      <section className="yd-section">
+      {waiting.length > 0 && (
+        <section className="yd-section mt-5">
+          <h3 className="yd-heading">Not finished</h3>
+          <div className="yd-card">{waiting.map(row)}</div>
+        </section>
+      )}
+      <section className="yd-section mt-5">
         <h3 className="yd-heading">Sent</h3>
-        {!overview ? <p className="ah-empty">Loading…</p> : overview.sends.length === 0 ? <p className="ah-empty">Nothing sent yet.</p> : (() => {
-          const waiting = overview.sends.filter((item) => item.waiting > 0);
-          const done = overview.sends.filter((item) => item.waiting === 0);
-          const shown = allSends ? done : done.slice(0, 3);
-          const row = (item: EmailSendSummary) => (
-            <button key={item.id} type="button" className="yd-row w-full !items-start" onClick={() => setOpenSend(item.id)}>
-              <span className="yd-row-main">
-                <span className="yd-row-title !text-[13.5px] truncate">{item.subject}</span>
-                <span className="yd-row-text">{audienceLabel(item)} · {when(item.createdAt)}{item.sentBy !== selfId && item.sentByName ? ` · ${item.sentByName}` : ''}</span>
-                <span className={`yd-row-text ${item.waiting ? '!text-warning' : ''}`}>{sendStatus(item, running?.id === item.id)}</span>
-              </span>
-              <ChevronRight size={17} className="mt-1 shrink-0 text-content-muted" aria-hidden />
-            </button>
-          );
-          return <>
-            {waiting.length > 0 && (
-              <>
-                <p className="ah-label !mt-0 !mb-2">Not finished</p>
-                <div className="yd-card mb-3">{waiting.map(row)}</div>
-              </>
-            )}
-            {shown.length > 0 && <div className="yd-card">{shown.map(row)}</div>}
+        {!overview ? <p className="ah-empty">Loading…</p> : done.length === 0 ? <div className="yd-card"><p className="ah-empty !py-5">Nothing sent yet.</p></div> : (
+          <div className="yd-card">
+            {recent.map(row)}
             {done.length > 3 && (
-              <button type="button" className="ah-btn is-ghost is-wide mt-2 w-full" onClick={() => setAllSends((value) => !value)}>
+              <button type="button" className="yd-row w-full justify-center !min-h-[44px] font-semibold text-primary" onClick={() => setAllSends((value) => !value)}>
                 {allSends ? 'Show fewer' : `See all ${done.length}`}
               </button>
             )}
-          </>;
-        })()}
-        <p className="yd-note">From YouDO’s Gmail, never the one that sends sign-in mails. Every email ends with “Stop these emails”. Each send is in the activity log.</p>
+          </div>
+        )}
       </section>
+      {owner && (
+        <div className="yd-card">
+          <button type="button" className="yd-row w-full" onClick={() => setManaging(true)}>
+            <span className="yd-tile is-grey" aria-hidden><LayoutTemplate size={16} /></span>
+            <span className="yd-row-main"><span className="yd-row-title">Templates</span>
+              <span className="yd-row-text truncate">{templates?.length ? templates.map((template) => template.name).join(', ') : 'Saved texts to start from'}</span></span>
+            <ChevronRight size={17} className="ah-chev" aria-hidden />
+          </button>
+        </div>
+      )}
+      <p className="yd-note">From {SENDER}, never the address that sends sign-in mails. Every email ends with “Stop these emails”, and each send is in the activity log.</p>
+
+      {/* New email: its own full screen, like Mail. */}
+      <Overlay open={composing} onClose={() => setComposing(false)} align="full" screen>
+        <div className="community-shell hub ah-apple app-frame mx-auto flex h-full w-full max-w-md flex-col overflow-hidden border-x border-subtle bg-base" role="dialog" aria-label="New email">
+          <header className="hub-sheet-header ah-compose-bar">
+            <button type="button" className="hub-text-button is-start" onClick={() => setComposing(false)}>Cancel</button>
+            <h2>New email</h2>
+            <button type="button" className="ah-send is-end" disabled={busy || Boolean(running) || !overview}
+              onClick={() => { if (problem) setStatus(problem); else { setStatus(''); setConfirming(true); } }}>Send</button>
+          </header>
+          <main className="ah-body">
+            <div className="yd-card mt-2">
+              <button type="button" className="yd-row ah-field" onClick={() => setSheet('to')}>
+                <span className="ah-field-key">To</span>
+                <span className="yd-row-main"><span className="yd-row-title truncate">{toLabel}</span></span>
+                <ChevronRight size={17} className="ah-chev" aria-hidden />
+              </button>
+              {kinds.length > 1 && (
+                <div className="yd-row ah-field">
+                  <span className="ah-field-key">Kind</span>
+                  <div className="flex-1"><Segmented<EmailKind> label="What kind of email" value={draft.kind} onChange={pickKind}
+                    options={kinds.map((kind) => ({ id: kind, label: EMAIL_KINDS[kind].label }))} /></div>
+                </div>
+              )}
+              <label className="yd-row ah-field">
+                <span className="ah-field-key">Subject</span>
+                <input className="ah-field-input" value={draft.subject} maxLength={120} placeholder="What it’s about"
+                  onChange={(event) => edit({ subject: event.target.value })} />
+              </label>
+            </div>
+
+            <div className="mt-4"><Segmented<'write' | 'preview'> label="Write or preview" value={mode} onChange={setMode}
+              options={[{ id: 'write', label: 'Write' }, { id: 'preview', label: 'Preview' }]} /></div>
+
+            {mode === 'write' ? (
+              <>
+                <textarea ref={text} value={draft.body} rows={12} maxLength={6000} placeholder="Hi {name}," aria-label="Message"
+                  onChange={(event) => edit({ body: event.target.value })} className="ah-compose-text" />
+                <div className="ah-tools">
+                  <button type="button" onClick={() => setSheet('templates')}><LayoutTemplate size={14} /> Templates</button>
+                  <button type="button" onClick={() => insert('{name}')}><Plus size={14} /> Name</button>
+                  {draft.kind === 'thanks' && <button type="button" onClick={() => insert('{amount}')}><Plus size={14} /> Amount</button>}
+                  <button type="button" onClick={() => setSheet('help')}><HelpCircle size={14} /> Help</button>
+                </div>
+                <p className="yd-note">{EMAIL_KINDS[draft.kind].hint} Each person gets their own name.</p>
+              </>
+            ) : rendered && (
+              <MailPreview html={rendered.html} subject={rendered.subject}
+                caption={`Exactly as ${shown.label === 'you' ? 'you’ll get it' : `${shown.label} gets it`}${draft.kind === 'thanks' && shown.amount ? ` (${formatRupees(shown.amount)})` : ''}`} />
+            )}
+            <button type="button" className="ah-mail-test" disabled={busy || Boolean(running)} onClick={() => void test()}>Send me a test</button>
+            {status && composing && <p role="status" className="ah-status text-center">{status}</p>}
+          </main>
+        </div>
+
+        {/* Send to */}
+        <Overlay open={sheet === 'to'} onClose={() => setSheet(null)} align="bottom">
+          <div className="hub hub-sheet ah-apple" role="dialog" aria-label="Send to">
+            <div className="hub-sheet-grabber" aria-hidden />
+            <div className="hub-sheet-header"><span /><h2>Send to</h2><button type="button" className="hub-text-button is-strong is-end" onClick={() => setSheet(null)}>Done</button></div>
+            <div className="hub-sheet-body">
+              <div className="yd-card">
+                {([
+                  ['everyone', 'Everyone', overview ? `${overview.everyone} can get email` : ''],
+                  ...(owner ? [['backers', 'Backers', overview ? `${overview.backers} ${overview.backers === 1 ? 'backer' : 'backers'}` : '']] : []),
+                  ['people', 'Choose people', 'One person or a few'],
+                ] as [EmailAudience, string, string][]).map(([key, label, detail]) => (
+                  <button key={key} type="button" className="yd-row" role="radio" aria-checked={draft.audience === key} onClick={() => pickAudience(key)}>
+                    <span className="yd-row-main"><span className="yd-row-title">{label}</span><span className="yd-row-text">{detail}</span></span>
+                    {draft.audience === key && <Check size={18} className="text-primary" aria-hidden />}
+                  </button>
+                ))}
+              </div>
+              {draft.audience === 'people' && <PeoplePicker picked={draft.people} reach={reach} selfId={selfId} onChange={(people) => edit({ people })} />}
+            </div>
+          </div>
+        </Overlay>
+
+        {/* Templates */}
+        <Overlay open={sheet === 'templates'} onClose={() => { setSheet(null); setReplacing(null); setNaming(null); }} align="bottom">
+          <div className="hub hub-sheet ah-apple" role="dialog" aria-label="Templates">
+            <div className="hub-sheet-grabber" aria-hidden />
+            <div className="hub-sheet-header"><span /><h2>Templates</h2><button type="button" className="hub-text-button is-strong is-end" onClick={() => { setSheet(null); setReplacing(null); setNaming(null); }}>Done</button></div>
+            <div className="hub-sheet-body">
+              {replacing ? (
+                <div className="yd-card ah-confirm-row">
+                  <p>Replace what you wrote with “{replacing.name}”?</p>
+                  <div className="ah-choices">
+                    <button type="button" className="ah-btn" onClick={() => setReplacing(null)}>Keep mine</button>
+                    <button type="button" className="ah-btn is-primary" onClick={() => { setDraft((value) => fromTemplate(value, replacing)); setReplacing(null); setSheet(null); }}>Replace</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h3 className="yd-heading">Start from</h3>
+                  {templates && templates.length > 0 ? (
+                    <div className="yd-card">
+                      {templates.map((template) => (
+                        <button key={template.id} type="button" className="yd-row" onClick={() => startFrom(template)}>
+                          <span className="yd-row-main"><span className="yd-row-title">{template.name}</span>
+                            <span className="yd-row-text truncate">{EMAIL_KINDS[offered(template.kind)].label} · {template.subject || template.body.replace(/\s+/g, ' ').slice(0, 50)}</span></span>
+                          {draft.templateId === template.id && <Check size={18} className="text-primary" aria-hidden />}
+                        </button>
+                      ))}
+                    </div>
+                  ) : <p className="ah-empty">No templates yet.</p>}
+                  {owner && (
+                    <section className="yd-section mt-5">
+                      <h3 className="yd-heading">This email</h3>
+                      <div className="yd-card">
+                        {naming === null ? (
+                          <>
+                            {current && !untouched(draft) && (
+                              <button type="button" className="yd-row" disabled={busy} onClick={() => void saveAsTemplate(null)}>
+                                <span className="yd-row-main"><span className="yd-row-title text-primary">Update “{current.name}”</span></span>
+                              </button>
+                            )}
+                            <button type="button" className="yd-row" disabled={busy} onClick={() => setNaming('')}>
+                              <span className="yd-row-main"><span className="yd-row-title text-primary">Save as a new template…</span></span>
+                            </button>
+                            <button type="button" className="yd-row" onClick={() => { setSheet(null); setComposing(false); setManaging(true); }}>
+                              <span className="yd-row-main"><span className="yd-row-title">Edit templates</span></span>
+                              <ChevronRight size={17} className="ah-chev" aria-hidden />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="ah-confirm-row">
+                            <input className="yd-field mb-2.5" value={naming} maxLength={60} placeholder="Template name" aria-label="Template name" autoFocus
+                              onChange={(event) => setNaming(event.target.value)} />
+                            <div className="ah-choices">
+                              <button type="button" className="ah-btn" onClick={() => setNaming(null)}>Cancel</button>
+                              <button type="button" className="ah-btn is-primary" disabled={busy || !naming.trim()} onClick={() => void saveAsTemplate(naming.trim())}>Save</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </Overlay>
+
+        {/* Help */}
+        <Overlay open={sheet === 'help'} onClose={() => setSheet(null)} align="bottom">
+          <div className="hub hub-sheet ah-apple" role="dialog" aria-label="Help">
+            <div className="hub-sheet-grabber" aria-hidden />
+            <div className="hub-sheet-header"><span /><h2>Writing an email</h2><button type="button" className="hub-text-button is-strong is-end" onClick={() => setSheet(null)}>Done</button></div>
+            <div className="hub-sheet-body"><EmailHelp /></div>
+          </div>
+        </Overlay>
+
+        {/* Send asks once. */}
+        <Overlay open={confirming} onClose={() => setConfirming(false)}>
+          <div className="ah-alert" role="alertdialog" aria-labelledby="ah-mail-confirm">
+            <h4 id="ah-mail-confirm">Send “{draft.subject.trim()}” to {count} {count === 1 ? 'person' : 'people'}?</h4>
+            <p>
+              {count > left
+                ? `Today ${left} can go; the other ${count - left} wait until tomorrow (Send the rest).`
+                : `Each person gets their own copy; nobody sees the others.`}
+              {draft.audience === 'people' && count < draft.people.length
+                && ` ${draft.people.length - count} of those you chose won’t get it: they haven’t confirmed their email or turned emails off.`}
+              {' '}An email can’t be taken back.
+            </p>
+            <div className="ah-alert-buttons">
+              <button type="button" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button>
+              <button type="button" className="is-strong" disabled={busy} onClick={() => void send()}><Send size={14} /> Send</button>
+            </div>
+          </div>
+        </Overlay>
+      </Overlay>
     </div>
   );
 }
 
-/** Search people by name or @username and pick up to 50. */
+/**
+ * An email as the person sees it in Gmail: subject, the sender, then the email
+ * itself at its full height. Dark shows how Gmail's dark mode darkens it.
+ */
+export function MailPreview({ html, subject, caption }: { html: string; subject: string; caption: string }) {
+  const [dark, setDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(560);
+  const fit = () => {
+    const doc = frame.current?.contentDocument;
+    // The body's own height: the document's would be at least the frame's, so it could only grow.
+    if (doc?.body) setHeight(Math.max(160, doc.body.scrollHeight + 2));
+  };
+  useEffect(() => { fit(); }, [html]);
+  return (
+    <div className="ah-mailview">
+      <div className="ah-mailview-top">
+        <p className="ah-note">{caption}</p>
+        <div className="w-[128px] flex-none"><Segmented<'light' | 'dark'> label="Gmail theme" value={dark ? 'dark' : 'light'} onChange={(next) => setDark(next === 'dark')}
+          options={[{ id: 'light', label: 'Light' }, { id: 'dark', label: 'Dark' }]} /></div>
+      </div>
+      <div className={`ah-gmail ${dark ? 'is-dark' : ''}`}>
+        <div className="ah-gmail-head">
+          <p className="ah-gmail-subject">{subject}</p>
+          <div className="ah-gmail-from">
+            <span className="ah-gmail-avatar" aria-hidden>Y</span>
+            <span><b>YouDO</b> <small>&lt;{SENDER}&gt;</small><em>to me</em></span>
+          </div>
+        </div>
+        {/* No scripts can run; links don't open from a preview. */}
+        <iframe ref={frame} title="Email preview" sandbox="allow-same-origin" srcDoc={html} onLoad={fit} style={{ height }} tabIndex={-1} />
+      </div>
+    </div>
+  );
+}
+
+/** The search's match shown in the accent colour (the first one). */
+function Marked({ text, search }: { text: string; search: string }) {
+  const [before, match, after] = matchParts(text, search);
+  return match ? <>{before}<mark className="ah-match">{match}</mark>{after}</> : <>{text}</>;
+}
+
+/**
+ * Choose people (v9.1): everyone at once, the most recently active first, more
+ * as you scroll; the search narrows the same list and a tap ticks or unticks.
+ * The server takes at most 50; that limit shows only once it is reached.
+ */
 function PeoplePicker({ picked, reach, selfId, onChange }: {
   picked: { id: string; label: string }[];
   reach: number | null;
@@ -396,48 +553,99 @@ function PeoplePicker({ picked, reach, selfId, onChange }: {
   onChange: (people: { id: string; label: string }[]) => void;
 }) {
   const [search, setSearch] = useState('');
-  const [found, setFound] = useState<{ id: string; label: string; detail: string }[]>([]);
+  const [list, setList] = useState<{ total: number; people: AdminPerson[] } | null>(null);
+  const [error, setError] = useState('');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const request = useRef(0);
+  const end = useRef<HTMLDivElement>(null);
+  const facts = useAvatarFacts(list?.people.map((person) => person.id) ?? []);
+
+  const load = async (offset: number) => {
+    const id = ++request.current;
+    try {
+      const page = await fetchPeople(search, 'all', offset);
+      if (id !== request.current) return;
+      setList((previous) => (offset && previous ? { total: page.total, people: [...previous.people, ...page.people] } : { total: page.total, people: page.people }));
+      setError('');
+    } catch (caught) {
+      if (id === request.current) setError(caught instanceof Error ? caught.message : 'Could not load people.');
+    }
+  };
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; });
+
   useEffect(() => {
-    if (search.trim().length < 2) { setFound([]); return; }
-    let live = true;
-    const timer = window.setTimeout(() => {
-      fetchPeople(search, 'all', 0, 8).then((page) => {
-        if (live) setFound(page.people.map((person) => ({ id: person.id, label: personLabel(person), detail: person.username ? `@${person.username}` : person.email ?? '' })));
-      }).catch(() => { if (live) setFound([]); });
-    }, 250);
-    return () => { live = false; window.clearTimeout(timer); };
+    const timer = window.setTimeout(() => void loadRef.current(0), search ? 250 : 0);
+    return () => window.clearTimeout(timer);
   }, [search]);
 
+  // More load as the end of the list scrolls into view.
+  const more = Boolean(list && list.people.length < list.total);
+  const shown = list?.people.length ?? 0;
+  useEffect(() => {
+    const target = end.current;
+    if (!more || !target || typeof IntersectionObserver === 'undefined') return undefined;
+    const watcher = new IntersectionObserver(async (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      watcher.disconnect();
+      setLoadingMore(true);
+      await loadRef.current(shown);
+      setLoadingMore(false);
+    });
+    watcher.observe(target);
+    return () => watcher.disconnect();
+  }, [more, shown]);
+
   const has = new Set(picked.map((person) => person.id));
+  const full = picked.length >= PICK_LIMIT;
+  const toggle = (person: AdminPerson) => {
+    if (has.has(person.id)) onChange(picked.filter((item) => item.id !== person.id));
+    else if (!full) onChange([...picked, { id: person.id, label: personLabel(person) }]);
+  };
+  const query = search.trim().replace(/^@/, '');
+
   return (
-    <div className="mt-3">
-      {picked.length > 0 && (
-        <div className="ah-mail-picked">
-          {picked.map((person) => (
-            <span key={person.id} className="ah-mail-pick">{person.id === selfId ? 'You' : person.label}
-              <button type="button" aria-label={`Remove ${person.label}`} onClick={() => onChange(picked.filter((item) => item.id !== person.id))}><X size={12} /></button>
-            </span>
-          ))}
+    <div className="mt-3.5">
+      <label className="ah-search">
+        <Search size={16} aria-hidden />
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or @username" aria-label="Search people" type="search" autoComplete="off" />
+      </label>
+      {/* Always one line, so ticking never moves the list under the finger. */}
+      <div className="ah-chosen">
+        {picked.length === 0 ? <span>No one chosen yet</span> : (
+          <>
+            <span><b>{picked.length} chosen</b>{reach !== null && <> · {chosenLine(picked.length, reach)}</>}</span>
+            <button type="button" onClick={() => onChange([])}>Clear</button>
+          </>
+        )}
+      </div>
+      {full && <p className="ah-chosen-note">That’s the most for one email. For more, send to Everyone.</p>}
+      {error && <p role="status" className="ah-status text-error">{error}</p>}
+      {!list && !error && <p className="ah-empty">Loading people…</p>}
+      {list && list.people.length === 0 && <p className="ah-empty">No one matches.</p>}
+      {list && list.people.length > 0 && (
+        <div className="yd-card">
+          {list.people.map((person) => {
+            const on = has.has(person.id);
+            const label = person.id === selfId ? 'You' : personLabel(person);
+            return (
+              <button key={person.id} type="button" role="checkbox" aria-checked={on} aria-disabled={!on && full}
+                className={`yd-row ah-pick-row ${!on && full ? 'is-off' : ''}`} onClick={() => toggle(person)}>
+                <Avatar person={person} fact={facts.get(person.id)} />
+                <span className="yd-row-main">
+                  <span className="yd-row-title truncate"><Marked text={label} search={query} /></span>
+                  <span className="yd-row-text truncate">
+                    {person.username && <>@<Marked text={person.username} search={query} /> · </>}
+                    {person.lastActive ? `active ${activeLabel(person.lastActive)}` : 'never active'}
+                  </span>
+                </span>
+                <span className={`ah-tick ${on ? 'is-on' : ''}`} aria-hidden>{on && <Check size={14} strokeWidth={3} />}</span>
+              </button>
+            );
+          })}
         </div>
       )}
-      {picked.length < 50 && (
-        <label className="ah-search !mb-0">
-          <Search size={16} aria-hidden />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Add by name or @username" aria-label="Find people" type="search" autoComplete="off" />
-        </label>
-      )}
-      {found.length > 0 && (
-        <div className="yd-card mt-2">
-          {found.filter((person) => !has.has(person.id)).map((person) => (
-            <button key={person.id} type="button" className="yd-row !min-h-[48px]" onClick={() => { onChange([...picked, { id: person.id, label: person.label }]); setSearch(''); }}>
-              <span className="yd-row-main"><span className="yd-row-title !text-[13.5px] truncate">{person.label}</span><span className="yd-row-text truncate">{person.detail}</span></span>
-            </button>
-          ))}
-        </div>
-      )}
-      {picked.length > 0 && reach !== null && (
-        <p className="ah-note mt-2">{reach === picked.length ? `All ${reach} can get it.` : `${reach} of ${picked.length} can get it; the others haven’t confirmed their email or turned email off.`}</p>
-      )}
+      {more && <div ref={end} className="ah-empty !py-3">{loadingMore ? 'Loading…' : ''}</div>}
     </div>
   );
 }
@@ -445,6 +653,8 @@ function PeoplePicker({ picked, reach, selfId, onChange }: {
 /** Edit templates: the owner's saved texts (name, look, subject, message). */
 function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTemplate[]; onClose: () => void; onChanged: () => Promise<void> }) {
   const [editing, setEditing] = useState<(Omit<EmailTemplate, 'id'> & { id?: string }) | null>(null);
+  useHubBack('Email', onClose);
+  useHubBack(editing ? 'Templates' : null, () => { setEditing(null); setDeleting(false); });
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -468,52 +678,46 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
   if (editing) {
     return (
       <div className="ah-page">
-        <section className="yd-section">
-          <h3 className="yd-heading">{editing.id ? 'Edit template' : 'New template'}</h3>
-          <div className="yd-card">
-            <div className="yd-block">
-              <label className="yd-label block" htmlFor="ah-tpl-name">Name</label>
-              <input id="ah-tpl-name" className="yd-field" value={editing.name} maxLength={60} placeholder="Release news"
-                onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
-            </div>
-            <div className="yd-block">
-              <p className="yd-label">Look</p>
-              <div className="ah-chips !mb-1" role="group" aria-label="How the email looks">
-                {(Object.keys(EMAIL_KINDS) as EmailKind[]).map((kind) => (
-                  <button key={kind} type="button" className="ah-chip" aria-pressed={editing.kind === kind} onClick={() => setEditing({ ...editing, kind })}>{EMAIL_KINDS[kind].label}</button>
-                ))}
-              </div>
-              <p className="ah-note">{EMAIL_KINDS[editing.kind].hint}{editing.kind === 'thanks' ? ' Only you see thank-you templates.' : ''}</p>
-            </div>
-            <div className="yd-block">
-              <label className="yd-label block" htmlFor="ah-tpl-subject">Subject</label>
-              <input id="ah-tpl-subject" className="yd-field" value={editing.subject} maxLength={120} placeholder="Can be left empty"
-                onChange={(event) => setEditing({ ...editing, subject: event.target.value })} />
-              <label className="yd-label mt-4 block" htmlFor="ah-tpl-body">Message</label>
-              <textarea id="ah-tpl-body" value={editing.body} rows={10} maxLength={6000}
-                onChange={(event) => setEditing({ ...editing, body: event.target.value })}
-                className="w-full resize-y rounded-[16px] border border-subtle bg-base p-3.5 text-[13.5px] leading-relaxed text-content-primary outline-none focus:border-primary" />
-              <EmailHelp />
-            </div>
-            <div className="yd-block">
-              <div className="ah-actions">
-                <button type="button" className="ah-btn is-ghost is-wide" disabled={busy} onClick={() => { setEditing(null); setDeleting(false); }}>Cancel</button>
-                <button type="button" className="ah-btn is-primary is-wide" disabled={busy} onClick={() => void save()}>Save</button>
-              </div>
-              {editing.id && !deleting && <button type="button" className="ah-btn is-danger mt-3" disabled={busy} onClick={() => setDeleting(true)}>Delete template</button>}
-              {deleting && (
-                <div role="alertdialog" aria-labelledby="ah-tpl-delete" className="ah-danger">
-                  <h4 id="ah-tpl-delete">Delete “{editing.name}”?</h4>
-                  <p>Emails already sent from it stay as they were.</p>
-                  <div className="ah-actions mt-3">
-                    <button type="button" className="ah-btn is-ghost is-wide" disabled={busy} onClick={() => setDeleting(false)}>Keep it</button>
-                    <button type="button" className="ah-btn is-danger is-wide" disabled={busy} onClick={() => void remove()}>Delete</button>
-                  </div>
-                </div>
-              )}
+        <LargeTitle title={editing.id ? 'Edit template' : 'New template'} />
+        <div className="yd-card">
+          <label className="yd-row ah-field">
+            <span className="ah-field-key">Name</span>
+            <input className="ah-field-input" value={editing.name} maxLength={60} placeholder="Personal note"
+              onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
+          </label>
+          <div className="yd-row ah-field">
+            <span className="ah-field-key">Kind</span>
+            <div className="flex-1"><Segmented<EmailKind> label="What kind of email" value={editing.kind} onChange={(kind) => setEditing({ ...editing, kind })}
+              options={OFFERED_KINDS.map((kind) => ({ id: kind, label: EMAIL_KINDS[kind].label }))} /></div>
+          </div>
+          <label className="yd-row ah-field">
+            <span className="ah-field-key">Subject</span>
+            <input className="ah-field-input" value={editing.subject} maxLength={120} placeholder="Can be left empty"
+              onChange={(event) => setEditing({ ...editing, subject: event.target.value })} />
+          </label>
+        </div>
+        <p className="yd-note">{EMAIL_KINDS[editing.kind].hint}{editing.kind === 'thanks' ? ' Only you see thank-you templates.' : ''}</p>
+        <textarea value={editing.body} rows={11} maxLength={6000} aria-label="Message"
+          onChange={(event) => setEditing({ ...editing, body: event.target.value })} className="ah-compose-text mt-4" />
+        <div className="ah-choices mt-4">
+          <button type="button" className="ah-btn" disabled={busy} onClick={() => { setEditing(null); setDeleting(false); }}>Cancel</button>
+          <button type="button" className="ah-btn is-primary" disabled={busy} onClick={() => void save()}>Save</button>
+        </div>
+        {editing.id && !deleting && (
+          <div className="yd-card mt-5"><button type="button" className="yd-row ah-cell-danger" disabled={busy} onClick={() => setDeleting(true)}>
+            <span className="yd-row-main"><span className="yd-row-title">Delete template</span></span>
+          </button></div>
+        )}
+        {deleting && (
+          <div role="alertdialog" aria-labelledby="ah-tpl-delete" className="ah-danger">
+            <h4 id="ah-tpl-delete">Delete “{editing.name}”?</h4>
+            <p>Emails already sent from it stay as they were.</p>
+            <div className="ah-choices mt-3">
+              <button type="button" className="ah-btn" disabled={busy} onClick={() => setDeleting(false)}>Keep it</button>
+              <button type="button" className="ah-btn is-danger" disabled={busy} onClick={() => void remove()}>Delete</button>
             </div>
           </div>
-        </section>
+        )}
         {status && <p role="status" className="ah-status">{status}</p>}
       </div>
     );
@@ -521,27 +725,27 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
 
   return (
     <div className="ah-page">
-      <button type="button" className="ah-btn is-ghost mb-3" onClick={onClose}>‹ Back to writing</button>
-      <section className="yd-section">
-        <h3 className="yd-heading">Templates</h3>
-        {templates.length === 0 ? <p className="ah-empty">No templates yet.</p> : (
-          <div className="yd-card">
-            {templates.map((template) => (
-              <button key={template.id} type="button" className="yd-row w-full !items-start" onClick={() => { setEditing({ ...template }); setStatus(''); }}>
-                <span className="yd-row-main">
-                  <span className="yd-row-title !text-[13.5px] truncate">{template.name}</span>
-                  <span className="yd-row-text truncate">{EMAIL_KINDS[template.kind].label} · {template.subject || template.body.replace(/\s+/g, ' ').slice(0, 60) || 'Empty'}</span>
-                </span>
-                <Pencil size={15} className="mt-1 shrink-0 text-content-muted" aria-hidden />
-              </button>
-            ))}
-          </div>
-        )}
-        <button type="button" className="ah-btn is-primary is-wide mt-3 w-full" onClick={() => setEditing({ name: '', kind: 'update', subject: '', body: 'Hi {name},\n\n' })}>
-          <BookmarkPlus size={15} /> New template
+      <LargeTitle title="Templates" subtitle="Saved texts to start an email from" />
+      {templates.length === 0 ? <div className="yd-card"><p className="ah-empty !py-5">No templates yet.</p></div> : (
+        <div className="yd-card">
+          {templates.map((template) => (
+            <button key={template.id} type="button" className="yd-row w-full" onClick={() => { setEditing({ ...template, kind: offered(template.kind) }); setStatus(''); }}>
+              <span className="yd-row-main">
+                <span className="yd-row-title truncate">{template.name}</span>
+                <span className="yd-row-text truncate">{EMAIL_KINDS[offered(template.kind)].label} · {template.subject || template.body.replace(/\s+/g, ' ').slice(0, 60) || 'Empty'}</span>
+              </span>
+              <Pencil size={15} className="ah-chev" aria-hidden />
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="yd-card mt-3">
+        <button type="button" className="yd-row w-full" onClick={() => setEditing({ name: '', kind: 'note', subject: '', body: 'Hi {name},\n\n' })}>
+          <span className="yd-tile" aria-hidden><BookmarkPlus size={16} /></span>
+          <span className="yd-row-main"><span className="yd-row-title text-primary">New template</span></span>
         </button>
-        <p className="yd-note">Admins can start from these too, except thank-yous. Changing a template never changes emails already sent.</p>
-      </section>
+      </div>
+      <p className="yd-note">Admins can start from these too, except thank-yous. Changing a template never changes emails already sent.</p>
       {status && <p role="status" className="ah-status">{status}</p>}
     </div>
   );
@@ -549,7 +753,6 @@ function TemplateManager({ templates, onClose, onChanged }: { templates: EmailTe
 
 /** Codes and tips for writing, with a prompt to draft a template in any AI chat. */
 function EmailHelp() {
-  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<'yes' | 'no' | null>(null);
   const copy = async () => {
     try { await navigator.clipboard.writeText(aiTemplatePrompt()); setCopied('yes'); }
@@ -557,30 +760,33 @@ function EmailHelp() {
   };
   return (
     <div className="ah-mail-help">
-      <button type="button" className="ah-mail-help-toggle" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <span><code>{'{name}'}</code> first name · <code>{'{amount}'}</code> what a backer gave</span>
-        <span className="ah-mail-link">Codes and tips <ChevronDown size={13} className={open ? 'rotate-180' : ''} /></span>
-      </button>
-      {open && (
-        <div className="ah-mail-help-body">
-          <p className="ah-mail-help-title">You can type</p>
-          <dl>
-            {EMAIL_CODES.map((item) => <div key={item.code}><dt>{/^[{*]/.test(item.code) ? <code>{item.code}</code> : <span className="font-semibold text-content-primary">{item.code}</span>}</dt><dd>{item.meaning}</dd></div>)}
-          </dl>
-          <p className="ah-mail-help-title">YouDO adds by itself</p>
-          <ul>{EMAIL_FIXED.map((line) => <li key={line}>{line}</li>)}</ul>
-          <p className="ah-mail-help-title">Draft one with AI</p>
-          <p className="ah-note">Copy this prompt into any AI chat, describe the email where it says so, and paste back the subject and message it gives you.</p>
-          <button type="button" className="ah-btn is-ghost mt-2" onClick={() => void copy()}><Copy size={13} /> {copied === 'yes' ? 'Copied' : 'Copy AI prompt'}</button>
-          {copied === 'no' && <textarea readOnly rows={8} value={aiTemplatePrompt()} aria-label="AI prompt" onFocus={(event) => event.currentTarget.select()}
-            className="mt-2 w-full rounded-[12px] border border-subtle bg-base p-2.5 text-[11.5px] text-content-secondary" />}
-        </div>
-      )}
+      <h3 className="yd-heading">You can type</h3>
+      <div className="yd-card">
+        {EMAIL_CODES.map((item) => (
+          <div key={item.code} className="yd-row !items-start">
+            <span className="ah-help-code">{/^[{*]/.test(item.code) ? <code>{item.code}</code> : item.code}</span>
+            <span className="yd-row-main"><span className="yd-row-text !mt-0">{item.meaning}</span></span>
+          </div>
+        ))}
+      </div>
+      <h3 className="yd-heading mt-5">YouDO adds by itself</h3>
+      <div className="yd-card yd-block">
+        <ul>{EMAIL_FIXED.map((line) => <li key={line}>{line}</li>)}</ul>
+      </div>
+      <h3 className="yd-heading mt-5">Draft one with AI</h3>
+      <div className="yd-card yd-block">
+        <p className="ah-note">Copy this prompt into any AI chat, describe the email where it says so, and paste back the subject and message it gives you.</p>
+        <button type="button" className="ah-btn mt-3" onClick={() => void copy()}><Copy size={13} /> {copied === 'yes' ? 'Copied' : 'Copy AI prompt'}</button>
+        {copied === 'no' && <textarea readOnly rows={8} value={aiTemplatePrompt()} aria-label="AI prompt" onFocus={(event) => event.currentTarget.select()}
+          className="mt-2 w-full rounded-[12px] border border-subtle bg-base p-2.5 text-[11.5px] text-content-secondary" />}
+      </div>
     </div>
   );
 }
 
-const RECIPIENT_FILTERS: [RecipientStatus | 'all', string][] = [['all', 'All'], ['sent', 'Sent'], ['waiting', 'Not sent yet'], ['failed', 'Didn’t arrive']];
+const RECIPIENT_FILTERS: { id: RecipientStatus | 'all'; label: string }[] = [
+  { id: 'all', label: 'All' }, { id: 'sent', label: 'Sent' }, { id: 'waiting', label: 'Waiting' }, { id: 'failed', label: 'Didn’t arrive' },
+];
 
 /** One send: what went out, who got it, who is still waiting and why any didn't arrive. */
 function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }: {
@@ -595,6 +801,7 @@ function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }:
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<RecipientStatus | 'all'>('all');
   const [showEmail, setShowEmail] = useState(false);
+  useHubBack('Email', onClose);
   useEffect(() => {
     let live = true;
     fetchSendDetail(id).then((next) => { if (live) setDetail(next); }).catch((caught) => { if (live) setError(caught instanceof Error ? caught.message : 'Could not open this email.'); });
@@ -611,57 +818,53 @@ function SendDetail({ id, running, canSendRest, restNote, onSendRest, onClose }:
   }, [needsAmount, backers]);
   const shownAs = useMemo(() => (detail ? previewRecipient({ audience: detail.audience, recipients: detail.recipients, backers }) : null), [detail, backers]);
   const rendered = useMemo(() => (detail && showEmail && shownAs
-    ? renderEmail({ kind: detail.kind, subject: detail.subject, body: detail.body, name: shownAs.name, amount: detail.kind === 'thanks' ? shownAs.amount : undefined, signer: detail.sentByName })
+    ? renderEmail({ kind: detail.kind, subject: detail.subject, body: detail.body, name: shownAs.name, amount: detail.kind === 'thanks' ? shownAs.amount : undefined, signer: detail.sentByName, unsubscribeUrl: PREVIEW_STOP_URL })
     : null), [detail, showEmail, shownAs]);
 
   return (
     <div className="ah-page">
-      <button type="button" className="ah-btn is-ghost mb-3" onClick={onClose}>‹ Back to Email</button>
       {error && <p role="status" className="ah-status text-error">{error}</p>}
       {!detail && !error && <p className="ah-empty">Loading…</p>}
       {detail && (
         <>
-          <section className="yd-card">
-            <div className="yd-block">
-              <p className="yd-row-title !text-[16px]">{detail.subject}</p>
-              <p className="yd-row-text mt-1">{EMAIL_KINDS[detail.kind].label} · {audienceLabel({ audience: detail.audience, total: detail.recipients.length })} · {when(detail.createdAt)}{detail.sentByName ? ` · by ${detail.sentByName}` : ''}</p>
+          <LargeTitle title={detail.subject || '(No subject)'}
+            subtitle={`${EMAIL_KINDS[detail.kind].label} · ${audienceLabel({ audience: detail.audience, total: detail.recipients.length })} · ${when(detail.createdAt)}${detail.sentByName ? ` · ${detail.sentByName}` : ''}`} />
+          <NumberStrip label="This send" items={[
+            { value: count('sent'), label: 'Sent' }, { value: count('waiting'), label: 'Waiting' }, { value: count('failed'), label: 'Didn’t arrive' },
+          ]} />
+          {running && <p className="ah-strip-note">Sending now · {sendStatus(running, true)}</p>}
+          {!running && count('waiting') > 0 && !canSendRest && restNote && <p className="ah-strip-note">{restNote}</p>}
+          <div className="yd-card mt-4">
+            {count('waiting') > 0 && canSendRest && (
+              <button type="button" className="yd-row" onClick={() => onSendRest(detail)}>
+                <span className="yd-tile" aria-hidden><Send size={16} /></span>
+                <span className="yd-row-main"><span className="yd-row-title text-primary">Send the rest</span><span className="yd-row-text">{count('waiting')} still waiting</span></span>
+              </button>
+            )}
+            <button type="button" className="yd-row" onClick={() => setShowEmail((value) => !value)} aria-expanded={showEmail}>
+              <span className="yd-row-main"><span className="yd-row-title">{showEmail ? 'Hide the email' : 'See the email'}</span></span>
+              <ChevronRight size={17} className={`ah-chev transition-transform ${showEmail ? 'rotate-90' : ''}`} aria-hidden />
+            </button>
+          </div>
+          {rendered && shownAs && (
+            <div className="mt-3">
+              <MailPreview html={rendered.html} subject={rendered.subject}
+                caption={`Exactly as ${shownAs.label} got it${detail.kind === 'thanks' && shownAs.amount ? ` (${formatRupees(shownAs.amount)})` : ''}`} />
             </div>
-            <div className="ah-person-stats">
-              <div><b>{count('sent')}</b><span>Sent</span></div>
-              <div><b className={count('waiting') ? 'text-warning' : ''}>{count('waiting')}</b><span>Not sent yet</span></div>
-              <div><b className={count('failed') ? 'text-error' : ''}>{count('failed')}</b><span>Didn’t arrive</span></div>
-            </div>
-            <div className="yd-block">
-              <div className="ah-actions">
-                <button type="button" className="ah-btn is-ghost" onClick={() => setShowEmail((value) => !value)}>{showEmail ? <><EyeOff size={14} /> Hide the email</> : <><Eye size={14} /> See the email</>}</button>
-                {count('waiting') > 0 && canSendRest && <button type="button" className="ah-btn is-primary" onClick={() => onSendRest(detail)}><Send size={14} /> Send the rest</button>}
-              </div>
-              {running && <p className="ah-note mt-2">Sending now · {sendStatus(running, true)}</p>}
-              {!running && count('waiting') > 0 && !canSendRest && restNote && <p className="ah-note mt-2">{restNote}</p>}
-              {rendered && shownAs && (
-                <div className="ah-mail-preview">
-                  <p className="ah-note">{`Exactly as ${shownAs.label} got it${detail.kind === 'thanks' && shownAs.amount ? ` (${formatRupees(shownAs.amount)})` : ''}.${detail.recipients.length > 1 ? ` Everyone got their own name${detail.kind === 'thanks' ? ' and amount' : ''}.` : ''}`}</p>
-                  <iframe title="The email that was sent" sandbox="" srcDoc={rendered.html} />
-                </div>
-              )}
-            </div>
-          </section>
+          )}
 
-          <section className="yd-section">
+          <section className="yd-section mt-5">
             <h3 className="yd-heading">People</h3>
-            <div className="ah-chips" role="group" aria-label="Show">
-              {RECIPIENT_FILTERS.map(([key, label]) => (
-                <button key={key} type="button" className="ah-chip" aria-pressed={filter === key} onClick={() => setFilter(key)}>
-                  {label} {key === 'all' ? detail.recipients.length : count(key)}
-                </button>
-              ))}
-            </div>
-            {people.length === 0 ? <p className="ah-empty">No one here.</p> : (
+            {detail.recipients.length > 1 && (
+              <Segmented<RecipientStatus | 'all'> label="Show" value={filter} onChange={setFilter}
+                options={RECIPIENT_FILTERS.map((item) => ({ id: item.id, label: `${item.label} ${item.id === 'all' ? detail.recipients.length : count(item.id)}` }))} />
+            )}
+            {people.length === 0 ? <div className="yd-card"><p className="ah-empty !py-5">No one here.</p></div> : (
               <div className="yd-card">
                 {people.slice(0, 300).map((person) => (
-                  <div key={person.id} className="yd-row !min-h-[50px]">
+                  <div key={person.id} className="yd-row">
                     <span className="yd-row-main">
-                      <span className="yd-row-title !text-[13.5px] truncate">{person.name ?? (person.username ? `@${person.username}` : 'No name yet')}</span>
+                      <span className="yd-row-title truncate">{person.name ?? (person.username ? `@${person.username}` : 'No name yet')}</span>
                       {person.status === 'failed' && <span className="yd-row-text !text-error">{person.error ?? 'Didn’t arrive'}</span>}
                     </span>
                     <span className={`ah-mail-state is-${person.status}`}>

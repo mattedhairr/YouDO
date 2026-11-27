@@ -4,7 +4,7 @@ vi.mock('./supabase', () => ({ supabase: {}, supabaseUrl: 'https://example.supab
 
 import {
   activeLabel, can, formatBytes, isMuted, parseAdminPerson, parseCleanupPreview, parseGrowthReport,
-  parsePeoplePage, personLabel, returnRate,
+  parsePeoplePage, personLabel, returnRate, lastActive,
 } from './adminHub';
 
 const NOW = Date.parse('2026-11-24T12:00:00Z');
@@ -67,6 +67,13 @@ describe('a person', () => {
     expect(personLabel({ name: 'Meera Shah', username: 'meera_s' })).toBe('Meera Shah');
     expect(personLabel({ username: 'meera_s' })).toBe('@meera_s');
     expect(personLabel({})).toBe('No name yet');
+  });
+
+  it('says only when someone was last active under their name', () => {
+    const now = Date.parse('2026-11-26T12:00:00Z');
+    expect(lastActive({ lastActive: '2026-11-26T10:00:00Z' }, now)).toBe('Active 2 h ago');
+    expect(lastActive({ lastActive: '2026-11-26T11:58:00Z' }, now)).toBe('Active now');
+    expect(lastActive({}, now)).toBe('Never active');
   });
 
   it('counts a mute only while it lasts', () => {
