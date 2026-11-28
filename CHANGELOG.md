@@ -17,6 +17,17 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v9.2.0] - 2026-11-28 - Quick Tasks for Every Day
+
+- **Quick tasks for study or daily life** — When you add a quick task, choose Study or General. A study one belongs to a goal: its focus counts, and the goal shows it as Extra focus without changing its progress.
+- **Reminders that repeat** — General tasks are for errands, the gym or a call home: tick them when done, repeat them daily or on chosen days, and get a reminder at the time you pick. They never count as study.
+- **Real clouds and calmer sunsets** — Clouds lit by the sky, sunsets that keep each scene's own colour, cool grey rainy evenings, and a sun that crosses a wider path that follows the season.
+- **Longer checklists** — A task can now hold up to 30 steps, and long lists stay tidy with "+N more".
+- **Smaller fixes** — Sign-in and password emails now read like plain letters and greet you by name.
+- **Android APK** — versionName **9.2.0**, versionCode **105**. Installs over v9.1.0 (104).
+
+---
+
 ## [v9.1.0] - 2026-11-27 - Skies That Look Real
 
 - **A sky that looks real** — The header's sky now follows real light from dawn to night, and each scene has its own: golden mornings and evenings over the harvest fields, the bluest sky and sunlit peaks in the Himalaya, and clouds lit gold, orange and rose over the Western Ghats.
