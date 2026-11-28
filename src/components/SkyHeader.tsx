@@ -27,7 +27,7 @@ import {
   type SkyPalettes,
 } from '../lib/headerSky';
 import { SCENES, sceneForAccent, sceneLand, type SceneId } from '../lib/headerScenes';
-import { cssColor, skyFrame, type SkyFrame } from '../lib/skySim';
+import { cssColor, SCENE_SKIES, skyFrame, type SkyFrame } from '../lib/skySim';
 import { SCENE_ART } from './sceneArt';
 import type { GoalNode } from '../types';
 import { deviceTimeZone, formatClock, isIndiaTimeZone, loadSkyPlace, saveSkyPlace, setSkyInviteDone, SKY_PLACE_EVENT, SKY_PLACES, skyInviteDone, sunDayForPlace } from '../lib/skyPlaces';
@@ -693,7 +693,7 @@ export default function SkyHeader({ view, name, quote, goals, focusMs, barHours,
         <div className="sky-art-wrap" style={{ height: height + OFFSET }}>
           {frame && <SkyCanvas frame={frame} width={width} height={height + OFFSET} />}
           <SkyArt frame={frame} countShade={Boolean(deadline && today)} width={width} height={height + OFFSET} hour={hour} day={day} weather={weather} stars={stars} lines={lines} dust={dust} night={sceneNight} land={{ src: SCENE_ART[sceneId], x: land.x, y: land.y, w: land.w, h: land.h }} place={place} sunPathD={pathShown ? sunPath.d : null} quoteShade={today && Boolean(quote)} flareLevel={lensFlare(sceneHour, day)} palettes={palettes} />
-          <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} />
+          <SkyWeather weather={weather} dateKey={dateKey} width={width} height={height + OFFSET} night={night} sunLow={1 - Math.min(1, Math.max(0, sunHeight / 45))} still={folded} light={frame ? { sun: frame.sunColor, sky: frame.top, accent: SCENE_SKIES[sceneId].accent } : null} />
         </div>
       </>
     );

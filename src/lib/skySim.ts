@@ -13,7 +13,7 @@
  * angles), so a frame costs a few milliseconds. Pure; SkyHeader.tsx draws it.
  */
 import { SCENES, type SceneId } from './headerScenes';
-import { sunAltitude, type SunDay } from './sunPath';
+import { sunAltitude, sunSwing, type SunDay } from './sunPath';
 import type { Weather } from './weather';
 
 export type RGB = [number, number, number];
@@ -59,12 +59,14 @@ export interface SceneSky {
   vib: number;
   gain: number;
   hazeLean: number;
+  /** Around sunrise and sunset: how far the sky turns to the scene's own colour (whatever the sky's hue), and how much the glow's richness calms. The glow stays low by the horizon. */
+  golden: { lean: number; calm: number; tint: string };
   air: { dawn: AirSpec; day: AirSpec; dusk: AirSpec };
 }
 
 export const SCENE_SKIES: Record<SceneId, SceneSky> = {
   plains: {
-    eye: 200, peak: 150, low: 200, accent: '#C9A46E', lean: 0.14, vib: 1.5, gain: 1.2, hazeLean: 0.5,
+    eye: 200, peak: 150, low: 200, accent: '#C9A46E', lean: 0.14, vib: 1.5, gain: 1.2, hazeLean: 0.5, golden: { lean: 0.3, calm: 0.3, tint: '#D4AE78' },
     air: {
       dawn: { mie: 6e-5, mieH: 700, g: 0.76, albedo: 0.98, haze: 0.4, angstrom: 1.0 },
       day: { mie: 1.8e-5, mieH: 1200, g: 0.7, albedo: 0.98, haze: 0.18, angstrom: 1.2 },
@@ -72,7 +74,7 @@ export const SCENE_SKIES: Record<SceneId, SceneSky> = {
     },
   },
   himalaya: {
-    eye: 2500, peak: 6200, low: 2200, accent: '#8DA6C9', lean: 0.12, vib: 1.2, gain: 1.0, hazeLean: 0.12,
+    eye: 2500, peak: 6200, low: 2200, accent: '#8DA6C9', lean: 0.12, vib: 1.2, gain: 1.0, hazeLean: 0.12, golden: { lean: 0.45, calm: 0.3, tint: '#8DA6C9' },
     air: {
       dawn: { mie: 2.2e-5, mieH: 1000, g: 0.76, albedo: 0.96, haze: 0.3, angstrom: 1.0 },
       day: { mie: 3.5e-5, mieH: 1200, g: 0.76, albedo: 0.96, haze: 0.3, angstrom: 1.0 },
@@ -80,7 +82,7 @@ export const SCENE_SKIES: Record<SceneId, SceneSky> = {
     },
   },
   ghats: {
-    eye: 700, peak: 1300, low: 400, accent: '#8FB394', lean: 0.1, vib: 1.25, gain: 1.05, hazeLean: 0.15,
+    eye: 700, peak: 1300, low: 400, accent: '#8FB394', lean: 0.1, vib: 1.25, gain: 1.05, hazeLean: 0.15, golden: { lean: 0.44, calm: 0.32, tint: '#8CBBA4' },
     air: {
       dawn: { mie: 8e-5, mieH: 900, g: 0.82, albedo: 0.98, haze: 0.7, angstrom: 0.6, clouds: { h: 4200, cover: 0.48 } },
       day: { mie: 2.5e-5, mieH: 1200, g: 0.8, albedo: 0.98, haze: 0.35, angstrom: 0.9, clouds: { h: 2200, cover: 0.42 } },
@@ -312,15 +314,26 @@ export function grade(c: RGB, accent: string, lean: number, vib: number): RGB {
   return r.map((v) => clamp(l2 + (v - l2) * vib)) as RGB;
 }
 
+/** `c` moved `amount` of the way to a colour at the same brightness, whatever its hue. */
+function toward(c: RGB, color: string, amount: number): RGB {
+  if (amount <= 0) return c;
+  const a = hexRgb(color);
+  const k = lum(c) / lum(a);
+  return c.map((v, i) => clamp(lerp(v, a[i] * k, amount))) as RGB;
+}
+
 /** Cloudy and rainy days: greyer and dimmer, as the palette skies were (weather.ts). */
 function weatherTint(c: RGB, weather: Weather, night: number, forLand: boolean): RGB {
   if (weather === 'clear') return c;
   const rainy = weather === 'rainy';
   const grey = hexRgb(forLand ? (night > 0.5 ? '#2a3140' : '#b9c0c8') : night > 0.5 ? '#1a1f2b' : '#7d8794');
-  const amount = forLand ? (rainy ? 0.42 : 0.26) : rainy ? 0.62 : 0.4;
-  const dim = forLand ? (rainy ? 0.14 : 0.05) : rainy ? 0.28 : 0.12;
+  const amount = forLand ? (rainy ? 0.42 : 0.2) : rainy ? 0.62 : 0.22;
+  const dim = forLand ? (rainy ? 0.14 : 0.04) : rainy ? 0.28 : 0.06;
   const black = hexRgb('#05070b');
-  return c.map((v, k) => lerp(lerp(v, grey[k], amount), black[k], dim)) as RGB;
+  // In rain the sky (and the haze on far land) loses the sun's warmth; the land keeps its own colours.
+  const l = lum(c);
+  const base = rainy && !forLand ? c.map((v) => lerp(v, l, 0.85)) : c;
+  return base.map((v, k) => lerp(lerp(v, grey[k], amount), black[k], dim)) as RGB;
 }
 
 // Value noise for the Ghats' clouds.
@@ -425,7 +438,7 @@ export function skyFrame(input: SkyFrameInput): SkyFrame {
   const sd: Vec = [0, Math.sin(e * DEG), Math.cos(e * DEG)];
   // The glow sits round the sun as drawn; below the horizon, where it rose or will set.
   const morning = hour < day.noon;
-  const sunX = input.sun ? input.sun.x : width * (input.valley + (morning ? -0.16 : 0.16));
+  const sunX = input.sun ? input.sun.x : width * (input.valley + (morning ? -1 : 1) * sunSwing(day));
   const shown = input.sun ? elevAt(input.sun.y) / DEG : e;
   const sp: Vec = [0, Math.sin(shown * DEG), Math.cos(shown * DEG)];
   const o: Vec = [0, RE + look.eye, 0];
@@ -528,8 +541,12 @@ export function skyFrame(input: SkyFrameInput): SkyFrame {
     const f = clamp((t - at[k]) / (at[k + 1] - at[k]));
     return [0, 1, 2].map((c) => lerp(nightStops[k][c], nightStops[k + 1][c], f)) as RGB;
   };
-  const vib = 1 + (look.vib - 1) * (1 - night * 0.7);
+  // Near sunrise and sunset the scene's own colour holds the sky, so the glow never floods it.
+  const golden = smooth(clamp((12 - e) / 9)) * smooth(clamp((e + 8) / 5)) * (1 - night);
+  const vib = (1 + (look.vib - 1) * (1 - night * 0.7)) * (1 - look.golden.calm * golden);
   const lean = look.lean * (1 - night * 0.6);
+  // Per row: full in the upper sky, easing off toward the horizon so a low band of glow stays.
+  const goldenAt = (y: number) => look.golden.lean * golden * (1 - 0.65 * smooth(clamp((y / horizonY - 0.5) / 0.45)));
   // Each pixel to its screen colour: tone(), grade() and the weather, in plain arithmetic (it runs for every pixel).
   const acc = hexRgb(look.accent);
   const accL = lum(acc);
@@ -537,12 +554,14 @@ export function skyFrame(input: SkyFrameInput): SkyFrame {
   const ca1 = acc[1] - accL;
   const ca2 = acc[2] - accL;
   const caN = Math.hypot(ca0, ca1, ca2);
-  const wet = weather === 'clear' ? 0 : weather === 'rainy' ? 0.62 : 0.4;
-  const dim = weather === 'rainy' ? 0.28 : 0.12;
+  const tint = hexRgb(look.golden.tint);
+  const tintL = lum(tint);
+  const wet = weather === 'clear' ? 0 : weather === 'rainy' ? 0.62 : 0.22;
+  const dim = weather === 'rainy' ? 0.28 : 0.06;
   const grey = hexRgb(night > 0.5 ? '#1a1f2b' : '#7d8794');
   const black = hexRgb('#05070b');
   const out: RGB = [0, 0, 0];
-  const shade = (r: number, g: number, b: number, n: RGB | null) => {
+  const shade = (r: number, g: number, b: number, n: RGB | null, gl = 0) => {
     let x0 = 0;
     let x1 = 0;
     let x2 = 0;
@@ -571,12 +590,25 @@ export function skyFrame(input: SkyFrameInput): SkyFrame {
     let y0 = x0 * (1 - l) + Math.min(1, acc[0] * toAcc) * l;
     let y1 = x1 * (1 - l) + Math.min(1, acc[1] * toAcc) * l;
     let y2 = x2 * (1 - l) + Math.min(1, acc[2] * toAcc) * l;
+    if (gl > 0) {
+      const toTint = lc / tintL;
+      y0 = lerp(y0, Math.min(1, tint[0] * toTint), gl);
+      y1 = lerp(y1, Math.min(1, tint[1] * toTint), gl);
+      y2 = lerp(y2, Math.min(1, tint[2] * toTint), gl);
+    }
     const l2 = 0.2126 * y0 + 0.7152 * y1 + 0.0722 * y2;
     y0 = clamp(l2 + (y0 - l2) * vib);
     y1 = clamp(l2 + (y1 - l2) * vib);
     y2 = clamp(l2 + (y2 - l2) * vib);
     if (n) { y0 = lerp(y0, n[0], night); y1 = lerp(y1, n[1], night); y2 = lerp(y2, n[2], night); }
     if (wet) {
+      // Rain hides the sun: its warm glow fades out, leaving the clouds' cool grey (cloudy days keep a little).
+      if (weather === 'rainy') {
+        const l3 = 0.2126 * y0 + 0.7152 * y1 + 0.0722 * y2;
+        y0 = lerp(y0, l3, 0.85);
+        y1 = lerp(y1, l3, 0.85);
+        y2 = lerp(y2, l3, 0.85);
+      }
       y0 = lerp(lerp(y0, grey[0], wet), black[0], dim);
       y1 = lerp(lerp(y1, grey[1], wet), black[1], dim);
       y2 = lerp(lerp(y2, grey[2], wet), black[2], dim);
@@ -588,9 +620,10 @@ export function skyFrame(input: SkyFrameInput): SkyFrame {
   const top: RGB = [0, 0, 0];
   for (let j = 0; j < rows; j++) {
     const n = night > 0 ? nightAt(((j + 0.5) / rows) * height) : null;
+    const gl = golden > 0 ? goldenAt(((j + 0.5) / rows) * height) : 0;
     for (let i = 0; i < cols; i++) {
       const p = j * cols + i;
-      const c = shade(buf[p * 3], buf[p * 3 + 1], buf[p * 3 + 2], n);
+      const c = shade(buf[p * 3], buf[p * 3 + 1], buf[p * 3 + 2], n, gl);
       // A tiny fixed dither, so gradients never band.
       const dither = (hash(i, j) - 0.5) * 1.6;
       pixels[p * 4] = c[0] * 255 + dither;
@@ -618,14 +651,14 @@ export function skyFrame(input: SkyFrameInput): SkyFrame {
   const nightLand = hexRgb(palette.land);
   const landLight = (hgt: number): RGB => {
     const t = tone(lightAt(hgt, sd, e), exposure).map((v, k) => clamp(Math.max(floor[k], v / refT[k]), 0, 1.04)) as RGB;
-    const g = grade(t, look.accent, look.lean * 0.55, 1.08);
+    const g = toward(grade(t, look.accent, look.lean * 0.55, 1.08), look.golden.tint, look.golden.lean * golden * 0.75);
     return weatherTint(g.map((v, k) => lerp(v, nightLand[k], night)) as RGB, weather, night, true);
   };
 
   // Far land fades into the air near the horizon, warmed toward the accent.
   const nh = nightStops[3];
   const hz = grade(tone(skyRadiance(air, o, dirAt(sunX - 0.25 * width, 1.5 * DEG), sd, sp, [0, 0, 0]).map((v, k) => v + ms[k]), exposure), look.accent, look.hazeLean, look.vib);
-  const haze = weatherTint(hz.map((v, k) => lerp(v, nh[k], night)) as RGB, weather, night, false);
+  const haze = weatherTint(toward(hz, look.golden.tint, look.golden.lean * golden * 0.6).map((v, k) => lerp(v, nh[k], night)) as RGB, weather, night, false);
 
   // The sun's disc: whatever survives the air (bright gold in clean air, dim and red in haze).
   const t = sunlightAt(air, o, sd).map((v) => v / SUN);

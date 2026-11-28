@@ -42,8 +42,11 @@ import { daysBetweenLocalISO, deadlineDaysLabel, goalTimingLabel, todayISO } fro
 import ActivityRing from './ActivityRing';
 import ClampedTitle from './ClampedTitle';
 import OriginChip from './OriginChip';
+import ExtraFocusLine from './ExtraFocusLine';
 import { hapticTick } from '../lib/haptics';
 import './goalCard.css';
+
+const STEP_CHIPS_SHOWN = 8;
 
 /** Touch screens select with a long press; native drag there lifts rows at the slightest movement. */
 const coarsePointer = typeof window !== 'undefined' && Boolean(window.matchMedia?.('(pointer: coarse)').matches);
@@ -141,6 +144,8 @@ function nodeMeta(node: GoalNode): { icon: typeof Target; tint: string; label: s
 
 export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddChild, onEditNode, onPushNode, onUnplan, onCopy, onSelectionChange, clearSelectionRef, onNavigateToPath, onOpenStudio, onOpenDescription }: Props) {
   const { goals, tasks, toggleGoalStep, togglePin, reorderGoalNodes, toggleNodeCompletion } = useStore();
+  // Long step lists stay tidy: the first few chips, then "+N more".
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(() => new Set());
   const [{ legacyStyle }] = useUiPrefs();
   const { activeSession } = useSessionStore();
   const runningTask = tasks.find((task) => task.id === activeSession?.taskId);
@@ -792,6 +797,8 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
             })()}
           </div>
 
+          {goals.some((g) => g.id === current.id) && <ExtraFocusLine goalId={current.id} />}
+
           {current.description && (
             <div className="mt-3 pt-3 border-t border-subtle">
               <p className={`text-[12px] leading-relaxed text-content-secondary whitespace-pre-wrap ${parentDescriptionExpanded ? '' : 'line-clamp-2'}`}>
@@ -1065,7 +1072,7 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                 {isWorkItem && hasSteps && (
                   <div className="goal-row-line">
                     <div className="goal-row-steps">
-                      {child.steps!.map((s, i) => (
+                      {child.steps!.slice(0, expandedSteps.has(child.id) ? undefined : STEP_CHIPS_SHOWN).map((s, i) => (
                         <button
                           key={i}
                           type="button"
@@ -1081,6 +1088,22 @@ export default function GoalView({ pathIds, setPathIds, highlightNodeId, onAddCh
                           {s}
                         </button>
                       ))}
+                      {child.steps!.length > STEP_CHIPS_SHOWN && (
+                        <button
+                          type="button"
+                          className="goal-row-step goal-row-step-more"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedSteps((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(child.id)) next.delete(child.id); else next.add(child.id);
+                              return next;
+                            });
+                          }}
+                        >
+                          {expandedSteps.has(child.id) ? 'Show less' : `+${child.steps!.length - STEP_CHIPS_SHOWN} more`}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

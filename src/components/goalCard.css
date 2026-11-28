@@ -278,3 +278,4 @@
   stroke: var(--primary);
   transition: stroke-dashoffset 0.9s var(--ease-spring);
 }
+.goal-row-step.goal-row-step-more { color: var(--primary); background: var(--primary-soft); font-weight: 600; }

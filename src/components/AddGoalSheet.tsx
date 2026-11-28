@@ -57,7 +57,7 @@ export default function AddGoalSheet({
 
   const submit = () => {
     if (!title.trim() || isTitleTooLong(title)) return;
-    const cleanSteps = steps.map((s) => s.trim()).filter(Boolean).slice(0, MAX_STEPS);
+    const cleanSteps = steps.map((s) => s.trim()).filter(Boolean).slice(0, Math.max(MAX_STEPS, editing?.steps?.length ?? 0));
     if (isEditing && editing) {
       const prevStepDone = editing.stepDone ?? [];
       const newStepDone = cleanSteps.map((_, i) => prevStepDone[i] ?? false);

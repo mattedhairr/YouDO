@@ -8,7 +8,7 @@ import { composePlanPrompt, buildMasterPlanningPrompt as createMasterPlanningPro
 export const AI_PLAN_MAX_BYTES = 500 * 1024;
 export const AI_PLAN_MAX_NODES = 1_000;
 export const AI_PLAN_MAX_DEPTH = 20;
-export const AI_PLAN_MAX_STEPS = 8;
+export const AI_PLAN_MAX_STEPS = 30;
 
 export interface BuildPlanAnswers {
   examName: string;

@@ -199,7 +199,8 @@ export default function LegacyTaskCard({
             {/* EYEBROW: first two path items, followed by any remaining context. */}
             {originNodes && originNodes.length > 0 ? (
               (() => {
-                const badgeNodes = originBadgeNodes;
+                // A study quick task: its goal, marked as quick.
+                const badgeNodes = task.goalNodeId ? originBadgeNodes : [{ title: '⚡ Quick', kind: 'quick' }, ...originBadgeNodes];
                 if (badgeNodes.length === 0) return null;
                 return (
                   <div className="mb-1.5">

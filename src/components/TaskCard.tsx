@@ -233,7 +233,7 @@ function ModernTaskCard({
                 the path follows under the title. */}
             {originBadgeNodes.length > 0 ? (
               <div className="mb-1.5">
-                <OriginChip names={originBadgeNodes.map((n) => n.title)} onClick={onJumpToGoal} />
+                <OriginChip names={task.goalNodeId ? originBadgeNodes.map((n) => n.title) : ['⚡ Quick', ...originBadgeNodes.map((n) => n.title)]} onClick={onJumpToGoal} />
               </div>
             ) : !task.goalNodeId ? (
               <div className="mb-0.5 text-[12px] font-semibold text-content-secondary">

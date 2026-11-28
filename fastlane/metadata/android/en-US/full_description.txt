@@ -5,6 +5,7 @@
 <li><b>Goals as a tree</b>: break a goal into papers, subjects and chapters, as deep as you need. Progress, what's next and days left are always in view.</li>
 <li><b>Blueprint Studio</b>: build a large plan quickly with numbered and bulk add, or import one written with an AI assistant.</li>
 <li><b>Today and Backlog</b>: schedule a few steps of a chapter for a day. Unfinished work moves to Backlog instead of disappearing.</li>
+<li><b>Quick tasks for study and daily life</b>: extra study for a goal counts as focus and shows on the goal; everyday tasks (fees, gym, chores) can repeat daily or on chosen days, with a reminder, and never count as study.</li>
 <li><b>Focus sessions</b>: a timer that measures net focus, with pause and resume from the notification.</li>
 <li><b>Calendar and stats</b>: see finished work, net focus and sessions for any day.</li>
 <li><b>Morning briefing</b>: your goal countdown, first task, pace, backlog and streak in one notification.</li>

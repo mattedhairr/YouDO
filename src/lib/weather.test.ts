@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { skyColors } from './headerSky';
 import { SCENES } from './headerScenes';
 import { sunDay } from './sunPath';
-import { cloudField, cloudTones, loadDayWeather, nextWeather, saveDayWeather, weatherColors, weatherLook } from './weather';
+import { cloudField, cloudLight, cloudTones, loadDayWeather, nextWeather, saveDayWeather, weatherColors, weatherLook } from './weather';
 
 const DAY = sunDay('2026-11-20', 28.61, 77.21, 5.5);
 const brightness = (c: string) => {
@@ -128,5 +128,23 @@ describe('the day’s weather', () => {
     expect(loadDayWeather('2026-11-25', 'rainy')).toBe('cloudy');
     // A new day goes back to the scene's own.
     expect(loadDayWeather('2026-11-26', 'rainy')).toBe('rainy');
+  });
+});
+
+describe('clouds lit by their sky', () => {
+  const rgb = (c: string) => (c.match(/[\d.]+/g) ?? []).map(Number).slice(0, 3);
+  const base = { weather: 'cloudy' as const, night: 0, sky: [0.35, 0.55, 0.85], accent: '#8DA6C9' };
+  it('has white tops by day and gold tops as the sun sets', () => {
+    const day = rgb(cloudLight({ ...base, sunLow: 0.05, sun: [1, 0.98, 0.95] }).light);
+    const dusk = rgb(cloudLight({ ...base, sunLow: 0.95, sun: [1, 0.55, 0.2] }).light);
+    expect(Math.min(...day)).toBeGreaterThan(235);
+    expect(dusk[0] - dusk[2]).toBeGreaterThan(50);
+  });
+  it('keeps bases darker than tops, and greys them in rain', () => {
+    const c = cloudLight({ ...base, sunLow: 0.2, sun: [1, 0.95, 0.9] });
+    const sum = (s: string) => rgb(s).reduce((a, b) => a + b, 0);
+    expect(sum(c.dark)).toBeLessThan(sum(c.light));
+    const r = cloudLight({ ...base, weather: 'rainy', sunLow: 0.2, sun: [1, 0.95, 0.9] });
+    expect(sum(r.light)).toBeLessThan(sum(c.light));
   });
 });

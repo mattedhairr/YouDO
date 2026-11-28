@@ -104,14 +104,14 @@ Every one of these must say the same version before tagging. The examples are fo
 | 6 | `fastlane/metadata/android/en-US/changelogs/85.txt` | a new file named after the versionCode: a plain-text summary under 500 characters for F-Droid, IzzyOnDroid and Orion Store |
 | 7 | `README.md` | update the feature sections if anything user-facing changed |
 | 8 | `docs/*.md` | update a doc if the behaviour it describes changed |
-| 9 | `docs/screenshots/` | only when the look changed: capture the screens, then run `node scripts/frame-screenshots.mjs docs/screenshots <name>=<capture> …`. Then update Orion Store's links too (see "Orion Store screenshots" below). |
+| 9 | `docs/screenshots/` | only when the look changed: capture the screens, then run `node scripts/frame-screenshots.mjs docs/screenshots/app <name>=<capture> …`; the captioned store set lives in `docs/screenshots/store/` (see its README). Then update Orion Store's links too (see "Orion Store screenshots" below). |
 
 ### Orion Store screenshots
 
 Orion Store does not pick up new screenshots by itself. It loads every screenshot through an image service (wsrv.nl) that keeps each address for 31 days, so a picture changed at the same address keeps showing the old one. Its listing therefore uses addresses **pinned to a commit**:
 
 ```
-https://raw.githubusercontent.com/mattedhairr/YouDO/<commit>/docs/screenshots/01-today.png
+https://raw.githubusercontent.com/mattedhairr/YouDO/<commit>/docs/screenshots/store/01-plan-one-tree.jpg
 ```
 
 Whenever `docs/screenshots/` changes, after the release is merged:
@@ -121,7 +121,7 @@ Whenever `docs/screenshots/` changes, after the release is merged:
 
 Orion has no limit on the number (some listings carry dozens), but its home page shows only the first one or two, so put the most striking first.
 
-Last set (2026-11-25, RookieEnough/Orion-Data#3415): eight, pinned to the v9.0.0 merge commit (6a48e9c), in this order: 01 Today, 10 Scenes, 11 Focus Sky, 03 Goals, 04 Focus session, 05 Calendar, 02 Today at a glance, 09 Appearance.
+Last set (2026-11-28, RookieEnough/Orion-Data#3561, replacing #3499): the captioned store set, eleven, pinned to ce2cba0 (the `store-screenshots` commit, pushed ahead of a release and merged into `fixes`, so it reaches `main` with the next release; keep that branch until then), in this order: `store/00-banner.jpg`, then `store/01` to `store/10`. Before it (#3499): eight plain screens pinned to 25a3fb2.
 
 ### CHANGELOG entry template
 

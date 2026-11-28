@@ -6,7 +6,7 @@ Use exactly two top-level keys: "tasks": [] and "goals": [one root].
 Every node requires "kind", "title", "children". The root kind is "goal"; descendants use "node". Only these optional fields are allowed: "description", "startDate", "endDate", "steps".
 - title and description are strings. Keep every title under 60 characters; put any detail in description. Use double quotes; escape quotes, backslashes and newlines correctly. No comments, trailing commas, placeholders or ellipses.
 - Dates are real YYYY-MM-DD strings or omitted, never null. End dates cannot precede start dates. Children fit inside their parent's dated range.
-- children is always an array; endpoints have []. Only endpoints may have steps: 1–8 distinct, short action strings. Omit steps on branches. Sibling titles must be distinct.
+- children is always an array; endpoints have []. Only endpoints may have steps: 1–30 distinct, short action strings. Omit steps on branches. Sibling titles must be distinct.
 - No IDs, completion flags, progress, schedules, settings, account data, Today cards or session history. YouDO supplies these.
 - Aim for 20–60 useful endpoints, fewer for a short goal, at most 120 total nodes and 6 levels. Keep descriptions brief. Group repeated practice into bounded tasks with a repeat rule. If space is tight, reduce detail before answering; never truncate the JSON.
 Structurally valid example (adapt all content to my goal):

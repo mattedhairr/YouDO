@@ -43,6 +43,24 @@ export function sunDay(dateKey: string, latitude: number, longitude: number, utc
   return { sunrise: noon - half, noon, sunset: noon + half, latitude, declination };
 }
 
+/** The sun's compass direction in degrees (90 east, 180 south, 270 west) at `hour` on that day. */
+export function sunAzimuth(day: SunDay, hour: number): number {
+  const h = 15 * (hour - day.noon) * RAD;
+  const lat = day.latitude * RAD;
+  const az = Math.atan2(Math.sin(h), Math.cos(h) * Math.sin(lat) - Math.tan(day.declination) * Math.cos(lat)) / RAD + 180;
+  return ((az % 360) + 360) % 360;
+}
+
+/**
+ * How far either side of the valley the sun rises and sets, as a fraction of
+ * the header's width: about a third in India's winter, wider in summer, when
+ * the real sun rises further round to the north-east.
+ */
+export function sunSwing(day: SunDay): number {
+  const spread = Math.abs(180 - sunAzimuth(day, day.sunrise));
+  return Math.min(0.4, Math.max(0.3, 0.33 + (0.07 * (spread - 67)) / 50));
+}
+
 /** The sun's height above the horizon, in degrees, at `hour` on that day. */
 export function sunAltitude(day: SunDay, hour: number): number {
   const hourAngle = 15 * (hour - day.noon) * RAD;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { cloudField, cloudTones, weatherLook, type CloudField, type CloudLayerLook, type Weather } from '../lib/weather';
+import { cloudField, cloudLight, cloudTones, weatherLook, type CloudField, type CloudLayerLook, type Weather } from '../lib/weather';
 
 interface Props {
   weather: Weather;
@@ -15,6 +15,8 @@ interface Props {
   still?: boolean;
   /** Clouds only (the slim folded bar). */
   noRain?: boolean;
+  /** The simulated sky's light (SkyHeader's frame): the sun's colour and the sky overhead, so clouds match their sky. */
+  light?: { sun: readonly number[]; sky: readonly number[]; accent: string } | null;
 }
 
 const RES = 0.5; // clouds are soft: drawn at half resolution and scaled up
@@ -67,14 +69,14 @@ function CloudLayer({ width, look, tones, direction }: {
       for (let x = 0; x < w; x++) {
         const d = field.density[y * w + x];
         if (d <= 0.001) continue;
-        // Light comes from above: what lies over a point shades it, so tops shine and bases darken.
+        // Light comes from above and fades through the cloud (tops shine, bases darken); thin edges glow.
         let above = 0;
-        for (let k = 1; k <= 4; k++) above += field.density[Math.max(0, y - k * 2) * w + x];
-        const lit = Math.max(0, Math.min(1, 1.05 - above * 0.24 - d * 0.25));
+        for (let k = 1; k <= 6; k++) above += field.density[Math.max(0, y - k * 2) * w + x];
+        const lit = Math.max(0, Math.min(1, Math.exp(-above * 0.5) * (1.08 - d * 0.3) + (1 - d) * 0.18));
         const r = dark[0] + (light[0] - dark[0]) * lit;
         const g = dark[1] + (light[1] - dark[1]) * lit;
         const b = dark[2] + (light[2] - dark[2]) * lit;
-        const a = Math.min(1, d * 1.15) * look.alpha * 255;
+        const a = Math.min(1, d * 1.3) * look.alpha * 255;
         for (const copy of [0, w]) {
           const i = (y * w * 2 + x + copy) * 4;
           image.data[i] = r;
@@ -184,9 +186,9 @@ function Rain({ width, height, night, still, rain, direction }: {
  * overcast with fine rain falling through it. Each day has its own clouds,
  * wind and rain (`weatherLook`).
  */
-export default function SkyWeather({ weather, dateKey, width, height, night, sunLow, still, noRain }: Props) {
+export default function SkyWeather({ weather, dateKey, width, height, night, sunLow, still, noRain, light }: Props) {
   const look = useMemo(() => weatherLook(dateKey, weather), [dateKey, weather]);
-  const tones = cloudTones(weather, night, sunLow);
+  const tones = light ? cloudLight({ weather, night, sunLow, ...light }) : cloudTones(weather, night, sunLow);
   if (weather === 'clear') return null;
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   return (

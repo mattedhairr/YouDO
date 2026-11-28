@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ArrowRight, Calendar, Check, ChevronLeft, Cloud, Pause, ShieldCheck, Smartphone, Sparkles, Target, TrendingUp, User, X, Zap } from 'lucide-react';
+import { ArrowRight, Calendar, Check, ChevronLeft, Cloud, Pause, Repeat, ShieldCheck, Smartphone, Sparkles, Target, TrendingUp, User, X, Zap } from 'lucide-react';
 import Overlay from './Overlay';
 import './helpCenter.css';
 
@@ -115,6 +115,20 @@ const USER_GUIDE_STEPS = [
       'Tap the Today tab again, or swipe up or down on it, to switch between Scheduled and Backlog. While Scheduled shows, the red number on it counts Backlog. (Classic Look: the switch above the list.)',
       'During a session, turn the phone sideways or tap Ambient for a big full-screen clock.',
       'Pick a focus sound in Settings → Focus and streak; it plays with the session.',
+    ],
+    mock: 'today' as const,
+  },
+  {
+    icon: Repeat,
+    title: 'Quick tasks: study or daily life',
+    where: 'Today tab · the + button',
+    desc: 'Add something outside your plan. Study counts as focus on a goal; General is for everyday life.',
+    do: [
+      'Tap + and choose Study or General.',
+      'Study: pick the goal it belongs to. Its focus counts, and the goal shows it as Extra focus without changing its %.',
+      'General: errands, gym, chores, a call home. Tick it when done (no timer). It never counts as study or on the Board.',
+      'A General task can repeat daily, on the days you choose, or weekly, with an optional reminder time.',
+      'A ticked one stays crossed out under Reminders until tomorrow, then goes; a repeating one comes back on its next day.',
     ],
     mock: 'today' as const,
   },
