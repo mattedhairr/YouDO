@@ -1,4 +1,5 @@
 import type { GoalKind, GoalNode, Task } from '../types';
+import { sanitizeRemindAt, sanitizeRepeat } from './reminders';
 import { uid } from './ids';
 import { isDeletionLedger } from './deletionLedger';
 
@@ -53,6 +54,10 @@ export function normalizeImportedTask(raw: unknown): Task | null {
       ? t.pastFailedBacklogDates.filter((d): d is string => typeof d === 'string')
       : undefined,
     resumeNote: asString(t.resumeNote).trim() || undefined,
+    kind: t.kind === 'general' ? 'general' : undefined,
+    goalId: t.goalId ? String(t.goalId) : undefined,
+    repeat: t.kind === 'general' ? sanitizeRepeat(t.repeat) : undefined,
+    remindAt: t.kind === 'general' ? sanitizeRemindAt(t.remindAt) : undefined,
   };
 }
 

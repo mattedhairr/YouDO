@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
-export const MAX_STEPS = 8;
+/** Steps on one task (the same for every editor, Blueprint Studio and AI plans). */
+export const MAX_STEPS = 30;
 
 interface Props {
   label: string;
@@ -10,7 +11,9 @@ interface Props {
   max?: number;
 }
 
-export default function StepListEditor({ label, steps, onChange, max = MAX_STEPS }: Props) {
+export default function StepListEditor({ label, steps, onChange, max: maxProp = MAX_STEPS }: Props) {
+  // Never below what an item already has (Studio can make longer lists): editing keeps them all.
+  const max = Math.max(maxProp, steps.length);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const focusIndex = useRef<number | null>(null);
 

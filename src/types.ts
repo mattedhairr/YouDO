@@ -23,7 +23,24 @@ export interface Task {
   pastFailedBacklogDates?: string[];
   /** Short-lived handoff note for resuming an unfinished task. Cleared on completion. */
   resumeNote?: string;
+  /**
+   * 'general': a reminder or life task (not study). It never starts a focus
+   * session, never counts in study stats, and may repeat (reminders.ts).
+   * Absent: an ordinary study card.
+   */
+  kind?: 'general';
+  /** A study quick task's goal (a top-level goal id): its focus shows as that goal's Extra focus. */
+  goalId?: string;
+  /** How a general task repeats; absent means once. */
+  repeat?: ReminderRepeat;
+  /** A general task's reminder time, "HH:MM" (local). */
+  remindAt?: string;
 }
+
+/** Daily, or on chosen weekdays (0 = Sunday … 6 = Saturday; "weekly" is one day). */
+export type ReminderRepeat =
+  | { every: 'daily' }
+  | { every: 'days'; days: number[] };
 
 export interface SessionStopOutcome {
   completed: boolean | 'partial';
@@ -86,6 +103,8 @@ export interface TaskSession {
   completed: boolean | 'partial';
   completedStepIndices: number[]; // indices into task.steps[] marked done at stop
   goalNodeId?: string;           // link to Goal Blueprint node
+  /** A study quick task's goal at the time of the sitting (Extra focus). */
+  goalId?: string;
   /** true when step/task was marked done outside a focus session */
   manual?: boolean;
 }

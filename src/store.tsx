@@ -16,6 +16,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { useAuth } from './contexts/AuthContext';
+import { isGeneralTask, rollReminders } from './lib/reminders';
 import { parseBackupPayload, summarizeBackupPayload, type BackupSummary } from './lib/backup';
 import { clockIncidentBoundary, guardWallClock, hasClockIncident } from './lib/deviceClock';
 import { formatWallClock } from './lib/format';
@@ -197,7 +198,10 @@ function combineNotice(result: ThreeWayMerge): string {
 }
 
 interface Store {
+  /** Study cards (goal steps and study quick tasks). Reminders are kept apart. */
   tasks: Task[];
+  /** General quick tasks: reminders and life tasks (reminders.ts). */
+  reminders: Task[];
   goals: GoalNode[];
   addTask: (t: Task) => void;
   duplicateTask: (id: string) => void;
@@ -425,6 +429,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+  // Study cards and reminders live in one saved list (one sync, one backup) but
+  // reach the rest of the app apart, so reminders never touch study numbers.
+  const studyTasks = useMemo(() => {
+    const list = tasks.filter((t) => !isGeneralTask(t));
+    return list.length === tasks.length ? tasks : list;
+  }, [tasks]);
+  const reminders = useMemo(() => tasks.filter(isGeneralTask), [tasks]);
+  // A new day: ticked one-off reminders go, repeating ones come back on their day.
+  useEffect(() => {
+    const roll = () => {
+      const next = rollReminders(tasksRef.current, todayISO());
+      if (next !== tasksRef.current) setTasks(next);
+    };
+    roll();
+    const timer = window.setInterval(roll, 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') roll(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [setTasks]);
   const goalsRef = useRef(goals);
   goalsRef.current = goals;
   const sessionHistoryRef = useRef(sessionHistory);
@@ -601,7 +624,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
       }
       const completed = nextProgress >= totalSteps;
-      recordManualSteps(t, [nextProgress - 1], completed);
+      // A general task (reminder) is ticked, never studied: it leaves no history row.
+      if (!isGeneralTask(t)) recordManualSteps(t, [nextProgress - 1], completed);
 
       let finishingGoal = false;
       if (t.goalNodeId) {
@@ -1264,9 +1288,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         recordedBoundary: clockIncidentBoundary(prev.lastHeartbeat || prev.startTime),
       });
       const task = tasksRef.current.find((t) => t.id === prev.taskId);
-      const record = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
+      const finished = finalizeSession(prev, endAt, outcome, task?.goalNodeId, {
         ignoreOpenPause: options?.ignoreOpenPause,
       });
+      // A study quick task's sitting remembers its goal, so Extra focus survives the card.
+      const record = finished && task && !task.goalNodeId && task.goalId ? { ...finished, goalId: task.goalId } : finished;
       if (!record) return { ok: false, error: 'There is not enough recorded time to save this sitting yet. Keep it open, or discard it explicitly. If device time changed, review the interrupted sitting first.' };
       if (record) {
         let nextHist: Record<string, TaskSession[]>;
@@ -1295,7 +1321,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (existing) return;
 
     const task = tasksRef.current.find((t) => t.id === taskId);
-    if (!task || isTaskComplete(task)) return;
+    if (!task || isTaskComplete(task) || isGeneralTask(task)) return;
 
     const now = Date.now();
     const session: ActiveSession = {
@@ -2290,7 +2316,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const dataValue = useMemo<DataStore>(
     () => ({
-      tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
+      tasks: studyTasks, reminders, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, applyGoalTreeChange, undoGoalTreeChange,
       recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
       reorderGoalNodes, moveGoalNode, moveGoalNodes: moveGoalNodesAction, copyGoalNodesToTarget: copyGoalNodesToTargetAction, toggleNodeCompletion,
@@ -2307,7 +2333,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updatePacePrefs,
       publishPublicPace,
     }),
-    [tasks, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
+    [studyTasks, reminders, goals, addTask, duplicateTask, advance, undo, removeTask, reorder,
       addGoalRoot, addChildNode, updateGoalNode, deleteGoalNode, applyGoalTreeChange, undoGoalTreeChange, deleteGoalNodes,
       recentlyDeletedGoals, lastDeletedNotification, clearDeletedNotification, restoreDeletedGoal, clearTrash,
       reorderGoalNodes, moveGoalNode, moveGoalNodesAction, copyGoalNodesToTargetAction, toggleNodeCompletion,

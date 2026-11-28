@@ -110,6 +110,17 @@ Today contains the work chosen for the current date. Work left unfinished keeps 
 
 Starting a session does not silently move overdue work to Today, and completing a scheduled slice does not hide the unfinished remainder of its parent task.
 
+### Quick tasks: study or daily life
+
+Not everything fits the goal tree. Tap **+** on Today and choose what the quick task is:
+
+- **Study**: extra work for a goal, such as "Polity · 30 PYQs" or revising a subject you already finished. Pick the goal it belongs to. Its focus counts like any other study, and the goal shows it as one quiet line, **Extra focus · 3h 20m this week**, without changing the goal's progress.
+- **General**: daily life, such as paying fees, the gym, chores or a call home. Tick it when done; there is no timer, and it never counts as study, in your stats or on the Board. It can **repeat** (daily, on the days you choose, or weekly) with an optional **reminder time** that notifies you.
+
+General tasks sit under **Reminders** below your study cards. A ticked one stays crossed out until tomorrow and then goes; a repeating one comes back on its next day.
+
+Tasks hold up to 30 steps; long step lists show the first few, then **+N more**.
+
 ### Focus measured as work, not presence
 
 YouDO records both total session duration and net focus.

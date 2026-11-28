@@ -18,11 +18,11 @@ import { ensureProfileFromAuth } from './lib/profiles';
 import { shouldOfferSessionRecovery } from './lib/sessionStats';
 import Overlay from './components/Overlay';
 import TaskCard from './components/TaskCard';
-import AddTaskSheet from './components/AddTaskSheet';
 import CommandBar from './components/CommandBar';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useReviveDeadlineLabel } from './hooks/useReviveCountdown';
 import TodayBriefingSheet from './components/TodayBriefingSheet';
+import { remindersFor } from './lib/reminders';
 import UndoToast from './components/UndoToast';
 import { STORAGE_KEYS } from './lib/storageKeys';
 import { daysBetweenLocalISO } from './lib/dates';
@@ -55,6 +55,9 @@ import { useUiPrefs } from './hooks/useUiPrefs';
 // Keep Today/session controls in the initial bundle. The PWA precaches these
 // chunks and Android packages them locally, so installed offline use is retained.
 const GoalView = lazy(() => import('./components/GoalView'));
+// Loaded on first use: the first screen has a small JavaScript budget (verify:build).
+const AddTaskSheet = lazy(() => import('./components/AddTaskSheet'));
+const RemindersGroup = lazy(() => import('./components/RemindersGroup'));
 const BlueprintStudio = lazy(() => import('./components/BlueprintStudio'));
 const CalendarView = lazy(() => import('./components/CalendarView'));
 const HubView = lazy(() => import('./components/HubView'));
@@ -164,6 +167,7 @@ function AppInner() {
     publishPublicPace,
     cloudSyncConflict,
     workspaceStorageError,
+    reminders,
   } = useStore();
 
   const {
@@ -801,6 +805,8 @@ function AppInner() {
     [tasks],
   );
   const backlogTasks = useMemo(() => tasks.filter((t) => isBacklogTask(t)), [tasks]);
+  const todayKey = todayISO();
+  const todayReminders = useMemo(() => remindersFor(reminders, todayKey), [reminders, todayKey]);
   const openBacklogCount = useMemo(
     () => backlogTasks.filter((t) => isOpenBacklogTask(t)).length,
     [backlogTasks],
@@ -949,6 +955,12 @@ function AppInner() {
     void scheduleMorningBriefing(tasks, goals, streakStatus.current, streakStatus.best);
   }, [tasks, goals, streakStatus]);
 
+  // Reminder notifications for the next week; rebooked when reminders change or the day turns.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void import('./lib/reminderNotifications').then((m) => m.scheduleReminderNotifications(reminders));
+  }, [reminders, todayKey]);
+
   /** A tapped Hub notification goes straight to its place: no glance card on
    *  top, and the Hub's start-up default must not switch the tab back. */
   const openHubFromNotification = useCallback((tab: 'social' | 'private') => {
@@ -980,6 +992,11 @@ function AppInner() {
     void LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
       const extra = notificationAction?.notification?.extra as Record<string, unknown> | undefined;
       if (!extra?.type) return;
+
+      if (extra.type === 'reminder') {
+        handleNavigateTab('tasks');
+        return;
+      }
 
       if (extra.type === 'morning_briefing') {
         handleNavigateTab('tasks');
@@ -1074,7 +1091,12 @@ function AppInner() {
   const originNodesMap = useMemo(() => {
     const map = new Map<string, { title: string; kind: GoalKind }[] | undefined>();
     for (const task of tasks) {
-      if (!task.goalNodeId) { map.set(task.id, undefined); continue; }
+      if (!task.goalNodeId) {
+        // A study quick task shows its goal (Extra focus); a plain quick task shows nothing.
+        const goal = task.goalId ? goals.find((g) => g.id === task.goalId) : undefined;
+        map.set(task.id, goal ? [{ title: goal.title, kind: goal.kind }] : undefined);
+        continue;
+      }
       for (const root of goals) {
         const nodes = pathNodes(root, task.goalNodeId);
         if (nodes.length) {
@@ -1121,6 +1143,13 @@ function AppInner() {
       if (isTaskComplete(t)) continue;
       if (!t.goalNodeId) {
         quickCount++;
+        // A study quick task also belongs to its goal's chip.
+        const root = t.goalId ? goals.find((g) => g.id === t.goalId) : undefined;
+        if (root) {
+          const existing = map.get(root.id);
+          if (existing) existing.count++;
+          else map.set(root.id, { id: root.id, label: root.title, count: 1 });
+        }
       } else {
         for (const root of goals) {
           const path = pathTitles(root, t.goalNodeId);
@@ -1150,7 +1179,7 @@ function AppInner() {
     if (activeCategoryFilter === 'all') return todayTasks;
     if (activeCategoryFilter === 'quick') return todayTasks.filter((t) => !t.goalNodeId);
     return todayTasks.filter((t) => {
-      if (!t.goalNodeId) return false;
+      if (!t.goalNodeId) return t.goalId === activeCategoryFilter;
       for (const root of goals) {
         if (root.id === activeCategoryFilter) {
           const path = pathTitles(root, t.goalNodeId);
@@ -1526,8 +1555,8 @@ function AppInner() {
                 )}
 
                 {/* Task List */}
-                {todaySubTab === 'today' ? (
-                  sortedTasks.length === 0 ? (
+                {todaySubTab === 'today' ? (<>
+                  {sortedTasks.length === 0 ? (
                     <EmptyState onAdd={() => openAddTask()} />
                   ) : (
                     <div className="space-y-2.5 fade-in">
@@ -1551,7 +1580,7 @@ function AppInner() {
                               originNodes={originNodesFor(t.id)}
                               softRemove={!!t.goalNodeId}
                               dark={darkMode}
-                              onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                              onJumpToGoal={() => jumpToGoalTask(t.goalNodeId ?? t.goalId)}
                               onOpenDescription={openDescriptionModal}
                               onStartSession={startSession}
                               onPauseSession={pauseSession}
@@ -1565,8 +1594,13 @@ function AppInner() {
                         );
                       })}
                     </div>
-                  )
-                ) : (
+                  )}
+                  {activeCategoryFilter === 'all' && todayReminders.length > 0 && (
+                    <Suspense fallback={null}>
+                      <RemindersGroup reminders={todayReminders} today={todayKey} onTick={advance} onUntick={undo} onDelete={removeTask} />
+                    </Suspense>
+                  )}
+                </>) : (
                   /* ─────────── BACKLOG TAB ─────────── */
                   <div className="space-y-4 fade-in">
                     {/* Summary header */}
@@ -1642,7 +1676,7 @@ function AppInner() {
                                 originNodes={originNodesFor(activeBacklogTask.id)}
                                 softRemove={!!activeBacklogTask.goalNodeId}
                                 dark={darkMode}
-                                onJumpToGoal={() => activeBacklogTask.goalNodeId && jumpToGoalTask(activeBacklogTask.goalNodeId)}
+                                onJumpToGoal={() => jumpToGoalTask(activeBacklogTask.goalNodeId ?? activeBacklogTask.goalId)}
                                 onOpenDescription={openDescriptionModal}
                                 onStartSession={startSession}
                                 onPauseSession={pauseSession}
@@ -1689,7 +1723,7 @@ function AppInner() {
                                 originNodes={originNodesFor(t.id)}
                                 softRemove={!!t.goalNodeId}
                                 dark={darkMode}
-                                onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                                onJumpToGoal={() => jumpToGoalTask(t.goalNodeId ?? t.goalId)}
                                 onOpenDescription={openDescriptionModal}
                                 onStartSession={startSession}
                                 onPauseSession={pauseSession}
@@ -1742,7 +1776,7 @@ function AppInner() {
                                   originNodes={originNodesFor(t.id)}
                                   softRemove={!!t.goalNodeId}
                                   dark={darkMode}
-                                  onJumpToGoal={() => t.goalNodeId && jumpToGoalTask(t.goalNodeId)}
+                                  onJumpToGoal={() => jumpToGoalTask(t.goalNodeId ?? t.goalId)}
                                   onOpenDescription={openDescriptionModal}
                                   onStartSession={startSession}
                                   onPauseSession={pauseSession}
@@ -1865,7 +1899,7 @@ function AppInner() {
         />
       </div>
 
-      <AddTaskSheet open={sheetOpen} onClose={closeSheet} onAdd={addTask} initialDate={sheetInitialDate} />
+      {sheetOpen && <Suspense fallback={null}><AddTaskSheet open={sheetOpen} onClose={closeSheet} onAdd={addTask} initialDate={sheetInitialDate} goals={goals} /></Suspense>}
       <AddGoalSheet
         open={goalSheetOpen}
         parentId={goalParentId}
@@ -1981,7 +2015,7 @@ function AppInner() {
           onResume={resumeSession}
           onStop={() => { setShowAmbient(false); setStopDialogTask(activeTask); }}
           onMinimize={() => setShowAmbient(false)}
-          onJumpToGoal={activeTask.goalNodeId ? () => jumpToGoalTask(activeTask.goalNodeId) : undefined}
+          onJumpToGoal={activeTask.goalNodeId || activeTask.goalId ? () => jumpToGoalTask(activeTask.goalNodeId ?? activeTask.goalId) : undefined}
           todayFocusMs={streakByDate.get(todayISO()) ?? 0}
           barHours={streakMeta.barHours}
         /></Suspense>

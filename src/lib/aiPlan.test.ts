@@ -199,7 +199,7 @@ describe('generated blueprint validation', () => {
     expect(parseGeneratedBlueprint(JSON.stringify(branchSteps)).ok).toBe(false);
 
     const manySteps = validPlan();
-    manySteps.goals[0].children[0].children[0].steps = Array.from({ length: 9 }, (_, index) => `Step ${index}`);
+    manySteps.goals[0].children[0].children[0].steps = Array.from({ length: 31 }, (_, index) => `Step ${index}`);
     expect(parseGeneratedBlueprint(JSON.stringify(manySteps)).ok).toBe(false);
 
     let child: Record<string, unknown> = { kind: 'node', title: 'End', children: [] };

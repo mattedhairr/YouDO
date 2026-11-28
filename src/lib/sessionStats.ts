@@ -305,6 +305,7 @@ export function sanitizeSession(raw: unknown): TaskSession | null {
       ? s.completedStepIndices.filter((i): i is number => typeof i === 'number')
       : [],
     goalNodeId: typeof s.goalNodeId === 'string' ? s.goalNodeId : undefined,
+    goalId: typeof s.goalId === 'string' ? s.goalId : undefined,
     manual: s.manual === true,
   };
 }

@@ -97,6 +97,7 @@ export const NOTIFICATION_CHANNELS = {
   PRIVATE_HUB: 'private-hub',
   PUBLIC_HUB: 'public-hub',
   ADMIN_HUB: 'admin-hub',
+  REMINDERS: 'reminders',
 } as const;
 
 export const NOTIFICATION_IDS = {
@@ -252,6 +253,14 @@ export async function ensureNotificationChannels(): Promise<void> {
         description: 'Community chats, hashtag discussions, and public room alerts.',
         importance: 3,
         visibility: 0,
+        vibration: true,
+      }),
+      LocalNotifications.createChannel({
+        id: NOTIFICATION_CHANNELS.REMINDERS,
+        name: 'Reminders',
+        description: 'Your General quick tasks at the time you set.',
+        importance: 4,
+        visibility: 1,
         vibration: true,
       }),
       LocalNotifications.createChannel({
@@ -675,4 +684,3 @@ export async function dismissAdminNotification(tagId?: string): Promise<void> {
     : NOTIFICATION_IDS.ADMIN_HUB;
   await cancelNotification(id);
 }
-
