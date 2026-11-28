@@ -526,7 +526,9 @@ export function skyFrame(input: SkyFrameInput): SkyFrame {
   // Exposure: the eye adapts to the ordinary sky (not the sun's glow), only partly, so dawn and dusk stay darker
   // than day; by day a little brighter, as a sunny sky looks.
   const sorted = Float32Array.from(lums).sort();
-  const key = Math.max(sorted[Math.floor(sorted.length * 0.35)], 1e-9);
+  // Deep in twilight the ordinary sky is all but black: the eye stops adapting there, so the last glow
+  // fades into the night instead of being boosted into a hard band (a floor at a small share of daylight).
+  const key = Math.max(sorted[Math.floor(sorted.length * 0.35)], dayKey(air, look.eye) * 3e-6);
   const lift = smooth(clamp((e - 2) / 13));
   const exposure = (look.gain * (0.17 + 0.27 * lift)) / (Math.pow(key, 0.68) * Math.pow(dayKey(air, look.eye), 0.32));
 
