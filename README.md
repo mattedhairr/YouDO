@@ -22,17 +22,21 @@ UPSC, JEE, NEET, GATE, CAT, government exams, university entrances, and every se
 
 <br />
 
-<img src="docs/screenshots/01-today.png" width="180" alt="Today under the harvest-fields header at sunrise, with goal-linked tasks" />
-<img src="docs/screenshots/02-today-at-a-glance.png" width="180" alt="Today at a glance" />
-<img src="docs/screenshots/03-goals.png" width="180" alt="A goal broken into papers and chapters" />
-<img src="docs/screenshots/04-focus-session.png" width="180" alt="A running focus session under the Himalaya header" />
-<img src="docs/screenshots/05-calendar.png" width="180" alt="Calendar with the day summary" />
-<img src="docs/screenshots/06-daily-focus-stats.png" width="180" alt="Daily focus stats" />
-<img src="docs/screenshots/07-private-hub-chats.png" width="180" alt="Private Hub chats" />
-<img src="docs/screenshots/08-study-room.png" width="180" alt="A study room with live focus" />
-<img src="docs/screenshots/09-appearance.png" width="180" alt="Appearance: the three scenes and their colours, or a colour from your photo" />
-<img src="docs/screenshots/10-scenes.png" width="180" alt="The Western Ghats header at sunset, its clouds lit orange" />
-<img src="docs/screenshots/11-focus-sky.png" width="180" alt="Focus Sky: the ambient timer under today's earned stars, a constellation and Saturn" />
+<img src="docs/screenshots/store/00-banner.jpg" width="800" alt="YouDO: plan it, focus, and watch your sky fill with stars" />
+
+<br /><br />
+
+<img src="docs/screenshots/store/01-plan-one-tree.jpg" width="160" alt="Plan: your whole syllabus as one tree" />
+<img src="docs/screenshots/store/02-plan-today.jpg" width="160" alt="Plan: do only today’s work" />
+<img src="docs/screenshots/store/03-plan-home-screen.jpg" width="160" alt="Plan: focus from your home screen with the Dashboard and Room widgets" />
+<img src="docs/screenshots/store/04-focus-stars.jpg" width="160" alt="Focus: every focused minute lights a star" />
+<img src="docs/screenshots/store/05-focus-hours.jpg" width="160" alt="Focus: net focus, every sitting and every pause" />
+<br />
+<img src="docs/screenshots/store/06-together-future.jpg" width="160" alt="Together: two phones, each showing the other focusing" />
+<img src="docs/screenshots/store/07-together-squad.jpg" width="160" alt="Together: a study room for up to four friends" />
+<img src="docs/screenshots/store/08-together-share.jpg" width="160" alt="Together: share a goal tree with a friend" />
+<img src="docs/screenshots/store/09-together-exam-room.jpg" width="160" alt="Together: your exam’s community room and the public Board" />
+<img src="docs/screenshots/store/10-yours-place.jpg" width="160" alt="Yours: three scenes and their colours" />
 
 </div>
 
