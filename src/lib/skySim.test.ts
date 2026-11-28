@@ -50,6 +50,22 @@ describe('the simulated sky', () => {
     }
   });
 
+  it('only darkens through twilight, with no band flaring up as the stars come out', () => {
+    const mean = (f: ReturnType<typeof skyFrame>) => {
+      let s = 0;
+      for (let p = 0; p < f.cols * f.rows; p++) s += lum([f.pixels[p * 4], f.pixels[p * 4 + 1], f.pixels[p * 4 + 2]]);
+      return s / (f.cols * f.rows * 255);
+    };
+    for (const scene of SCENES) {
+      let last = Infinity;
+      for (let h = 17.4 + 0.5; h <= 17.4 + 1.5; h += 1 / 30) {
+        const now = mean(frame(scene, h));
+        expect(now).toBeLessThanOrEqual(last + 0.01);
+        last = now;
+      }
+    }
+  });
+
   it('lights the land by day and lets it go dim after sunset, never quite black', () => {
     for (const scene of SCENES) {
       const noon = frame(scene, 12.2, { sun: { x: W * 0.54, y: 60 } });

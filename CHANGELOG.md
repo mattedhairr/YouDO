@@ -17,6 +17,13 @@ Guidance: keep 3–6 short, user-facing bullets. Group related small fixes under
 
 ---
 
+## [v9.2.1] - 2026-11-28 - Calm Evenings
+
+- **No red band after sunset** — For about twenty minutes after sunset a hard red band could appear above the scene. Now the last glow sinks and fades smoothly into the night, in every scene.
+- **Android APK** — versionName **9.2.1**, versionCode **106**. Installs over v9.2.0 (105).
+
+---
+
 ## [v9.2.0] - 2026-11-28 - Quick Tasks for Every Day
 
 - **Quick tasks for study or daily life** — When you add a quick task, choose Study or General. A study one belongs to a goal: its focus counts, and the goal shows it as Extra focus without changing its progress.
